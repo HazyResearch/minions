@@ -57,9 +57,9 @@ PROVIDER_TO_ENV_VAR_KEY = {
 
 # for Minions protocol
 class JobOutput(BaseModel):
-    answer: str | None
-    explanation: str | None
-    citation: str | None
+    answer: str 
+    explanation: str 
+    citation: str 
 
 def extract_text_from_pdf(pdf_bytes):
     """Extract text from a PDF file using PyMuPDF."""

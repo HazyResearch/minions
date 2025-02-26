@@ -57,8 +57,8 @@ class JobManifest(BaseModel):
 
 class JobOutput(BaseModel):
   explanation: str
-  citation: str | None
-  answer: str | None
+  citation: str 
+  answer: str 
 
 def prepare_jobs(
     context: List[str],

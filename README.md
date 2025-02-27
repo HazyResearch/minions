@@ -1,6 +1,7 @@
 ![Minions Logo](assets/Ollama_minionS_background.png)
 
 # Where On-Device and Cloud LLMs Meet
+[![Discord](https://img.shields.io/badge/Discord-7289DA?logo=discord&logoColor=white)](https://discord.gg/jfJyxXwFVa)
 
 *What is this?* Minions is a communication protocol that enables small on-device models to collaborate with frontier models in the cloud. By only reading long contexts locally, we can reduce cloud costs with minimal or no quality degradation. This repository provides a demonstration of the protocol. Get started below or see our paper and blogpost below for more information. 
 
@@ -158,7 +159,7 @@ output = minion(
 
 ## Python Notebook
 
-To run Minion/Minions in a notebook, checkout `minion.ipynb`.
+To run Minion/Minions in a notebook, checkout `minions.ipynb`.
 
 ## Maintainers
 

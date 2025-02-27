@@ -159,7 +159,7 @@ output = minion(
 
 ## Python Notebook
 
-To run Minion/Minions in a notebook, checkout `minion.ipynb`.
+To run Minion/Minions in a notebook, checkout `minions.ipynb`.
 
 ## Maintainers
 

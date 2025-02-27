@@ -5,6 +5,8 @@ from minions.clients.ollama import OllamaClient
 from minions.clients.openai import OpenAIClient
 from minions.clients.anthropic import AnthropicClient
 from minions.clients.together import TogetherClient
+from minions.clients.perplexity import PerplexityAIClient
+
 import os
 import time
 import pandas as pd
@@ -53,6 +55,7 @@ PROVIDER_TO_ENV_VAR_KEY = {
     "OpenAI": "OPENAI_API_KEY",
     "Anthropic": "ANTHROPIC_API_KEY",
     "Together": "TOGETHER_API_KEY",
+    "Perplexity": "PERPLEXITY_API_KEY"
 }
 
 # for Minions protocol
@@ -110,6 +113,7 @@ def jobs_callback(jobs):
 
 
 placeholder_messages = {}
+
 THINKING_GIF = "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExa2xhc3QzaHZyYWJ0M3czZXVjMGQ0YW50ZTBvcDdlNXVxNWhvZHdhOCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/3o7bu3XilJ5BOiSGic/giphy.gif"
 GRU_GIF = "https://media.giphy.com/media/ySMINwPzf50IM/giphy.gif?cid=790b7611vozglgf917p8ou0vjzydpgk9p8hpdwq9x95euttp&ep=v1_gifs_search&rid=giphy.gif&ct=g"
 MINION_GIF = "https://media.giphy.com/media/1MTLxzwvOnvmE/giphy.gif?cid=ecf05e47aulvh0ffnr7p49bk2c8cvtopnincdtg8wsz9hlx4&ep=v1_gifs_search&rid=giphy.gif&ct=g"
@@ -248,10 +252,7 @@ def message_callback(role, message, is_final=True):
                 message = message.replace("$", "\\$")
                 st.markdown(message)
 
-# Remove global variables
-# local_client = None
-# remote_client = None
-# method = None
+
 
 def initialize_clients(local_model_name, remote_model_name, provider, protocol, 
                       local_temperature, local_max_tokens, remote_temperature, remote_max_tokens,
@@ -302,6 +303,13 @@ def initialize_clients(local_model_name, remote_model_name, provider, protocol,
         )
     elif provider == "Together":
         st.session_state.remote_client = TogetherClient(
+            model_name=remote_model_name,
+            temperature=remote_temperature,
+            max_tokens=int(remote_max_tokens),  
+            api_key=api_key
+        )
+    elif provider == "Perplexity":
+        st.session_state.remote_client = PerplexityAIClient(
             model_name=remote_model_name,
             temperature=remote_temperature,
             max_tokens=int(remote_max_tokens),
@@ -422,6 +430,22 @@ def validate_together_key(api_key):
         return True, ""
     except Exception as e:
         return False, str(e)
+    
+def validate_perplexity_key(api_key):
+    try:
+        client = PerplexityAIClient(
+            model_name="sonar-pro",
+            api_key=api_key,
+            temperature=0.0,
+            max_tokens=1
+        )
+        messages = [{"role": "user", "content": "Say yes"}]
+        client.chat(messages)
+        return True, ""
+    except Exception as e:
+        return False, str(e)
+    
+# validate 
 
 
 # ---------------------------
@@ -432,7 +456,7 @@ with st.sidebar:
 
     provider_col, key_col = st.columns([1, 2])
     with provider_col:
-        providers = ["OpenAI", "Together"]
+        providers = ["OpenAI", "Together", "Perplexity"]
         selected_provider = st.selectbox("Select LLM provider", options=providers, index=0)
 
     env_var_name = f"{selected_provider.upper()}_API_KEY"
@@ -453,6 +477,8 @@ with st.sidebar:
             is_valid, msg = validate_anthropic_key(api_key)
         elif selected_provider == "Together":
             is_valid, msg = validate_together_key(api_key)
+        elif selected_provider == "Perplexity":
+            is_valid, msg = validate_perplexity_key(api_key)
         else:
             raise ValueError(f"Invalid provider: {selected_provider}")
 
@@ -540,6 +566,15 @@ with st.sidebar:
                 "Meta Llama 3.1 405B (Recommended)": "meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo",
                 "DeepSeek-R1": "deepseek-ai/DeepSeek-R1",
                 "Llama 3.3 70B": "meta-llama/Llama-3.3-70B-Instruct-Turbo"
+            }
+            default_model_index = 0
+        elif selected_provider == "Perplexity":
+            model_mapping = {
+                "sonar-pro (Recommended)": "sonar-pro",
+                "sonar": "sonar",
+                "sonar-reasoning": "sonar-reasoning",
+                "sonar-reasoning-pro": "sonar-reasoning-pro",
+                "sonar-deep-research": "sonar-deep-research",
             }
             default_model_index = 0
         else:

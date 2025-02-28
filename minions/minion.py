@@ -2,6 +2,8 @@ from typing import List, Dict, Any
 import json
 import re
 
+from minions.clients import *
+
 from minions.prompts.minion import (
     SUPERVISOR_CONVERSATION_PROMPT,
     SUPERVISOR_FINAL_PROMPT,
@@ -100,7 +102,14 @@ class Minion:
         # Initial supervisor call to get first question
         if self.callback:
             self.callback("supervisor", None, is_final=False)
-        supervisor_response, supervisor_usage = self.remote_client.chat(messages=supervisor_messages)
+
+        if isinstance(self.remote_client, (OpenAIClient, TogetherClient)):
+            supervisor_response, supervisor_usage = self.remote_client.chat(messages=supervisor_messages,
+                response_format={"type": "json_object"}
+            )
+        else:
+            supervisor_response, supervisor_usage = self.remote_client.chat(messages=supervisor_messages)
+
         remote_usage += supervisor_usage
         supervisor_messages.append(
             {"role": "assistant", "content": supervisor_response[0]}
@@ -141,7 +150,14 @@ class Minion:
                 self.callback("supervisor", None, is_final=False)
 
             # Get supervisor's response
-            supervisor_response, supervisor_usage = self.remote_client.chat(messages=supervisor_messages)
+            if isinstance(self.remote_client, (OpenAIClient, TogetherClient)):
+                supervisor_response, supervisor_usage = self.remote_client.chat(
+                    messages=supervisor_messages,
+                    response_format={"type": "json_object"}
+                )
+            else:
+                supervisor_response, supervisor_usage = self.remote_client.chat(messages=supervisor_messages)
+            
             remote_usage += supervisor_usage
             supervisor_messages.append(
                 {"role": "assistant", "content": supervisor_response[0]}
@@ -151,7 +167,7 @@ class Minion:
 
             # Parse supervisor's decision
             supervisor_json = _extract_json(supervisor_response[0])
-
+            # print("Supervisor_json:", supervisor_json)
             if supervisor_json["decision"] == "provide_final_answer":
                 final_answer = supervisor_json["answer"]
                 break

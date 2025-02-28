@@ -146,3 +146,48 @@ Analyze the response and think-step-by-step and answer the question.
 ```
 DO NOT request additional information. Simply provide a final answer.
 """
+
+REMOTE_SYNTHESIS_COT = """
+Here is the response from the small language model:
+
+### Response
+{response}
+
+
+### Instructions
+Analyze the response and think-step-by-step to determine if you have enough information to answer the question.
+
+Think about:
+1. What information we have gathered
+2. Whether it is sufficient to answer the question
+3. If not sufficient, what specific information is missing
+4. If sufficient, how we would calculate or derive the answer
+
+"""
+
+REMOTE_SYNTHESIS_FINAL = """\
+Here is the response after step-by-step thinking.
+
+### Response
+{response}
+
+### Instructions
+If you have enough information or if the task is complete provide a final answer in the format below.
+
+```json
+{{
+    "decision": "provide_final_answer", 
+    "answer": "<your answer>"
+}}
+```
+
+Otherwise, if the task is not complete, request the small language model to do additional work, by outputting the following:
+
+```json
+{{
+    "decision": "request_additional_info",
+    "message": "<your message to the small language model>"
+}}
+```
+
+"""

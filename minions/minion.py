@@ -9,6 +9,8 @@ from minions.prompts.minion import (
     SUPERVISOR_FINAL_PROMPT,
     SUPERVISOR_INITIAL_PROMPT,
     WORKER_SYSTEM_PROMPT,
+    REMOTE_SYNTHESIS_COT,
+    REMOTE_SYNTHESIS_FINAL
 )
 from minions.usage import Usage
 
@@ -140,8 +142,26 @@ class Minion:
                     response=worker_response[0]
                 )
             else:
-                supervisor_prompt = SUPERVISOR_CONVERSATION_PROMPT.format(
+                # First step: Think through the synthesis
+                cot_prompt = REMOTE_SYNTHESIS_COT.format(
                     response=worker_response[0]
+                )
+
+                supervisor_messages.append({"role": "user", "content": cot_prompt})
+
+                step_by_step_response, usage = self.remote_client.chat(supervisor_messages)
+
+                remote_usage += usage
+                if self.callback:
+                    self.callback("supervisor", None, is_final=False)
+
+                supervisor_messages.append(
+                    {"role": "assistant", "content": step_by_step_response[0]}
+                )
+
+                # Second step: Get structured output
+                supervisor_prompt = REMOTE_SYNTHESIS_FINAL.format(
+                    response = step_by_step_response[0]
                 )
 
             supervisor_messages.append({"role": "user", "content": supervisor_prompt})
@@ -167,7 +187,7 @@ class Minion:
 
             # Parse supervisor's decision
             supervisor_json = _extract_json(supervisor_response[0])
-            # print("Supervisor_json:", supervisor_json)
+            print("Supervisor_json:", supervisor_json)
             if supervisor_json["decision"] == "provide_final_answer":
                 final_answer = supervisor_json["answer"]
                 break

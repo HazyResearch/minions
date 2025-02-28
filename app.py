@@ -533,8 +533,8 @@ with st.sidebar:
         selected_provider = st.selectbox(
             "Select LLM provider",
             options=["OpenAI", "OpenRouter", "Together", "Perplexity", "Anthropic"],
-            index=1,
-        )  # Set OpenRouter as default (index 1)
+            index=0,
+        )  # Set OpenAI as default (index 0)
 
     env_var_name = f"{selected_provider.upper()}_API_KEY"
     env_key = os.getenv(env_var_name)

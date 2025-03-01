@@ -15,7 +15,8 @@ setup(
         "tiktoken",   # for token counting
         "pymupdf",    # for PDF processing
         "st-theme",
-        "rank_bm25"
+        "rank_bm25",
+        "mcp",
     ],
     author="Sabri, Avanika, and Dan",
     description="A package for running minion protocols with local and remote LLMs",

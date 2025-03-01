@@ -359,6 +359,135 @@ Now, please provide the code for `prepare_jobs()` and `transform_outputs()`.
 
 """
 
+
+DECOMPOSE_TASK_PROMPT_AGG_FUNC_LATER_ROUND = """\
+# Decomposition Round #{step_number}
+
+You do not have access to the raw document(s), but instead can assign tasks to small and less capable language models that can read the document(s).
+Note that the document(s) can be very long, so each task should be performed only over a small chunk of text. 
+
+
+# Your job is to write two Python functions:
+
+Function #1 (prepare_jobs): will output formatted tasks for a small language model.
+-> Make sure that NONE of the tasks require multiple steps. Each task should be atomic! 
+-> Consider using nested for-loops to apply a set of tasks to a set of chunks.
+-> The same `task_id` should be applied to multiple chunks. DO NOT instantiate a new `task_id` for each combination of task and chunk.
+-> Use the conversational history to inform what chunking strategy has already been applied.
+-> You are provided access to the outputs of the previous jobs (see prev_job_outputs). 
+-> If its helpful, you can reason over the prev_job_outputs vs. the original context.
+-> If tasks should be done sequentially, do not run them all in this round. Wait for the next round to run sequential tasks.
+
+Function #2 (transform_outputs): The second function will aggregate the outputs of the small language models and provide an aggregated string for the supervisor to review.
+-> Filter the jobs based on the output of the small language models (write a custome filter function -- in some steps you might want to filter for a specific keyword, in others you might want to no pass anything back, so you filter out everything!). 
+-> Aggregate the jobs based on the task_id and chunk_id.
+
+{ADVANCED_STEPS_INSTRUCTIONS}
+
+# Misc. Information
+
+* Assume a Pydantic model called `JobManifest(BaseModel)` is already in global scope. For your reference, here is the model:
+```
+{manifest_source}
+```
+
+* Assume a Pydantic model called `JobOutput(BaseModel)` is already in global scope. For your reference, here is the model:
+```
+{output_source}
+```
+
+* DO NOT rewrite or import the model in your code.
+
+* Function #1 signature will look like:
+```
+{signature_source}
+```
+
+* Function #2 signature will look like:
+```
+{transform_signature_source}
+```
+
+* You can assume you have access to the following chunking function(s). Do not reimplement the function, just use it.
+```
+{chunking_source}
+```
+
+# Here is an example
+```python
+def prepare_jobs(
+    context: List[str],
+    prev_job_manifests: Optional[List[JobManifest]] = None,
+    prev_job_outputs: Optional[List[JobOutput]] = None,
+) -> List[JobManifest]:
+    task_id = 1  # Unique identifier for the task
+
+    # iterate over the previous job outputs because \"scratchpad\" tells me they contain useful information
+    for job_id, output in enumerate(prev_job_outputs):
+        # Create a task for extracting mentions of specific keywords
+        task = (
+           "Apply the tranformation found in the scratchpad (x**2 + 3) each extracted number"
+        )
+        job_manifest = JobManifest(
+            chunk=output.answer,
+            task=task,
+            advice="Focus on applying the transformation to each extracted number."
+        )
+        job_manifests.append(job_manifest)
+    return job_manifests
+
+def transform_outputs(
+    jobs: List[Job],
+) -> Dict[str, Any]:
+    def filter_fn(job):
+        answer = job.output.answer
+        return answer is not None or str(answer).lower().strip() != "none" or answer == "null" 
+    
+    # Filter jobs
+    for job in jobs:
+        job.include = filter_fn(job)
+    
+    # Aggregate and filter jobs
+    tasks = {{}}
+    for job in jobs:
+        task_id = job.manifest.task_id
+        chunk_id = job.manifest.chunk_id
+        
+        if task_id not in tasks:
+            tasks[task_id] = {{
+                "task_id": task_id,
+                "task": job.manifest.task,
+                "chunks": {{}},
+            }}
+        
+        if chunk_id not in tasks[task_id]["chunks"]:
+            tasks[task_id]["chunks"][chunk_id] = []
+        
+        tasks[task_id]["chunks"][chunk_id].append(job)
+    
+    # Build the aggregated string
+    aggregated_str = ""
+    for task_id, task_info in tasks.items():
+        aggregated_str += f"## Task (task_id=`{{task_id}}`): {{task_info['task']}}\n\n"
+        
+        for chunk_id, chunk_jobs in task_info["chunks"].items():
+            filtered_jobs = [j for j in chunk_jobs if j.include]
+            
+            aggregated_str += f"### Chunk # {{chunk_id}}\n"
+            if filtered_jobs:
+                for idx, job in enumerate(filtered_jobs, start=1):
+                    aggregated_str += f"   -- Job {{idx}} (job_id=`{{job.manifest.job_id}}`):\n"
+                    aggregated_str += f"   {{job.sample}}\n\n"
+            else:
+                aggregated_str += "   No jobs returned successfully for this chunk.\n\n"
+        
+        aggregated_str += "\n-----------------------\n\n"
+    
+    return aggregated_str
+```
+"""
+
+
 DECOMPOSE_RETRIEVAL_TASK_PROMPT_AGGREGATION_FUNC = """\
 # Decomposition Round #{step_number}
 
@@ -369,9 +498,8 @@ You (the supervisor) cannot directly read the document(s). Instead, you can assi
 ### FUNCTION #1: `prepare_jobs(context, prev_job_manifests, prev_job_outputs) -> List[JobManifest]`
 Goal: this function should return a list of atomic jobs to be performed on chunks of the context.
 Follow the steps below:
-- Break the document(s) into chunks using the provided *chunking function*. Determine the chunk size yourself according to the task and length of the text. There is a total of {total_chars} characters of text. Break broader tasks into larger chunks (5000) while smaller tasks should have smaller chunks (1000).
+- Break the document(s) into chunks using the provided *chunking function*. Determine the chunk size yourself according to the task and length of the text. There is a total of {total_chars} characters of text. Break broader tasks into larger chunks (3000) while smaller tasks should have smaller chunks (1000).
 - Create focused keyword search queries for a retrieval system to exactly find the information you need to solve the task. Feed your queries to the provided *retrieval function*, and determine number of top k most relevant chunks to return, keeping this number as low as possible while maintaining accuracy.
-- For each keyword search, sort the top k most relevant results by their order in the text, to maintain chronological coherence. 
 - Assign jobs to the relevant chunks. Each job must be **atomic** and require only information from the **single chunk** provided to the worker.
 - If you need to repeat the same task on multiple chunks, **re-use** the same `task_id`. Do **not** create a separate `task_id` for each chunk.
 - If tasks must happen **in sequence**, do **not** include them all in this round; move to a subsequent round to handle later steps.
@@ -427,8 +555,7 @@ Now, please provide the code for `prepare_jobs()` and `transform_outputs()`.
 
 """
 
-
-DECOMPOSE_TASK_PROMPT_AGG_FUNC_LATER_ROUND = """\
+DECOMPOSE_RETRIEVAL_TASK_PROMPT_AGG_FUNC_LATER_ROUND ="""\
 # Decomposition Round #{step_number}
 
 You do not have access to the raw document(s), but instead can assign tasks to small and less capable language models that can read the document(s).
@@ -442,6 +569,8 @@ Function #1 (prepare_jobs): will output formatted tasks for a small language mod
 -> Consider using nested for-loops to apply a set of tasks to a set of chunks.
 -> The same `task_id` should be applied to multiple chunks. DO NOT instantiate a new `task_id` for each combination of task and chunk.
 -> Use the conversational history to inform what chunking strategy has already been applied.
+-> If the previous job was unsuccessful, try a different chunk_size. Smaller (500) if task is factual and specific; larger (5000) if task is general.
+-> Create focused keyword search queries for a retrieval system to exactly find the information you need to solve the task. Feed your queries to the provided *retrieval function*, and determine number of top k most relevant chunks to return, keeping this number as low as possible while maintaining accuracy.
 -> You are provided access to the outputs of the previous jobs (see prev_job_outputs). 
 -> If its helpful, you can reason over the prev_job_outputs vs. the original context.
 -> If tasks should be done sequentially, do not run them all in this round. Wait for the next round to run sequential tasks.
@@ -476,9 +605,11 @@ Function #2 (transform_outputs): The second function will aggregate the outputs 
 {transform_signature_source}
 ```
 
-* You can assume you have access to the following chunking function(s). Do not reimplement the function, just use it.
+* You can assume you have access to the following chunking and retrieval function. Do not reimplement the function, just use it.
 ```
 {chunking_source}
+
+{retrieval_source}
 ```
 
 # Here is an example

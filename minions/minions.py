@@ -5,7 +5,7 @@ import re
 import json
 from pydantic import BaseModel, field_validator, Field
 from inspect import getsource
-from rank_bm25 import BM25Okapi
+from rank_bm25 import BM25Okapi, BM25Plus
 
 from minions.usage import Usage
 
@@ -24,15 +24,14 @@ from minions.prompts.minions import (
     DECOMPOSE_TASK_PROMPT_AGGREGATION_FUNC,
     DECOMPOSE_TASK_PROMPT_AGG_FUNC_LATER_ROUND,
     DECOMPOSE_RETRIEVAL_TASK_PROMPT_AGGREGATION_FUNC,
+    DECOMPOSE_RETRIEVAL_TASK_PROMPT_AGG_FUNC_LATER_ROUND,
     REMOTE_SYNTHESIS_COT,
     REMOTE_SYNTHESIS_JSON,
     REMOTE_SYNTHESIS_FINAL,
 )
 
 
-def chunk_by_section(
-    doc: str, max_chunk_size: int = 5000, overlap: int = 0
-) -> List[str]:
+def chunk_by_section(doc: str, max_chunk_size: int = 3000, overlap: int = 20) -> List[str]:
     sections = []
     start = 0
     while start < len(doc):
@@ -41,29 +40,34 @@ def chunk_by_section(
         start += max_chunk_size - overlap
     return sections
 
-def retrieve_top_k_chunks(keywords: List[str], chunks: List[str], max_chunk_size: int = 5000, overlap: int = 0, k: int = 15) -> List[str]:
+def retrieve_top_k_chunks(keywords: List[str], chunks: List[str], k: int = 10) -> List[str]:
     '''
-    Chunks up the text and only retrieves the k most relevant parts of it. 
-    keywords is a list of keywords, each of which are strings 
-
+    Returns the k most relevant chunks based on BM25 ranking.
+    
+    Args:
+        keywords: List of search terms to find in chunks
+        chunks: List of text chunks to search through
+        k: Number of most relevant chunks to return
+        
     Example:
         Task: "Understand Mrs. Anderson's tumor marker levels around September 2021"
-        chunks = chunk_by_section(document, max_chunk_size=3000)
-        ...
-        for ()
-        keywords = ["Mrs. Anderson", "Anderson", "tumor marker", "biomarker", 
-                    "cancer marker", "September 2021", "09/2021", "oncology"]
-        chunks = retrieve_top_k_chunks(keywords, document, max_chunk_size=3000, k=10)
+        chunks = chunk_by_section(document, max_chunk_size=3000, overlap=20)
+        keywords = ["Mrs. Anderson", "tumor marker", "tumor",  "September 2021", "09/2021"]
+        relevant_chunks = retrieve_top_k_chunks(keywords, chunks, k=15)
     '''
-    concatenated_keywords = " ".join(keywords)
-    chunks = chunk_by_section(doc.lower(), max_chunk_size, overlap) 
-    print(f'{len(chunks)} produced before taking the top {k}')
-    bm25_retriever = BM25Okapi(chunks)
-    scores = bm25_retriever.get_scores(concatenated_keywords)
+    query = " ".join(keywords)
+    #bm25_retriever = BMOkapi(chunks)
+    bm25_retriever = BM25Plus(chunks)
+    scores = bm25_retriever.get_scores(query)
+    print("SCORES ARE:", scores)
+    print(f'Scoring {len(chunks)} chunks to find top {k}')
     top_k_indices = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)[:k]
-    top_k_indices = sorted(top_k_indices)  # to maintain original document order
-    
-    return [chunks[i] for i in top_k_indices]
+    top_k_indices = sorted(top_k_indices)
+    relevant_chunks = [chunks[i] for i in top_k_indices]
+    print("\n\n RELEVANT CHUNKS \n")
+    for i, chunk in enumerate(relevant_chunks):
+        print(f"Chunk {i}:", chunk)
+    return relevant_chunks
 
 class JobManifest(BaseModel):
     chunk: str  # the actual text for the chunk of the document
@@ -194,8 +198,12 @@ class Minions:
             or kwargs.get("decompose_task_prompt", None)
         )
         self.decompose_task_prompt_abbreviated = (
-            kwargs.get("decompose_task_prompt_abbreviated", None)
-            or DECOMPOSE_TASK_PROMPT_AGG_FUNC_LATER_ROUND
+            (
+                DECOMPOSE_RETRIEVAL_TASK_PROMPT_AGG_FUNC_LATER_ROUND
+                if self.use_bm25 else
+                DECOMPOSE_TASK_PROMPT_AGG_FUNC_LATER_ROUND
+            )
+            or kwargs.get("decompose_task_prompt_abbreviated", None)
         )
         self.synthesis_cot_prompt = REMOTE_SYNTHESIS_COT or kwargs.get(
             "synthesis_cot_prompt", None

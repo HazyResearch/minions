@@ -5,6 +5,7 @@ import re
 import json
 from pydantic import BaseModel, field_validator, Field
 from inspect import getsource
+from rank_bm25 import BM25Okapi
 
 from minions.usage import Usage
 
@@ -22,6 +23,7 @@ from minions.prompts.minions import (
     REMOTE_ANSWER,
     DECOMPOSE_TASK_PROMPT_AGGREGATION_FUNC,
     DECOMPOSE_TASK_PROMPT_AGG_FUNC_LATER_ROUND,
+    DECOMPOSE_RETRIEVAL_TASK_PROMPT_AGGREGATION_FUNC,
     REMOTE_SYNTHESIS_COT,
     REMOTE_SYNTHESIS_JSON,
     REMOTE_SYNTHESIS_FINAL,
@@ -37,6 +39,29 @@ def chunk_by_section(doc: str, max_chunk_size: int = 5000, overlap: int = 0) -> 
         start += max_chunk_size - overlap
     return sections
 
+def retrieve_top_k_chunks(keywords: List[str], chunks: List[str], max_chunk_size: int = 5000, overlap: int = 0, k: int = 15) -> List[str]:
+    '''
+    Chunks up the text and only retrieves the k most relevant parts of it. 
+    keywords is a list of keywords, each of which are strings 
+
+    Example:
+        Task: "Understand Mrs. Anderson's tumor marker levels around September 2021"
+        chunks = chunk_by_section(document, max_chunk_size=3000)
+        ...
+        for ()
+        keywords = ["Mrs. Anderson", "Anderson", "tumor marker", "biomarker", 
+                    "cancer marker", "September 2021", "09/2021", "oncology"]
+        chunks = retrieve_top_k_chunks(keywords, document, max_chunk_size=3000, k=10)
+    '''
+    concatenated_keywords = " ".join(keywords)
+    chunks = chunk_by_section(doc.lower(), max_chunk_size, overlap) 
+    print(f'{len(chunks)} produced before taking the top {k}')
+    bm25_retriever = BM25Okapi(chunks)
+    scores = bm25_retriever.get_scores(concatenated_keywords)
+    top_k_indices = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)[:k]
+    top_k_indices = sorted(top_k_indices)  # to maintain original document order
+    
+    return [chunks[i] for i in top_k_indices]
 
 class JobManifest(BaseModel):
     chunk: str  # the actual text for the chunk of the document
@@ -145,6 +170,7 @@ class Minions:
         self.num_samples = 1 or kwargs.get("num_samples", None)
         self.worker_batch_size = 1 or kwargs.get("worker_batch_size", None)
         self.max_code_attempts = kwargs.get("max_code_attempts", 10)
+        self.use_bm25 = True
         # TODO: removed worker_prompt 
         self.worker_prompt_template = WORKER_PROMPT_SHORT or kwargs.get(
             "worker_prompt_template", None
@@ -155,7 +181,11 @@ class Minions:
         self.worker_icl_messages = []
         self.advice_prompt = ADVICE_PROMPT or kwargs.get("advice_prompt", None)
         self.decompose_task_prompt = (
-            DECOMPOSE_TASK_PROMPT_AGGREGATION_FUNC
+            (
+                DECOMPOSE_RETRIEVAL_TASK_PROMPT_AGGREGATION_FUNC
+                if self.use_bm25 else
+                DECOMPOSE_TASK_PROMPT_AGGREGATION_FUNC
+            )
             or kwargs.get("decompose_task_prompt", None)
         )
         self.decompose_task_prompt_abbreviated = (
@@ -251,6 +281,17 @@ class Minions:
 
         for round_idx in range(max_rounds):
             print(f"Round {round_idx + 1}/{max_rounds}")
+
+            # chunking_config = {
+            #     "function": retrieve_top_k_chunks if self.use_bm25 else chunk_by_section,
+            #     "example_func_call": (
+            #         "retrieve_top_k_chunks(keywords, document, k=10)" 
+            #         if self.use_bm25 else 
+            #         "chunk_by_section(document)"
+            #     )
+            # }
+            total_chars = int(doc_metadata.split("Total extracted text length: ")[1].split(" characters")[0])
+
             decompose_message_kwargs = dict(
                 num_samples=self.num_samples,
                 ADVANCED_STEPS_INSTRUCTIONS="",
@@ -265,8 +306,10 @@ class Minions:
                         ),  # Note: removed other chunking functions for now
                     ]
                 ),
+                retrieval_source=getsource(retrieve_top_k_chunks),
                 num_tasks_per_round=num_tasks_per_round,
                 num_samples_per_task=num_samples_per_task,
+                total_chars=total_chars,
             )
 
             # create the decompose prompt -- if in later rounds, use a shorter version
@@ -336,6 +379,7 @@ class Minions:
                 starting_globals = {
                     **USEFUL_IMPORTS,
                     "chunk_by_section": chunk_by_section,
+                    "retrieve_top_k_chunks": retrieve_top_k_chunks,
                     "JobManifest": JobManifest,
                     "JobOutput": JobOutput,
                     "Job": Job,
@@ -361,6 +405,8 @@ class Minions:
                         fn_name="prepare_jobs",  # the global variable to extract from the code block
                         **fn_kwargs,
                     )
+
+                    # Calculating BM scores and only keeping the jobs with the top 25 scoring chunks
 
                     # We need to coerce the type below to ensure that the type is
                     # not a different `JobManifest` object the model defined in it's

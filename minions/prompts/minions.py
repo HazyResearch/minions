@@ -388,6 +388,74 @@ Now, please provide the code for `prepare_jobs()` and `transform_outputs()`.
 
 """
 
+DECOMPOSE_RETRIEVAL_TASK_PROMPT_AGGREGATION_FUNC = """\
+# Decomposition Round #{step_number}
+
+You (the supervisor) cannot directly read the document(s). Instead, you can assign small, isolated tasks to a less capable worker model that sees only a single chunk of text at a time. Any cross-chunk or multi-document reasoning must be handled by you.
+
+## Your Job: Write Two Python Functions
+
+### FUNCTION #1: `prepare_jobs(context, prev_job_manifests, prev_job_outputs) -> List[JobManifest]`
+Goal: this function should return a list of atomic jobs to be performed on chunks of the context.
+Follow the steps below:
+- Break the document(s) into chunks using the provided *chunking function*. Determine the chunk size yourself according to the task and length of the text. There is a total of {total_chars} characters of text. Break broader tasks into larger chunks (5000) while smaller tasks should have smaller chunks (1000).
+- Create focused keyword search queries for a retrieval system to exactly find the information you need to solve the task. Feed your queries to the provided *retrieval function*, and determine number of top k most relevant chunks to return, keeping this number as low as possible while maintaining accuracy.
+- For each keyword search, sort the top k most relevant results by their order in the text, to maintain chronological coherence. 
+- Assign jobs to the relevant chunks. Each job must be **atomic** and require only information from the **single chunk** provided to the worker.
+- If you need to repeat the same task on multiple chunks, **re-use** the same `task_id`. Do **not** create a separate `task_id` for each chunk.
+- If tasks must happen **in sequence**, do **not** include them all in this round; move to a subsequent round to handle later steps.
+- In this round, limit yourself to **up to {num_tasks_per_round} tasks** total.
+- If you need multiple samples per task, replicate the `JobManifest` that many times (e.g., `job_manifests.extend([job_manifest]*n)`).
+
+### FUNCTION #2: `transform_outputs(jobs) -> str`
+- Accepts the worker outputs for the tasks you assigned.
+- First, apply any **filtering logic** (e.g., drop irrelevant or empty results).
+- Then **aggregate outputs** by `task_id` and `chunk_id`. All **multi-chunk integration** or **global reasoning** is your responsibility here.
+- Return one **aggregated string** suitable for further supervisor inspection.
+
+{ADVANCED_STEPS_INSTRUCTIONS}
+
+## Relevant Pydantic Models
+
+The following models are already in the global scope. **Do NOT redefine or re-import them.**
+
+### JobManifest Model
+```
+{manifest_source}
+```
+
+### JobOutput Model
+```
+{output_source}
+```
+
+## Function Signatures
+```
+{signature_source}
+```
+```
+{transform_signature_source}
+```
+
+## Chunking Function
+```
+{chunking_source}
+```
+
+## Retrieval Function (BM25)
+```
+{retrieval_source}
+```
+
+## Important Reminders:
+- **DO NOT** assign tasks that require reading multiple chunks or referencing entire documents.
+- Keep tasks **chunk-local and atomic**.
+- **You** (the supervisor) are responsible for aggregating and interpreting outputs in `transform_outputs()`. 
+
+Now, please provide the code for `prepare_jobs()` and `transform_outputs()`. 
+
+"""
+
 # # DB: commented out the below on 2025-02-18. This worked well for Avanika 
 # DECOMPOSE_TASK_PROMPT_AGGREGATION_FUNC = """\
 # # Decomposition Round #{step_number}

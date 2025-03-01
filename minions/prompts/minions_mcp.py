@@ -86,6 +86,35 @@ class JobOutput(BaseModel):
 ```
 Your response:"""
 
+# WORKER_PROMPT_SHORT = """
+# Here is a document excerpt:
+
+# {context}
+
+# --------------------------------
+# And here is your task:
+
+# {task}
+
+# --------------------------------
+# And here is additional higher-level advice on how to approach the task:
+
+# {advice}
+
+# --------------------------------
+# Now answer the question by providing only a `JobOutput` object.
+# """
+
+# WORKER_OUTPUT_TEMPLATE = """\
+# ```json
+# {{
+# "explanation": "{explanation}",
+# "citation": "{citation}",
+# "answer": "{answer}"
+# }}
+# ```
+# """
+
 
 REMOTE_ANSWER_OR_CONTINUE = """\
 Now synthesize the findings from multiple junior workers (LLMs). 
@@ -336,6 +365,16 @@ The following models are already in the global scope. **Do NOT redefine or re-im
 {output_source}
 ```
 
+## Chunking Function
+```
+{chunking_source}
+```
+
+## MCP Functions
+```
+{mcp_tools_info}
+```
+
 ## Function Signatures
 ```
 {signature_source}
@@ -344,20 +383,163 @@ The following models are already in the global scope. **Do NOT redefine or re-im
 {transform_signature_source}
 ```
 
-## Chunking Function
-```
-{chunking_source}
-```
-
 ## Important Reminders:
 - **DO NOT** assign tasks that require reading multiple chunks or referencing entire documents.
 - Keep tasks **chunk-local and atomic**.
 - **You** (the supervisor) are responsible for aggregating and interpreting outputs in `transform_outputs()`. 
+- Use the MCP functions to get information that you need to complete your task -- i.e., ```context = mcp_tools.execute_tool(....)```
+--> **NOTE** IF use use an MCP funciton, you must include a debugging print statement to print the output of the MCP function.
+--> Example of how to use the MCP functions to construct context:
+```
+# task is to list the files in the ~/Downloads/mcp_test/ directory
+def prepare_jobs(
+    context: List[str],
+    prev_job_manifests: Optional[List[JobManifest]] = None,
+    prev_job_outputs: Optional[List[JobOutput]] = None,
+) -> List[JobManifest]:
+    task_id = 1  # Unique identifier for the task
+    files = mcp_tools.execute_tool("list_directory", path="~/Downloads/mcp_test/")
+    job_manifest = JobManifest(
+        chunk=files,
+        task=f"Summarize all the files in this directory",
+    )
+    job_manifests.append(job_manifest)
+```
 
 Now, please provide the code for `prepare_jobs()` and `transform_outputs()`. 
 
-
 """
+
+# # DB: commented out the below on 2025-02-18. This worked well for Avanika
+# DECOMPOSE_TASK_PROMPT_AGGREGATION_FUNC = """\
+# # Decomposition Round #{step_number}
+
+# You do not have access to the raw document(s), but instead can assign tasks to small and less capable language models that can read the document(s).
+# Note that the document(s) can be very long, so each task should be performed only over a small chunk of text.
+
+# # Your job is to write two Python functions:
+
+# Function #1 (prepare_jobs): will output formatted tasks for a small language model.
+# -> Make sure that NONE of the tasks require multiple parts.
+# -> Consider using nested for-loops to apply a set of tasks to a set of chunks.
+# -> The same `task_id` should be applied to multiple chunks. DO NOT instantiate a new `task_id` for each combination of task and chunk.
+# -> If tasks should be done sequentially, do not run them all in this round. Wait for the next round to run sequential tasks.
+# -> For each round, delagate {num_tasks_per_round} tasks to the small language model.
+# -> For each task, take {num_samples_per_task} samples per job: If you need to run a job multiple times, append multiple copies of the job to the `job_manifests` list: job_manifests.extend([job_manifest]*n)
+# -> Use advice to guide the format of the worker answer (i.e., list of extractions, short summary, detailed summary) and provide more details about the task.
+
+# Function #2 (transform_outputs): The second function will aggregate the outputs of the small language models and provide an aggregated string for the supervisor to review.
+# -> Filter the jobs based on the output of the small language models (write a custome filter function -- in some steps you might want to filter for a specific keyword, in others you might want to no pass anything back, so you filter out everything!).
+# -> Aggregate the jobs based on the task_id and chunk_id.
+
+# {ADVANCED_STEPS_INSTRUCTIONS}
+
+# # Misc. Information
+
+# * Assume a Pydantic model called `JobManifest(BaseModel)` is already in global scope. For your reference, here is the model:
+# ```
+# {manifest_source}
+# ```
+
+# * Assume a Pydantic model called `JobOutput(BaseModel)` is already in global scope. For your reference, here is the model:
+# ```
+# {output_source}
+# ```
+
+# * DO NOT rewrite or import the model in your code.
+
+# * Function #1 signature will look like:
+# ```
+# {signature_source}
+# ```
+
+# * Function #2 signature will look like:
+# ```
+# {transform_signature_source}
+# ```
+
+# * You can assume you have access to the following chunking function(s). Do not reimplement the function, just use it.
+# ```
+# {chunking_source}
+# ```
+
+# # Here is an example
+# ```
+# def prepare_jobs(
+#     context: List[str],
+#     prev_job_manifests: Optional[List[JobManifest]] = None,
+#     prev_job_outputs: Optional[List[JobOutput]] = None,
+# ) -> List[JobManifest]:
+#     task_id = 1  # Unique identifier for the task
+#     for doc_id, document in enumerate(context):
+#         # if you need to chunk the document into sections
+#         chunks = chunk_by_section(document)
+
+#         for chunk_id, chunk in enumerate(chunks):
+#             # Create a task for extracting mentions of specific keywords
+#             task = (
+#                 "Extract all mentions of the following keywords: "
+#                 "'Ca19-9', 'tumor marker', 'September 2021', 'U/ml', 'Mrs. Anderson'."
+#             )
+#             # use advice to guide the format of the worker output
+#             job_manifest = JobManifest(
+#                 chunk=chunk,
+#                 task=task,
+#                 advice="Focus on extracting the specific keywords related to Mrs. Anderson's tumor marker levels. Please provide your answer as a list of extracted keywords."
+#             )
+#             job_manifests.append(job_manifest)
+#     return job_manifests
+
+# def transform_outputs(
+#     jobs: List[Job],
+# ) -> Dict[str, Any]:
+#     def filter_fn(job):
+#         answer = job.output.answer
+#         return answer is not None and str(answer).lower().strip() != "none"
+
+#     # Filter jobs
+#     for job in jobs:
+#         job.include = filter_fn(job)
+
+#     # Aggregate and filter jobs
+#     tasks = {{}}
+#     for job in jobs:
+#         task_id = job.manifest.task_id
+#         chunk_id = job.manifest.chunk_id
+
+#         if task_id not in tasks:
+#             tasks[task_id] = {{
+#                 "task_id": task_id,
+#                 "task": job.manifest.task,
+#                 "chunks": {{}},
+#             }}
+
+#         if chunk_id not in tasks[task_id]["chunks"]:
+#             tasks[task_id]["chunks"][chunk_id] = []
+
+#         tasks[task_id]["chunks"][chunk_id].append(job)
+
+#     # Build the aggregated string
+#     aggregated_str = ""
+#     for task_id, task_info in tasks.items():
+#         aggregated_str += f"## Task (task_id=`{{task_id}}`): {{task_info['task']}}\n\n"
+
+#         for chunk_id, chunk_jobs in task_info["chunks"].items():
+#             filtered_jobs = [j for j in chunk_jobs if j.include]
+
+#             aggregated_str += f"### Chunk # {{chunk_id}}\n"
+#             if filtered_jobs:
+#                 for idx, job in enumerate(filtered_jobs, start=1):
+#                     aggregated_str += f"   -- Job {{idx}} (job_id=`{{job.manifest.job_id}}`):\n"
+#                     aggregated_str += f"   {{job.sample}}\n\n"
+#             else:
+#                 aggregated_str += "   No jobs returned successfully for this chunk.\n\n"
+
+#         aggregated_str += "\n-----------------------\n\n"
+
+#     return aggregated_str
+# ```
+# """
 
 DECOMPOSE_TASK_PROMPT_AGG_FUNC_LATER_ROUND = """\
 # Decomposition Round #{step_number}
@@ -393,6 +575,11 @@ Function #2 (transform_outputs): The second function will aggregate the outputs 
 * Assume a Pydantic model called `JobOutput(BaseModel)` is already in global scope. For your reference, here is the model:
 ```
 {output_source}
+```
+
+* Assume you have access to the following MCP functions. Do not reimplement the function, just use it.
+```
+{mcp_tools_info}
 ```
 
 * DO NOT rewrite or import the model in your code.

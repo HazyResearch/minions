@@ -150,7 +150,10 @@ class Minion:
             self.callback("supervisor", supervisor_messages[-1])
 
         # Extract first question for worker
-        supervisor_json = _extract_json(supervisor_response[0])
+        if isinstance(self.remote_client, (OpenAIClient, TogetherClient)):
+            supervisor_json = json.loads(supervisor_response[0])
+        else:
+            supervisor_json = _extract_json(supervisor_response[0])
         worker_messages.append({"role": "user", "content": supervisor_json["message"]})
 
         # Add worker prompt to conversation log
@@ -251,10 +254,14 @@ class Minion:
                 self.callback("supervisor", supervisor_messages[-1])
 
             # Parse supervisor's decision
-            supervisor_json = _extract_json(supervisor_response[0])
+            if isinstance(self.remote_client, (OpenAIClient, TogetherClient)):
+                supervisor_json = json.loads(supervisor_response[0])
+            else:
+                supervisor_json = _extract_json(supervisor_response[0])
             print("Supervisor_json:", supervisor_json)
             if supervisor_json["decision"] == "provide_final_answer":
                 final_answer = supervisor_json["answer"]
+                conversation_log["Generated_final_answer"] = final_answer
                 break
             else:
                 next_question = supervisor_json["message"]

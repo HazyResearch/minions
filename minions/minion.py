@@ -4,7 +4,7 @@ import re
 import os
 from datetime import datetime
 
-from minions.clients import *
+from minions.clients import OpenAIClient, TogetherClient
 
 from minions.prompts.minion import (
     SUPERVISOR_CONVERSATION_PROMPT,
@@ -72,8 +72,7 @@ class Minion:
         self.log_dir = log_dir
 
         # Create log directory if it doesn't exist
-        if not os.path.exists(log_dir):
-            os.makedirs(log_dir)
+        os.makedirs(log_dir, exist_ok=True)
 
     def __call__(
         self,
@@ -81,7 +80,7 @@ class Minion:
         context: List[str],
         max_rounds=None,
         doc_metadata=None,
-        task_id=None,
+        logging_id=None, # this is the name/id to give to the logging .json file
         is_privacy=False,
     ):
         """Run the minion protocol to answer a task using local and remote models.
@@ -91,7 +90,7 @@ class Minion:
             context: List of context strings
             max_rounds: Override default max_rounds if provided
             doc_metadata: Optional metadata about the documents
-            task_id: Optional identifier for the task, used for named log files
+            logging_id: Optional identifier for the task, used for named log files
 
         Returns:
             Dict containing final_answer, conversation histories, and usage statistics
@@ -406,9 +405,9 @@ class Minion:
             conversation_log["Generated_final_answer"] = final_answer
 
         # Log the final result
-        if task_id:
-            # use provided task_id
-            log_filename = f"{task_id}_minion.json"
+        if logging_id:
+            # use provided logging_id
+            log_filename = f"{logging_id}_minion.json"
         else:
             # fall back to timestamp + task abbrev
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")

@@ -100,6 +100,7 @@ if "show_refinement_results" not in st.session_state:
 if "worker_usage" not in st.session_state:
     st.session_state["worker_usage"] = None
 
+
 def is_dark_mode():
     theme = st_theme()
     if theme and "base" in theme:
@@ -257,7 +258,9 @@ def run_gateway(task, context, doc_metadata, status, use_refined_prompt):
         st.markdown(f"**Query:** {task}")
 
         # Adjust context window if needed
-        if "local_client" in st.session_state and hasattr(st.session_state.local_client, "num_ctx"):
+        if "local_client" in st.session_state and hasattr(
+            st.session_state.local_client, "num_ctx"
+        ):
             padding = 8000
             estimated_tokens = int(len(context) / 4 + padding) if context else 4096
             num_ctx_values = [2048, 4096, 8192, 16384, 32768, 65536, 131072]
@@ -306,29 +309,33 @@ def run_gateway(task, context, doc_metadata, status, use_refined_prompt):
                     "content": f"{task}\n\nAdditional Context (if provided):\n{context}",
                 }
             ]
-            
+
             # Call the supervisor directly
             if message_callback:
                 message_callback("supervisor", None, is_final=False)
-                
-            supervisor_response, supervisor_usage = st.session_state.remote_client.chat(messages=supervisor_messages)
-            
+
+            supervisor_response, supervisor_usage = st.session_state.remote_client.chat(
+                messages=supervisor_messages
+            )
+
             supervisor_messages.append(
                 {"role": "assistant", "content": supervisor_response[0]}
             )
             if message_callback:
                 message_callback("supervisor", supervisor_messages[-1])
-            
+
             # Import Usage class
             from minions.usage import Usage
-            
+
             # Create a similar output structure to the Gateway protocol
             output = {
                 "final_answer": supervisor_response[0],
                 "supervisor_messages": supervisor_messages,
                 "worker_messages": [],
                 "remote_usage": supervisor_usage,
-                "local_usage": Usage(completion_tokens=0, prompt_tokens=0),  # Zero tokens instead of None
+                "local_usage": Usage(
+                    completion_tokens=0, prompt_tokens=0
+                ),  # Zero tokens instead of None
             }
         else:
             # Use the normal Gateway protocol
@@ -481,12 +488,12 @@ with st.sidebar:
         st.image("assets/gru_resized.jpg", use_container_width=True)
         if selected_provider == "OpenAI":
             model_mapping = {
-                "o1 (Recommended)": "o1",
-                "o3-mini": "o3-mini",
+                "o1": "o1",
+                "o3-mini (Recommended)": "o3-mini",
                 "gpt-4o": "gpt-4o",
                 "gpt-4o-mini": "gpt-4o-mini",
             }
-            default_model_index = 0
+            default_model_index = 1
         elif selected_provider == "Together":
             model_mapping = {
                 "DeepSeek-R1 (Recommended)": "deepseek-ai/DeepSeek-R1",
@@ -532,9 +539,16 @@ st.subheader("Gateway to Reasoning Models")
 
 # Single input for query
 if "refined_prompt" in st.session_state and st.session_state["refined_prompt"]:
-    user_query = st.text_area("Enter your query or request here", value=st.session_state["refined_prompt"], height=150, key="user_query")
+    user_query = st.text_area(
+        "Enter your query or request here",
+        value=st.session_state["refined_prompt"],
+        height=400,
+        key="user_query",
+    )
 else:
-    user_query = st.text_area("Enter your query or request here", value="", height=150, key="user_query")
+    user_query = st.text_area(
+        "Enter your query or request here", value="", height=150, key="user_query"
+    )
 
 # File upload for context
 uploaded_files = st.file_uploader(
@@ -597,18 +611,19 @@ if context:
 # Replace single submit button with two buttons side by side
 col1, col2 = st.columns(2)
 with col1:
-    refine_button = st.button("Refine Prompt", type="secondary", use_container_width=True)
+    refine_button = st.button(
+        "Refine Prompt", type="secondary", use_container_width=True
+    )
 with col2:
     submit_button = st.button("Submit to API", type="primary", use_container_width=True)
 
 # A container at the top to display final answer
 final_answer_placeholder = st.empty()
 
+
 # Define a simple Gateway class to replace the imported one
 class Gateway:
-    def __init__(
-        self, local_client=None, remote_client=None, callback=None
-    ):
+    def __init__(self, local_client=None, remote_client=None, callback=None):
         """Initialize the Gateway with local and remote LLM clients.
 
         Args:
@@ -620,9 +635,7 @@ class Gateway:
         self.remote_client = remote_client
         self.callback = callback
 
-    def __call__(
-        self, task, context, max_rounds=None, doc_metadata=None
-    ):
+    def __call__(self, task, context, max_rounds=None, doc_metadata=None):
         """Run the gateway protocol to refine and answer a task using local and remote models.
 
         Args:
@@ -636,7 +649,7 @@ class Gateway:
         """
         # Join context sections
         context = "\n\n".join(context)
-        
+
         # Add document metadata to context if provided
         if doc_metadata:
             context = f"{doc_metadata}\n\n{context}"
@@ -654,38 +667,45 @@ class Gateway:
         ]
 
         from minions.usage import Usage
+
         remote_usage = Usage()
         local_usage = Usage()
 
         # Get worker's response (local model refines the prompt and context)
         if self.callback:
             self.callback("worker", None, is_final=False)
-        
-        worker_response, worker_usage, done_reason = self.local_client.chat(messages=worker_messages)
+
+        worker_response, worker_usage, done_reason = self.local_client.chat(
+            messages=worker_messages
+        )
         local_usage += worker_usage
-        
+
         worker_messages.append({"role": "assistant", "content": worker_response[0]})
         if self.callback:
             self.callback("worker", worker_messages[-1])
 
         # Prepare the refined input for the supervisor (remote model)
         refined_input = worker_response[0]
-        
+
         # Initialize supervisor messages with the refined input
         supervisor_messages = [
             {
                 "role": "user",
-                "content": SUPERVISOR_PROMPT.format(refined_input=refined_input, context=context),
+                "content": SUPERVISOR_PROMPT.format(
+                    refined_input=refined_input, context=context
+                ),
             }
         ]
 
         # Get supervisor's response (remote model generates the final answer)
         if self.callback:
             self.callback("supervisor", None, is_final=False)
-            
-        supervisor_response, supervisor_usage = self.remote_client.chat(messages=supervisor_messages)
+
+        supervisor_response, supervisor_usage = self.remote_client.chat(
+            messages=supervisor_messages
+        )
         remote_usage += supervisor_usage
-        
+
         supervisor_messages.append(
             {"role": "assistant", "content": supervisor_response[0]}
         )
@@ -702,6 +722,7 @@ class Gateway:
             "remote_usage": remote_usage,
             "local_usage": local_usage,
         }
+
 
 # Function to refine the prompt using the local model
 def refine_prompt(query, context, doc_metadata):
@@ -741,20 +762,23 @@ def refine_prompt(query, context, doc_metadata):
             # Call the worker model directly
             if st.session_state.callback:
                 st.session_state.callback("worker", None, is_final=False)
-            
-            worker_response, worker_usage, done_reason = st.session_state.local_client.chat(messages=worker_messages)
-            
+
+            worker_response, worker_usage, done_reason = (
+                st.session_state.local_client.chat(messages=worker_messages)
+            )
+
             worker_messages.append({"role": "assistant", "content": worker_response[0]})
             if st.session_state.callback:
                 st.session_state.callback("worker", worker_messages[-1])
 
             status.update(label=f"Prompt refinement complete!", state="complete")
-            
+
             # Return the refined prompt
             return worker_response[0], worker_usage
         except Exception as e:
             st.error(f"An error occurred during prompt refinement: {str(e)}")
             return None, None
+
 
 # Function to submit the prompt to the remote API
 def submit_to_api(query, context, doc_metadata):
@@ -780,19 +804,26 @@ def submit_to_api(query, context, doc_metadata):
                 )
 
             # Prepare the supervisor message with the query and context
+            # please add a system messages asking the output to be in markdown format
             supervisor_messages = [
+                {
+                    "role": "system",
+                    "content": "You are a helpful assistant. Please provide your final response in markdown format.",
+                },
                 {
                     "role": "user",
                     "content": f"{query}\n\nAdditional Context (if provided):\n{context}",
-                }
+                },
             ]
 
             # Call the supervisor model directly
             if st.session_state.callback:
                 st.session_state.callback("supervisor", None, is_final=False)
-                
-            supervisor_response, supervisor_usage = st.session_state.remote_client.chat(messages=supervisor_messages)
-            
+
+            supervisor_response, supervisor_usage = st.session_state.remote_client.chat(
+                messages=supervisor_messages
+            )
+
             supervisor_messages.append(
                 {"role": "assistant", "content": supervisor_response[0]}
             )
@@ -800,96 +831,105 @@ def submit_to_api(query, context, doc_metadata):
                 st.session_state.callback("supervisor", supervisor_messages[-1])
 
             status.update(label=f"API response received!", state="complete")
-            
+
             # Import Usage class
             from minions.usage import Usage
-            
+
             # Create output structure similar to Gateway protocol
             output = {
                 "final_answer": supervisor_response[0],
                 "supervisor_messages": supervisor_messages,
                 "worker_messages": [],
                 "remote_usage": supervisor_usage,
-                "local_usage": Usage(completion_tokens=0, prompt_tokens=0),  # Zero tokens for direct API call
+                "local_usage": Usage(
+                    completion_tokens=0, prompt_tokens=0
+                ),  # Zero tokens for direct API call
             }
-            
+
             return output, 0, 0  # Return output and dummy timing values
         except Exception as e:
             st.error(f"An error occurred during API submission: {str(e)}")
             return None, 0, 0
 
+
 # Handle the refine button click
 if refine_button and user_query:
     # Call the refine_prompt function
     refined_prompt, worker_usage = refine_prompt(user_query, context, doc_metadata)
-    
+
     if refined_prompt:
         # Store the refined prompt and worker usage in session state
         st.session_state["refined_prompt"] = refined_prompt
         st.session_state["worker_usage"] = worker_usage
         st.session_state["show_refinement_results"] = True
-        
+
         # Display the refined prompt in a nice format
         st.markdown("---")
         tabs = st.tabs(["🚀 Original Query", "✨ Refined Prompt"])
-        
+
         with tabs[0]:
             st.code(user_query, language="markdown")
-            
+
         with tabs[1]:
             st.code(refined_prompt, language="markdown")
-            
+
         # Add a note about the refined prompt being available in the text area
-        st.success("✅ Prompt refined successfully! The refined prompt has been placed in the text area above.")
-        
+        st.success(
+            "✅ Prompt refined successfully! The refined prompt has been placed in the text area above."
+        )
+
         # Rerun the app to show the refined prompt in the text area
         st.rerun()
 elif refine_button:
     st.error("Please enter a query before refining.")
 
 # Display refinement results if available
-if st.session_state.get("show_refinement_results", False) and st.session_state.get("worker_usage"):
+if st.session_state.get("show_refinement_results", False) and st.session_state.get(
+    "worker_usage"
+):
     # Token usage section removed
     # Reset the flag after displaying
     st.session_state["show_refinement_results"] = False
 
 # Handle the submit button click
 if submit_button and user_query:
-    output, setup_time, execution_time = submit_to_api(user_query, context, doc_metadata)
-    
+    output, setup_time, execution_time = submit_to_api(
+        user_query, context, doc_metadata
+    )
+
     if output:
         # Display final answer with enhanced styling
         st.markdown("---")  # Add a visual separator
-        
+
         # Create tabs for Query, Refined Prompt (if available), and Response
         tabs = []
         tab_labels = ["🚀 Original Query"]
-        
+
         # Add Refined Prompt tab if worker messages exist
         if output["worker_messages"] and len(output["worker_messages"]) > 2:
             tab_labels.append("✨ Refined Prompt")
-            
+
         tab_labels.append("🎯 Final Response")
-        
+
         tabs = st.tabs(tab_labels)
-        
+
         # Original Query tab
         with tabs[0]:
             st.code(user_query, language="markdown")
-        
+
         # Refined Prompt tab (if available)
         if output["worker_messages"] and len(output["worker_messages"]) > 2:
             with tabs[1]:
                 refined_prompt = output["worker_messages"][2]["content"]
                 st.code(refined_prompt, language="markdown")
-        
+
         # Final Response tab
         with tabs[-1]:
             # Use expander for better readability of long responses
             st.markdown(output["final_answer"])
-            
+
         # Add a success message
         st.success("✅ Response generated successfully!")
 
 elif submit_button:
-    st.error("Please enter a query before submitting.") 
+    st.error("Please enter a query before submitting.")

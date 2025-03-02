@@ -28,7 +28,9 @@ from minions.prompts.minions import (
 )
 
 
-def chunk_by_section(doc: str, max_chunk_size: int = 5000, overlap: int = 0) -> List[str]:
+def chunk_by_section(
+    doc: str, max_chunk_size: int = 5000, overlap: int = 0
+) -> List[str]:
     sections = []
     start = 0
     while start < len(doc):
@@ -54,11 +56,11 @@ class JobManifest(BaseModel):
     )
 
 
-
 class JobOutput(BaseModel):
-  explanation: str
-  citation: str | None
-  answer: str | None
+    explanation: str
+    citation: str | None
+    answer: str | None
+
 
 def prepare_jobs(
     context: List[str],
@@ -69,6 +71,7 @@ def prepare_jobs(
     Args:
         context (List[str]): A list of documents. Assume each document is greater >100k tokens.
             Each document can be further chunked using `chunk_pages`.
+            If context is empty, use the MCP functions to get information that you need to complete your task: i.e., ```context = mcp_tools.execute_tool(....)```
         prev_job_manifests (Optional[List[JobManifest]]): A list of job manifests from the previous round.
             None if we are on the first round.
         prev_job_outputs (Optional[List[JobOutput]]): A list of job outputs from the previous round.
@@ -120,6 +123,7 @@ USEFUL_IMPORTS = {
     "field_validator": field_validator,
 }
 
+
 class Minions:
     def __init__(
         self,
@@ -145,7 +149,7 @@ class Minions:
         self.num_samples = 1 or kwargs.get("num_samples", None)
         self.worker_batch_size = 1 or kwargs.get("worker_batch_size", None)
         self.max_code_attempts = kwargs.get("max_code_attempts", 10)
-        # TODO: removed worker_prompt 
+        # TODO: removed worker_prompt
         self.worker_prompt_template = WORKER_PROMPT_SHORT or kwargs.get(
             "worker_prompt_template", None
         )
@@ -154,13 +158,14 @@ class Minions:
         )
         self.worker_icl_messages = []
         self.advice_prompt = ADVICE_PROMPT or kwargs.get("advice_prompt", None)
+
         self.decompose_task_prompt = (
-            DECOMPOSE_TASK_PROMPT_AGGREGATION_FUNC
-            or kwargs.get("decompose_task_prompt", None)
+            kwargs.get("decompose_task_prompt", None)
+            or DECOMPOSE_TASK_PROMPT_AGGREGATION_FUNC
         )
         self.decompose_task_prompt_abbreviated = (
-            DECOMPOSE_TASK_PROMPT_AGG_FUNC_LATER_ROUND
-            or kwargs.get("decompose_task_prompt_abbreviated", None)
+            kwargs.get("decompose_task_prompt_abbreviated", None)
+            or DECOMPOSE_TASK_PROMPT_AGG_FUNC_LATER_ROUND
         )
         self.synthesis_cot_prompt = REMOTE_SYNTHESIS_COT or kwargs.get(
             "synthesis_cot_prompt", None
@@ -200,6 +205,7 @@ class Minions:
         max_rounds=None,
         num_tasks_per_round=3,
         num_samples_per_task=1,
+        mcp_tools_info=None,
     ):
         """Run the minions protocol to answer a task using local and remote models.
 
@@ -212,7 +218,7 @@ class Minions:
         Returns:
             Dict containing final_answer and conversation histories
         """
-        
+
         self.max_rounds = max_rounds or self.max_rounds
 
         # Initialize usage tracking
@@ -258,6 +264,7 @@ class Minions:
                 output_source=getsource(JobOutput),
                 signature_source=getsource(prepare_jobs),
                 transform_signature_source=getsource(transform_outputs),
+                # read_file_source=getsource(read_folder),
                 chunking_source="\n\n".join(
                     [
                         getsource(
@@ -273,11 +280,12 @@ class Minions:
             decompose_message = {
                 "role": "user",
                 "content": self.decompose_task_prompt.format(
-                    step_number=1, **decompose_message_kwargs
+                    step_number=1,
+                    mcp_tools_info=mcp_tools_info,
+                    **decompose_message_kwargs,
                 ),
             }
 
-            print(decompose_message["content"])
             if round_idx == 0:
                 supervisor_messages.append(decompose_message)
             else:
@@ -288,6 +296,7 @@ class Minions:
                             step_number=round_idx + 1,
                             feedback=feedback,
                             scratchpad=scratchpad,
+                            mcp_tools_info=mcp_tools_info,
                             **decompose_message_kwargs,
                         ),
                     }
@@ -312,7 +321,6 @@ class Minions:
                 )
                 if self.callback:
                     self.callback("supervisor", supervisor_messages[-1], is_final=True)
-
 
                 code_block_match = re.search(
                     r"```(?:python)?\s*(.*?)```",
@@ -382,9 +390,10 @@ class Minions:
                         for job_id, job_manifest in enumerate(job_manifests)
                     ]
 
-
                     if len(job_manifests) > self.max_jobs_per_round:
-                        print(f"Exceeded max jobs per round: {len(job_manifests)} > {self.max_jobs_per_round}. Trying again.")
+                        print(
+                            f"Exceeded max jobs per round: {len(job_manifests)} > {self.max_jobs_per_round}. Trying again."
+                        )
                         supervisor_messages.append(
                             {
                                 "role": "user",
@@ -392,7 +401,9 @@ class Minions:
                             }
                         )
                         continue
-                    print(f"Created {len(job_manifests)} job manifests ({len(chunk_ids)} chunks, apriori requested {self.num_samples} samples per chunk, {len(task_ids)} tasks)")
+                    print(
+                        f"Created {len(job_manifests)} job manifests ({len(chunk_ids)} chunks, apriori requested {self.num_samples} samples per chunk, {len(task_ids)} tasks)"
+                    )
                     break
                 except Exception as e:
                     print(
@@ -407,7 +418,9 @@ class Minions:
                     )
             else:
                 # if we have exhausted all attempts, break
-                print(f"Exhausted all attempts to execute code. Breaking out of round loop.")
+                print(
+                    f"Exhausted all attempts to execute code. Breaking out of round loop."
+                )
                 break
             # --------- END ---------
 
@@ -419,17 +432,17 @@ class Minions:
             print(f"Total number of job_manifests: {len(job_manifests)}")
             for job_manifest in job_manifests:
                 # Each worker is going to see a unique task+chunk combo
-                # removed the external list 
+                # removed the external list
                 worker_messages = {
-                        "role": "user",
-                        "content": self.worker_prompt_template.format(
-                            context=job_manifest.chunk,
-                            task=job_manifest.task,
-                            advice=job_manifest.advice,
-                        ),
+                    "role": "user",
+                    "content": self.worker_prompt_template.format(
+                        context=job_manifest.chunk,
+                        task=job_manifest.task,
+                        advice=job_manifest.advice,
+                    ),
                 }
                 worker_chats.append(worker_messages)
-             
+
             if self.callback:
                 self.callback("worker", None, is_final=False)
 
@@ -448,7 +461,11 @@ class Minions:
                 worker_chats, worker_response, job_manifests, done_reasons
             ):
                 if done_reason == "length":
-                    job_output = JobOutput(answer=None, explanation="The model returned a truncated response. Please try again.", citation=None)
+                    job_output = JobOutput(
+                        answer=None,
+                        explanation="The model returned a truncated response. Please try again.",
+                        citation=None,
+                    )
                     continue
                 elif done_reason == "stop":
                     job_output = extract_job_output(response=sample)
@@ -467,18 +484,18 @@ class Minions:
             }
             if self.callback:
                 self.callback("worker", jobs, is_final=True)
-                
+
             try:
                 # Model generated Filter + Aggregation code
                 for job in jobs:
                     print(job.output.answer)
+
                 aggregated_str, code_block = self._execute_code(
                     code_block,
                     starting_globals=starting_globals,
                     fn_name="transform_outputs",  # the global variable to extract from the code block
                     **fn_kwargs,
                 )
-
 
             except Exception as e:
                 # 4. [EDGE] FILTER
@@ -491,9 +508,10 @@ class Minions:
 
                 for job in jobs:
                     job.include = filter_fn(job)
-                
-               
-                print(f"After filtering, {sum(job.include for job in jobs)}/{len(jobs)} jobs were included")
+
+                print(
+                    f"After filtering, {sum(job.include for job in jobs)}/{len(jobs)} jobs were included"
+                )
                 # ---------- END ----------
 
                 # 5. [REMOTE] AGGREGATE AND FILTER --- Synthesize the results from the worker models
@@ -550,7 +568,9 @@ class Minions:
                         "content": self.synthesis_final_prompt.format(
                             extractions=aggregated_str,
                             question=task,
-                            scratchpad=scratchpad if scratchpad else "No previous progress.",
+                            scratchpad=(
+                                scratchpad if scratchpad else "No previous progress."
+                            ),
                         ),
                     }
                 )
@@ -562,22 +582,24 @@ class Minions:
                         "content": self.synthesis_cot_prompt.format(
                             extractions=aggregated_str,
                             question=task,
-                            scratchpad=scratchpad if scratchpad else "No previous progress.",
+                            scratchpad=(
+                                scratchpad if scratchpad else "No previous progress."
+                            ),
                         ),
                     }
                 )
-                
+
                 step_by_step_response, usage = self.remote_client.chat(
                     supervisor_messages,
                 )
                 remote_usage += usage
                 if self.callback:
                     self.callback("supervisor", step_by_step_response[0])
-                
+
                 supervisor_messages.append(
                     {"role": "assistant", "content": step_by_step_response[0]}
                 )
-                
+
                 # Second step: Get structured output
                 supervisor_messages.append(
                     {
@@ -594,26 +616,28 @@ class Minions:
                         self.callback("supervisor", None, is_final=False)
                     # Request JSON response from remote client
                     synthesized_response, usage = self.remote_client.chat(
-                        supervisor_messages,
-                        response_format={"type": "json_object"}
+                        supervisor_messages, response_format={"type": "json_object"}
                     )
-                    
+
                     # Parse and validate JSON response
                     response_text = synthesized_response[0]
-                    print(f"Attempt {attempt_idx + 1}/{max_attempts} response: {response_text}")
-                    
+                    print(
+                        f"Attempt {attempt_idx + 1}/{max_attempts} response: {response_text}"
+                    )
+
                     obj = json.loads(response_text)
                     if not isinstance(obj, dict) or "decision" not in obj:
                         raise ValueError("Response missing required 'decision' field")
-                        
+
                     # Valid JSON with decision field found
                     break
-                    
+
                 except (json.JSONDecodeError, ValueError) as e:
                     print(f"Attempt {attempt_idx + 1}/{max_attempts} failed: {str(e)}")
                     if attempt_idx == max_attempts - 1:
-                        raise ValueError(f"Failed to get valid JSON response after {max_attempts} attempts")
-
+                        raise ValueError(
+                            f"Failed to get valid JSON response after {max_attempts} attempts"
+                        )
 
             supervisor_messages.append(
                 {"role": "assistant", "content": synthesized_response[0]}
@@ -644,7 +668,9 @@ class Minions:
                 scratchpad = obj.get("scratchpad", None)
 
         if final_answer == None:
-            print(f"Exhausted all rounds without finding a final answer. Returning the last synthesized response.")
+            print(
+                f"Exhausted all rounds without finding a final answer. Returning the last synthesized response."
+            )
             final_answer = "No answer found."
 
         return {

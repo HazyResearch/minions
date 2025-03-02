@@ -1,6 +1,8 @@
 import streamlit as st
 from minions.minion import Minion
 from minions.minions import Minions
+from minions.minions_mcp import SyncMinionsMCP, MCPConfigManager
+
 from minions.clients.ollama import OllamaClient
 from minions.clients.openai import OpenAIClient
 from minions.clients.anthropic import AnthropicClient
@@ -18,6 +20,12 @@ import io
 from pydantic import BaseModel
 import json
 from streamlit_theme import st_theme
+
+
+class StructuredLocalOutput(BaseModel):
+    explanation: str
+    citation: str | None
+    answer: str | None
 
 
 # Set custom sidebar width
@@ -277,6 +285,7 @@ def initialize_clients(
     remote_max_tokens,
     api_key,
     num_ctx=4096,
+    mcp_server_name=None,
 ):
     """Initialize the local and remote clients outside of the run_protocol function."""
     # Use session_state instead of global variables
@@ -290,9 +299,10 @@ def initialize_clients(
     st.session_state.remote_max_tokens = remote_max_tokens
     st.session_state.provider = provider
     st.session_state.api_key = api_key
+    st.session_state.mcp_server_name = mcp_server_name
 
     # For Minions we want asynchronous local chunk processing:
-    if protocol == "Minions":
+    if protocol in ["Minions", "Minions-MCP"]:
         use_async = True
         # For Minions, we use a fixed context size since it processes chunks
         minions_ctx = 4096
@@ -301,7 +311,7 @@ def initialize_clients(
             temperature=local_temperature,
             max_tokens=int(local_max_tokens),
             num_ctx=minions_ctx,
-            structured_output_schema=JobOutput,
+            structured_output_schema=StructuredLocalOutput,
             use_async=use_async,
         )
     else:
@@ -364,7 +374,14 @@ def initialize_clients(
             st.session_state.remote_client,
             callback=message_callback,
         )
-    else:
+    elif protocol == "Minions-MCP":
+        st.session_state.method = SyncMinionsMCP(
+            local_client=st.session_state.local_client,
+            remote_client=st.session_state.remote_client,
+            mcp_server_name=mcp_server_name,
+            callback=message_callback,
+        )
+    else:  # Minion protocol
         st.session_state.method = Minion(
             st.session_state.local_client,
             st.session_state.remote_client,
@@ -436,12 +453,22 @@ def run_protocol(task, context, doc_metadata, status, protocol):
         st.write("Solving task...")
         execution_start_time = time.time()
 
-        output = st.session_state.method(
-            task=task,
-            doc_metadata=doc_metadata,
-            context=[context],
-            max_rounds=5,
-        )
+        # Pass is_privacy parameter when using Minion protocol
+        if protocol == "Minion":
+            output = st.session_state.method(
+                task=task,
+                doc_metadata=doc_metadata,
+                context=[context],
+                max_rounds=5,
+                is_privacy=privacy_mode,  # Pass the privacy mode setting
+            )
+        else:
+            output = st.session_state.method(
+                task=task,
+                doc_metadata=doc_metadata,
+                context=[context],
+                max_rounds=5,
+            )
 
         execution_time = time.time() - execution_start_time
 
@@ -577,13 +604,58 @@ with st.sidebar:
     st.subheader("Protocol")
 
     if selected_provider in ["OpenAI", "Together", "OpenRouter"]:
+        protocol_options = ["Minion", "Minions", "Minions-MCP"]
         protocol = st.segmented_control(
-            "Communication protocol", options=["Minion", "Minions"], default="Minion"
+            "Communication protocol", options=protocol_options, default="Minion"
         )
+
+        # Add privacy mode toggle when Minion protocol is selected
+        if protocol == "Minion":
+            privacy_mode = st.toggle(
+                "Privacy Mode",
+                value=False,
+                help="When enabled, worker responses will be filtered to remove potentially sensitive information",
+            )
+        else:
+            privacy_mode = False
+
+        # Add MCP server selection when Minions-MCP is selected
+        if protocol == "Minions-MCP":
+            # Add disclaimer about mcp.json configuration
+            st.warning(
+                "**Important:** To use Minions-MCP, make sure your `mcp.json` file is properly configured with your desired MCP servers. "
+            )
+
+            # Initialize MCP config manager to get available servers
+            mcp_config_manager = MCPConfigManager()
+            available_servers = mcp_config_manager.list_servers()
+
+            if available_servers:
+                mcp_server_name = st.selectbox(
+                    "MCP Server",
+                    options=available_servers,
+                    index=0 if "filesystem" in available_servers else 0,
+                )
+                # Store the selected server name in session state
+                st.session_state.mcp_server_name = mcp_server_name
+            else:
+                st.warning(
+                    "No MCP servers found in configuration. Please check your MCP configuration."
+                )
+                mcp_server_name = "filesystem"  # Default fallback
+                st.session_state.mcp_server_name = mcp_server_name
+
     else:
         # For other providers, default to Minion protocol
         protocol = "Minion"
         st.info("Only the Minion protocol is available for this provider.")
+
+        # Add privacy mode toggle for Minion protocol
+        privacy_mode = st.toggle(
+            "Privacy Mode",
+            value=False,
+            help="When enabled, worker responses will be filtered to remove potentially sensitive information",
+        )
 
     # Model Settings
     st.subheader("Model Settings")
@@ -728,6 +800,7 @@ uploaded_files = st.file_uploader(
     accept_multiple_files=True,
 )
 
+
 file_content = ""
 if uploaded_files:
     all_file_contents = []
@@ -822,6 +895,14 @@ if user_query:
             ):
 
                 st.write(f"Initializing clients for {protocol} protocol...")
+
+                # Get MCP server name if using Minions-MCP
+                mcp_server_name = None
+                if protocol == "Minions-MCP":
+                    mcp_server_name = st.session_state.get(
+                        "mcp_server_name", "filesystem"
+                    )
+
                 initialize_clients(
                     local_model_name,
                     remote_model_name,
@@ -833,6 +914,7 @@ if user_query:
                     remote_max_tokens,
                     provider_key,
                     num_ctx,
+                    mcp_server_name=mcp_server_name,
                 )
                 # Store the current protocol in session state
                 st.session_state.current_protocol = protocol

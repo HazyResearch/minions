@@ -453,12 +453,22 @@ def run_protocol(task, context, doc_metadata, status, protocol):
         st.write("Solving task...")
         execution_start_time = time.time()
 
-        output = st.session_state.method(
-            task=task,
-            doc_metadata=doc_metadata,
-            context=[context],
-            max_rounds=5,
-        )
+        # Pass is_privacy parameter when using Minion protocol
+        if protocol == "Minion":
+            output = st.session_state.method(
+                task=task,
+                doc_metadata=doc_metadata,
+                context=[context],
+                max_rounds=5,
+                is_privacy=privacy_mode,  # Pass the privacy mode setting
+            )
+        else:
+            output = st.session_state.method(
+                task=task,
+                doc_metadata=doc_metadata,
+                context=[context],
+                max_rounds=5,
+            )
 
         execution_time = time.time() - execution_start_time
 
@@ -599,6 +609,16 @@ with st.sidebar:
             "Communication protocol", options=protocol_options, default="Minion"
         )
 
+        # Add privacy mode toggle when Minion protocol is selected
+        if protocol == "Minion":
+            privacy_mode = st.toggle(
+                "Privacy Mode",
+                value=False,
+                help="When enabled, worker responses will be filtered to remove potentially sensitive information",
+            )
+        else:
+            privacy_mode = False
+
         # Add MCP server selection when Minions-MCP is selected
         if protocol == "Minions-MCP":
             # Add disclaimer about mcp.json configuration
@@ -629,6 +649,13 @@ with st.sidebar:
         # For other providers, default to Minion protocol
         protocol = "Minion"
         st.info("Only the Minion protocol is available for this provider.")
+
+        # Add privacy mode toggle for Minion protocol
+        privacy_mode = st.toggle(
+            "Privacy Mode",
+            value=False,
+            help="When enabled, worker responses will be filtered to remove potentially sensitive information",
+        )
 
     # Model Settings
     st.subheader("Model Settings")
@@ -772,6 +799,7 @@ uploaded_files = st.file_uploader(
     type=["txt", "pdf"],
     accept_multiple_files=True,
 )
+
 
 file_content = ""
 if uploaded_files:

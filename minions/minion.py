@@ -7,6 +7,8 @@ from minions.prompts.minion import (
     SUPERVISOR_FINAL_PROMPT,
     SUPERVISOR_INITIAL_PROMPT,
     WORKER_SYSTEM_PROMPT,
+    WORKER_PRIVACY_SHIELD_PROMPT,
+    REFORMAT_QUERY_PROMPT,
 )
 from minions.usage import Usage
 
@@ -21,6 +23,7 @@ def _escape_newlines_in_strings(json_str: str) -> str:
         json_str,
         flags=re.DOTALL,
     )
+
 
 def _extract_json(text: str) -> Dict[str, Any]:
     """Extract JSON from text that may be wrapped in markdown code blocks."""
@@ -62,7 +65,12 @@ class Minion:
         self.callback = callback
 
     def __call__(
-        self, task: str, context: List[str], max_rounds=None, doc_metadata=None
+        self,
+        task: str,
+        context: List[str],
+        max_rounds=None,
+        doc_metadata=None,
+        is_privacy=False,
     ):
         """Run the minion protocol to answer a task using local and remote models.
 
@@ -74,33 +82,86 @@ class Minion:
         Returns:
             Dict containing final_answer, conversation histories, and usage statistics
         """
-        if max_rounds is None:
-            max_rounds = self.max_rounds
-
-        # Join context sections
-        context = "\n\n".join(context)
-
-        # Initialize message histories and usage tracking
-        supervisor_messages = [
-            {
-                "role": "user",
-                "content": SUPERVISOR_INITIAL_PROMPT.format(task=task),
-            }
-        ]
-        worker_messages = [
-            {
-                "role": "system",
-                "content": WORKER_SYSTEM_PROMPT.format(context=context, task=task),
-            }
-        ]
-
+        # print whether privacy is enabled
+        print("Privacy is enabled: ", is_privacy)
         remote_usage = Usage()
         local_usage = Usage()
+
+        # if privacy import from minions.utils.pii_extraction
+        if is_privacy:
+            from minions.utils.pii_extraction import PIIExtractor
+
+            # Extract PII from context
+            pii_extractor = PIIExtractor()
+            str_context = "\n\n".join(context)
+            pii_extracted = pii_extractor.extract_pii(str_context)
+
+            # Extract PII from query
+            query_pii_extracted = pii_extractor.extract_pii(task)
+            reformat_query_task = REFORMAT_QUERY_PROMPT.format(
+                query=task, pii_extracted=str(query_pii_extracted)
+            )
+
+            # Clean PII from query
+            reformatted_task, usage, done_reason = self.local_client.chat(
+                messages=[{"role": "user", "content": reformat_query_task}]
+            )
+            local_usage += usage
+            pii_reformatted_task = reformatted_task[0]
+
+            # Log the reformatted task
+            output = f"""**PII Reformated Task:**
+            {pii_reformatted_task}
+            """
+
+            if self.callback:
+                self.callback("worker", output)
+
+            # Initialize message histories & join context sections
+            context = "\n\n".join(context)
+
+            # Initialize message histories
+            supervisor_messages = [
+                {
+                    "role": "user",
+                    "content": SUPERVISOR_INITIAL_PROMPT.format(
+                        task=pii_reformatted_task
+                    ),
+                }
+            ]
+            worker_messages = [
+                {
+                    "role": "system",
+                    "content": WORKER_SYSTEM_PROMPT.format(context=context, task=task),
+                }
+            ]
+        else:
+            # Join context sections
+            context = "\n\n".join(context)
+
+            supervisor_messages = [
+                {
+                    "role": "user",
+                    "content": SUPERVISOR_INITIAL_PROMPT.format(task=task),
+                }
+            ]
+            worker_messages = [
+                {
+                    "role": "system",
+                    "content": WORKER_SYSTEM_PROMPT.format(context=context, task=task),
+                }
+            ]
+
+        if max_rounds is None:
+            max_rounds = self.max_rounds
 
         # Initial supervisor call to get first question
         if self.callback:
             self.callback("supervisor", None, is_final=False)
-        supervisor_response, supervisor_usage = self.remote_client.chat(messages=supervisor_messages)
+
+        supervisor_response, supervisor_usage = self.remote_client.chat(
+            messages=supervisor_messages
+        )
         remote_usage += supervisor_usage
         supervisor_messages.append(
             {"role": "assistant", "content": supervisor_response[0]}
@@ -119,11 +180,45 @@ class Minion:
             print("getting worker's response")
             if self.callback:
                 self.callback("worker", None, is_final=False)
-            worker_response, worker_usage, done_reason = self.local_client.chat(messages=worker_messages)
+
+            worker_response, worker_usage, done_reason = self.local_client.chat(
+                messages=worker_messages
+            )
             local_usage += worker_usage
-            worker_messages.append({"role": "assistant", "content": worker_response[0]})
-            if self.callback:
-                self.callback("worker", worker_messages[-1])
+
+            if is_privacy:
+                if self.callback:
+                    output = f"""**_My output (pre-privacy shield):_**
+
+                    {worker_response[0]}
+                    """
+                    self.callback("worker", output)
+
+                worker_privacy_shield_prompt = WORKER_PRIVACY_SHIELD_PROMPT.format(
+                    output=worker_response[0],
+                    pii_extracted=str(pii_extracted),
+                )
+                worker_response, worker_usage, done_reason = self.local_client.chat(
+                    messages=[{"role": "user", "content": worker_privacy_shield_prompt}]
+                )
+                local_usage += worker_usage
+
+                worker_messages.append(
+                    {"role": "assistant", "content": worker_response[0]}
+                )
+
+                if self.callback:
+                    output = f"""**_My output (post-privacy shield):_**
+
+                    {worker_response[0]}
+                    """
+                    self.callback("worker", output)
+            else:
+                worker_messages.append(
+                    {"role": "assistant", "content": worker_response[0]}
+                )
+                if self.callback:
+                    self.callback("worker", worker_messages[-1])
 
             # Format prompt based on whether this is the final round
             if round == max_rounds - 1:
@@ -141,7 +236,9 @@ class Minion:
                 self.callback("supervisor", None, is_final=False)
 
             # Get supervisor's response
-            supervisor_response, supervisor_usage = self.remote_client.chat(messages=supervisor_messages)
+            supervisor_response, supervisor_usage = self.remote_client.chat(
+                messages=supervisor_messages
+            )
             remote_usage += supervisor_usage
             supervisor_messages.append(
                 {"role": "assistant", "content": supervisor_response[0]}

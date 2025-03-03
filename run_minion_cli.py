@@ -4,6 +4,7 @@ from minions.clients.ollama import OllamaClient
 from minions.clients.openai import OpenAIClient
 from minions.clients.anthropic import AnthropicClient
 from minions.clients.together import TogetherClient
+from minions.clients.groq import GroqClient
 import time
 import argparse
 import fitz  # PyMuPDF for PDF handling
@@ -56,7 +57,7 @@ def format_usage(usage, model_name):
 def main():
     # Parse command line arguments
     parser = argparse.ArgumentParser(description='Run minion with specified provider')
-    parser.add_argument('--provider', type=str, choices=['openai', 'anthropic', 'together'], default='openai',
+    parser.add_argument('--provider', type=str, choices=['openai', 'anthropic', 'together', 'groq'], default='openai',
                       help='The provider to use as remote client (default: openai)')
     parser.add_argument('--remote-model', type=str, default='gpt-4o-mini',
                       help='The remote model to use (default: gpt-4o-mini)')
@@ -83,6 +84,8 @@ def main():
         remote_model_name = "claude-3-sonnet-20240229"
     elif args.provider == 'together':
         remote_model_name = "meta-llama/Llama-3.3-70B-Instruct-Turbo"
+    elif args.provider == 'groq':
+        remote_model_name = "llama3-70b-8192"
     else:  # openai
         remote_model_name = args.remote_model
     
@@ -139,6 +142,12 @@ def main():
         )
     elif args.provider == 'together':
         remote_client = TogetherClient(
+            model_name=remote_model_name,
+            temperature=remote_temperature,
+            max_tokens=remote_max_tokens
+        )
+    elif args.provider == 'groq':
+        remote_client = GroqClient(
             model_name=remote_model_name,
             temperature=remote_temperature,
             max_tokens=remote_max_tokens

@@ -461,6 +461,13 @@ def run_protocol(task, context, doc_metadata, status, protocol):
                 context=[context],
                 max_rounds=5,
                 is_privacy=privacy_mode,  # Pass the privacy mode setting
+            )
+        elif protocol == "Minions":
+            output = st.session_state.method(
+                task=task,
+                doc_metadata=doc_metadata,
+                context=[context],
+                max_rounds=5,
                 use_bm25=use_bm25,
             )
         else:
@@ -469,7 +476,6 @@ def run_protocol(task, context, doc_metadata, status, protocol):
                 doc_metadata=doc_metadata,
                 context=[context],
                 max_rounds=5,
-                use_bm25=use_bm25,
             )
 
         execution_time = time.time() - execution_start_time
@@ -620,6 +626,15 @@ with st.sidebar:
             )
         else:
             privacy_mode = False
+        
+        if protocol == "Minions":
+            use_bm25 = st.toggle(
+                "Smart Retrieval", 
+                value=True,
+                help="When enabled, only the most relevant chunks of context will be examined by minions, speeding up execution",
+                )
+        else:
+            use_bm25 = False
 
         # Add MCP server selection when Minions-MCP is selected
         if protocol == "Minions-MCP":
@@ -659,7 +674,6 @@ with st.sidebar:
             help="When enabled, worker responses will be filtered to remove potentially sensitive information",
         )
 
-    use_bm25 = st.toggle("Smart Retrieval", value=True)
     # Model Settings
     st.subheader("Model Settings")
 

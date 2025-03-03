@@ -5,7 +5,7 @@ import re
 import json
 from pydantic import BaseModel, field_validator, Field
 from inspect import getsource
-from rank_bm25 import BM25Okapi, BM25Plus
+from rank_bm25 import BM25Plus
 import numpy as np
 
 from minions.usage import Usage
@@ -41,23 +41,17 @@ def chunk_by_section(doc: str, max_chunk_size: int = 3000, overlap: int = 20)-> 
         start += max_chunk_size - overlap
     return sections
 
-def retrieve_top_k_chunks(keywords: List[str], chunks: List[str], k: int = 10, weights: Optional[Dict[str, float]] = None) -> List[str]:
+
+def retrieve_top_k_chunks(keywords: List[str], chunks: List[str], weights: Dict[str, float], k: int = 10) -> List[str]:
     '''
     Returns the k most relevant chunks based on weighted BM25+ ranking.
 
     Example:
-        Task: "Understand Mrs. Anderson's tumor marker levels around September 2021"
-        queries = {
-            "Mrs. Anderson": 3.0,  # Patient name is very important
-            "tumor marker": 2.5,   # Medical term is somewhat important
-            "September 2021": 1.0,   # Date has normal importance
-            "Anderson": 1.0   # Synonym of patient name
-            "tumor": 0.5,   # Common Occurrence
-        }
+        Task: "What was Mrs. Anderson's tumor marker levels in 2021"
+        queries = {"Mrs. Anderson": 5.0, "tumor marker": 3.0, "2021": 1.5, "Anderson": 1.0}
         relevant_chunks = retrieve_top_k_chunks(queries.keys(), chunks, k=10, weights=queries)
     '''
     weights = {keyword: weights.get(keyword, 1.0) for keyword in keywords}
-    #bm25_retriever = BMOkapi(chunks)
     bm25_retriever = BM25Plus(chunks)
     
     final_scores = np.zeros(len(chunks))
@@ -66,21 +60,10 @@ def retrieve_top_k_chunks(keywords: List[str], chunks: List[str], k: int = 10, w
         final_scores += weight * scores
     
     top_k_indices = sorted(range(len(final_scores)), key=lambda i: final_scores[i], reverse=True)[:k]
-    top_k_indices = sorted(top_k_indices)  # Sort indices to maintain document order
+    top_k_indices = sorted(top_k_indices)
     relevant_chunks = [chunks[i] for i in top_k_indices]
-    
-    # Debug info
-    print("\nWeighted BM25+ Scores:")
-    for keyword, weight in weights.items():
-        print(f"Keyword: {keyword}, Weight: {weight}")
-    print(f'Scoring {len(chunks)} chunks to find top {k}')
-    print("Final scores:", final_scores)
-    
-    print("\nRELEVANT CHUNKS:")
-    for i, chunk in enumerate(relevant_chunks):
-        print(f"Chunk {i} (score: {final_scores[top_k_indices[i]]:.2f}):", chunk[:100], "...")
-    
     return relevant_chunks
+
 
 class JobManifest(BaseModel):
     chunk: str  # the actual text for the chunk of the document
@@ -191,7 +174,6 @@ class Minions:
         self.num_samples = 1 or kwargs.get("num_samples", None)
         self.worker_batch_size = 1 or kwargs.get("worker_batch_size", None)
         self.max_code_attempts = kwargs.get("max_code_attempts", 10)
-        self.use_bm25 = True
         # TODO: removed worker_prompt 
         self.worker_prompt_template = WORKER_PROMPT_SHORT or kwargs.get(
             "worker_prompt_template", None
@@ -204,19 +186,19 @@ class Minions:
 
         self.decompose_task_prompt = (
             kwargs.get("decompose_task_prompt", None) or
-            (
-                DECOMPOSE_RETRIEVAL_TASK_PROMPT_AGGREGATION_FUNC
-                if self.use_bm25 else
-                DECOMPOSE_TASK_PROMPT_AGGREGATION_FUNC
-            )
+            DECOMPOSE_TASK_PROMPT_AGGREGATION_FUNC
         )
         self.decompose_task_prompt_abbreviated = (
             kwargs.get("decompose_task_prompt_abbreviated", None) or
-            (
-                DECOMPOSE_RETRIEVAL_TASK_PROMPT_AGG_FUNC_LATER_ROUND
-                if self.use_bm25 else
-                DECOMPOSE_TASK_PROMPT_AGG_FUNC_LATER_ROUND
-            )
+            DECOMPOSE_TASK_PROMPT_AGG_FUNC_LATER_ROUND
+        )
+        self.decompose_retrieval_task_prompt = (
+            kwargs.get("decompose_retrieval_task_prompt", None) or
+            DECOMPOSE_RETRIEVAL_TASK_PROMPT_AGGREGATION_FUNC
+        )
+        self.decompose_retrieval_task_prompt_abbreviated = (
+            kwargs.get("decompose_retrieval_task_prompt_abbreviated", None) or
+            DECOMPOSE_RETRIEVAL_TASK_PROMPT_AGG_FUNC_LATER_ROUND
         )
         self.synthesis_cot_prompt = REMOTE_SYNTHESIS_COT or kwargs.get(
             "synthesis_cot_prompt", None
@@ -257,6 +239,7 @@ class Minions:
         num_tasks_per_round=3,
         num_samples_per_task=1,
         mcp_tools_info=None,
+        use_bm25=True,
     ):
         """Run the minions protocol to answer a task using local and remote models.
 
@@ -288,7 +271,6 @@ class Minions:
         if self.callback:
             self.callback("supervisor", None, is_final=False)
 
-        print("====================\nADVICE PROMPT:", supervisor_messages, "\n==================")
         advice_response, usage = self.remote_client.chat(
             supervisor_messages,
         )
@@ -309,15 +291,6 @@ class Minions:
 
         for round_idx in range(self.max_rounds):
             print(f"Round {round_idx + 1}/{self.max_rounds}")
-
-            # chunking_config = {
-            #     "function": retrieve_top_k_chunks if self.use_bm25 else chunk_by_section,
-            #     "example_func_call": (
-            #         "retrieve_top_k_chunks(keywords, document, k=10)" 
-            #         if self.use_bm25 else 
-            #         "chunk_by_section(document)"
-            #     )
-            # }
             total_chars = int(doc_metadata.split("Total extracted text length: ")[1].split(" characters")[0])
 
             decompose_message_kwargs = dict(
@@ -341,24 +314,27 @@ class Minions:
                 total_chars=total_chars,
             )
 
+            decompose_prompt = self.decompose_task_prompt if not use_bm25 \
+                               else self.decompose_retrieval_task_prompt
             # create the decompose prompt -- if in later rounds, use a shorter version
             decompose_message = {
                 "role": "user",
-                "content": self.decompose_task_prompt.format(
+                "content": decompose_prompt.format(
                     step_number=1,
                     mcp_tools_info=mcp_tools_info,
                     **decompose_message_kwargs,
                 ),
             }
-            print("====================\nDECOMPOSE PROMPT:", decompose_message, "\n==================")
 
             if round_idx == 0:
                 supervisor_messages.append(decompose_message)
             else:
+                decompose_prompt_abbrev = self.decompose_task_prompt_abbreviated if not use_bm25 \
+                                          else self.decompose_retrieval_task_prompt_abbreviated
                 if feedback is not None:
                     decompose_message = {
                         "role": "user",
-                        "content": self.decompose_task_prompt_abbreviated.format(
+                        "content": decompose_prompt_abbrev.format(
                             step_number=round_idx + 1,
                             feedback=feedback,
                             scratchpad=scratchpad,
@@ -497,7 +473,7 @@ class Minions:
             # ---------- START ----------
             worker_chats = []
             # output is a list of task_dicts
-            # print totla number of job_manfiests
+            # print total number of job_manfiests
             print(f"Total number of job_manifests: {len(job_manifests)}")
             for job_manifest in job_manifests:
                 # Each worker is going to see a unique task+chunk combo

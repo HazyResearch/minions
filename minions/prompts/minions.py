@@ -490,16 +490,17 @@ def transform_outputs(
 DECOMPOSE_RETRIEVAL_TASK_PROMPT_AGGREGATION_FUNC = """\
 # Decomposition Round #{step_number}
 
-You (the supervisor) cannot directly read the document(s). Instead, you can assign small, isolated tasks to a less capable worker model that sees only a single chunk of text at a time. Any cross-chunk or multi-document reasoning must be handled by you.
+You do not have access to the raw document(s), but instead can assign tasks to small and less capable language models that can read the document(s).
+Note that the document(s) can be very long, so each task should be performed only over a small chunk of text. 
 
 ## Your Job: Write Two Python Functions
 
 ### FUNCTION #1: `prepare_jobs(context, prev_job_manifests, prev_job_outputs) -> List[JobManifest]`
 Goal: this function should return a list of atomic jobs to be performed on chunks of the context.
 Follow the steps below:
-Create focused keyword search queries for retrieving relevant chunks, assigning weights to prioritize key information.
 - Break the document(s) into chunks, adjusting size based on task specificity (broader tasks: ~3000 chars, specific tasks: ~1000 chars).
-- Create focused keyword search queries for retrieving relevant chunks, assigning weights to prioritize key information. Use the *retrieval function*, and chose the top k value to low while maintaining accuracy.
+- Create keywords for retrieving relevant chunks. Extract precise keyword search queries that are **directly derived** from the user's question—avoid overly broad or generic terms.
+- Assign high weights to the most essential terms from the query (e.g., proper nouns, dates, numerical values) to maximize retrieval accuracy. Choose a higher value for `k` (15, 20) if you are unconfident about your keywords.
 - Assign **atomic** jobs to the retrieved chunks, ensuring each task relies only on its assigned chunk.
 - **Re-use** `task_id` for repeated tasks across chunks.
 - Do **not** assign tasks requiring sequential processing in this round—save them for later rounds.
@@ -511,7 +512,6 @@ Create focused keyword search queries for retrieving relevant chunks, assigning 
 - First, filter out irrelevant or empty worker outputs.
 - Aggregate results by `task_id` and `chunk_id`. All **multi-chunk integration** or **global reasoning** is your responsibility here.
 - Return one **aggregated string** for supervisor review, incorporating as much relevant information as possible..
-
 
 {ADVANCED_STEPS_INSTRUCTIONS}
 
@@ -559,19 +559,18 @@ Now, please provide the code for `prepare_jobs()` and `transform_outputs()`.
 DECOMPOSE_RETRIEVAL_TASK_PROMPT_AGG_FUNC_LATER_ROUND ="""\
 # Decomposition Round #{step_number}
 
-You do not have access to the raw document(s), but instead can assign tasks to small and less capable language models that can read the document(s).
-Note that the document(s) can be very long, so each task should be performed only over a small chunk of text. 
+You (the supervisor) cannot directly read the document(s). Instead, you can assign small, isolated tasks to a less capable worker model that sees only a single chunk of text at a time. Any cross-chunk or multi-document reasoning must be handled by you.
 
-
-# Your job is to write two Python functions:
+## Your Job: Write Two Python Functions
 
 Function #1 (prepare_jobs): will output formatted tasks for a small language model.
 -> Make sure that NONE of the tasks require multiple steps. Each task should be atomic! 
 -> Consider using nested for-loops to apply a set of tasks to a set of chunks.
 -> The same `task_id` should be applied to multiple chunks. DO NOT instantiate a new `task_id` for each combination of task and chunk.
 -> Use the conversational history to inform what chunking strategy has already been applied.
--> If the previous job was unsuccessful, try a different chunk_size. Smaller (500) if task is factual and specific; larger (5000) if task is general. Additionally, try a larger retrieval value of k.
--> Create focused keyword search queries for a retrieval system to exactly find the information you need to solve the task. -> Create a weight for each query (larger number is more important) and store it in a dictionary. Feed your queries to the provided *retrieval function*, and determine number of top k most relevant chunks to return, keeping this number as low as possible while maintaining accuracy.
+-> If the previous job was unsuccessful, try a different `chunk_size`: 2000 if task is factual and specific; 5000 if task is general. Try a larger retrieval value of `k` like 20 for retrieval.
+-> Create keywords for retrieving relevant chunks. Extract precise keyword search queries that are **directly derived** from the user's question—avoid overly broad or generic terms. 
+-> Assign high weights to the most essential terms from the query (e.g., proper nouns, dates, numerical values) to maximize retrieval accuracy. Feed your queries to the provided *retrieval function*.
 -> You are provided access to the outputs of the previous jobs (see prev_job_outputs). 
 -> If its helpful, you can reason over the prev_job_outputs vs. the original context.
 -> If tasks should be done sequentially, do not run them all in this round. Wait for the next round to run sequential tasks.
@@ -626,7 +625,7 @@ def prepare_jobs(
     for job_id, output in enumerate(prev_job_outputs):
         # Create a task for extracting mentions of specific keywords
         task = (
-           "Apply the tranformation found in the scratchpad (x**2 + 3) each extracted number"
+           "Apply the transformation found in the scratchpad (x**2 + 3) each extracted number"
         )
         job_manifest = JobManifest(
             chunk=output.answer,

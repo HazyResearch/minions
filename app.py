@@ -453,11 +453,13 @@ def run_protocol(task, context, doc_metadata, status, protocol):
         st.write("Solving task...")
         execution_start_time = time.time()
 
+        # TODO: Change max_rounds back to 5
         output = st.session_state.method(
             task=task,
             doc_metadata=doc_metadata,
             context=[context],
-            max_rounds=5,
+            max_rounds=1,
+            use_bm25=use_bm25
         )
 
         execution_time = time.time() - execution_start_time
@@ -630,6 +632,7 @@ with st.sidebar:
         protocol = "Minion"
         st.info("Only the Minion protocol is available for this provider.")
 
+    use_bm25 = st.toggle("Smart Retrieval", value=True)
     # Model Settings
     st.subheader("Model Settings")
 

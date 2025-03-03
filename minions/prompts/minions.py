@@ -498,9 +498,9 @@ Note that the document(s) can be very long, so each task should be performed onl
 ### FUNCTION #1: `prepare_jobs(context, prev_job_manifests, prev_job_outputs) -> List[JobManifest]`
 Goal: this function should return a list of atomic jobs to be performed on chunks of the context.
 Follow the steps below:
-- Break the document(s) into chunks, adjusting size based on task specificity (broader tasks: ~3000 chars, specific tasks: ~1000 chars).
-- Create keywords for retrieving relevant chunks. Extract precise keyword search queries that are **directly derived** from the user's question—avoid overly broad or generic terms.
-- Assign high weights to the most essential terms from the query (e.g., proper nouns, dates, numerical values) to maximize retrieval accuracy. Choose a higher value for `k` (15, 20) if you are unconfident about your keywords.
+- Break the document(s) into chunks, adjusting size based on task specificity (broader tasks: ~3000 chars, specific tasks: ~1500 chars).
+- For each subtask you create, create keywords for retrieving relevant chunks. Extract precise keyword search queries that are **directly derived** from the user's question and the subtask—avoid overly broad or generic terms.
+- Assign high weights to the most essential terms that uniquely apply to the query and subtask (e.g. terms, dates, numerical values) to maximize retrieval accuracy. Choose a higher value for `k` (15) if you are unconfident about your keywords.
 - Assign **atomic** jobs to the retrieved chunks, ensuring each task relies only on its assigned chunk.
 - **Re-use** `task_id` for repeated tasks across chunks.
 - Do **not** assign tasks requiring sequential processing in this round—save them for later rounds.

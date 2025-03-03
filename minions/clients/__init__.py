@@ -4,6 +4,7 @@ from minions.clients.anthropic import AnthropicClient
 from minions.clients.together import TogetherClient
 from minions.clients.perplexity import PerplexityAIClient
 from minions.clients.openrouter import OpenRouterClient
+from minions.clients.mlx_lm import MLXLMClient
 
 __all__ = [
     "OllamaClient",
@@ -12,4 +13,5 @@ __all__ = [
     "TogetherClient",
     "PerplexityAIClient",
     "OpenRouterClient",
+    "MLXLMClient",
 ]

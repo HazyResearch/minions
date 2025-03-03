@@ -55,7 +55,12 @@ def _extract_json(text: str) -> Dict[str, Any]:
 
 class Minion:
     def __init__(
-        self, local_client=None, remote_client=None, max_rounds=3, callback=None, log_dir="minion_logs"
+        self,
+        local_client=None,
+        remote_client=None,
+        max_rounds=3,
+        callback=None,
+        log_dir="minion_logs",
     ):
         """Initialize the Minion with local and remote LLM clients.
 
@@ -80,7 +85,7 @@ class Minion:
         context: List[str],
         max_rounds=None,
         doc_metadata=None,
-        logging_id=None, # this is the name/id to give to the logging .json file
+        logging_id=None,  # this is the name/id to give to the logging .json file
         is_privacy=False,
     ):
         """Run the minion protocol to answer a task using local and remote models.
@@ -103,11 +108,11 @@ class Minion:
         context = "\n\n".join(context)
 
         # Initialize the log structure
-        conversation_log= {
+        conversation_log = {
             "TASK": task,
             "CONTEXT": context,
             "Conversation": [],
-            "Generated_final_answer": ""
+            "Generated_final_answer": "",
         }
 
         # Initialize message histories and usage tracking
@@ -119,11 +124,13 @@ class Minion:
         ]
 
         # Add initial supervisor prompt to conversation log
-        conversation_log["Conversation"].append({
-            "user": "remote",
-            "prompt": SUPERVISOR_INITIAL_PROMPT.format(task=task),
-            "output": None
-        })
+        conversation_log["Conversation"].append(
+            {
+                "user": "remote",
+                "prompt": SUPERVISOR_INITIAL_PROMPT.format(task=task),
+                "output": None,
+            }
+        )
 
         worker_messages = [
             {
@@ -137,6 +144,9 @@ class Minion:
 
         remote_usage = Usage()
         local_usage = Usage()
+
+        worker_messages = []
+        supervisor_messages = []
 
         # if privacy import from minions.utils.pii_extraction
         if is_privacy:
@@ -168,9 +178,6 @@ class Minion:
             if self.callback:
                 self.callback("worker", output)
 
-            # Initialize message histories & join context sections
-            context = "\n\n".join(context)
-
             # Initialize message histories
             supervisor_messages = [
                 {
@@ -187,9 +194,6 @@ class Minion:
                 }
             ]
         else:
-            # Join context sections
-            context = "\n\n".join(context)
-
             supervisor_messages = [
                 {
                     "role": "user",
@@ -212,11 +216,12 @@ class Minion:
 
         if isinstance(self.remote_client, (OpenAIClient, TogetherClient)):
             supervisor_response, supervisor_usage = self.remote_client.chat(
-                messages=supervisor_messages,
-                response_format={"type": "json_object"}
+                messages=supervisor_messages, response_format={"type": "json_object"}
             )
         else:
-            supervisor_response, supervisor_usage = self.remote_client.chat(messages=supervisor_messages)
+            supervisor_response, supervisor_usage = self.remote_client.chat(
+                messages=supervisor_messages
+            )
 
         remote_usage += supervisor_usage
         supervisor_messages.append(
@@ -237,11 +242,9 @@ class Minion:
         worker_messages.append({"role": "user", "content": supervisor_json["message"]})
 
         # Add worker prompt to conversation log
-        conversation_log["Conversation"].append({
-            "user": "local",
-            "prompt": supervisor_json["message"],
-            "output": None
-        })
+        conversation_log["Conversation"].append(
+            {"user": "local", "prompt": supervisor_json["message"], "output": None}
+        )
 
         final_answer = None
         print("entering loop with max_rounds: ", max_rounds)
@@ -254,6 +257,8 @@ class Minion:
             worker_response, worker_usage, done_reason = self.local_client.chat(
                 messages=worker_messages
             )
+
+            print("worker_response: ", worker_response[0])
             local_usage += worker_usage
 
             worker_messages.append({"role": "assistant", "content": worker_response[0]})
@@ -297,10 +302,10 @@ class Minion:
                 worker_messages.append(
                     {"role": "assistant", "content": worker_response[0]}
                 )
-                
+
                 # Update the last conversation entry with the output
                 conversation_log["Conversation"][-1]["output"] = worker_response[0]
-            
+
                 if self.callback:
                     self.callback("worker", worker_messages[-1])
 
@@ -311,27 +316,23 @@ class Minion:
                 )
 
                 # Add supervisor final prompt to conversation log
-                conversation_log["Conversation"].append({
-                    "user": "remote",
-                    "prompt": supervisor_prompt,
-                    "output": None
-                })
+                conversation_log["Conversation"].append(
+                    {"user": "remote", "prompt": supervisor_prompt, "output": None}
+                )
             else:
                 # First step: Think through the synthesis
-                cot_prompt = REMOTE_SYNTHESIS_COT.format(
-                    response=worker_response[0]
-                )
+                cot_prompt = REMOTE_SYNTHESIS_COT.format(response=worker_response[0])
 
                 # Add supervisor COT prompt to conversation log
-                conversation_log["Conversation"].append({
-                    "user": "remote",
-                    "prompt": cot_prompt,
-                    "output": None
-                })
+                conversation_log["Conversation"].append(
+                    {"user": "remote", "prompt": cot_prompt, "output": None}
+                )
 
                 supervisor_messages.append({"role": "user", "content": cot_prompt})
 
-                step_by_step_response, usage = self.remote_client.chat(supervisor_messages)
+                step_by_step_response, usage = self.remote_client.chat(
+                    supervisor_messages
+                )
 
                 remote_usage += usage
                 if self.callback:
@@ -342,19 +343,19 @@ class Minion:
                 )
 
                 # Update the last conversation entry with the output
-                conversation_log["Conversation"][-1]["output"] = step_by_step_response[0]
+                conversation_log["Conversation"][-1]["output"] = step_by_step_response[
+                    0
+                ]
 
                 # Second step: Get structured output
                 supervisor_prompt = REMOTE_SYNTHESIS_FINAL.format(
-                    response = step_by_step_response[0]
+                    response=step_by_step_response[0]
                 )
 
                 # Add supervisor synthesis prompt to conversation log
-                conversation_log["Conversation"].append({
-                    "user": "remote",
-                    "prompt": supervisor_prompt,
-                    "output": None
-                })
+                conversation_log["Conversation"].append(
+                    {"user": "remote", "prompt": supervisor_prompt, "output": None}
+                )
 
             supervisor_messages.append({"role": "user", "content": supervisor_prompt})
 
@@ -365,10 +366,12 @@ class Minion:
             if isinstance(self.remote_client, (OpenAIClient, TogetherClient)):
                 supervisor_response, supervisor_usage = self.remote_client.chat(
                     messages=supervisor_messages,
-                    response_format={"type": "json_object"}
+                    response_format={"type": "json_object"},
                 )
             else:
-                supervisor_response, supervisor_usage = self.remote_client.chat(messages=supervisor_messages)
+                supervisor_response, supervisor_usage = self.remote_client.chat(
+                    messages=supervisor_messages
+                )
 
             remote_usage += supervisor_usage
             supervisor_messages.append(
@@ -389,16 +392,12 @@ class Minion:
                 break
             else:
                 next_question = supervisor_json["message"]
-                worker_messages.append(
-                    {"role": "user", "content": next_question}
-                )
+                worker_messages.append({"role": "user", "content": next_question})
 
                 # Add next worker prompt to conversation log
-                conversation_log["Conversation"].append({
-                    "user": "local",
-                    "prompt": next_question,
-                    "output": None
-                })
+                conversation_log["Conversation"].append(
+                    {"user": "local", "prompt": next_question, "output": None}
+                )
 
         if final_answer is None:
             final_answer = "No answer found."
@@ -411,11 +410,11 @@ class Minion:
         else:
             # fall back to timestamp + task abbrev
             timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-            safe_task = re.sub(r'[^a-zA-Z0-9]', '_', task[:15])
+            safe_task = re.sub(r"[^a-zA-Z0-9]", "_", task[:15])
             log_filename = f"{timestamp}_{safe_task}.json"
         log_path = os.path.join(self.log_dir, log_filename)
 
-        with open(log_path, 'w', encoding='utf-8') as f:
+        with open(log_path, "w", encoding="utf-8") as f:
             json.dump(conversation_log, f, indent=2, ensure_ascii=False)
 
         return {
@@ -424,5 +423,5 @@ class Minion:
             "worker_messages": worker_messages,
             "remote_usage": remote_usage,
             "local_usage": local_usage,
-            "log_file": log_path
+            "log_file": log_path,
         }

@@ -11,6 +11,7 @@ setup(
         "openai",  # for OpenAI client
         "anthropic",  # for Anthropic client
         "together",  # for Together client
+        "groq",  # for Groq client
         "requests",  # for API calls
         "tiktoken",  # for token counting
         "pymupdf",  # for PDF processing

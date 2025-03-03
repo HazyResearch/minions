@@ -9,6 +9,7 @@ from minions.clients.anthropic import AnthropicClient
 from minions.clients.together import TogetherClient
 from minions.clients.perplexity import PerplexityAIClient
 from minions.clients.openrouter import OpenRouterClient
+from minions.clients.groq import GroqClient
 
 import os
 import time
@@ -54,6 +55,7 @@ PROVIDER_TO_ENV_VAR_KEY = {
     "Anthropic": "ANTHROPIC_API_KEY",
     "Together": "TOGETHER_API_KEY",
     "Perplexity": "PERPLEXITY_API_KEY",
+    "Groq": "GROQ_API_KEY",
 }
 
 
@@ -360,6 +362,13 @@ def initialize_clients(
             max_tokens=int(remote_max_tokens),
             api_key=api_key,
         )
+    elif provider == "Groq":
+        st.session_state.remote_client = GroqClient(
+            model_name=remote_model_name,
+            temperature=remote_temperature,
+            max_tokens=int(remote_max_tokens),
+            api_key=api_key,
+        )
     else:  # OpenAI
         st.session_state.remote_client = OpenAIClient(
             model_name=remote_model_name,
@@ -552,6 +561,21 @@ def validate_openrouter_key(api_key):
         return False, str(e)
 
 
+def validate_groq_key(api_key):
+    try:
+        client = GroqClient(
+            model_name="llama3-70b-8192",  # Use a common model for testing
+            api_key=api_key,
+            temperature=0.0,
+            max_tokens=1,
+        )
+        messages = [{"role": "user", "content": "Say yes"}]
+        client.chat(messages)
+        return True, ""
+    except Exception as e:
+        return False, str(e)
+
+
 # validate
 
 
@@ -564,10 +588,10 @@ with st.sidebar:
     provider_col, key_col = st.columns([1, 2])
     with provider_col:
         # Make sure OpenRouter is in the list and properly displayed
-        providers = ["OpenAI", "OpenRouter", "Together", "Perplexity", "Anthropic"]
+        providers = ["OpenAI", "OpenRouter", "Together", "Perplexity", "Anthropic", "Groq"]
         selected_provider = st.selectbox(
             "Select LLM provider",
-            options=["OpenAI", "OpenRouter", "Together", "Perplexity", "Anthropic"],
+            options=["OpenAI", "OpenRouter", "Together", "Perplexity", "Anthropic", "Groq"],
             index=0,
         )  # Set OpenAI as default (index 0)
 
@@ -593,6 +617,8 @@ with st.sidebar:
             is_valid, msg = validate_together_key(api_key)
         elif selected_provider == "Perplexity":
             is_valid, msg = validate_perplexity_key(api_key)
+        elif selected_provider == "Groq":
+            is_valid, msg = validate_groq_key(api_key)
         else:
             raise ValueError(f"Invalid provider: {selected_provider}")
 
@@ -767,6 +793,14 @@ with st.sidebar:
                 "sonar-reasoning": "sonar-reasoning",
                 "sonar-reasoning-pro": "sonar-reasoning-pro",
                 "sonar-deep-research": "sonar-deep-research",
+            }
+            default_model_index = 0
+        elif selected_provider == "Groq":
+            model_mapping = {
+                "llama-3.3-70b-versatile (Recommended)": "llama-3.3-70b-versatile",
+                "llama-3.3-70b-specdec": "llama-3.3-70b-specdec",
+                "deepseek-r1-distill-llama-70b-specdec": "deepseek-r1-distill-llama-70b-specdec",
+                "qwen-2.5-32b": "qwen-2.5-32b",
             }
             default_model_index = 0
         else:

@@ -17,6 +17,7 @@ setup(
         "st-theme",
         "mcp",  # mcp
         "spacy",  # for PII extraction
+        "rank_bm25",  # for smart retrieval
     ],
     author="Sabri, Avanika, and Dan",
     description="A package for running minion protocols with local and remote LLMs",

@@ -498,7 +498,7 @@ Note that the document(s) can be very long, so each task should be performed onl
 ### FUNCTION #1: `prepare_jobs(context, prev_job_manifests, prev_job_outputs) -> List[JobManifest]`
 Goal: this function should return a list of atomic jobs to be performed on chunks of the context.
 Follow the steps below:
-- Break the document(s) into chunks, adjusting size based on task specificity (broader tasks: ~3000 chars, specific tasks: ~1500 chars).
+- Break the document(s) into chunks, adjusting size based on task specificity.
 - Even if there are multiple documents as context, they will all be joined together under `context[0]`.
 - For each subtask you create, create keywords for retrieving relevant chunks. Extract precise keyword search queries that are **directly derived** from the user's question and the subtask—avoid overly broad or generic terms.
 - Assign high weights to the most essential terms that uniquely apply to the query and subtask (e.g. terms, dates, numerical values) to maximize retrieval accuracy. Choose a higher value for `k` (15) if you are unconfident about your keywords.
@@ -569,7 +569,7 @@ Function #1 (prepare_jobs): will output formatted tasks for a small language mod
 -> Consider using nested for-loops to apply a set of tasks to a set of chunks.
 -> The same `task_id` should be applied to multiple chunks. DO NOT instantiate a new `task_id` for each combination of task and chunk.
 -> Use the conversational history to inform what chunking strategy has already been applied.
--> If the previous job was unsuccessful, try a different `chunk_size`: 2000 if task is factual and specific; 5000 if task is general. Try a larger retrieval value of `k` like 20 for retrieval.
+-> If the previous job was unsuccessful, try a different `chunk_size`. Try a larger retrieval value of `k` like 20 for retrieval.
 -> Create keywords for retrieving relevant chunks. Extract precise keyword search queries that are **directly derived** from the user's question—avoid overly broad or generic terms. 
 -> Assign high weights to the most essential terms from the query (e.g., proper nouns, dates, numerical values) to maximize retrieval accuracy. Feed your queries to the provided *retrieval function*.
 -> You are provided access to the outputs of the previous jobs (see prev_job_outputs). 
@@ -611,79 +611,6 @@ Function #2 (transform_outputs): The second function will aggregate the outputs 
 {chunking_source}
 
 {retrieval_source}
-```
-
-# Here is an example
-```python
-def prepare_jobs(
-    context: List[str],
-    prev_job_manifests: Optional[List[JobManifest]] = None,
-    prev_job_outputs: Optional[List[JobOutput]] = None,
-) -> List[JobManifest]:
-    task_id = 1  # Unique identifier for the task
-
-    # iterate over the previous job outputs because \"scratchpad\" tells me they contain useful information
-    for job_id, output in enumerate(prev_job_outputs):
-        # Create a task for extracting mentions of specific keywords
-        task = (
-           "Apply the transformation found in the scratchpad (x**2 + 3) each extracted number"
-        )
-        job_manifest = JobManifest(
-            chunk=output.answer,
-            task=task,
-            advice="Focus on applying the transformation to each extracted number."
-        )
-        job_manifests.append(job_manifest)
-    return job_manifests
-
-def transform_outputs(
-    jobs: List[Job],
-) -> Dict[str, Any]:
-    def filter_fn(job):
-        answer = job.output.answer
-        return answer is not None or str(answer).lower().strip() != "none" or answer == "null" 
-    
-    # Filter jobs
-    for job in jobs:
-        job.include = filter_fn(job)
-    
-    # Aggregate and filter jobs
-    tasks = {{}}
-    for job in jobs:
-        task_id = job.manifest.task_id
-        chunk_id = job.manifest.chunk_id
-        
-        if task_id not in tasks:
-            tasks[task_id] = {{
-                "task_id": task_id,
-                "task": job.manifest.task,
-                "chunks": {{}},
-            }}
-        
-        if chunk_id not in tasks[task_id]["chunks"]:
-            tasks[task_id]["chunks"][chunk_id] = []
-        
-        tasks[task_id]["chunks"][chunk_id].append(job)
-    
-    # Build the aggregated string
-    aggregated_str = ""
-    for task_id, task_info in tasks.items():
-        aggregated_str += f"## Task (task_id=`{{task_id}}`): {{task_info['task']}}\n\n"
-        
-        for chunk_id, chunk_jobs in task_info["chunks"].items():
-            filtered_jobs = [j for j in chunk_jobs if j.include]
-            
-            aggregated_str += f"### Chunk # {{chunk_id}}\n"
-            if filtered_jobs:
-                for idx, job in enumerate(filtered_jobs, start=1):
-                    aggregated_str += f"   -- Job {{idx}} (job_id=`{{job.manifest.job_id}}`):\n"
-                    aggregated_str += f"   {{job.sample}}\n\n"
-            else:
-                aggregated_str += "   No jobs returned successfully for this chunk.\n\n"
-        
-        aggregated_str += "\n-----------------------\n\n"
-    
-    return aggregated_str
 ```
 """
 

@@ -32,7 +32,9 @@ from minions.prompts.minions import (
 )
 
 
-def chunk_by_section(doc: str, max_chunk_size: int = 3000, overlap: int = 20)-> List[str]:
+def chunk_by_section(
+        doc: str, max_chunk_size: int = 3000, overlap: int = 20
+    )-> List[str]:
     sections = []
     start = 0
     while start < len(doc):
@@ -174,7 +176,7 @@ class Minions:
         self.num_samples = 1 or kwargs.get("num_samples", None)
         self.worker_batch_size = 1 or kwargs.get("worker_batch_size", None)
         self.max_code_attempts = kwargs.get("max_code_attempts", 10)
-        # TODO: removed worker_prompt 
+        # TODO: removed worker_prompt
         self.worker_prompt_template = WORKER_PROMPT_SHORT or kwargs.get(
             "worker_prompt_template", None
         )
@@ -185,20 +187,20 @@ class Minions:
         self.advice_prompt = ADVICE_PROMPT or kwargs.get("advice_prompt", None)
 
         self.decompose_task_prompt = (
-            kwargs.get("decompose_task_prompt", None) or
-            DECOMPOSE_TASK_PROMPT_AGGREGATION_FUNC
+            kwargs.get("decompose_task_prompt", None) 
+            or DECOMPOSE_TASK_PROMPT_AGGREGATION_FUNC
         )
         self.decompose_task_prompt_abbreviated = (
-            kwargs.get("decompose_task_prompt_abbreviated", None) or
-            DECOMPOSE_TASK_PROMPT_AGG_FUNC_LATER_ROUND
+            kwargs.get("decompose_task_prompt_abbreviated", None) 
+            or DECOMPOSE_TASK_PROMPT_AGG_FUNC_LATER_ROUND
         )
         self.decompose_retrieval_task_prompt = (
-            kwargs.get("decompose_retrieval_task_prompt", None) or
-            DECOMPOSE_RETRIEVAL_TASK_PROMPT_AGGREGATION_FUNC
+            kwargs.get("decompose_retrieval_task_prompt", None) 
+            or DECOMPOSE_RETRIEVAL_TASK_PROMPT_AGGREGATION_FUNC
         )
         self.decompose_retrieval_task_prompt_abbreviated = (
-            kwargs.get("decompose_retrieval_task_prompt_abbreviated", None) or
-            DECOMPOSE_RETRIEVAL_TASK_PROMPT_AGG_FUNC_LATER_ROUND
+            kwargs.get("decompose_retrieval_task_prompt_abbreviated", None) 
+            or DECOMPOSE_RETRIEVAL_TASK_PROMPT_AGG_FUNC_LATER_ROUND
         )
         self.synthesis_cot_prompt = REMOTE_SYNTHESIS_COT or kwargs.get(
             "synthesis_cot_prompt", None
@@ -412,8 +414,6 @@ class Minions:
                         fn_name="prepare_jobs",  # the global variable to extract from the code block
                         **fn_kwargs,
                     )
-
-                    # Calculating BM scores and only keeping the jobs with the top 25 scoring chunks
 
                     # We need to coerce the type below to ensure that the type is
                     # not a different `JobManifest` object the model defined in it's

@@ -221,6 +221,7 @@ Also consider the following constraints:
 # Formatting guidelines: Do NOT present your response in a numbered list or describe it as a series of steps.
 # """
 
+
 ADVICE_PROMPT_STEPS = """\
 We need to answer the following question based on {metadata}.: 
 
@@ -357,7 +358,6 @@ Now, please provide the code for `prepare_jobs()` and `transform_outputs()`.
 
 
 """
-
 
 DECOMPOSE_TASK_PROMPT_AGG_FUNC_LATER_ROUND = """\
 # Decomposition Round #{step_number}

@@ -453,7 +453,6 @@ def run_protocol(task, context, doc_metadata, status, protocol):
         st.write("Solving task...")
         execution_start_time = time.time()
 
-
         # Pass is_privacy parameter when using Minion protocol
         if protocol == "Minion":
             output = st.session_state.method(

@@ -632,7 +632,7 @@ with st.sidebar:
                 "Smart Retrieval", 
                 value=True,
                 help="When enabled, only the most relevant chunks of context will be examined by minions, speeding up execution",
-                )
+            )
         else:
             use_bm25 = False
 

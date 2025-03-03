@@ -486,6 +486,134 @@ def transform_outputs(
 ```
 """
 
+
+DECOMPOSE_RETRIEVAL_TASK_PROMPT_AGGREGATION_FUNC = """\
+# Decomposition Round #{step_number}
+
+You do not have access to the raw document(s), but instead can assign tasks to small and less capable language models that can read the document(s).
+Note that the document(s) can be very long, so each task should be performed only over a small chunk of text. 
+
+## Your Job: Write Two Python Functions
+
+### FUNCTION #1: `prepare_jobs(context, prev_job_manifests, prev_job_outputs) -> List[JobManifest]`
+Goal: this function should return a list of atomic jobs to be performed on chunks of the context.
+Follow the steps below:
+- Break the document(s) into chunks, adjusting size based on task specificity (broader tasks: ~3000 chars, specific tasks: ~1500 chars).
+- Even if there are multiple documents as context, they will all be joined together under `context[0]`.
+- For each subtask you create, create keywords for retrieving relevant chunks. Extract precise keyword search queries that are **directly derived** from the user's question and the subtask—avoid overly broad or generic terms.
+- Assign high weights to the most essential terms that uniquely apply to the query and subtask (e.g. terms, dates, numerical values) to maximize retrieval accuracy. Choose a higher value for `k` (15) if you are unconfident about your keywords.
+- Assign **atomic** jobs to the retrieved chunks, ensuring each task relies only on its assigned chunk.
+- **Re-use** `task_id` for repeated tasks across chunks.
+- Do **not** assign tasks requiring sequential processing in this round—save them for later rounds.
+- Limit this round to **{num_tasks_per_round} tasks maximum**.
+- If you need multiple samples per task, replicate the `JobManifest` accordingly (e.g., `job_manifests.extend([job_manifest]*n)`).
+
+### FUNCTION #2: `transform_outputs(jobs) -> str`
+- Accepts the worker outputs for the tasks you assigned.
+- First, filter out irrelevant or empty worker outputs.
+- Aggregate results by `task_id` and `chunk_id`. All **multi-chunk integration** or **global reasoning** is your responsibility here.
+- Return one **aggregated string** for supervisor review, incorporating as much relevant information as possible..
+
+{ADVANCED_STEPS_INSTRUCTIONS}
+
+## Relevant Pydantic Models
+
+The following models are already in the global scope. **Do NOT redefine or re-import them.**
+
+### JobManifest Model
+```
+{manifest_source}
+```
+
+### JobOutput Model
+```
+{output_source}
+```
+
+## Function Signatures
+```
+{signature_source}
+```
+```
+{transform_signature_source}
+```
+
+## Chunking Function Signature
+```
+{chunking_source}
+```
+
+## Retrieval Function Signature (BM25Plus)
+```
+{retrieval_source}
+```
+
+## Important Reminders:
+- **DO NOT** assign tasks that require reading multiple chunks or referencing entire documents.
+- Keep tasks **chunk-local and atomic**.
+- **You** (the supervisor) are responsible for aggregating and interpreting outputs in `transform_outputs()`. 
+
+Now, please provide the code for `prepare_jobs()` and `transform_outputs()`. 
+
+"""
+
+DECOMPOSE_RETRIEVAL_TASK_PROMPT_AGG_FUNC_LATER_ROUND ="""\
+# Decomposition Round #{step_number}
+
+You (the supervisor) cannot directly read the document(s). Instead, you can assign small, isolated tasks to a less capable worker model that sees only a single chunk of text at a time. Any cross-chunk or multi-document reasoning must be handled by you.
+
+## Your Job: Write Two Python Functions
+
+Function #1 (prepare_jobs): will output formatted tasks for a small language model.
+-> Make sure that NONE of the tasks require multiple steps. Each task should be atomic! 
+-> Consider using nested for-loops to apply a set of tasks to a set of chunks.
+-> The same `task_id` should be applied to multiple chunks. DO NOT instantiate a new `task_id` for each combination of task and chunk.
+-> Use the conversational history to inform what chunking strategy has already been applied.
+-> If the previous job was unsuccessful, try a different `chunk_size`: 2000 if task is factual and specific; 5000 if task is general. Try a larger retrieval value of `k` like 20 for retrieval.
+-> Create keywords for retrieving relevant chunks. Extract precise keyword search queries that are **directly derived** from the user's question—avoid overly broad or generic terms. 
+-> Assign high weights to the most essential terms from the query (e.g., proper nouns, dates, numerical values) to maximize retrieval accuracy. Feed your queries to the provided *retrieval function*.
+-> You are provided access to the outputs of the previous jobs (see prev_job_outputs). 
+-> If its helpful, you can reason over the prev_job_outputs vs. the original context.
+-> If tasks should be done sequentially, do not run them all in this round. Wait for the next round to run sequential tasks.
+
+Function #2 (transform_outputs): The second function will aggregate the outputs of the small language models and provide an aggregated string for the supervisor to review.
+-> Filter the jobs based on the output of the small language models (write a custome filter function -- in some steps you might want to filter for a specific keyword, in others you might want to no pass anything back, so you filter out everything!). 
+-> Aggregate the jobs based on the task_id and chunk_id.
+
+{ADVANCED_STEPS_INSTRUCTIONS}
+
+# Misc. Information
+
+* Assume a Pydantic model called `JobManifest(BaseModel)` is already in global scope. For your reference, here is the model:
+```
+{manifest_source}
+```
+
+* Assume a Pydantic model called `JobOutput(BaseModel)` is already in global scope. For your reference, here is the model:
+```
+{output_source}
+```
+
+* DO NOT rewrite or import the model in your code.
+
+* Function #1 signature will look like:
+```
+{signature_source}
+```
+
+* Function #2 signature will look like:
+```
+{transform_signature_source}
+```
+
+* You can assume you have access to the following chunking and retrieval function. Do not reimplement the function, just use it.
+```
+{chunking_source}
+
+{retrieval_source}
+```
+"""
+
 DECOMPOSE_TASK_PROMPT_SHORT = """\
 # Decomposition Round #{step_number}
 

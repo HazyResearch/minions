@@ -12,13 +12,13 @@ Blogpost: https://hazyresearch.stanford.edu/blog/2025-02-24-minions
 
 ## Setup
 
-_We have tested the following setup on Mac and Ubuntu with Python >=3.10_
+_We have tested the following setup on Mac and Ubuntu with Python 3.10-3.11_ (Note: Python 3.13 is not supported)
 
 <details>
   <summary>Optional: Create a virtual environment with your favorite package manager (e.g. conda, venv, uv)</summary>
         
   ```python
-  conda create -n minions python=3.13
+  conda create -n minions python=3.11
   ```
   
 </details>

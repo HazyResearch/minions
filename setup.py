@@ -17,7 +17,9 @@ setup(
         "pymupdf",  # for PDF processing
         "st-theme",
         "mcp",  # mcp
-        "spacy",  # for PII extraction
+        "spacy",  # for PII extraction, worked on python 3.11 and not 3.13
+        "rank_bm25",  # for smart retrieval
+        "mlx-lm",  # for mlx-lm
     ],
     author="Sabri, Avanika, and Dan",
     description="A package for running minion protocols with local and remote LLMs",

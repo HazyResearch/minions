@@ -380,6 +380,8 @@ class Minion:
             if self.callback:
                 self.callback("supervisor", supervisor_messages[-1])
 
+            conversation_log["Conversation"][-1]["output"] = supervisor_response[0]
+
             # Parse supervisor's decision
             if isinstance(self.remote_client, (OpenAIClient, TogetherClient)):
                 supervisor_json = json.loads(supervisor_response[0])

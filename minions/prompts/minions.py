@@ -221,7 +221,6 @@ Also consider the following constraints:
 # Formatting guidelines: Do NOT present your response in a numbered list or describe it as a series of steps.
 # """
 
-
 ADVICE_PROMPT_STEPS = """\
 We need to answer the following question based on {metadata}.: 
 
@@ -498,19 +497,21 @@ You (the supervisor) cannot directly read the document(s). Instead, you can assi
 ### FUNCTION #1: `prepare_jobs(context, prev_job_manifests, prev_job_outputs) -> List[JobManifest]`
 Goal: this function should return a list of atomic jobs to be performed on chunks of the context.
 Follow the steps below:
-- Break the document(s) into chunks using the provided *chunking function*. Determine the chunk size yourself according to the task and length of the text. There is a total of {total_chars} characters of text. Break broader tasks into larger chunks (3000) while smaller tasks should have smaller chunks (1000).
-- Create focused keyword search queries for a retrieval system to exactly find the information you need to solve the task. Feed your queries to the provided *retrieval function*, and determine number of top k most relevant chunks to return, keeping this number as low as possible while maintaining accuracy.
-- Assign jobs to the relevant chunks. Each job must be **atomic** and require only information from the **single chunk** provided to the worker.
-- If you need to repeat the same task on multiple chunks, **re-use** the same `task_id`. Do **not** create a separate `task_id` for each chunk.
-- If tasks must happen **in sequence**, do **not** include them all in this round; move to a subsequent round to handle later steps.
-- In this round, limit yourself to **up to {num_tasks_per_round} tasks** total.
-- If you need multiple samples per task, replicate the `JobManifest` that many times (e.g., `job_manifests.extend([job_manifest]*n)`).
+Create focused keyword search queries for retrieving relevant chunks, assigning weights to prioritize key information.
+- Break the document(s) into chunks, adjusting size based on task specificity (broader tasks: ~3000 chars, specific tasks: ~1000 chars).
+- Create focused keyword search queries for retrieving relevant chunks, assigning weights to prioritize key information. Use the *retrieval function*, and chose the top k value to low while maintaining accuracy.
+- Assign **atomic** jobs to the retrieved chunks, ensuring each task relies only on its assigned chunk.
+- **Re-use** `task_id` for repeated tasks across chunks.
+- Do **not** assign tasks requiring sequential processing in this round—save them for later rounds.
+- Limit this round to **{num_tasks_per_round} tasks maximum**.
+- If you need multiple samples per task, replicate the `JobManifest` accordingly (e.g., `job_manifests.extend([job_manifest]*n)`).
 
 ### FUNCTION #2: `transform_outputs(jobs) -> str`
 - Accepts the worker outputs for the tasks you assigned.
-- First, apply any **filtering logic** (e.g., drop irrelevant or empty results).
-- Then **aggregate outputs** by `task_id` and `chunk_id`. All **multi-chunk integration** or **global reasoning** is your responsibility here.
-- Return one **aggregated string** suitable for further supervisor inspection.
+- First, filter out irrelevant or empty worker outputs.
+- Aggregate results by `task_id` and `chunk_id`. All **multi-chunk integration** or **global reasoning** is your responsibility here.
+- Return one **aggregated string** for supervisor review, incorporating as much relevant information as possible..
+
 
 {ADVANCED_STEPS_INSTRUCTIONS}
 
@@ -536,12 +537,12 @@ The following models are already in the global scope. **Do NOT redefine or re-im
 {transform_signature_source}
 ```
 
-## Chunking Function
+## Chunking Function Signature
 ```
 {chunking_source}
 ```
 
-## Retrieval Function (BM25)
+## Retrieval Function Signature (BM25Plus)
 ```
 {retrieval_source}
 ```
@@ -569,8 +570,8 @@ Function #1 (prepare_jobs): will output formatted tasks for a small language mod
 -> Consider using nested for-loops to apply a set of tasks to a set of chunks.
 -> The same `task_id` should be applied to multiple chunks. DO NOT instantiate a new `task_id` for each combination of task and chunk.
 -> Use the conversational history to inform what chunking strategy has already been applied.
--> If the previous job was unsuccessful, try a different chunk_size. Smaller (500) if task is factual and specific; larger (5000) if task is general.
--> Create focused keyword search queries for a retrieval system to exactly find the information you need to solve the task. Feed your queries to the provided *retrieval function*, and determine number of top k most relevant chunks to return, keeping this number as low as possible while maintaining accuracy.
+-> If the previous job was unsuccessful, try a different chunk_size. Smaller (500) if task is factual and specific; larger (5000) if task is general. Additionally, try a larger retrieval value of k.
+-> Create focused keyword search queries for a retrieval system to exactly find the information you need to solve the task. -> Create a weight for each query (larger number is more important) and store it in a dictionary. Feed your queries to the provided *retrieval function*, and determine number of top k most relevant chunks to return, keeping this number as low as possible while maintaining accuracy.
 -> You are provided access to the outputs of the previous jobs (see prev_job_outputs). 
 -> If its helpful, you can reason over the prev_job_outputs vs. the original context.
 -> If tasks should be done sequentially, do not run them all in this round. Wait for the next round to run sequential tasks.

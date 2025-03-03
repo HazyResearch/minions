@@ -187,11 +187,11 @@ class Minions:
         self.advice_prompt = ADVICE_PROMPT or kwargs.get("advice_prompt", None)
 
         self.decompose_task_prompt = (
-            kwargs.get("decompose_task_prompt", None) 
+            kwargs.get("decompose_task_prompt", None)
             or DECOMPOSE_TASK_PROMPT_AGGREGATION_FUNC
         )
         self.decompose_task_prompt_abbreviated = (
-            kwargs.get("decompose_task_prompt_abbreviated", None) 
+            kwargs.get("decompose_task_prompt_abbreviated", None)
             or DECOMPOSE_TASK_PROMPT_AGG_FUNC_LATER_ROUND
         )
         self.decompose_retrieval_task_prompt = (

@@ -498,7 +498,7 @@ Note that the document(s) can be very long, so each task should be performed onl
 ### FUNCTION #1: `prepare_jobs(context, prev_job_manifests, prev_job_outputs) -> List[JobManifest]`
 Goal: this function should return a list of atomic jobs to be performed on chunks of the context.
 Follow the steps below:
-- Break the document(s) into chunks, adjusting size based on task specificity.
+- Break the document(s) into chunks, adjusting size based on task specificity (broader tasks: ~3000 chars, specific tasks: ~1500 chars).
 - Even if there are multiple documents as context, they will all be joined together under `context[0]`.
 - For each subtask you create, create keywords for retrieving relevant chunks. Extract precise keyword search queries that are **directly derived** from the user's question and the subtask—avoid overly broad or generic terms.
 - Assign high weights to the most essential terms that uniquely apply to the query and subtask (e.g. terms, dates, numerical values) to maximize retrieval accuracy. Choose a higher value for `k` (15) if you are unconfident about your keywords.
@@ -569,7 +569,7 @@ Function #1 (prepare_jobs): will output formatted tasks for a small language mod
 -> Consider using nested for-loops to apply a set of tasks to a set of chunks.
 -> The same `task_id` should be applied to multiple chunks. DO NOT instantiate a new `task_id` for each combination of task and chunk.
 -> Use the conversational history to inform what chunking strategy has already been applied.
--> If the previous job was unsuccessful, try a different `chunk_size`. Try a larger retrieval value of `k` like 20 for retrieval.
+-> If the previous job was unsuccessful, try a different `chunk_size`: 2000 if task is factual and specific; 5000 if task is general. Try a larger retrieval value of `k` like 20 for retrieval.
 -> Create keywords for retrieving relevant chunks. Extract precise keyword search queries that are **directly derived** from the user's question—avoid overly broad or generic terms. 
 -> Assign high weights to the most essential terms from the query (e.g., proper nouns, dates, numerical values) to maximize retrieval accuracy. Feed your queries to the provided *retrieval function*.
 -> You are provided access to the outputs of the previous jobs (see prev_job_outputs). 

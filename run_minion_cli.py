@@ -85,7 +85,7 @@ def main():
     elif args.provider == 'together':
         remote_model_name = "meta-llama/Llama-3.3-70B-Instruct-Turbo"
     elif args.provider == 'groq':
-        remote_model_name = "llama3-70b-8192"
+        remote_model_name = "llama-3.3-70b-versatile"
     else:  # openai
         remote_model_name = args.remote_model
     

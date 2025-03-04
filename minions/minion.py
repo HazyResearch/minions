@@ -335,8 +335,6 @@ class Minion:
                 )
 
                 remote_usage += usage
-                if self.callback:
-                    self.callback("supervisor", None, is_final=False)
 
                 supervisor_messages.append(
                     {"role": "assistant", "content": step_by_step_response[0]}
@@ -387,6 +385,7 @@ class Minion:
                 supervisor_json = json.loads(supervisor_response[0])
             else:
                 supervisor_json = _extract_json(supervisor_response[0])
+
             print("Supervisor_json:", supervisor_json)
             if supervisor_json["decision"] == "provide_final_answer":
                 final_answer = supervisor_json["answer"]

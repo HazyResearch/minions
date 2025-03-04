@@ -564,7 +564,7 @@ def validate_openrouter_key(api_key):
 def validate_groq_key(api_key):
     try:
         client = GroqClient(
-            model_name="llama3-70b-8192",  # Use a common model for testing
+            model_name="llama-3.3-70b-versatile",  # Use a common model for testing
             api_key=api_key,
             temperature=0.0,
             max_tokens=1,

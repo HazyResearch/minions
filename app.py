@@ -485,6 +485,7 @@ def run_protocol(task, context, doc_metadata, status, protocol):
                 doc_metadata=doc_metadata,
                 context=[context],
                 max_rounds=5,
+                use_bm25=False,
             )
 
         execution_time = time.time() - execution_start_time
@@ -588,10 +589,24 @@ with st.sidebar:
     provider_col, key_col = st.columns([1, 2])
     with provider_col:
         # Make sure OpenRouter is in the list and properly displayed
-        providers = ["OpenAI", "OpenRouter", "Together", "Perplexity", "Anthropic", "Groq"]
+        providers = [
+            "OpenAI",
+            "OpenRouter",
+            "Together",
+            "Perplexity",
+            "Anthropic",
+            "Groq",
+        ]
         selected_provider = st.selectbox(
             "Select LLM provider",
-            options=["OpenAI", "OpenRouter", "Together", "Perplexity", "Anthropic", "Groq"],
+            options=[
+                "OpenAI",
+                "OpenRouter",
+                "Together",
+                "Perplexity",
+                "Anthropic",
+                "Groq",
+            ],
             index=0,
         )  # Set OpenAI as default (index 0)
 
@@ -652,10 +667,10 @@ with st.sidebar:
             )
         else:
             privacy_mode = False
-        
+
         if protocol == "Minions":
             use_bm25 = st.toggle(
-                "Smart Retrieval", 
+                "Smart Retrieval",
                 value=True,
                 help="When enabled, only the most relevant chunks of context will be examined by minions, speeding up execution",
             )

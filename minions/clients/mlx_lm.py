@@ -8,7 +8,7 @@ from minions.usage import Usage
 class MLXLMClient:
     def __init__(
         self,
-        model_name: str = "mistralai/Mistral-7B-Instruct-v0.3",
+        model_name: str = "mlx-community/Llama-3.2-3B-Instruct",
         temperature: float = 0.0,
         max_tokens: int = 1000,
         verbose: bool = False,
@@ -17,7 +17,7 @@ class MLXLMClient:
         Initialize the MLX LM client.
 
         Args:
-            model_name: The name or path of the model to use (default: "mistralai/Mistral-7B-Instruct-v0.3")
+            model_name: The name or path of the model to use (default: "mlx-community/Llama-3.2-3B-Instruct")
             temperature: Sampling temperature (default: 0.0)
             max_tokens: Maximum number of tokens to generate (default: 1000)
             verbose: Whether to print tokens and timing information (default: False)

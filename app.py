@@ -10,6 +10,7 @@ from minions.clients.together import TogetherClient
 from minions.clients.perplexity import PerplexityAIClient
 from minions.clients.openrouter import OpenRouterClient
 from minions.clients.groq import GroqClient
+from minions.clients.mlx_lm import MLXLMClient
 
 import os
 import time
@@ -280,6 +281,7 @@ def initialize_clients(
     local_model_name,
     remote_model_name,
     provider,
+    local_provider,
     protocol,
     local_temperature,
     local_max_tokens,
@@ -290,8 +292,6 @@ def initialize_clients(
     mcp_server_name=None,
 ):
     """Initialize the local and remote clients outside of the run_protocol function."""
-    # Use session_state instead of global variables
-
     # Store model parameters in session state for potential reinitialization
     st.session_state.local_model_name = local_model_name
     st.session_state.remote_model_name = remote_model_name
@@ -300,6 +300,7 @@ def initialize_clients(
     st.session_state.remote_temperature = remote_temperature
     st.session_state.remote_max_tokens = remote_max_tokens
     st.session_state.provider = provider
+    st.session_state.local_provider = local_provider
     st.session_state.api_key = api_key
     st.session_state.mcp_server_name = mcp_server_name
 
@@ -308,24 +309,42 @@ def initialize_clients(
         use_async = True
         # For Minions, we use a fixed context size since it processes chunks
         minions_ctx = 4096
-        st.session_state.local_client = OllamaClient(
-            model_name=local_model_name,
-            temperature=local_temperature,
-            max_tokens=int(local_max_tokens),
-            num_ctx=minions_ctx,
-            structured_output_schema=StructuredLocalOutput,
-            use_async=use_async,
-        )
+
+        # Use MLXLMClient if MLX is selected as local provider
+        if local_provider == "MLX":
+            st.session_state.local_client = MLXLMClient(
+                model_name=local_model_name,
+                temperature=local_temperature,
+                max_tokens=int(local_max_tokens),
+            )
+        else:  # Ollama
+            st.session_state.local_client = OllamaClient(
+                model_name=local_model_name,
+                temperature=local_temperature,
+                max_tokens=int(local_max_tokens),
+                num_ctx=minions_ctx,
+                structured_output_schema=StructuredLocalOutput,
+                use_async=use_async,
+            )
     else:
         use_async = False
-        st.session_state.local_client = OllamaClient(
-            model_name=local_model_name,
-            temperature=local_temperature,
-            max_tokens=int(local_max_tokens),
-            num_ctx=num_ctx,
-            structured_output_schema=None,
-            use_async=use_async,
-        )
+
+        # Use MLXLMClient if MLX is selected as local provider
+        if local_provider == "MLX":
+            st.session_state.local_client = MLXLMClient(
+                model_name=local_model_name,
+                temperature=local_temperature,
+                max_tokens=int(local_max_tokens),
+            )
+        else:  # Ollama
+            st.session_state.local_client = OllamaClient(
+                model_name=local_model_name,
+                temperature=local_temperature,
+                max_tokens=int(local_max_tokens),
+                num_ctx=num_ctx,
+                structured_output_schema=None,
+                use_async=use_async,
+            )
 
     if provider == "OpenAI":
         st.session_state.remote_client = OpenAIClient(
@@ -369,6 +388,7 @@ def initialize_clients(
             max_tokens=int(remote_max_tokens),
             api_key=api_key,
         )
+
     else:  # OpenAI
         st.session_state.remote_client = OpenAIClient(
             model_name=remote_model_name,
@@ -404,7 +424,7 @@ def initialize_clients(
     )
 
 
-def run_protocol(task, context, doc_metadata, status, protocol):
+def run_protocol(task, context, doc_metadata, status, protocol, local_provider):
     """Run the protocol with pre-initialized clients."""
     setup_start_time = time.time()
 
@@ -442,14 +462,21 @@ def run_protocol(task, context, doc_metadata, status, protocol):
                 ):
 
                     # Reinitialize the local client with the new num_ctx
-                    st.session_state.local_client = OllamaClient(
-                        model_name=st.session_state.local_model_name,
-                        temperature=st.session_state.local_temperature,
-                        max_tokens=int(st.session_state.local_max_tokens),
-                        num_ctx=closest_value,
-                        structured_output_schema=None,  # Minion protocol doesn't use structured output
-                        use_async=False,  # Minion protocol doesn't use async
-                    )
+                    if local_provider == "Ollama":
+                        st.session_state.local_client = OllamaClient(
+                            model_name=st.session_state.local_model_name,
+                            temperature=st.session_state.local_temperature,
+                            max_tokens=int(st.session_state.local_max_tokens),
+                            num_ctx=closest_value,
+                            structured_output_schema=None,  # Minion protocol doesn't use structured output
+                            use_async=False,  # Minion protocol doesn't use async
+                        )
+                    else:
+                        st.session_state.local_client = MLXLMClient(
+                            model_name=st.session_state.local_model_name,
+                            temperature=st.session_state.local_temperature,
+                            max_tokens=int(st.session_state.local_max_tokens),
+                        )
 
                     # Reinitialize the method with the new local client
                     st.session_state.method = Minion(
@@ -586,9 +613,10 @@ def validate_groq_key(api_key):
 with st.sidebar:
     st.subheader("LLM Provider Settings")
 
+    # Remote provider selection
     provider_col, key_col = st.columns([1, 2])
     with provider_col:
-        # Make sure OpenRouter is in the list and properly displayed
+        # List of remote providers
         providers = [
             "OpenAI",
             "OpenRouter",
@@ -598,18 +626,12 @@ with st.sidebar:
             "Groq",
         ]
         selected_provider = st.selectbox(
-            "Select LLM provider",
-            options=[
-                "OpenAI",
-                "OpenRouter",
-                "Together",
-                "Perplexity",
-                "Anthropic",
-                "Groq",
-            ],
+            "Select Remote Provider",
+            options=providers,
             index=0,
         )  # Set OpenAI as default (index 0)
 
+    # API key handling for remote provider
     env_var_name = f"{selected_provider.upper()}_API_KEY"
     env_key = os.getenv(env_var_name)
     with key_col:
@@ -621,6 +643,7 @@ with st.sidebar:
         )
     api_key = user_key if user_key else env_key
 
+    # Validate API key
     if api_key:
         if selected_provider == "OpenAI":
             is_valid, msg = validate_openai_key(api_key)
@@ -649,71 +672,68 @@ with st.sidebar:
         )
         provider_key = None
 
+    # Local model provider selection
+    st.subheader("Local Model Provider")
+    local_provider = st.radio(
+        "Select Local Provider",
+        options=["Ollama", "MLX"],
+        horizontal=True,
+        index=0,
+    )
+
     # Protocol selection
     st.subheader("Protocol")
 
-    if selected_provider in ["OpenAI", "Together", "OpenRouter"]:
+    if selected_provider in ["OpenAI", "Together", "OpenRouter"]:  # Add MLX here
         protocol_options = ["Minion", "Minions", "Minions-MCP"]
         protocol = st.segmented_control(
             "Communication protocol", options=protocol_options, default="Minion"
         )
 
-        # Add privacy mode toggle when Minion protocol is selected
-        if protocol == "Minion":
-            privacy_mode = st.toggle(
-                "Privacy Mode",
-                value=False,
-                help="When enabled, worker responses will be filtered to remove potentially sensitive information",
-            )
-        else:
-            privacy_mode = False
-
-        if protocol == "Minions":
-            use_bm25 = st.toggle(
-                "Smart Retrieval",
-                value=True,
-                help="When enabled, only the most relevant chunks of context will be examined by minions, speeding up execution",
-            )
-        else:
-            use_bm25 = False
-
-        # Add MCP server selection when Minions-MCP is selected
-        if protocol == "Minions-MCP":
-            # Add disclaimer about mcp.json configuration
-            st.warning(
-                "**Important:** To use Minions-MCP, make sure your `mcp.json` file is properly configured with your desired MCP servers. "
-            )
-
-            # Initialize MCP config manager to get available servers
-            mcp_config_manager = MCPConfigManager()
-            available_servers = mcp_config_manager.list_servers()
-
-            if available_servers:
-                mcp_server_name = st.selectbox(
-                    "MCP Server",
-                    options=available_servers,
-                    index=0 if "filesystem" in available_servers else 0,
-                )
-                # Store the selected server name in session state
-                st.session_state.mcp_server_name = mcp_server_name
-            else:
-                st.warning(
-                    "No MCP servers found in configuration. Please check your MCP configuration."
-                )
-                mcp_server_name = "filesystem"  # Default fallback
-                st.session_state.mcp_server_name = mcp_server_name
-
-    else:
-        # For other providers, default to Minion protocol
-        protocol = "Minion"
-        st.info("Only the Minion protocol is available for this provider.")
-
-        # Add privacy mode toggle for Minion protocol
+    # Add privacy mode toggle when Minion protocol is selected
+    if protocol == "Minion":
         privacy_mode = st.toggle(
             "Privacy Mode",
             value=False,
             help="When enabled, worker responses will be filtered to remove potentially sensitive information",
         )
+    else:
+        privacy_mode = False
+
+    if protocol == "Minions":
+        use_bm25 = st.toggle(
+            "Smart Retrieval",
+            value=True,
+            help="When enabled, only the most relevant chunks of context will be examined by minions, speeding up execution",
+        )
+    else:
+        use_bm25 = False
+
+    # Add MCP server selection when Minions-MCP is selected
+    if protocol == "Minions-MCP":
+        # Add disclaimer about mcp.json configuration
+        st.warning(
+            "**Important:** To use Minions-MCP, make sure your `mcp.json` file is properly configured with your desired MCP servers. "
+        )
+
+        # Initialize MCP config manager to get available servers
+        mcp_config_manager = MCPConfigManager()
+        available_servers = mcp_config_manager.list_servers()
+
+        if available_servers:
+            mcp_server_name = st.selectbox(
+                "MCP Server",
+                options=available_servers,
+                index=0 if "filesystem" in available_servers else 0,
+            )
+            # Store the selected server name in session state
+            st.session_state.mcp_server_name = mcp_server_name
+        else:
+            st.warning(
+                "No MCP servers found in configuration. Please check your MCP configuration."
+            )
+            mcp_server_name = "filesystem"  # Default fallback
+            st.session_state.mcp_server_name = mcp_server_name
 
     # Model Settings
     st.subheader("Model Settings")
@@ -725,20 +745,32 @@ with st.sidebar:
     with local_col:
         st.markdown("### Local Model")
         st.image("assets/minion_resized.jpg", use_container_width=True)
-        local_model_options = {
-            "llama3.2 (Recommended)": "llama3.2",
-            "llama3.1:8b (Recommended)": "llama3.1:8b",
-            "llama3.2:1b": "llama3.2:1b",
-            "phi4": "phi4",
-            "qwen2.5:1.5b": "qwen2.5:1.5b",
-            "qwen2.5:3b (Recommended)": "qwen2.5:3b",
-            "qwen2.5:7b (Recommended)": "qwen2.5:7b",
-            "qwen2.5:14b": "qwen2.5:14b",
-            "mistral7b": "mistral7b",
-            "deepseek-r1:1.5b": "deepseek-r1:1.5b",
-            "deepseek-r1:7b": "deepseek-r1:7b",
-            "deepseek-r1:8b": "deepseek-r1:8b",
-        }
+
+        # Show different model options based on local provider selection
+        if local_provider == "MLX":
+            local_model_options = {
+                "Llama-3.2-3B-Instruct-4bit (Recommended)": "mlx-community/Llama-3.2-3B-Instruct-4bit",
+                "Qwen2.5-7B-8bit": "mlx-community/Qwen2.5-7B-8bit",
+                "Qwen2.5-3B-8bit": "mlx-community/Qwen2.5-3B-8bit",
+                "Llama-3.2-3B-Instruct-8bit": "mlx-community/Llama-3.2-3B-Instruct-8bit",
+                "Llama-3.1-8B-Instruct": "mlx-community/Llama-3.1-8B-Instruct",
+            }
+        else:  # Ollama
+            local_model_options = {
+                "llama3.2 (Recommended)": "llama3.2",
+                "llama3.1:8b (Recommended)": "llama3.1:8b",
+                "llama3.2:1b": "llama3.2:1b",
+                "phi4": "phi4",
+                "qwen2.5:1.5b": "qwen2.5:1.5b",
+                "qwen2.5:3b (Recommended)": "qwen2.5:3b",
+                "qwen2.5:7b (Recommended)": "qwen2.5:7b",
+                "qwen2.5:14b": "qwen2.5:14b",
+                "mistral7b": "mistral7b",
+                "deepseek-r1:1.5b": "deepseek-r1:1.5b",
+                "deepseek-r1:7b": "deepseek-r1:7b",
+                "deepseek-r1:8b": "deepseek-r1:8b",
+            }
+
         local_model_display = st.selectbox(
             "Model", options=list(local_model_options.keys()), index=0
         )
@@ -767,6 +799,8 @@ with st.sidebar:
     with remote_col:
         st.markdown("### Remote Model")
         st.image("assets/gru_resized.jpg", use_container_width=True)
+
+        # If MLX is selected, use the same models for remote
         if selected_provider == "OpenAI":
             model_mapping = {
                 "gpt-4o (Recommended)": "gpt-4o",
@@ -951,13 +985,15 @@ if user_query:
 
     with st.status(f"Running {protocol} protocol...", expanded=True) as status:
         try:
-            # Initialize clients first (only once) or if protocol has changed
+            # Initialize clients first (only once) or if protocol or providers have changed
             if (
                 "local_client" not in st.session_state
                 or "remote_client" not in st.session_state
                 or "method" not in st.session_state
                 or "current_protocol" not in st.session_state
+                or "current_local_provider" not in st.session_state
                 or st.session_state.current_protocol != protocol
+                or st.session_state.current_local_provider != local_provider
             ):
 
                 st.write(f"Initializing clients for {protocol} protocol...")
@@ -973,6 +1009,7 @@ if user_query:
                     local_model_name,
                     remote_model_name,
                     selected_provider,
+                    local_provider,
                     protocol,
                     local_temperature,
                     local_max_tokens,
@@ -982,12 +1019,13 @@ if user_query:
                     num_ctx,
                     mcp_server_name=mcp_server_name,
                 )
-                # Store the current protocol in session state
+                # Store the current protocol and local provider in session state
                 st.session_state.current_protocol = protocol
+                st.session_state.current_local_provider = local_provider
 
             # Then run the protocol with pre-initialized clients
             output, setup_time, execution_time = run_protocol(
-                user_query, context, doc_metadata, status, protocol
+                user_query, context, doc_metadata, status, protocol, local_provider
             )
 
             status.update(

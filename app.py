@@ -833,6 +833,7 @@ with st.sidebar:
                 "Meta Llama 3.1 405B (Recommended)": "meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo",
                 "DeepSeek-R1": "deepseek-ai/DeepSeek-R1",
                 "Llama 3.3 70B": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+                "QWQ-32B": "Qwen/QwQ-32B-Preview",
             }
             default_model_index = 0
         elif selected_provider == "Perplexity":

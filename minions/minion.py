@@ -247,10 +247,8 @@ class Minion:
         )
 
         final_answer = None
-        print("entering loop with max_rounds: ", max_rounds)
         for round in range(max_rounds):
             # Get worker's response
-            print("getting worker's response")
             if self.callback:
                 self.callback("worker", None, is_final=False)
 
@@ -258,7 +256,6 @@ class Minion:
                 messages=worker_messages
             )
 
-            print("worker_response: ", worker_response[0])
             local_usage += worker_usage
 
             if is_privacy:
@@ -378,7 +375,6 @@ class Minion:
             else:
                 supervisor_json = _extract_json(supervisor_response[0])
 
-            print("Supervisor_json:", supervisor_json)
             if supervisor_json["decision"] == "provide_final_answer":
                 final_answer = supervisor_json["answer"]
                 conversation_log["generated_final_answer"] = final_answer

@@ -1,14 +1,15 @@
 ![Minions Logo](assets/Ollama_minionS_background.png)
 
 # Where On-Device and Cloud LLMs Meet
+
 [![Discord](https://img.shields.io/badge/Discord-7289DA?logo=discord&logoColor=white)](https://discord.gg/jfJyxXwFVa)
 
-*What is this?* Minions is a communication protocol that enables small on-device models to collaborate with frontier models in the cloud. By only reading long contexts locally, we can reduce cloud costs with minimal or no quality degradation. This repository provides a demonstration of the protocol. Get started below or see our paper and blogpost below for more information. 
+_What is this?_ Minions is a communication protocol that enables small on-device models to collaborate with frontier models in the cloud. By only reading long contexts locally, we can reduce cloud costs with minimal or no quality degradation. This repository provides a demonstration of the protocol. Get started below or see our paper and blogpost below for more information.
 
 Paper: [Minions: Cost-efficient Collaboration Between On-device and Cloud
 Language Models](https://arxiv.org/pdf/2502.15964)
 
-Blogpost: https://hazyresearch.stanford.edu/blog/2025-02-24-minions 
+Blogpost: https://hazyresearch.stanford.edu/blog/2025-02-24-minions
 
 ## Setup
 
@@ -20,8 +21,7 @@ _We have tested the following setup on Mac and Ubuntu with Python 3.10-3.11_ (No
   ```python
   conda create -n minions python=3.11
   ```
-  
-</details>
+</details><br>
 
 **Step 1:** Clone the repository and install the Python package.
 
@@ -30,6 +30,14 @@ git clone https://github.com/HazyResearch/minions.git
 cd minions
 pip install -e .  # installs the minions package in editable mode
 ```
+
+_note_: for optional MLX-LM install the package with the following command:
+
+```bash
+pip install -e ".[mlx]"
+```
+
+_note_: for optional Cartesia-MLX install, pip install the basic package and then follow the instructions below.
 
 **Step 2:** Install a server for running the local model.
 
@@ -43,6 +51,31 @@ We support two servers for running local models: `ollama` and `tokasaurus`. You 
 uv pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ tokasaurus==0.0.1.post1
 ```
 
+<details>
+  <summary>Optional: Install Cartesia-MLX (only available on Apple Silicon)</summary>
+
+1. Download XCode
+2. Install the command line tools by running `xcode-select --install`
+3. Install the Nanobind🧮
+
+```
+pip install nanobind@git+https://github.com/wjakob/nanobind.git@2f04eac452a6d9142dedb957701bdb20125561e4
+```
+
+4. Install the Cartesia Metal backend by running the following command:
+
+```
+pip install git+https://github.com/cartesia-ai/edge.git#subdirectory=cartesia-metal
+```
+
+5. Install the Cartesia-MLX package by running the following command:
+
+```
+pip install git+https://github.com/cartesia-ai/edge.git#subdirectory=cartesia-mlx
+```
+
+</details><br>
+
 **Step 3:** Set your API key for at least one of the following cloud LLM providers.
 
 _If needed, create an [OpenAI API Key](https://platform.openai.com/docs/overview) or [TogetherAI API key](https://docs.together.ai/docs/quickstart) for the cloud model._
@@ -53,6 +86,7 @@ export TOGETHER_API_KEY=<your-together-api-key>
 ```
 
 ## Minions Demo Application
+
 [![Watch the video](https://img.youtube.com/vi/70Kot0_DFNs/0.jpg)](https://www.youtube.com/watch?v=70Kot0_DFNs)
 
 To try the Minion or Minions protocol, run the following command:
@@ -160,6 +194,25 @@ output = minion(
 ## Python Notebook
 
 To run Minion/Minions in a notebook, checkout `minions.ipynb`.
+
+## CLI
+
+To run Minion/Minions in a CLI, checkout `minions_cli.py`.
+
+Set your choice of local and remote models by running the following command. The format is `<provider>/<model_name>`. Choice of providers are `ollama`, `openai`, `anthropic`, `together`, `perplexity`, `openrouter`, `groq`, and `mlx`.
+
+```bash
+export MINIONS_LOCAL=ollama/llama3.2
+export MINIONS_REMOTE=openai/gpt-4o
+```
+
+```bash
+minions --help
+```
+
+```bash
+minions --context <path_to_context> --protocol <minion|minions>
+```
 
 ## Maintainers
 

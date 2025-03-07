@@ -3,20 +3,20 @@ from minions.minion import Minion
 from minions.minions import Minions
 from minions.minions_mcp import SyncMinionsMCP, MCPConfigManager
 
-from minions.clients.ollama import OllamaClient
-from minions.clients.openai import OpenAIClient
-from minions.clients.anthropic import AnthropicClient
-from minions.clients.together import TogetherClient
-from minions.clients.perplexity import PerplexityAIClient
-from minions.clients.openrouter import OpenRouterClient
-from minions.clients.groq import GroqClient
-from minions.clients.mlx_lm import MLXLMClient
-from minions.clients.azure_openai import AzureOpenAIClient
+from minions.clients import *
+
+# Check if MLXLMClient and CartesiaMLXClient are in the clients module
+mlx_available = "MLXLMClient" in globals()
+cartesia_available = "CartesiaMLXClient" in globals()
+
+# Log availability for debugging
+print(f"MLXLMClient available: {mlx_available}")
+print(f"CartesiaMLXClient available: {cartesia_available}")
+
 
 import os
 import time
 import pandas as pd
-from openai import OpenAI
 import fitz  # PyMuPDF
 from PIL import Image
 import io
@@ -326,9 +326,15 @@ def initialize_clients(
         # For Minions, we use a fixed context size since it processes chunks
         minions_ctx = 4096
 
-        # Use MLXLMClient if MLX is selected as local provider
+        # Use appropriate client based on local provider
         if local_provider == "MLX":
             st.session_state.local_client = MLXLMClient(
+                model_name=local_model_name,
+                temperature=local_temperature,
+                max_tokens=int(local_max_tokens),
+            )
+        elif local_provider == "Cartesia-MLX":
+            st.session_state.local_client = CartesiaMLXClient(
                 model_name=local_model_name,
                 temperature=local_temperature,
                 max_tokens=int(local_max_tokens),
@@ -345,9 +351,15 @@ def initialize_clients(
     else:
         use_async = False
 
-        # Use MLXLMClient if MLX is selected as local provider
+        # Use appropriate client based on local provider
         if local_provider == "MLX":
             st.session_state.local_client = MLXLMClient(
+                model_name=local_model_name,
+                temperature=local_temperature,
+                max_tokens=int(local_max_tokens),
+            )
+        elif local_provider == "Cartesia-MLX":
+            st.session_state.local_client = CartesiaMLXClient(
                 model_name=local_model_name,
                 temperature=local_temperature,
                 max_tokens=int(local_max_tokens),
@@ -373,17 +385,17 @@ def initialize_clients(
         # Get Azure-specific parameters from environment variables
         azure_endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
         azure_api_version = os.getenv("AZURE_OPENAI_API_VERSION", "2024-02-15-preview")
-        
+
         # Show warning if endpoint is not set
         if not azure_endpoint:
             st.warning("Azure OpenAI endpoint not set. Please set the AZURE_OPENAI_ENDPOINT environment variable.")
             st.info("You can run the setup_azure_openai.sh script to configure Azure OpenAI settings.")
         else:
             st.success(f"Using Azure OpenAI endpoint: {azure_endpoint}")
-        
+
         # Use the API key from the UI if provided, otherwise use the one from environment variables
         azure_api_key = api_key if api_key else os.getenv("AZURE_OPENAI_API_KEY")
-        
+
         st.session_state.remote_client = AzureOpenAIClient(
             model_name=remote_model_name,
             temperature=remote_temperature,
@@ -647,11 +659,11 @@ def validate_azure_openai_key(api_key):
     """Validate Azure OpenAI API key by checking if it's not empty."""
     if not api_key:
         return False, "API key is empty"
-    
+
     # Azure OpenAI keys are typically 32 characters long
     if len(api_key) < 10:  # Simple length check
         return False, "API key is too short"
-    
+
     # We can't make a test call here without the endpoint
     # So we just do basic validation
     return True, "API key format is valid"
@@ -730,12 +742,29 @@ with st.sidebar:
 
     # Local model provider selection
     st.subheader("Local Model Provider")
+    local_provider_options = ["Ollama"]
+    if mlx_available:
+        local_provider_options.append("MLX")
+    if cartesia_available:
+        local_provider_options.append("Cartesia-MLX")
+
     local_provider = st.radio(
         "Select Local Provider",
-        options=["Ollama", "MLX"],
+        options=local_provider_options,
         horizontal=True,
         index=0,
     )
+
+    # Add note about Cartesia-MLX installation if selected
+    if local_provider == "Cartesia-MLX":
+        st.info(
+            "⚠️ Cartesia-MLX requires additional installation. Please check the README (see Setup Section) for instructions on how to install the cartesia-mlx package."
+        )
+
+    if local_provider == "MLX":
+        st.info(
+            "⚠️ MLX requires additional installation. Please check the README (see Setup Section) for instructions on how to install the mlx-lm package."
+        )
 
     # Protocol selection
     st.subheader("Protocol")
@@ -817,6 +846,12 @@ with st.sidebar:
                 "Llama-3.2-3B-Instruct-8bit": "mlx-community/Llama-3.2-3B-Instruct-8bit",
                 "Llama-3.1-8B-Instruct": "mlx-community/Llama-3.1-8B-Instruct",
             }
+        elif local_provider == "Cartesia-MLX":
+            local_model_options = {
+                "Llamba-8B-8bit (Recommended)": "cartesia-ai/Llamba-8B-8bit-mlx",
+                "Llamba-1B-4bit": "cartesia-ai/Llamba-1B-4bit-mlx",
+                "Llamba-3B-4bit": "cartesia-ai/Llamba-3B-4bit-mlx",
+            }
         else:  # Ollama
             local_model_options = {
                 "llama3.2 (Recommended)": "llama3.2",
@@ -854,7 +889,8 @@ with st.sidebar:
                 st.error("Local Max Tokens must be an integer.")
                 st.stop()
         else:
-            local_temperature = 0.0
+            # Set default temperature to 0.001 for Cartesia models
+            local_temperature = 0.001 if local_provider == "Cartesia-MLX" else 0.0
             local_max_tokens = 4096
 
     # Remote model settings
@@ -903,6 +939,7 @@ with st.sidebar:
                 "Meta Llama 3.1 405B (Recommended)": "meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo",
                 "DeepSeek-R1": "deepseek-ai/DeepSeek-R1",
                 "Llama 3.3 70B": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+                "QWQ-32B": "Qwen/QwQ-32B-Preview",
             }
             default_model_index = 0
         elif selected_provider == "Perplexity":
@@ -1074,6 +1111,10 @@ if user_query:
                     mcp_server_name = st.session_state.get(
                         "mcp_server_name", "filesystem"
                     )
+
+                if local_provider == "Cartesia-MLX":
+                    if local_temperature < 0.01:
+                        local_temperature = 0.00001
 
                 initialize_clients(
                     local_model_name,

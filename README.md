@@ -21,8 +21,7 @@ _We have tested the following setup on Mac and Ubuntu with Python 3.10-3.11_ (No
   ```python
   conda create -n minions python=3.11
   ```
-  
-</details>
+</details><br>
 
 **Step 1:** Clone the repository and install the Python package.
 
@@ -43,6 +42,40 @@ We support two servers for running local models: `ollama` and `tokasaurus`. You 
 ```
 uv pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ tokasaurus==0.0.1.post1
 ```
+
+<details>
+  <summary>Optional: Install Cartesia-MLX (only available on Apple Silicon)</summary>
+
+1. Download XCode
+2. Install the command line tools by running `xcode-select --install`
+3. Install the Nanobind🧮
+
+```
+pip install nanobind@git+https://github.com/wjakob/nanobind.git@2f04eac452a6d9142dedb957701bdb20125561e4
+```
+
+4. Install the Cartesia Metal backend by running the following command:
+
+```
+pip install git+https://github.com/cartesia-ai/edge.git#subdirectory=cartesia-metal
+```
+
+5. Install the Cartesia-MLX package by running the following command:
+
+```
+pip install git+https://github.com/cartesia-ai/edge.git#subdirectory=cartesia-mlx
+```
+
+</details><br>
+
+<details>
+    <summary>Optional: Install MLX-LM (only available on Apple Silicon)</summary>
+
+```bash
+pip install mlx-lm
+```
+
+</details><br>
 
 **Step 3:** Set your API key for at least one of the following cloud LLM providers.
 

@@ -11,6 +11,7 @@ from minions.clients.perplexity import PerplexityAIClient
 from minions.clients.openrouter import OpenRouterClient
 from minions.clients.groq import GroqClient
 from minions.clients.mlx_lm import MLXLMClient
+from minions.clients.cartesia_mlx import CartesiaMLXClient
 
 import os
 import time
@@ -310,9 +311,15 @@ def initialize_clients(
         # For Minions, we use a fixed context size since it processes chunks
         minions_ctx = 4096
 
-        # Use MLXLMClient if MLX is selected as local provider
+        # Use appropriate client based on local provider
         if local_provider == "MLX":
             st.session_state.local_client = MLXLMClient(
+                model_name=local_model_name,
+                temperature=local_temperature,
+                max_tokens=int(local_max_tokens),
+            )
+        elif local_provider == "Cartesia-MLX":
+            st.session_state.local_client = CartesiaMLXClient(
                 model_name=local_model_name,
                 temperature=local_temperature,
                 max_tokens=int(local_max_tokens),
@@ -329,9 +336,15 @@ def initialize_clients(
     else:
         use_async = False
 
-        # Use MLXLMClient if MLX is selected as local provider
+        # Use appropriate client based on local provider
         if local_provider == "MLX":
             st.session_state.local_client = MLXLMClient(
+                model_name=local_model_name,
+                temperature=local_temperature,
+                max_tokens=int(local_max_tokens),
+            )
+        elif local_provider == "Cartesia-MLX":
+            st.session_state.local_client = CartesiaMLXClient(
                 model_name=local_model_name,
                 temperature=local_temperature,
                 max_tokens=int(local_max_tokens),
@@ -676,10 +689,21 @@ with st.sidebar:
     st.subheader("Local Model Provider")
     local_provider = st.radio(
         "Select Local Provider",
-        options=["Ollama", "MLX"],
+        options=["Ollama", "MLX", "Cartesia-MLX"],
         horizontal=True,
         index=0,
     )
+
+    # Add note about Cartesia-MLX installation if selected
+    if local_provider == "Cartesia-MLX":
+        st.info(
+            "⚠️ Cartesia-MLX requires additional installation. Please check the README (see Setup Section) for instructions on how to install the cartesia-mlx package."
+        )
+
+    if local_provider == "MLX":
+        st.info(
+            "⚠️ MLX requires additional installation. Please check the README (see Setup Section) for instructions on how to install the mlx-lm package."
+        )
 
     # Protocol selection
     st.subheader("Protocol")
@@ -755,6 +779,12 @@ with st.sidebar:
                 "Llama-3.2-3B-Instruct-8bit": "mlx-community/Llama-3.2-3B-Instruct-8bit",
                 "Llama-3.1-8B-Instruct": "mlx-community/Llama-3.1-8B-Instruct",
             }
+        elif local_provider == "Cartesia-MLX":
+            local_model_options = {
+                "Llamba-8B-8bit (Recommended)": "cartesia-ai/Llamba-8B-8bit-mlx",
+                "Llamba-1B-4bit": "cartesia-ai/Llamba-1B-4bit-mlx",
+                "Llamba-3B-4bit": "cartesia-ai/Llamba-3B-4bit-mlx",
+            }
         else:  # Ollama
             local_model_options = {
                 "llama3.2 (Recommended)": "llama3.2",
@@ -792,7 +822,8 @@ with st.sidebar:
                 st.error("Local Max Tokens must be an integer.")
                 st.stop()
         else:
-            local_temperature = 0.0
+            # Set default temperature to 0.001 for Cartesia models
+            local_temperature = 0.001 if local_provider == "Cartesia-MLX" else 0.0
             local_max_tokens = 4096
 
     # Remote model settings
@@ -1005,6 +1036,10 @@ if user_query:
                     mcp_server_name = st.session_state.get(
                         "mcp_server_name", "filesystem"
                     )
+
+                if local_provider == "Cartesia-MLX":
+                    if local_temperature < 0.01:
+                        local_temperature = 0.00001
 
                 initialize_clients(
                     local_model_name,

@@ -18,7 +18,6 @@ setup(
         "mcp",
         "spacy",  # for PII extraction, worked on python 3.11 and not 3.13
         "rank_bm25",  # for smart retrieval
-        "mlx-lm",  # for mlx-lm
         "PyMuPDF",  # for PDF handling
     ],
     author="Sabri, Avanika, and Dan",

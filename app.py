@@ -3,20 +3,20 @@ from minions.minion import Minion
 from minions.minions import Minions
 from minions.minions_mcp import SyncMinionsMCP, MCPConfigManager
 
-from minions.clients.ollama import OllamaClient
-from minions.clients.openai import OpenAIClient
-from minions.clients.anthropic import AnthropicClient
-from minions.clients.together import TogetherClient
-from minions.clients.perplexity import PerplexityAIClient
-from minions.clients.openrouter import OpenRouterClient
-from minions.clients.groq import GroqClient
-from minions.clients.mlx_lm import MLXLMClient
-from minions.clients.cartesia_mlx import CartesiaMLXClient
+from minions.clients import *
+
+# Check if MLXLMClient and CartesiaMLXClient are in the clients module
+mlx_available = "MLXLMClient" in globals()
+cartesia_available = "CartesiaMLXClient" in globals()
+
+# Log availability for debugging
+print(f"MLXLMClient available: {mlx_available}")
+print(f"CartesiaMLXClient available: {cartesia_available}")
+
 
 import os
 import time
 import pandas as pd
-from openai import OpenAI
 import fitz  # PyMuPDF
 from PIL import Image
 import io
@@ -687,9 +687,15 @@ with st.sidebar:
 
     # Local model provider selection
     st.subheader("Local Model Provider")
+    local_provider_options = ["Ollama"]
+    if mlx_available:
+        local_provider_options.append("MLX")
+    if cartesia_available:
+        local_provider_options.append("Cartesia-MLX")
+
     local_provider = st.radio(
         "Select Local Provider",
-        options=["Ollama", "MLX", "Cartesia-MLX"],
+        options=local_provider_options,
         horizontal=True,
         index=0,
     )

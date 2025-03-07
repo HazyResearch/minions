@@ -5,7 +5,6 @@ import cartesia_mlx as cmx
 import mlx.core as mx
 from minions.usage import Usage
 from transformers import AutoTokenizer
-import torch
 
 
 class CartesiaMLXClient:

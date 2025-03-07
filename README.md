@@ -31,6 +31,14 @@ cd minions
 pip install -e .  # installs the minions package in editable mode
 ```
 
+_note_: for optional MLX-LM install the package with the following command:
+
+```bash
+pip install -e ".[mlx]"
+```
+
+_note_: for optional Cartesia-MLX install, pip install the basic package and then follow the instructions below.
+
 **Step 2:** Install a server for running the local model.
 
 We support two servers for running local models: `ollama` and `tokasaurus`. You need to install at least one of these.
@@ -65,17 +73,6 @@ pip install git+https://github.com/cartesia-ai/edge.git#subdirectory=cartesia-me
 ```
 pip install git+https://github.com/cartesia-ai/edge.git#subdirectory=cartesia-mlx
 ```
-
-</details><br>
-
-<details>
-    <summary>Optional: Install MLX-LM (only available on Apple Silicon)</summary>
-
-```bash
-pip install mlx-lm
-```
-
-</details><br>
 
 **Step 3:** Set your API key for at least one of the following cloud LLM providers.
 
@@ -199,6 +196,13 @@ To run Minion/Minions in a notebook, checkout `minions.ipynb`.
 ## CLI
 
 To run Minion/Minions in a CLI, checkout `minions_cli.py`.
+
+Set your choice of local and remote models by running the following command. The format is `<provider>/<model_name>`. Choice of providers are `ollama`, `openai`, `anthropic`, `together`, `perplexity`, `openrouter`, `groq`, and `mlx`.
+
+```bash
+export MINIONS_LOCAL=ollama/llama3.2
+export MINIONS_REMOTE=openai/gpt-4o
+```
 
 ```bash
 minions --help

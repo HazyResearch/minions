@@ -20,6 +20,9 @@ setup(
         "rank_bm25",  # for smart retrieval
         "PyMuPDF",  # for PDF handling
     ],
+    extras_require={
+        "mlx": ["mlx-lm"],
+    },
     author="Sabri, Avanika, and Dan",
     description="A package for running minion protocols with local and remote LLMs",
     python_requires=">=3.8",

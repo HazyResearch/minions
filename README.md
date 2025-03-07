@@ -74,6 +74,8 @@ pip install git+https://github.com/cartesia-ai/edge.git#subdirectory=cartesia-me
 pip install git+https://github.com/cartesia-ai/edge.git#subdirectory=cartesia-mlx
 ```
 
+</details><br>
+
 **Step 3:** Set your API key for at least one of the following cloud LLM providers.
 
 _If needed, create an [OpenAI API Key](https://platform.openai.com/docs/overview) or [TogetherAI API key](https://docs.together.ai/docs/quickstart) for the cloud model._

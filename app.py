@@ -5,15 +5,6 @@ from minions.minions_mcp import SyncMinionsMCP, MCPConfigManager
 
 from minions.clients import *
 
-# Check if MLXLMClient and CartesiaMLXClient are in the clients module
-mlx_available = "MLXLMClient" in globals()
-cartesia_available = "CartesiaMLXClient" in globals()
-
-# Log availability for debugging
-print(f"MLXLMClient available: {mlx_available}")
-print(f"CartesiaMLXClient available: {cartesia_available}")
-
-
 import os
 import time
 import pandas as pd
@@ -28,16 +19,13 @@ from dotenv import load_dotenv
 # Load environment variables from .env file
 load_dotenv()
 
-# Check if Azure OpenAI environment variables are set
-azure_openai_key = os.getenv("AZURE_OPENAI_API_KEY")
-azure_openai_endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
-azure_openai_api_version = os.getenv("AZURE_OPENAI_API_VERSION")
+# Check if MLXLMClient and CartesiaMLXClient are in the clients module
+mlx_available = "MLXLMClient" in globals()
+cartesia_available = "CartesiaMLXClient" in globals()
 
-if azure_openai_key and azure_openai_endpoint:
-    print(f"Loaded Azure OpenAI configuration from .env file:")
-    print(f"  - Endpoint: {azure_openai_endpoint}")
-    print(f"  - API Version: {azure_openai_api_version or '2024-02-15-preview'}")
-    print(f"  - API Key: {azure_openai_key[:5]}...{azure_openai_key[-5:] if len(azure_openai_key) > 10 else ''}")
+# Log availability for debugging
+print(f"MLXLMClient available: {mlx_available}")
+print(f"CartesiaMLXClient available: {cartesia_available}")
 
 class StructuredLocalOutput(BaseModel):
     explanation: str
@@ -385,17 +373,15 @@ def initialize_clients(
         # Get Azure-specific parameters from environment variables
         azure_endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
         azure_api_version = os.getenv("AZURE_OPENAI_API_VERSION", "2024-02-15-preview")
-
+        azure_api_key = api_key if api_key else os.getenv("AZURE_OPENAI_API_KEY")
+        
         # Show warning if endpoint is not set
         if not azure_endpoint:
             st.warning("Azure OpenAI endpoint not set. Please set the AZURE_OPENAI_ENDPOINT environment variable.")
             st.info("You can run the setup_azure_openai.sh script to configure Azure OpenAI settings.")
         else:
             st.success(f"Using Azure OpenAI endpoint: {azure_endpoint}")
-
-        # Use the API key from the UI if provided, otherwise use the one from environment variables
-        azure_api_key = api_key if api_key else os.getenv("AZURE_OPENAI_API_KEY")
-
+        
         st.session_state.remote_client = AzureOpenAIClient(
             model_name=remote_model_name,
             temperature=remote_temperature,

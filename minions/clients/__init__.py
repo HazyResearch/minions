@@ -1,5 +1,6 @@
 from minions.clients.ollama import OllamaClient
 from minions.clients.openai import OpenAIClient
+from minions.clients.azure_openai import AzureOpenAIClient
 from minions.clients.anthropic import AnthropicClient
 from minions.clients.together import TogetherClient
 from minions.clients.perplexity import PerplexityAIClient
@@ -10,6 +11,7 @@ from minions.clients.groq import GroqClient
 __all__ = [
     "OllamaClient",
     "OpenAIClient",
+    "AzureOpenAIClient",
     "AnthropicClient",
     "TogetherClient",
     "PerplexityAIClient",

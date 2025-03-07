@@ -65,14 +65,11 @@ def extract_text_from_folder(folder_path):
         # Walk through the directory
         for root, _, files in os.walk(folder_path):
             # skip folder with examples in it
-            if "examples" in root:
-                continue
-
             for file in files:
                 file_path = os.path.join(root, file)
 
                 # Only process supported file types
-                if file.lower().endswith((".txt", ".py")):
+                if file.lower().endswith((".txt", ".py", ".pdf", ".md")):
                     try:
                         content = extract_text_from_file(file_path)
                         if content:

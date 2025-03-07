@@ -1,14 +1,15 @@
 ![Minions Logo](assets/Ollama_minionS_background.png)
 
 # Where On-Device and Cloud LLMs Meet
+
 [![Discord](https://img.shields.io/badge/Discord-7289DA?logo=discord&logoColor=white)](https://discord.gg/jfJyxXwFVa)
 
-*What is this?* Minions is a communication protocol that enables small on-device models to collaborate with frontier models in the cloud. By only reading long contexts locally, we can reduce cloud costs with minimal or no quality degradation. This repository provides a demonstration of the protocol. Get started below or see our paper and blogpost below for more information. 
+_What is this?_ Minions is a communication protocol that enables small on-device models to collaborate with frontier models in the cloud. By only reading long contexts locally, we can reduce cloud costs with minimal or no quality degradation. This repository provides a demonstration of the protocol. Get started below or see our paper and blogpost below for more information.
 
 Paper: [Minions: Cost-efficient Collaboration Between On-device and Cloud
 Language Models](https://arxiv.org/pdf/2502.15964)
 
-Blogpost: https://hazyresearch.stanford.edu/blog/2025-02-24-minions 
+Blogpost: https://hazyresearch.stanford.edu/blog/2025-02-24-minions
 
 ## Setup
 
@@ -53,6 +54,7 @@ export TOGETHER_API_KEY=<your-together-api-key>
 ```
 
 ## Minions Demo Application
+
 [![Watch the video](https://img.youtube.com/vi/70Kot0_DFNs/0.jpg)](https://www.youtube.com/watch?v=70Kot0_DFNs)
 
 To try the Minion or Minions protocol, run the following command:
@@ -160,6 +162,18 @@ output = minion(
 ## Python Notebook
 
 To run Minion/Minions in a notebook, checkout `minions.ipynb`.
+
+## CLI
+
+To run Minion/Minions in a CLI, checkout `minions_cli.py`.
+
+```bash
+minions --help
+```
+
+```bash
+minions --context <path_to_context> --protocol <minion|minions>
+```
 
 ## Maintainers
 

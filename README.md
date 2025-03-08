@@ -214,6 +214,40 @@ minions --help
 minions --context <path_to_context> --protocol <minion|minions>
 ```
 
+## Miscellaneous Setup
+
+### Using Azure OpenAI with Minions
+
+#### Set Environment Variables
+```bash
+export AZURE_OPENAI_API_KEY=your-api-key
+export AZURE_OPENAI_ENDPOINT=https://your-resource-name.openai.azure.com/
+export AZURE_OPENAI_API_VERSION=2024-02-15-preview
+```
+
+#### Example Code
+Here's an example of how to use Azure OpenAI with the Minions protocol in your own code:
+
+```python
+from minions.clients.ollama import OllamaClient
+from minions.clients.azure_openai import AzureOpenAIClient
+from minions.minion import Minion
+
+local_client = OllamaClient(
+    model_name="llama3.2",
+)
+
+remote_client = AzureOpenAIClient(
+    model_name="gpt-4o",  # This should match your deployment name
+    api_key="your-api-key",
+    azure_endpoint="https://your-resource-name.openai.azure.com/",
+    api_version="2024-02-15-preview",
+)
+
+# Instantiate the Minion object with both clients
+minion = Minion(local_client, remote_client)
+```
+
 ## Maintainers
 
 - Avanika Narayan (contact: avanika@cs.stanford.edu)

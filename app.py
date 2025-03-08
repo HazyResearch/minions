@@ -5,15 +5,6 @@ from minions.minions_mcp import SyncMinionsMCP, MCPConfigManager
 
 from minions.clients import *
 
-# Check if MLXLMClient and CartesiaMLXClient are in the clients module
-mlx_available = "MLXLMClient" in globals()
-cartesia_available = "CartesiaMLXClient" in globals()
-
-# Log availability for debugging
-print(f"MLXLMClient available: {mlx_available}")
-print(f"CartesiaMLXClient available: {cartesia_available}")
-
-
 import os
 import time
 import pandas as pd
@@ -23,7 +14,18 @@ import io
 from pydantic import BaseModel
 import json
 from streamlit_theme import st_theme
+from dotenv import load_dotenv
 
+# Load environment variables from .env file
+load_dotenv()
+
+# Check if MLXLMClient and CartesiaMLXClient are in the clients module
+mlx_available = "MLXLMClient" in globals()
+cartesia_available = "CartesiaMLXClient" in globals()
+
+# Log availability for debugging
+print(f"MLXLMClient available: {mlx_available}")
+print(f"CartesiaMLXClient available: {cartesia_available}")
 
 class StructuredLocalOutput(BaseModel):
     explanation: str
@@ -60,6 +62,7 @@ API_PRICES = {
 
 PROVIDER_TO_ENV_VAR_KEY = {
     "OpenAI": "OPENAI_API_KEY",
+    "AzureOpenAI": "AZURE_OPENAI_API_KEY",
     "OpenRouter": "OPENROUTER_API_KEY",
     "Anthropic": "ANTHROPIC_API_KEY",
     "Together": "TOGETHER_API_KEY",
@@ -374,6 +377,27 @@ def initialize_clients(
             max_tokens=int(remote_max_tokens),
             api_key=api_key,
         )
+    elif provider == "AzureOpenAI":
+        # Get Azure-specific parameters from environment variables
+        azure_endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
+        azure_api_version = os.getenv("AZURE_OPENAI_API_VERSION", "2024-02-15-preview")
+        azure_api_key = api_key if api_key else os.getenv("AZURE_OPENAI_API_KEY")
+        
+        # Show warning if endpoint is not set
+        if not azure_endpoint:
+            st.warning("Azure OpenAI endpoint not set. Please set the AZURE_OPENAI_ENDPOINT environment variable.")
+            st.info("You can run the setup_azure_openai.sh script to configure Azure OpenAI settings.")
+        else:
+            st.success(f"Using Azure OpenAI endpoint: {azure_endpoint}")
+        
+        st.session_state.remote_client = AzureOpenAIClient(
+            model_name=remote_model_name,
+            temperature=remote_temperature,
+            max_tokens=int(remote_max_tokens),
+            api_key=azure_api_key,
+            api_version=azure_api_version,
+            azure_endpoint=azure_endpoint,
+        )
     elif provider == "OpenRouter":
         st.session_state.remote_client = OpenRouterClient(
             model_name=remote_model_name,
@@ -641,6 +665,20 @@ def validate_deepseek_key(api_key):
     except Exception as e:
         return False, str(e)
 
+def validate_azure_openai_key(api_key):
+    """Validate Azure OpenAI API key by checking if it's not empty."""
+    if not api_key:
+        return False, "API key is empty"
+
+    # Azure OpenAI keys are typically 32 characters long
+    if len(api_key) < 10:  # Simple length check
+        return False, "API key is too short"
+
+    # We can't make a test call here without the endpoint
+    # So we just do basic validation
+    return True, "API key format is valid"
+
+
 # validate
 
 
@@ -656,6 +694,7 @@ with st.sidebar:
         # List of remote providers
         providers = [
             "OpenAI",
+            "AzureOpenAI",
             "OpenRouter",
             "Together",
             "Perplexity",
@@ -685,6 +724,8 @@ with st.sidebar:
     if api_key:
         if selected_provider == "OpenAI":
             is_valid, msg = validate_openai_key(api_key)
+        elif selected_provider == "AzureOpenAI":
+            is_valid, msg = validate_azure_openai_key(api_key)
         elif selected_provider == "OpenRouter":
             is_valid, msg = validate_openrouter_key(api_key)
         elif selected_provider == "Anthropic":
@@ -741,11 +782,17 @@ with st.sidebar:
     # Protocol selection
     st.subheader("Protocol")
 
-    if selected_provider in ["OpenAI", "Together", "OpenRouter", "DeepSeek"]:  # Add MLX here
+    # Set a default protocol value
+    protocol = "Minion"  # Default protocol
+
+    if selected_provider in ["OpenAI", "AzureOpenAI", "Together", "OpenRouter","DeepSeek"]:  # Added AzureOpenAI to the list
         protocol_options = ["Minion", "Minions", "Minions-MCP"]
         protocol = st.segmented_control(
             "Communication protocol", options=protocol_options, default="Minion"
         )
+    else:
+        # For providers that don't support all protocols, show a message and use the default
+        st.info(f"The {selected_provider} provider only supports the Minion protocol.")
 
     # Add privacy mode toggle when Minion protocol is selected
     if protocol == "Minion":
@@ -871,6 +918,14 @@ with st.sidebar:
                 "gpt-4o-mini": "gpt-4o-mini",
                 "o3-mini": "o3-mini",
                 "o1": "o1",
+            }
+            default_model_index = 0
+        elif selected_provider == "AzureOpenAI":
+            model_mapping = {
+                "gpt-4o (Recommended)": "gpt-4o",
+                "gpt-4": "gpt-4",
+                "gpt-4-turbo": "gpt-4-turbo",
+                "gpt-35-turbo": "gpt-35-turbo",
             }
             default_model_index = 0
         elif selected_provider == "OpenRouter":
@@ -1170,7 +1225,7 @@ if user_query:
                 st.bar_chart(df, x="Model", y="Count", color="Token Type")
 
                 # Display cost information for OpenAI models
-                if selected_provider in ["OpenAI", "DeepSeek"] and remote_model_name in API_PRICES[selected_provider]:
+                if selected_provider in ["OpenAI", "AzureOpenAI", "DeepSeek"] and remote_model_name in API_PRICES[selected_provider]:
                     st.header("Remote Model Cost")
                     pricing = API_PRICES[selected_provider][remote_model_name]
                     prompt_cost = (

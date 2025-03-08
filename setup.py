@@ -6,7 +6,7 @@ setup(
     packages=find_packages(),
     install_requires=[
         "ollama",  # for local LLM
-        "streamlit",  # for the UI
+        "streamlit==1.42.2",  # for the UI
         "openai",  # for OpenAI client
         "anthropic",  # for Anthropic client
         "together",  # for Together client

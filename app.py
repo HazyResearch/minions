@@ -27,6 +27,7 @@ cartesia_available = "CartesiaMLXClient" in globals()
 print(f"MLXLMClient available: {mlx_available}")
 print(f"CartesiaMLXClient available: {cartesia_available}")
 
+
 class StructuredLocalOutput(BaseModel):
     explanation: str
     citation: str | None
@@ -48,15 +49,16 @@ st.markdown(
 
 API_PRICES = {
     # OpenAI model pricing per 1M tokens
-    "OPENAI_PRICES": {
+    "OpenAI": {
         "gpt-4o": {"input": 2.50, "cached_input": 1.25, "output": 10.00},
-    "gpt-4o-mini": {"input": 0.15, "cached_input": 0.075, "output": 0.60},
+        "gpt-4o-mini": {"input": 0.15, "cached_input": 0.075, "output": 0.60},
         "o3-mini": {"input": 1.10, "cached_input": 0.55, "output": 4.40},
     },
-# DeepSeek model pricing per 1M tokens
-    "DEEPSEEK_PRICES": {
-        # Let's assume 1 dollar = 7.25 RMB and 
+    # DeepSeek model pricing per 1M tokens
+    "DeepSeek": {
+        # Let's assume 1 dollar = 7.25 RMB and
         "deepseek-chat": {"input": 0.27, "cached_input": 0.07, "output": 1.10},
+        "deepseek-reasoner": {"input": 0.27, "cached_input": 0.07, "output": 1.10},
     },
 }
 
@@ -382,14 +384,18 @@ def initialize_clients(
         azure_endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
         azure_api_version = os.getenv("AZURE_OPENAI_API_VERSION", "2024-02-15-preview")
         azure_api_key = api_key if api_key else os.getenv("AZURE_OPENAI_API_KEY")
-        
+
         # Show warning if endpoint is not set
         if not azure_endpoint:
-            st.warning("Azure OpenAI endpoint not set. Please set the AZURE_OPENAI_ENDPOINT environment variable.")
-            st.info("You can run the setup_azure_openai.sh script to configure Azure OpenAI settings.")
+            st.warning(
+                "Azure OpenAI endpoint not set. Please set the AZURE_OPENAI_ENDPOINT environment variable."
+            )
+            st.info(
+                "You can run the setup_azure_openai.sh script to configure Azure OpenAI settings."
+            )
         else:
             st.success(f"Using Azure OpenAI endpoint: {azure_endpoint}")
-        
+
         st.session_state.remote_client = AzureOpenAIClient(
             model_name=remote_model_name,
             temperature=remote_temperature,
@@ -654,6 +660,7 @@ def validate_groq_key(api_key):
     except Exception as e:
         return False, str(e)
 
+
 def validate_deepseek_key(api_key):
     try:
         client = DeepSeekClient(
@@ -664,6 +671,7 @@ def validate_deepseek_key(api_key):
         return True, ""
     except Exception as e:
         return False, str(e)
+
 
 def validate_azure_openai_key(api_key):
     """Validate Azure OpenAI API key by checking if it's not empty."""
@@ -785,7 +793,13 @@ with st.sidebar:
     # Set a default protocol value
     protocol = "Minion"  # Default protocol
 
-    if selected_provider in ["OpenAI", "AzureOpenAI", "Together", "OpenRouter","DeepSeek"]:  # Added AzureOpenAI to the list
+    if selected_provider in [
+        "OpenAI",
+        "AzureOpenAI",
+        "Together",
+        "OpenRouter",
+        "DeepSeek",
+    ]:  # Added AzureOpenAI to the list
         protocol_options = ["Minion", "Minions", "Minions-MCP"]
         protocol = st.segmented_control(
             "Communication protocol", options=protocol_options, default="Minion"
@@ -911,6 +925,8 @@ with st.sidebar:
         st.markdown("### Remote Model")
         st.image("assets/gru_resized.jpg", use_container_width=True)
 
+        print(selected_provider)
+
         # If MLX is selected, use the same models for remote
         if selected_provider == "OpenAI":
             model_mapping = {
@@ -975,6 +991,7 @@ with st.sidebar:
         elif selected_provider == "DeepSeek":
             model_mapping = {
                 "deepseek-chat (Recommended)": "deepseek-chat",
+                "deepseek-reasoner": "deepseek-reasoner",
             }
             default_model_index = 0
         else:
@@ -1119,6 +1136,7 @@ if user_query:
                 or "current_local_provider" not in st.session_state
                 or st.session_state.current_protocol != protocol
                 or st.session_state.current_local_provider != local_provider
+                or st.session_state.current_remote_provider != selected_provider
             ):
 
                 st.write(f"Initializing clients for {protocol} protocol...")
@@ -1151,6 +1169,7 @@ if user_query:
                 # Store the current protocol and local provider in session state
                 st.session_state.current_protocol = protocol
                 st.session_state.current_local_provider = local_provider
+                st.session_state.current_remote_provider = selected_provider
 
             # Then run the protocol with pre-initialized clients
             output, setup_time, execution_time = run_protocol(
@@ -1225,7 +1244,10 @@ if user_query:
                 st.bar_chart(df, x="Model", y="Count", color="Token Type")
 
                 # Display cost information for OpenAI models
-                if selected_provider in ["OpenAI", "AzureOpenAI", "DeepSeek"] and remote_model_name in API_PRICES[selected_provider]:
+                if (
+                    selected_provider in ["OpenAI", "AzureOpenAI", "DeepSeek"]
+                    and remote_model_name in API_PRICES[selected_provider]
+                ):
                     st.header("Remote Model Cost")
                     pricing = API_PRICES[selected_provider][remote_model_name]
                     prompt_cost = (

@@ -8,6 +8,7 @@ from minions.clients.together import TogetherClient
 from minions.clients.groq import GroqClient
 from minions.clients.perplexity import PerplexityAIClient
 from minions.clients.openrouter import OpenRouterClient
+from minions.clients.deepseek import DeepSeekClient
 import time
 import argparse
 import fitz  # PyMuPDF for PDF handling
@@ -305,6 +306,10 @@ def initialize_client(
         )
     elif provider == "openrouter":
         return OpenRouterClient(
+            model_name=model_name, temperature=temperature, max_tokens=max_tokens
+        )
+    elif provider == "deepseek":
+        return DeepSeekClient(
             model_name=model_name, temperature=temperature, max_tokens=max_tokens
         )
     elif provider == "mlx":

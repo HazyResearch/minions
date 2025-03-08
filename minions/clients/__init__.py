@@ -6,7 +6,7 @@ from minions.clients.together import TogetherClient
 from minions.clients.perplexity import PerplexityAIClient
 from minions.clients.openrouter import OpenRouterClient
 from minions.clients.groq import GroqClient
-
+from minions.clients.deepseek import DeepSeekClient
 
 __all__ = [
     "OllamaClient",
@@ -17,6 +17,7 @@ __all__ = [
     "PerplexityAIClient",
     "OpenRouterClient",
     "GroqClient",
+    "DeepSeekClient",
 ]
 
 try:

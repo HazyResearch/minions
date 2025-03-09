@@ -52,6 +52,10 @@ class PowerMonitor:
         """Check if the system is a Mac."""
         return os.uname().sysname == "Darwin"
 
+    def get_total_time(self):
+        """Get the total time the monitor has been running."""
+        return self.end_time - self.start_time
+
     def parse_powermetrics(self, output: str) -> dict:
         """
         Parse the powermetrics output to extract power information.
@@ -156,6 +160,7 @@ class PowerMonitor:
           - The average measured power on the system, converted to Watts.
             (Uses "Combined Power" for Mac or "GPU Power (avg)" for NVIDIA.)
           - The measured energy consumption on the system (energy = average_power * runtime).
+          - For Mac, also reports individual component power (CPU, GPU, ANE).
 
         :return: A dict with final estimates, with values formatted to include units.
         """
@@ -169,6 +174,9 @@ class PowerMonitor:
         if self.mode == "mac":
             measurement_key = "Combined Power"  # in mW from powermetrics
             conversion = 1 / 1000.0  # Convert mW to W.
+
+            # Also track individual components for Mac
+            component_keys = ["CPU Power", "GPU Power", "ANE Power"]
         elif self.mode == "nvidia":
             measurement_key = "GPU Power (avg)"  # in W from nvidia-smi
             conversion = 1.0
@@ -190,11 +198,28 @@ class PowerMonitor:
         # Measured energy consumption (in Joules).
         energy_measured = avg_power_W * runtime
 
-        return {
+        result = {
             "Runtime": f"{runtime:.2f} s",
             "Average Measured Power": f"{avg_power_W:.2f} W",
             "Measured Energy": f"{energy_measured:.2f} J",
         }
+
+        # Add individual component power for Mac
+        if self.mode == "mac":
+            for key in component_keys:
+                valid_component_measurements = [
+                    m[key] for _, m in self.data if isinstance(m, dict) and key in m
+                ]
+                if valid_component_measurements:
+                    avg_component_power = sum(valid_component_measurements) / len(
+                        valid_component_measurements
+                    )
+                    avg_component_power_W = avg_component_power * conversion
+                    component_energy = avg_component_power_W * runtime
+                    result[f"Average {key}"] = f"{avg_component_power_W:.2f} W"
+                    result[f"{key} Energy"] = f"{component_energy:.2f} J"
+
+        return result
 
     def stop(self):
         """Stop the background monitoring thread."""
@@ -209,3 +234,57 @@ class PowerMonitor:
         :return: List of tuples (timestamp, measurement dict)
         """
         return self.data
+
+
+def cloud_inference_energy_estimate(
+    tokens=500,  # number of output tokens per query
+    active_parameters=100e9,  # active parameters (e.g., 100 billion)
+    flops_per_token_factor=2,  # FLOPs required per parameter per token
+    gpu_peak_flops=9.89e14,  # GPU's theoretical max FLOPs per second (NVIDIA H100)
+    utilization=0.10,  # effective utilization (10% of peak performance)
+    gpu_power_rating=1500,  # peak power per GPU in watts (including overhead)
+    power_utilization_factor=0.70,  # effective power usage (70% of rated power)
+):
+    """
+    Estimate the energy consumption of a GPU inference task based on approximations from epoch ai
+    https://epoch.ai/gradient-updates/how-much-energy-does-chatgpt-use#appendix
+    """
+    # Calculate total FLOPs required for the query
+    total_flops = tokens * flops_per_token_factor * active_parameters
+
+    # Calculate the effective FLOPs per second based on utilization
+    effective_flops_per_sec = gpu_peak_flops * utilization
+
+    # Compute inference time in seconds
+    inference_time_seconds = total_flops / effective_flops_per_sec
+
+    # Calculate effective power consumption in watts
+    effective_power = gpu_power_rating * power_utilization_factor
+
+    # Energy consumed in watt-seconds
+    energy_watt_seconds = inference_time_seconds * effective_power
+
+    # Convert energy to watt-hours (1 Wh = 3600 watt-seconds)
+    energy_watt_hours = energy_watt_seconds / 3600
+
+    return (effective_power, energy_watt_seconds, energy_watt_hours)
+
+
+class PowerMonitorContext:
+    def __init__(self, mode="auto", interval=1.0):
+        self.monitor = PowerMonitor(mode=mode, interval=interval)
+
+    def __enter__(self):
+        print("Starting power monitoring...")
+        self.monitor.start()
+        return self.monitor
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.monitor.stop()
+        print("\nPower monitoring stopped.")
+
+        # Print the final energy estimates
+        final_estimates = self.monitor.get_final_estimates()
+        print("\nEnergy Consumption Metrics:")
+        for key, value in final_estimates.items():
+            print(f"{key}: {value}")

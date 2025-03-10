@@ -14,6 +14,7 @@ class OpenAIClient:
         api_key: Optional[str] = None,
         temperature: float = 0.0,
         max_tokens: int = 4096,
+        base_url: str = "https://api.openai.com/v1",
     ):
         """
         Initialize the OpenAI client.
@@ -23,13 +24,18 @@ class OpenAIClient:
             api_key: OpenAI API key (optional, falls back to environment variable if not provided)
             temperature: Sampling temperature (default: 0.0)
             max_tokens: Maximum number of tokens to generate (default: 4096)
+            base_url: Base URL for the OpenAI API (default: "https://api.openai.com/v1")
         """
         self.model_name = model_name
-        openai.api_key = api_key or os.getenv("OPENAI_API_KEY")
+        self.api_key = api_key or os.getenv("OPENAI_API_KEY")
         self.logger = logging.getLogger("OpenAIClient")
         self.logger.setLevel(logging.INFO)
         self.temperature = temperature
         self.max_tokens = max_tokens
+        self.base_url = base_url
+
+        # Initialize the client
+        self.client = openai.OpenAI(api_key=self.api_key, base_url=self.base_url)
 
     def chat(self, messages: List[Dict[str, Any]], **kwargs) -> Tuple[List[str], Usage]:
         """
@@ -56,7 +62,7 @@ class OpenAIClient:
             if "o1" not in self.model_name and "o3" not in self.model_name:
                 params["temperature"] = self.temperature
 
-            response = openai.chat.completions.create(**params)
+            response = self.client.chat.completions.create(**params)
         except Exception as e:
             self.logger.error(f"Error during OpenAI API call: {e}")
             raise
@@ -64,7 +70,7 @@ class OpenAIClient:
         # Extract usage information
         usage = Usage(
             prompt_tokens=response.usage.prompt_tokens,
-            completion_tokens=response.usage.completion_tokens
+            completion_tokens=response.usage.completion_tokens,
         )
 
         # The content is now nested under message

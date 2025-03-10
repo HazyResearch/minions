@@ -25,6 +25,11 @@ class OllamaClient:
         self.temperature = temperature
         self.max_tokens = max_tokens
         self.num_ctx = num_ctx
+
+        if self.model_name == "granite3.2-vision":
+            self.num_ctx = 131072
+            self.max_tokens = 131072
+
         self.use_async = use_async
 
         # If we want structured schema output:
@@ -34,6 +39,7 @@ class OllamaClient:
 
         # For async calls
         from ollama import AsyncClient
+
         self.client = AsyncClient() if use_async else None
 
         # Ensure model is pulled
@@ -41,10 +47,10 @@ class OllamaClient:
 
     def _ensure_model_available(self):
         import ollama
+
         try:
             ollama.chat(
-                model=self.model_name,
-                messages=[{"role": "system", "content": "test"}]
+                model=self.model_name, messages=[{"role": "system", "content": "test"}]
             )
         except ollama.ResponseError as e:
             if e.status_code == 404:
@@ -72,28 +78,32 @@ class OllamaClient:
     #  ASYNC
     #
     def achat(
-            self,
-            messages: Union[List[Dict[str, Any]], Dict[str, Any]],
-            **kwargs,
-        ) -> Tuple[List[str], List[Usage], List[str]]:
-            """
-            Wrapper for async chat. Runs `asyncio.run()` internally to simplify usage.
-            """
-            if not self.use_async:
-                raise RuntimeError("This client is not in async mode. Set `use_async=True`.")
+        self,
+        messages: Union[List[Dict[str, Any]], Dict[str, Any]],
+        **kwargs,
+    ) -> Tuple[List[str], List[Usage], List[str]]:
+        """
+        Wrapper for async chat. Runs `asyncio.run()` internally to simplify usage.
+        """
+        if not self.use_async:
+            raise RuntimeError(
+                "This client is not in async mode. Set `use_async=True`."
+            )
 
-            try:
-                return asyncio.run(self._achat_internal(messages, **kwargs))
-            except RuntimeError as e:
-                if "Event loop is closed" in str(e):
-                    # Create a new event loop and set it as the current one
-                    loop = asyncio.new_event_loop()
-                    asyncio.set_event_loop(loop)
-                    try:
-                        return loop.run_until_complete(self._achat_internal(messages, **kwargs))
-                    finally:
-                        loop.close()
-                raise
+        try:
+            return asyncio.run(self._achat_internal(messages, **kwargs))
+        except RuntimeError as e:
+            if "Event loop is closed" in str(e):
+                # Create a new event loop and set it as the current one
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                try:
+                    return loop.run_until_complete(
+                        self._achat_internal(messages, **kwargs)
+                    )
+                finally:
+                    loop.close()
+            raise
 
     async def _achat_internal(
         self,
@@ -109,15 +119,16 @@ class OllamaClient:
 
         # Now we have a list of dictionaries. We'll call them in parallel.
         chat_kwargs = self._prepare_options()
+
         async def process_one(msg):
             resp = await self.client.chat(
                 model=self.model_name,
                 messages=[msg],  # each call with exactly one message
                 **chat_kwargs,
-                **kwargs
+                **kwargs,
             )
             return resp
-        
+
         # Run them all in parallel
         results = await asyncio.gather(*(process_one(m) for m in messages))
 
@@ -127,12 +138,12 @@ class OllamaClient:
         done_reasons = []
         for r in results:
             texts.append(r["message"]["content"])
-            usage_total += Usage(prompt_tokens=r["prompt_eval_count"],
-                             completion_tokens=r["eval_count"])
+            usage_total += Usage(
+                prompt_tokens=r["prompt_eval_count"], completion_tokens=r["eval_count"]
+            )
             done_reasons.append(r["done_reason"])
 
         return texts, usage_total, done_reasons
-
 
     def schat(
         self,
@@ -145,6 +156,7 @@ class OllamaClient:
         we wrap it in a list so there's no error.
         """
         import ollama
+
         # If the user provided a single dictionary, wrap it
         if isinstance(messages, dict):
             messages = [messages]
@@ -181,7 +193,7 @@ class OllamaClient:
             raise
 
         return responses, usage_total, done_reasons
-    
+
     def chat(
         self,
         messages: Union[List[Dict[str, Any]], Dict[str, Any]],

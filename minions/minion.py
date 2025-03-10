@@ -87,6 +87,7 @@ class Minion:
         doc_metadata=None,
         logging_id=None,  # this is the name/id to give to the logging .json file
         is_privacy=False,
+        images=None,
     ):
         """Run the minion protocol to answer a task using local and remote models.
 
@@ -131,13 +132,6 @@ class Minion:
                 "output": None,
             }
         )
-
-        worker_messages = [
-            {
-                "role": "system",
-                "content": WORKER_SYSTEM_PROMPT.format(context=context, task=task),
-            }
-        ]
 
         # print whether privacy is enabled
         print("Privacy is enabled: ", is_privacy)
@@ -204,6 +198,7 @@ class Minion:
                 {
                     "role": "system",
                     "content": WORKER_SYSTEM_PROMPT.format(context=context, task=task),
+                    "images": images,
                 }
             ]
 

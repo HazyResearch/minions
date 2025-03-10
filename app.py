@@ -15,6 +15,8 @@ from pydantic import BaseModel
 import json
 from streamlit_theme import st_theme
 from dotenv import load_dotenv
+import base64
+
 
 # Load environment variables from .env file
 load_dotenv()
@@ -95,14 +97,37 @@ def extract_text_from_pdf(pdf_bytes):
         return None
 
 
-def extract_text_from_image(image_bytes):
-    """Extract text from an image file using pytesseract OCR."""
-    try:
-        import pytesseract
+# def extract_text_from_image(image_bytes):
+#     """Extract text from an image file using pytesseract OCR."""
+#     try:
+#         import pytesseract
 
-        image = Image.open(io.BytesIO(image_bytes))
-        text = pytesseract.image_to_string(image)
-        return text
+#         image = Image.open(io.BytesIO(image_bytes))
+#         text = pytesseract.image_to_string(image)
+#         return text
+#     except Exception as e:
+#         st.error(f"Error processing image: {str(e)}")
+#         return None
+
+
+def extract_text_from_image(path_to_file):
+    try:
+        # set up ollama client with model name="granite3.2-vision"
+        client = OllamaClient(
+            model_name="granite3.2-vision",
+            use_async=False,
+            num_ctx=131072,
+        )
+        responses, usage_total, done_reasons = client.chat(
+            messages=[
+                {
+                    "role": "user",
+                    "content": "Describe this image:",
+                    "images": [path_to_file],
+                }
+            ],
+        )
+        return responses[0]
     except Exception as e:
         st.error(f"Error processing image: {str(e)}")
         return None
@@ -363,6 +388,7 @@ def initialize_clients(
                 max_tokens=int(local_max_tokens),
             )
         else:  # Ollama
+
             st.session_state.local_client = OllamaClient(
                 model_name=local_model_name,
                 temperature=local_temperature,
@@ -481,7 +507,9 @@ def initialize_clients(
     )
 
 
-def run_protocol(task, context, doc_metadata, status, protocol, local_provider):
+def run_protocol(
+    task, context, doc_metadata, status, protocol, local_provider, images=None
+):
     """Run the protocol with pre-initialized clients."""
     setup_start_time = time.time()
 
@@ -554,6 +582,7 @@ def run_protocol(task, context, doc_metadata, status, protocol, local_provider):
                 context=[context],
                 max_rounds=5,
                 is_privacy=privacy_mode,  # Pass the privacy mode setting
+                images=images,
             )
         elif protocol == "Minions":
             output = st.session_state.method(
@@ -884,6 +913,7 @@ with st.sidebar:
                 "llama3.2 (Recommended)": "llama3.2",
                 "llama3.1:8b (Recommended)": "llama3.1:8b",
                 "llama3.2:1b": "llama3.2:1b",
+                "granite3.2-vision": "granite3.2-vision",
                 "phi4": "phi4",
                 "qwen2.5:1.5b": "qwen2.5:1.5b",
                 "qwen2.5:3b (Recommended)": "qwen2.5:3b",
@@ -899,6 +929,7 @@ with st.sidebar:
             "Model", options=list(local_model_options.keys()), index=0
         )
         local_model_name = local_model_options[local_model_display]
+        st.session_state.current_local_model = local_model_name
 
         show_local_params = st.toggle(
             "Change defaults", value=False, key="local_defaults_toggle"
@@ -924,8 +955,6 @@ with st.sidebar:
     with remote_col:
         st.markdown("### Remote Model")
         st.image("assets/gru_resized.jpg", use_container_width=True)
-
-        print(selected_provider)
 
         # If MLX is selected, use the same models for remote
         if selected_provider == "OpenAI":
@@ -1005,6 +1034,7 @@ with st.sidebar:
             key="remote_model",
         )
         remote_model_name = model_mapping[remote_model_display]
+        st.session_state.current_remote_model = remote_model_name
 
         show_remote_params = st.toggle(
             "Change defaults", value=False, key="remote_defaults_toggle"
@@ -1037,13 +1067,13 @@ st.subheader("Context")
 text_input = st.text_area("Optionally paste text here", value="", height=150)
 
 uploaded_files = st.file_uploader(
-    "Or upload PDF / TXT (Not more than a 100 pages total!)",
-    type=["txt", "pdf"],
+    "Or upload PDF / TXT / Images (Not more than a 100 pages total!)",
+    type=["txt", "pdf", "png", "jpg", "jpeg"],
     accept_multiple_files=True,
 )
 
-
 file_content = ""
+images = []
 if uploaded_files:
     all_file_contents = []
     total_size = 0
@@ -1056,6 +1086,15 @@ if uploaded_files:
 
             if file_type == "pdf":
                 current_content = extract_text_from_pdf(uploaded_file.read()) or ""
+
+            elif file_type in ["png", "jpg", "jpeg"]:
+                image_bytes = uploaded_file.read()
+                image_base64 = base64.b64encode(image_bytes).decode("utf-8")
+                images.append(image_base64)
+                if st.session_state.current_local_model == "granite3.2-vision":
+                    current_content = "file is an image"
+                else:
+                    current_content = extract_text_from_image(image_base64) or ""
             else:
                 current_content = uploaded_file.getvalue().decode()
 
@@ -1088,6 +1127,7 @@ elif text_input:
     doc_metadata = f"Input: Text input only. Length: {len(text_input)} characters."
 else:
     context = file_content
+
 padding = 8000
 estimated_tokens = int(len(context) / 4 + padding) if context else 4096
 num_ctx_values = [2048, 4096, 8192, 16384, 32768, 65536, 131072]
@@ -1134,9 +1174,14 @@ if user_query:
                 or "method" not in st.session_state
                 or "current_protocol" not in st.session_state
                 or "current_local_provider" not in st.session_state
+                or "current_remote_provider" not in st.session_state
+                or "current_remote_model" not in st.session_state
+                or "current_local_model" not in st.session_state
                 or st.session_state.current_protocol != protocol
                 or st.session_state.current_local_provider != local_provider
                 or st.session_state.current_remote_provider != selected_provider
+                or st.session_state.current_remote_model != remote_model_name
+                or st.session_state.current_local_model != local_model_name
             ):
 
                 st.write(f"Initializing clients for {protocol} protocol...")
@@ -1152,7 +1197,11 @@ if user_query:
                     if local_temperature < 0.01:
                         local_temperature = 0.00001
 
-                initialize_clients(
+                (
+                    st.session_state.local_client,
+                    st.session_state.remote_client,
+                    st.session_state.method,
+                ) = initialize_clients(
                     local_model_name,
                     remote_model_name,
                     selected_provider,
@@ -1170,10 +1219,18 @@ if user_query:
                 st.session_state.current_protocol = protocol
                 st.session_state.current_local_provider = local_provider
                 st.session_state.current_remote_provider = selected_provider
+                st.session_state.current_remote_model = remote_model_name
+                st.session_state.current_local_model = local_model_name
 
             # Then run the protocol with pre-initialized clients
             output, setup_time, execution_time = run_protocol(
-                user_query, context, doc_metadata, status, protocol, local_provider
+                user_query,
+                context,
+                doc_metadata,
+                status,
+                protocol,
+                local_provider,
+                images,
             )
 
             status.update(

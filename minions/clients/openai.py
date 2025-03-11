@@ -14,7 +14,7 @@ class OpenAIClient:
         api_key: Optional[str] = None,
         temperature: float = 0.0,
         max_tokens: int = 4096,
-        base_url: str = "https://api.openai.com/v1",
+        base_url: Optional[str] = None,
     ):
         """
         Initialize the OpenAI client.
@@ -24,7 +24,7 @@ class OpenAIClient:
             api_key: OpenAI API key (optional, falls back to environment variable if not provided)
             temperature: Sampling temperature (default: 0.0)
             max_tokens: Maximum number of tokens to generate (default: 4096)
-            base_url: Base URL for the OpenAI API (default: "https://api.openai.com/v1")
+            base_url: Base URL for the OpenAI API (optional, falls back to OPENAI_BASE_URL environment variable or default URL)
         """
         self.model_name = model_name
         self.api_key = api_key or os.getenv("OPENAI_API_KEY")
@@ -32,7 +32,7 @@ class OpenAIClient:
         self.logger.setLevel(logging.INFO)
         self.temperature = temperature
         self.max_tokens = max_tokens
-        self.base_url = base_url
+        self.base_url = base_url or os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
 
         # Initialize the client
         self.client = openai.OpenAI(api_key=self.api_key, base_url=self.base_url)

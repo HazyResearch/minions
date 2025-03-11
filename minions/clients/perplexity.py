@@ -13,6 +13,7 @@ class PerplexityAIClient:
         api_key: Optional[str] = None,
         temperature: float = 0.0,
         max_tokens: int = 4096,
+        base_url: Optional[str] = None,
     ):
         """
         Initialize the Perplexity client.
@@ -22,6 +23,7 @@ class PerplexityAIClient:
             api_key: Perplexity API key (optional, falls back to environment variable if not provided)
             temperature: Sampling temperature (default: 0.0)
             max_tokens: Maximum number of tokens to generate (default: 4096)
+            base_url: Base URL for the Perplexity API (optional, falls back to PERPLEXITY_BASE_URL environment variable or default URL)
         """
         self.model_name = model_name
         openai.api_key = api_key or os.getenv("PERPLEXITY_API_KEY")
@@ -30,8 +32,12 @@ class PerplexityAIClient:
         self.logger.setLevel(logging.INFO)
         self.temperature = temperature
         self.max_tokens = max_tokens
+        
+        # Get base URL from parameter, environment variable, or use default
+        base_url = base_url or os.getenv("PERPLEXITY_BASE_URL", "https://api.perplexity.ai")
+        
         self.client = openai.OpenAI(
-            api_key=self.api_key, base_url="https://api.perplexity.ai"
+            api_key=self.api_key, base_url=base_url
         )
 
     def chat(self, messages: List[Dict[str, Any]], **kwargs) -> Tuple[List[str], Usage]:

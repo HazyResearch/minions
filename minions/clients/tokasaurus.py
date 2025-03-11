@@ -16,6 +16,7 @@ class TokasaurusClient(ServerMixin):
         max_tokens: int = 2048,
         port: Optional[int] = None,
         capture_output: bool = False,
+        base_url: Optional[str] = None,
     ):
         """
         Initialize the Tokasaurus client.
@@ -24,6 +25,9 @@ class TokasaurusClient(ServerMixin):
             model_name: The name of the model to use (default: "meta-llama/Llama-3.2-1B-Instruct")
             temperature: Sampling temperature (default: 0.2)
             max_tokens: Maximum number of tokens to generate (default: 2048)
+            port: Port to use for the server (optional, will find a free port if not provided)
+            capture_output: Whether to capture server output (default: False)
+            base_url: Base URL for the Tokasaurus API (optional, falls back to TOKASAURUS_BASE_URL environment variable or default URL)
         """
         self.model_name = model_name
         self.logger = logging.getLogger("OpenAIClient")
@@ -42,9 +46,13 @@ class TokasaurusClient(ServerMixin):
         else:
             self.port = port
         
+        # Get base URL from parameter, environment variable, or construct default from port
+        default_base_url = f"http://0.0.0.0:{self.port}/v1"
+        base_url = base_url or os.getenv("TOKASAURUS_BASE_URL", default_base_url)
+        
         self.client = OpenAI(
             api_key='fake-key',
-            base_url=f"http://0.0.0.0:{self.port}/v1"
+            base_url=base_url
         )
 
     def chat(self, messages: List[Dict[str, Any]], **kwargs) -> Tuple[List[str], Usage]:

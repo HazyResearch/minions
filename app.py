@@ -580,7 +580,7 @@ def run_protocol(
                 task=task,
                 doc_metadata=doc_metadata,
                 context=[context],
-                max_rounds=5,
+                max_rounds=2,
                 is_privacy=privacy_mode,  # Pass the privacy mode setting
                 images=images,
             )
@@ -960,6 +960,7 @@ with st.sidebar:
         if selected_provider == "OpenAI":
             model_mapping = {
                 "gpt-4o (Recommended)": "gpt-4o",
+                "gpt-4.5-preview": "gpt-4.5-preview",
                 "gpt-4o-mini": "gpt-4o-mini",
                 "o3-mini": "o3-mini",
                 "o1": "o1",

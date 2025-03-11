@@ -19,7 +19,7 @@ class OpenRouterClient(OpenAIClient):
         api_key: Optional[str] = None,
         temperature: float = 0.0,
         max_tokens: int = 4096,
-        base_url: str = "https://openrouter.ai/api/v1",
+        base_url: Optional[str] = None,
     ):
         """Initialize the OpenRouter client.
 
@@ -28,7 +28,7 @@ class OpenRouterClient(OpenAIClient):
             api_key: OpenRouter API key. If not provided, will look for OPENROUTER_API_KEY env var.
             temperature: Temperature parameter for generation.
             max_tokens: Maximum number of tokens to generate.
-            base_url: Base URL for the OpenRouter API.
+            base_url: Base URL for the OpenRouter API. If not provided, will look for OPENROUTER_BASE_URL env var or use default.
         """
         # Get API key from environment if not provided
         if api_key is None:
@@ -37,6 +37,9 @@ class OpenRouterClient(OpenAIClient):
                 raise ValueError(
                     "OpenRouter API key not provided and OPENROUTER_API_KEY environment variable not set."
                 )
+
+        # Get base URL from parameter, environment variable, or use default
+        base_url = base_url or os.environ.get("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
 
         # Initialize the OpenAI client with the OpenRouter base URL
         self.client = OpenAI(api_key=api_key, base_url=base_url)

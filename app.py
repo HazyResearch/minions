@@ -54,7 +54,9 @@ API_PRICES = {
     "OpenAI": {
         "gpt-4o": {"input": 2.50, "cached_input": 1.25, "output": 10.00},
         "gpt-4o-mini": {"input": 0.15, "cached_input": 0.075, "output": 0.60},
+        "gpt-4.5-preview": {"input": 75.00, "cached_input": 37.50, "output": 150.00},
         "o3-mini": {"input": 1.10, "cached_input": 0.55, "output": 4.40},
+        "o1-pro": {"input": 15.00, "cached_input": 7.50, "output": 60.00},
     },
     # DeepSeek model pricing per 1M tokens
     "DeepSeek": {

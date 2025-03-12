@@ -75,7 +75,6 @@ class Minion:
         self.max_rounds = max_rounds
         self.callback = callback
         self.log_dir = log_dir
-
         # Create log directory if it doesn't exist
         os.makedirs(log_dir, exist_ok=True)
 
@@ -231,9 +230,14 @@ class Minion:
 
         # Extract first question for worker
         if isinstance(self.remote_client, (OpenAIClient, TogetherClient)):
-            supervisor_json = json.loads(supervisor_response[0])
+            try:
+                supervisor_json = json.loads(supervisor_response[0])
+
+            except:
+                supervisor_json = _extract_json(supervisor_response[0])
         else:
             supervisor_json = _extract_json(supervisor_response[0])
+
         worker_messages.append({"role": "user", "content": supervisor_json["message"]})
 
         # Add worker prompt to conversation log
@@ -366,7 +370,10 @@ class Minion:
 
             # Parse supervisor's decision
             if isinstance(self.remote_client, (OpenAIClient, TogetherClient)):
-                supervisor_json = json.loads(supervisor_response[0])
+                try:
+                    supervisor_json = json.loads(supervisor_response[0])
+                except:
+                    supervisor_json = _extract_json(supervisor_response[0])
             else:
                 supervisor_json = _extract_json(supervisor_response[0])
 

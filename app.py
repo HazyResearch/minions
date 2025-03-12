@@ -399,11 +399,18 @@ def initialize_clients(
             )
 
     if provider == "OpenAI":
+        # Add web search tool if responses API is enabled
+        tools = None
+        if use_responses_api:
+            tools = [{"type": "web_search_preview"}]
+
         st.session_state.remote_client = OpenAIClient(
             model_name=remote_model_name,
             temperature=remote_temperature,
             max_tokens=int(remote_max_tokens),
             api_key=api_key,
+            use_responses_api=use_responses_api,
+            tools=tools,
         )
     elif provider == "AzureOpenAI":
         # Get Azure-specific parameters from environment variables
@@ -790,6 +797,16 @@ with st.sidebar:
         )
         provider_key = None
 
+    # Add a toggle for OpenAI Responses API with web search when OpenAI is selected
+    if selected_provider == "OpenAI":
+        use_responses_api = st.toggle(
+            "Enable Responses API",
+            value=False,
+            help="When enabled, uses OpenAI's Responses API with web search capability. Only works with OpenAI provider.",
+        )
+    else:
+        use_responses_api = False
+
     # Local model provider selection
     st.subheader("Local Model Provider")
     local_provider_options = ["Ollama"]
@@ -1055,6 +1072,7 @@ with st.sidebar:
         else:
             remote_temperature = 0.0
             remote_max_tokens = 4096
+
 
 # -------------------------
 #   Main app layout

@@ -53,6 +53,8 @@ class OpenAIClient:
             # handle new format of structure outputs from openai
             kwargs["text"] = {"format": kwargs["response_format"]}
             del kwargs["response_format"]
+            if self.tools:
+                del kwargs["text"]
 
         try:
 

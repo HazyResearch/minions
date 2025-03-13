@@ -1,21 +1,20 @@
-import logging
-from typing import Any, Dict, List, Optional, Union, Tuple
 import asyncio
-
+import logging
 from pydantic import BaseModel
+from typing import Any, Dict, List, Optional, Union, Tuple
 
 from minions.usage import Usage
 
 
 class OllamaClient:
     def __init__(
-        self,
-        model_name: str = "llama-3.2",
-        temperature: float = 0.0,
-        max_tokens: int = 2048,
-        num_ctx: int = 4096,
-        structured_output_schema: Optional[BaseModel] = None,
-        use_async: bool = False,
+            self,
+            model_name: str = "llama-3.2",
+            temperature: float = 0.0,
+            max_tokens: int = 2048,
+            num_ctx: int = 4096,
+            structured_output_schema: Optional[BaseModel] = None,
+            use_async: bool = False,
     ):
         """Initialize Ollama Client."""
         self.model_name = model_name
@@ -44,6 +43,25 @@ class OllamaClient:
 
         # Ensure model is pulled
         self._ensure_model_available()
+
+    @staticmethod
+    def get_available_models():
+        """
+        Get a list of available Ollama models
+
+        Returns:
+            List[str]: List of model names
+        """
+        try:
+            import ollama
+            models = ollama.list()
+
+            # Extract model names from the list
+            model_names = [model.model for model in models['models']]
+            return model_names
+        except Exception as e:
+            logging.error(f"Failed to get Ollama model list: {e}")
+            return []
 
     def _ensure_model_available(self):
         import ollama
@@ -78,9 +96,9 @@ class OllamaClient:
     #  ASYNC
     #
     def achat(
-        self,
-        messages: Union[List[Dict[str, Any]], Dict[str, Any]],
-        **kwargs,
+            self,
+            messages: Union[List[Dict[str, Any]], Dict[str, Any]],
+            **kwargs,
     ) -> Tuple[List[str], List[Usage], List[str]]:
         """
         Wrapper for async chat. Runs `asyncio.run()` internally to simplify usage.
@@ -106,9 +124,9 @@ class OllamaClient:
             raise
 
     async def _achat_internal(
-        self,
-        messages: Union[List[Dict[str, Any]], Dict[str, Any]],
-        **kwargs,
+            self,
+            messages: Union[List[Dict[str, Any]], Dict[str, Any]],
+            **kwargs,
     ) -> Tuple[List[str], Usage, List[str]]:
         """
         Handle async chat with multiple messages in parallel.
@@ -146,9 +164,9 @@ class OllamaClient:
         return texts, usage_total, done_reasons
 
     def schat(
-        self,
-        messages: Union[List[Dict[str, Any]], Dict[str, Any]],
-        **kwargs,
+            self,
+            messages: Union[List[Dict[str, Any]], Dict[str, Any]],
+            **kwargs,
     ) -> Tuple[List[str], Usage, List[str]]:
         """
         Handle synchronous chat completions. If you pass a list of message dicts,
@@ -195,9 +213,9 @@ class OllamaClient:
         return responses, usage_total, done_reasons
 
     def chat(
-        self,
-        messages: Union[List[Dict[str, Any]], Dict[str, Any]],
-        **kwargs,
+            self,
+            messages: Union[List[Dict[str, Any]], Dict[str, Any]],
+            **kwargs,
     ) -> Tuple[List[str], Usage, List[str]]:
         """
         Handle synchronous chat completions. If you pass a list of message dicts,

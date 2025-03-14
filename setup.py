@@ -19,6 +19,7 @@ setup(
         "spacy",  # for PII extraction, worked on python 3.11 and not 3.13
         "rank_bm25",  # for smart retrieval
         "PyMuPDF",  # for PDF handling
+        "firecrawl-py",  # for scraping urls
     ],
     extras_require={
         "mlx": ["mlx-lm"],

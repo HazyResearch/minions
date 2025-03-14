@@ -2,6 +2,7 @@ import streamlit as st
 from minions.minion import Minion
 from minions.minions import Minions
 from minions.minions_mcp import SyncMinionsMCP, MCPConfigManager
+from minions.utils.firecrawl_util import scrape_url
 
 from minions.clients import *
 
@@ -930,6 +931,7 @@ with st.sidebar:
                 "llama3.2 (Recommended)": "llama3.2",
                 "llama3.1:8b (Recommended)": "llama3.1:8b",
                 "llama3.2:1b": "llama3.2:1b",
+                "gemma3:4b": "gemma3:4b",
                 "granite3.2-vision": "granite3.2-vision",
                 "phi4": "phi4",
                 "qwen2.5:1.5b": "qwen2.5:1.5b",
@@ -1085,6 +1087,31 @@ with st.sidebar:
 st.subheader("Context")
 text_input = st.text_area("Optionally paste text here", value="", height=150)
 
+
+# Check if FIRECRAWL_API_KEY is set in environment or provided by user
+firecrawl_api_key_env = os.getenv("FIRECRAWL_API_KEY", "")
+
+# Display URL input and API key fields side by side
+c1, c2 = st.columns(2)
+with c2:
+    # make the text input not visible as it is a password input
+    firecrawl_api_key = st.text_input(
+        "FIRECRAWL_API_KEY", type="password", key="firecrawl_api_key"
+    )
+
+# Set the API key in environment if provided by user
+if firecrawl_api_key and firecrawl_api_key != firecrawl_api_key_env:
+    os.environ["FIRECRAWL_API_KEY"] = firecrawl_api_key
+
+# Only show URL input if API key is available
+with c1:
+    if firecrawl_api_key:
+        url_input = st.text_input("Or paste a URL here", value="")
+
+    else:
+        st.info("Set FIRECRAWL_API_KEY to enable URL scraping")
+        url_input = ""
+
 uploaded_files = st.file_uploader(
     "Or upload PDF / TXT / Images (Not more than a 100 pages total!)",
     type=["txt", "pdf", "png", "jpg", "jpeg"],
@@ -1093,6 +1120,15 @@ uploaded_files = st.file_uploader(
 
 file_content = ""
 images = []
+# if url_input is not empty, scrape the url
+if url_input:
+    # check if the FIRECRAWL_API_KEY is set
+    if not os.getenv("FIRECRAWL_API_KEY"):
+        st.error("FIRECRAWL_API_KEY is not set")
+        st.stop()
+    file_content = scrape_url(url_input)["markdown"]
+
+
 if uploaded_files:
     all_file_contents = []
     total_size = 0

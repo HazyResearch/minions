@@ -4,6 +4,17 @@ from minions.minions import Minions
 from minions.minions_mcp import SyncMinionsMCP, MCPConfigManager
 from minions.utils.firecrawl_util import scrape_url
 
+try:
+    from minions.utils.voice_generator import VoiceGenerator
+
+    voice_generator = VoiceGenerator()
+    voice_generation_available = voice_generator.csm_available
+except ImportError:
+    st.error(
+        "Voice generation requires CSM-MLX. Install with: `pip install -e '.[csm-mlx]'`"
+    )
+    voice_generation_available = False
+
 from minions.clients import *
 
 import os
@@ -22,13 +33,15 @@ import base64
 # Load environment variables from .env file
 load_dotenv()
 
-# Check if MLXLMClient and CartesiaMLXClient are in the clients module
+# Check if MLXLMClient, CartesiaMLXClient, and CSM-MLX are available
 mlx_available = "MLXLMClient" in globals()
 cartesia_available = "CartesiaMLXClient" in globals()
+
 
 # Log availability for debugging
 print(f"MLXLMClient available: {mlx_available}")
 print(f"CartesiaMLXClient available: {cartesia_available}")
+print(f"Voice generation available: {voice_generation_available}")
 
 
 class StructuredLocalOutput(BaseModel):
@@ -241,7 +254,6 @@ def message_callback(role, message, is_final=True):
                         height: 0;
                         overflow: hidden;
                         max-width: 100%;
-                        background: #000;
                     }}
                     .video-container iframe {{
                         position: absolute;
@@ -266,6 +278,37 @@ def message_callback(role, message, is_final=True):
             placeholder_messages[role].empty()
             del placeholder_messages[role]
         with st.chat_message(chat_role, avatar=path):
+            # Generate voice if enabled and it's a worker/local message
+            if (
+                st.session_state.get("voice_generation_enabled", False)
+                and role == "worker"
+            ):
+                # For text messages, generate audio
+                if isinstance(message, str):
+                    # Limit text length for voice generation
+                    voice_text = (
+                        message[:500] + "..." if len(message) > 500 else message
+                    )
+                    audio_base64 = voice_generator.generate_audio(voice_text)
+                    if audio_base64:
+                        st.markdown(
+                            voice_generator.get_audio_html(audio_base64),
+                            unsafe_allow_html=True,
+                        )
+                elif isinstance(message, dict):
+                    if "content" in message and isinstance(message["content"], str):
+                        voice_text = (
+                            message["content"][:500] + "..."
+                            if len(message["content"]) > 500
+                            else message["content"]
+                        )
+                        audio_base64 = voice_generator.generate_audio(voice_text)
+                        if audio_base64:
+                            st.markdown(
+                                voice_generator.get_audio_html(audio_base64),
+                                unsafe_allow_html=True,
+                            )
+
             if role == "worker" and isinstance(message, list):
                 # For Minions protocol, messages are a list of jobs
                 st.markdown("#### Here are the outputs from all the minions!")
@@ -310,6 +353,7 @@ def message_callback(role, message, is_final=True):
                             else json.loads(message["content"])
                         )
                         st.json(content)
+
                     except json.JSONDecodeError:
                         st.write(message["content"])
                 else:
@@ -932,12 +976,7 @@ with st.sidebar:
             available_ollama_models = OllamaClient.get_available_models()
 
             # Default recommended models list
-            recommended_models = [
-                "llama3.2",
-                "llama3.1:8b",
-                "qwen2.5:3b",
-                "qwen2.5:7b"
-            ]
+            recommended_models = ["llama3.2", "llama3.1:8b", "qwen2.5:3b", "qwen2.5:7b"]
 
             # Initialize with default model options
             local_model_options = {
@@ -1100,6 +1139,25 @@ with st.sidebar:
             remote_temperature = 0.0
             remote_max_tokens = 4096
 
+    # Add voice generation toggle if available - MOVED HERE from the top
+    if voice_generation_available:
+        st.subheader("Voice Generation")
+        voice_generation_enabled = st.toggle(
+            "Enable Minion Voice",
+            value=False,
+            help="When enabled, minion responses will be spoken using CSM-MLX voice synthesis",
+        )
+        st.session_state.voice_generation_enabled = voice_generation_enabled
+
+        if voice_generation_enabled:
+            st.success("🔊 Minion voice generation is enabled!")
+            st.info("Minions will speak their responses (limited to 500 characters)")
+    else:
+        st.info(
+            "Voice generation requires CSM-MLX. Install with: `pip install -e '.[csm-mlx]'`"
+        )
+        st.session_state.voice_generation_enabled = False
+
 
 # -------------------------
 #   Main app layout
@@ -1113,6 +1171,7 @@ st.subheader("Context")
 text_input = st.text_area("Optionally paste text here", value="", height=150)
 
 
+st.markdown("Or upload context from a webpage")
 # Check if FIRECRAWL_API_KEY is set in environment or provided by user
 firecrawl_api_key_env = os.getenv("FIRECRAWL_API_KEY", "")
 

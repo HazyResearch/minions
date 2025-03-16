@@ -23,6 +23,7 @@ setup(
     ],
     extras_require={
         "mlx": ["mlx-lm"],
+        "csm-mlx": ["csm-mlx @ git+https://github.com/senstella/csm-mlx.git"],
     },
     author="Sabri, Avanika, and Dan",
     description="A package for running minion protocols with local and remote LLMs",

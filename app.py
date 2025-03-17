@@ -4,16 +4,10 @@ from minions.minions import Minions
 from minions.minions_mcp import SyncMinionsMCP, MCPConfigManager
 from minions.utils.firecrawl_util import scrape_url
 
-try:
-    from minions.utils.voice_generator import VoiceGenerator
-
-    voice_generator = VoiceGenerator()
-    voice_generation_available = voice_generator.csm_available
-except ImportError:
-    st.error(
-        "Voice generation requires CSM-MLX. Install with: `pip install -e '.[csm-mlx]'`"
-    )
-    voice_generation_available = False
+# Instead of trying to import at startup, set voice_generation_available to None
+# and only attempt import when voice generation is requested
+voice_generation_available = None
+voice_generator = None
 
 from minions.clients import *
 
@@ -41,7 +35,7 @@ cartesia_available = "CartesiaMLXClient" in globals()
 # Log availability for debugging
 print(f"MLXLMClient available: {mlx_available}")
 print(f"CartesiaMLXClient available: {cartesia_available}")
-print(f"Voice generation available: {voice_generation_available}")
+print(f"Voice generation available: {voice_generation_available if voice_generation_available is not None else 'Not checked yet'}")
 
 
 class StructuredLocalOutput(BaseModel):
@@ -282,6 +276,7 @@ def message_callback(role, message, is_final=True):
             if (
                 st.session_state.get("voice_generation_enabled", False)
                 and role == "worker"
+                and "voice_generator" in st.session_state
             ):
                 # For text messages, generate audio
                 if isinstance(message, str):
@@ -289,10 +284,10 @@ def message_callback(role, message, is_final=True):
                     voice_text = (
                         message[:500] + "..." if len(message) > 500 else message
                     )
-                    audio_base64 = voice_generator.generate_audio(voice_text)
+                    audio_base64 = st.session_state.voice_generator.generate_audio(voice_text)
                     if audio_base64:
                         st.markdown(
-                            voice_generator.get_audio_html(audio_base64),
+                            st.session_state.voice_generator.get_audio_html(audio_base64),
                             unsafe_allow_html=True,
                         )
                 elif isinstance(message, dict):
@@ -302,10 +297,10 @@ def message_callback(role, message, is_final=True):
                             if len(message["content"]) > 500
                             else message["content"]
                         )
-                        audio_base64 = voice_generator.generate_audio(voice_text)
+                        audio_base64 = st.session_state.voice_generator.generate_audio(voice_text)
                         if audio_base64:
                             st.markdown(
-                                voice_generator.get_audio_html(audio_base64),
+                                st.session_state.voice_generator.get_audio_html(audio_base64),
                                 unsafe_allow_html=True,
                             )
 
@@ -1140,23 +1135,40 @@ with st.sidebar:
             remote_max_tokens = 4096
 
     # Add voice generation toggle if available - MOVED HERE from the top
-    if voice_generation_available:
-        st.subheader("Voice Generation")
-        voice_generation_enabled = st.toggle(
-            "Enable Minion Voice",
-            value=False,
-            help="When enabled, minion responses will be spoken using CSM-MLX voice synthesis",
-        )
-        st.session_state.voice_generation_enabled = voice_generation_enabled
-
-        if voice_generation_enabled:
-            st.success("🔊 Minion voice generation is enabled!")
-            st.info("Minions will speak their responses (limited to 500 characters)")
-    else:
-        st.info(
-            "Voice generation requires CSM-MLX. Install with: `pip install -e '.[csm-mlx]'`"
-        )
-        st.session_state.voice_generation_enabled = False
+    st.subheader("Voice Generation")
+    voice_generation_enabled = st.toggle(
+        "Enable Minion Voice",
+        value=False,
+        help="When enabled, minion responses will be spoken using CSM-MLX voice synthesis",
+    )
+    
+    # Only try to import and initialize the voice generator if user enables it
+    if voice_generation_enabled and voice_generation_available is None:
+        try:
+            from minions.utils.voice_generator import VoiceGenerator
+            st.session_state.voice_generator = VoiceGenerator()
+            voice_generation_available = st.session_state.voice_generator.csm_available
+            
+            if voice_generation_available:
+                st.success("🔊 Minion voice generation is enabled!")
+                st.info("Minions will speak their responses (limited to 500 characters)")
+            else:
+                st.error("Voice generation could not be initialized")
+                st.info("Make sure CSM-MLX is properly installed")
+                voice_generation_enabled = False
+        except ImportError:
+            st.error("Voice generation requires CSM-MLX. Install with: `pip install -e '.[csm-mlx]'`")
+            voice_generation_available = False
+            voice_generation_enabled = False
+    elif voice_generation_enabled and voice_generation_available is False:
+        st.error("Voice generation is not available")
+        st.info("Make sure CSM-MLX is properly installed with: `pip install -e '.[csm-mlx]'`")
+        voice_generation_enabled = False
+    elif voice_generation_enabled and voice_generation_available:
+        st.success("🔊 Minion voice generation is enabled!")
+        st.info("Minions will speak their responses (limited to 500 characters)")
+        
+    st.session_state.voice_generation_enabled = voice_generation_enabled
 
 
 # -------------------------

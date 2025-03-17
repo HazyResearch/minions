@@ -2,25 +2,46 @@ import streamlit as st
 from minions.minion import Minion
 from minions.minions import Minions
 from minions.minions_mcp import SyncMinionsMCP, MCPConfigManager
+from minions.utils.firecrawl_util import scrape_url
 
-from minions.clients.ollama import OllamaClient
-from minions.clients.openai import OpenAIClient
-from minions.clients.anthropic import AnthropicClient
-from minions.clients.together import TogetherClient
-from minions.clients.perplexity import PerplexityAIClient
-from minions.clients.openrouter import OpenRouterClient
-from minions.clients.groq import GroqClient
+try:
+    from minions.utils.voice_generator import VoiceGenerator
+
+    voice_generator = VoiceGenerator()
+    voice_generation_available = voice_generator.csm_available
+except ImportError:
+    st.error(
+        "Voice generation requires CSM-MLX. Install with: `pip install -e '.[csm-mlx]'`"
+    )
+    voice_generation_available = False
+
+from minions.clients import *
 
 import os
 import time
 import pandas as pd
-from openai import OpenAI
 import fitz  # PyMuPDF
 from PIL import Image
 import io
 from pydantic import BaseModel
 import json
 from streamlit_theme import st_theme
+from dotenv import load_dotenv
+import base64
+
+
+# Load environment variables from .env file
+load_dotenv()
+
+# Check if MLXLMClient, CartesiaMLXClient, and CSM-MLX are available
+mlx_available = "MLXLMClient" in globals()
+cartesia_available = "CartesiaMLXClient" in globals()
+
+
+# Log availability for debugging
+print(f"MLXLMClient available: {mlx_available}")
+print(f"CartesiaMLXClient available: {cartesia_available}")
+print(f"Voice generation available: {voice_generation_available}")
 
 
 class StructuredLocalOutput(BaseModel):
@@ -42,20 +63,32 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# OpenAI model pricing per 1M tokens
-OPENAI_PRICES = {
-    "gpt-4o": {"input": 2.50, "cached_input": 1.25, "output": 10.00},
-    "gpt-4o-mini": {"input": 0.15, "cached_input": 0.075, "output": 0.60},
-    "o3-mini": {"input": 1.10, "cached_input": 0.55, "output": 4.40},
+API_PRICES = {
+    # OpenAI model pricing per 1M tokens
+    "OpenAI": {
+        "gpt-4o": {"input": 2.50, "cached_input": 1.25, "output": 10.00},
+        "gpt-4o-mini": {"input": 0.15, "cached_input": 0.075, "output": 0.60},
+        "gpt-4.5-preview": {"input": 75.00, "cached_input": 37.50, "output": 150.00},
+        "o3-mini": {"input": 1.10, "cached_input": 0.55, "output": 4.40},
+        "o1-pro": {"input": 15.00, "cached_input": 7.50, "output": 60.00},
+    },
+    # DeepSeek model pricing per 1M tokens
+    "DeepSeek": {
+        # Let's assume 1 dollar = 7.25 RMB and
+        "deepseek-chat": {"input": 0.27, "cached_input": 0.07, "output": 1.10},
+        "deepseek-reasoner": {"input": 0.27, "cached_input": 0.07, "output": 1.10},
+    },
 }
 
 PROVIDER_TO_ENV_VAR_KEY = {
     "OpenAI": "OPENAI_API_KEY",
+    "AzureOpenAI": "AZURE_OPENAI_API_KEY",
     "OpenRouter": "OPENROUTER_API_KEY",
     "Anthropic": "ANTHROPIC_API_KEY",
     "Together": "TOGETHER_API_KEY",
     "Perplexity": "PERPLEXITY_API_KEY",
     "Groq": "GROQ_API_KEY",
+    "DeepSeek": "DEEPSEEK_API_KEY",
 }
 
 
@@ -80,14 +113,37 @@ def extract_text_from_pdf(pdf_bytes):
         return None
 
 
-def extract_text_from_image(image_bytes):
-    """Extract text from an image file using pytesseract OCR."""
-    try:
-        import pytesseract
+# def extract_text_from_image(image_bytes):
+#     """Extract text from an image file using pytesseract OCR."""
+#     try:
+#         import pytesseract
 
-        image = Image.open(io.BytesIO(image_bytes))
-        text = pytesseract.image_to_string(image)
-        return text
+#         image = Image.open(io.BytesIO(image_bytes))
+#         text = pytesseract.image_to_string(image)
+#         return text
+#     except Exception as e:
+#         st.error(f"Error processing image: {str(e)}")
+#         return None
+
+
+def extract_text_from_image(path_to_file):
+    try:
+        # set up ollama client with model name="granite3.2-vision"
+        client = OllamaClient(
+            model_name="granite3.2-vision",
+            use_async=False,
+            num_ctx=131072,
+        )
+        responses, usage_total, done_reasons = client.chat(
+            messages=[
+                {
+                    "role": "user",
+                    "content": "Describe this image:",
+                    "images": [path_to_file],
+                }
+            ],
+        )
+        return responses[0]
     except Exception as e:
         st.error(f"Error processing image: {str(e)}")
         return None
@@ -198,7 +254,6 @@ def message_callback(role, message, is_final=True):
                         height: 0;
                         overflow: hidden;
                         max-width: 100%;
-                        background: #000;
                     }}
                     .video-container iframe {{
                         position: absolute;
@@ -223,6 +278,37 @@ def message_callback(role, message, is_final=True):
             placeholder_messages[role].empty()
             del placeholder_messages[role]
         with st.chat_message(chat_role, avatar=path):
+            # Generate voice if enabled and it's a worker/local message
+            if (
+                st.session_state.get("voice_generation_enabled", False)
+                and role == "worker"
+            ):
+                # For text messages, generate audio
+                if isinstance(message, str):
+                    # Limit text length for voice generation
+                    voice_text = (
+                        message[:500] + "..." if len(message) > 500 else message
+                    )
+                    audio_base64 = voice_generator.generate_audio(voice_text)
+                    if audio_base64:
+                        st.markdown(
+                            voice_generator.get_audio_html(audio_base64),
+                            unsafe_allow_html=True,
+                        )
+                elif isinstance(message, dict):
+                    if "content" in message and isinstance(message["content"], str):
+                        voice_text = (
+                            message["content"][:500] + "..."
+                            if len(message["content"]) > 500
+                            else message["content"]
+                        )
+                        audio_base64 = voice_generator.generate_audio(voice_text)
+                        if audio_base64:
+                            st.markdown(
+                                voice_generator.get_audio_html(audio_base64),
+                                unsafe_allow_html=True,
+                            )
+
             if role == "worker" and isinstance(message, list):
                 # For Minions protocol, messages are a list of jobs
                 st.markdown("#### Here are the outputs from all the minions!")
@@ -267,6 +353,7 @@ def message_callback(role, message, is_final=True):
                             else json.loads(message["content"])
                         )
                         st.json(content)
+
                     except json.JSONDecodeError:
                         st.write(message["content"])
                 else:
@@ -280,6 +367,7 @@ def initialize_clients(
     local_model_name,
     remote_model_name,
     provider,
+    local_provider,
     protocol,
     local_temperature,
     local_max_tokens,
@@ -290,8 +378,6 @@ def initialize_clients(
     mcp_server_name=None,
 ):
     """Initialize the local and remote clients outside of the run_protocol function."""
-    # Use session_state instead of global variables
-
     # Store model parameters in session state for potential reinitialization
     st.session_state.local_model_name = local_model_name
     st.session_state.remote_model_name = remote_model_name
@@ -300,6 +386,7 @@ def initialize_clients(
     st.session_state.remote_temperature = remote_temperature
     st.session_state.remote_max_tokens = remote_max_tokens
     st.session_state.provider = provider
+    st.session_state.local_provider = local_provider
     st.session_state.api_key = api_key
     st.session_state.mcp_server_name = mcp_server_name
 
@@ -308,31 +395,94 @@ def initialize_clients(
         use_async = True
         # For Minions, we use a fixed context size since it processes chunks
         minions_ctx = 4096
-        st.session_state.local_client = OllamaClient(
-            model_name=local_model_name,
-            temperature=local_temperature,
-            max_tokens=int(local_max_tokens),
-            num_ctx=minions_ctx,
-            structured_output_schema=StructuredLocalOutput,
-            use_async=use_async,
-        )
+
+        # Use appropriate client based on local provider
+        if local_provider == "MLX":
+            st.session_state.local_client = MLXLMClient(
+                model_name=local_model_name,
+                temperature=local_temperature,
+                max_tokens=int(local_max_tokens),
+            )
+        elif local_provider == "Cartesia-MLX":
+            st.session_state.local_client = CartesiaMLXClient(
+                model_name=local_model_name,
+                temperature=local_temperature,
+                max_tokens=int(local_max_tokens),
+            )
+        else:  # Ollama
+            st.session_state.local_client = OllamaClient(
+                model_name=local_model_name,
+                temperature=local_temperature,
+                max_tokens=int(local_max_tokens),
+                num_ctx=minions_ctx,
+                structured_output_schema=StructuredLocalOutput,
+                use_async=use_async,
+            )
     else:
         use_async = False
-        st.session_state.local_client = OllamaClient(
-            model_name=local_model_name,
-            temperature=local_temperature,
-            max_tokens=int(local_max_tokens),
-            num_ctx=num_ctx,
-            structured_output_schema=None,
-            use_async=use_async,
-        )
+
+        # Use appropriate client based on local provider
+        if local_provider == "MLX":
+            st.session_state.local_client = MLXLMClient(
+                model_name=local_model_name,
+                temperature=local_temperature,
+                max_tokens=int(local_max_tokens),
+            )
+        elif local_provider == "Cartesia-MLX":
+            st.session_state.local_client = CartesiaMLXClient(
+                model_name=local_model_name,
+                temperature=local_temperature,
+                max_tokens=int(local_max_tokens),
+            )
+        else:  # Ollama
+
+            st.session_state.local_client = OllamaClient(
+                model_name=local_model_name,
+                temperature=local_temperature,
+                max_tokens=int(local_max_tokens),
+                num_ctx=num_ctx,
+                structured_output_schema=None,
+                use_async=use_async,
+            )
 
     if provider == "OpenAI":
+        # Add web search tool if responses API is enabled
+        tools = None
+        if use_responses_api:
+            tools = [{"type": "web_search_preview"}]
+
         st.session_state.remote_client = OpenAIClient(
             model_name=remote_model_name,
             temperature=remote_temperature,
             max_tokens=int(remote_max_tokens),
             api_key=api_key,
+            use_responses_api=use_responses_api,
+            tools=tools,
+        )
+    elif provider == "AzureOpenAI":
+        # Get Azure-specific parameters from environment variables
+        azure_endpoint = os.getenv("AZURE_OPENAI_ENDPOINT")
+        azure_api_version = os.getenv("AZURE_OPENAI_API_VERSION", "2024-02-15-preview")
+        azure_api_key = api_key if api_key else os.getenv("AZURE_OPENAI_API_KEY")
+
+        # Show warning if endpoint is not set
+        if not azure_endpoint:
+            st.warning(
+                "Azure OpenAI endpoint not set. Please set the AZURE_OPENAI_ENDPOINT environment variable."
+            )
+            st.info(
+                "You can run the setup_azure_openai.sh script to configure Azure OpenAI settings."
+            )
+        else:
+            st.success(f"Using Azure OpenAI endpoint: {azure_endpoint}")
+
+        st.session_state.remote_client = AzureOpenAIClient(
+            model_name=remote_model_name,
+            temperature=remote_temperature,
+            max_tokens=int(remote_max_tokens),
+            api_key=azure_api_key,
+            api_version=azure_api_version,
+            azure_endpoint=azure_endpoint,
         )
     elif provider == "OpenRouter":
         st.session_state.remote_client = OpenRouterClient(
@@ -364,6 +514,13 @@ def initialize_clients(
         )
     elif provider == "Groq":
         st.session_state.remote_client = GroqClient(
+            model_name=remote_model_name,
+            temperature=remote_temperature,
+            max_tokens=int(remote_max_tokens),
+            api_key=api_key,
+        )
+    elif provider == "DeepSeek":
+        st.session_state.remote_client = DeepSeekClient(
             model_name=remote_model_name,
             temperature=remote_temperature,
             max_tokens=int(remote_max_tokens),
@@ -404,7 +561,9 @@ def initialize_clients(
     )
 
 
-def run_protocol(task, context, doc_metadata, status, protocol):
+def run_protocol(
+    task, context, doc_metadata, status, protocol, local_provider, images=None
+):
     """Run the protocol with pre-initialized clients."""
     setup_start_time = time.time()
 
@@ -442,14 +601,21 @@ def run_protocol(task, context, doc_metadata, status, protocol):
                 ):
 
                     # Reinitialize the local client with the new num_ctx
-                    st.session_state.local_client = OllamaClient(
-                        model_name=st.session_state.local_model_name,
-                        temperature=st.session_state.local_temperature,
-                        max_tokens=int(st.session_state.local_max_tokens),
-                        num_ctx=closest_value,
-                        structured_output_schema=None,  # Minion protocol doesn't use structured output
-                        use_async=False,  # Minion protocol doesn't use async
-                    )
+                    if local_provider == "Ollama":
+                        st.session_state.local_client = OllamaClient(
+                            model_name=st.session_state.local_model_name,
+                            temperature=st.session_state.local_temperature,
+                            max_tokens=int(st.session_state.local_max_tokens),
+                            num_ctx=closest_value,
+                            structured_output_schema=None,  # Minion protocol doesn't use structured output
+                            use_async=False,  # Minion protocol doesn't use async
+                        )
+                    else:
+                        st.session_state.local_client = MLXLMClient(
+                            model_name=st.session_state.local_model_name,
+                            temperature=st.session_state.local_temperature,
+                            max_tokens=int(st.session_state.local_max_tokens),
+                        )
 
                     # Reinitialize the method with the new local client
                     st.session_state.method = Minion(
@@ -468,8 +634,9 @@ def run_protocol(task, context, doc_metadata, status, protocol):
                 task=task,
                 doc_metadata=doc_metadata,
                 context=[context],
-                max_rounds=5,
+                max_rounds=2,
                 is_privacy=privacy_mode,  # Pass the privacy mode setting
+                images=images,
             )
         elif protocol == "Minions":
             output = st.session_state.method(
@@ -485,6 +652,7 @@ def run_protocol(task, context, doc_metadata, status, protocol):
                 doc_metadata=doc_metadata,
                 context=[context],
                 max_rounds=5,
+                use_bm25=False,
             )
 
         execution_time = time.time() - execution_start_time
@@ -576,6 +744,32 @@ def validate_groq_key(api_key):
         return False, str(e)
 
 
+def validate_deepseek_key(api_key):
+    try:
+        client = DeepSeekClient(
+            model_name="deepseek-chat", api_key=api_key, temperature=0.0, max_tokens=1
+        )
+        messages = [{"role": "user", "content": "Say yes"}]
+        client.chat(messages)
+        return True, ""
+    except Exception as e:
+        return False, str(e)
+
+
+def validate_azure_openai_key(api_key):
+    """Validate Azure OpenAI API key by checking if it's not empty."""
+    if not api_key:
+        return False, "API key is empty"
+
+    # Azure OpenAI keys are typically 32 characters long
+    if len(api_key) < 10:  # Simple length check
+        return False, "API key is too short"
+
+    # We can't make a test call here without the endpoint
+    # So we just do basic validation
+    return True, "API key format is valid"
+
+
 # validate
 
 
@@ -585,16 +779,27 @@ def validate_groq_key(api_key):
 with st.sidebar:
     st.subheader("LLM Provider Settings")
 
+    # Remote provider selection
     provider_col, key_col = st.columns([1, 2])
     with provider_col:
-        # Make sure OpenRouter is in the list and properly displayed
-        providers = ["OpenAI", "OpenRouter", "Together", "Perplexity", "Anthropic", "Groq"]
+        # List of remote providers
+        providers = [
+            "OpenAI",
+            "AzureOpenAI",
+            "OpenRouter",
+            "Together",
+            "Perplexity",
+            "Anthropic",
+            "Groq",
+            "DeepSeek",
+        ]
         selected_provider = st.selectbox(
-            "Select LLM provider",
-            options=["OpenAI", "OpenRouter", "Together", "Perplexity", "Anthropic", "Groq"],
+            "Select Remote Provider",
+            options=providers,
             index=0,
         )  # Set OpenAI as default (index 0)
 
+    # API key handling for remote provider
     env_var_name = f"{selected_provider.upper()}_API_KEY"
     env_key = os.getenv(env_var_name)
     with key_col:
@@ -606,9 +811,12 @@ with st.sidebar:
         )
     api_key = user_key if user_key else env_key
 
+    # Validate API key
     if api_key:
         if selected_provider == "OpenAI":
             is_valid, msg = validate_openai_key(api_key)
+        elif selected_provider == "AzureOpenAI":
+            is_valid, msg = validate_azure_openai_key(api_key)
         elif selected_provider == "OpenRouter":
             is_valid, msg = validate_openrouter_key(api_key)
         elif selected_provider == "Anthropic":
@@ -619,6 +827,8 @@ with st.sidebar:
             is_valid, msg = validate_perplexity_key(api_key)
         elif selected_provider == "Groq":
             is_valid, msg = validate_groq_key(api_key)
+        elif selected_provider == "DeepSeek":
+            is_valid, msg = validate_deepseek_key(api_key)
         else:
             raise ValueError(f"Invalid provider: {selected_provider}")
 
@@ -634,71 +844,107 @@ with st.sidebar:
         )
         provider_key = None
 
+    # Add a toggle for OpenAI Responses API with web search when OpenAI is selected
+    if selected_provider == "OpenAI":
+        use_responses_api = st.toggle(
+            "Enable Responses API",
+            value=False,
+            help="When enabled, uses OpenAI's Responses API with web search capability. Only works with OpenAI provider.",
+        )
+    else:
+        use_responses_api = False
+
+    # Local model provider selection
+    st.subheader("Local Model Provider")
+    local_provider_options = ["Ollama"]
+    if mlx_available:
+        local_provider_options.append("MLX")
+    if cartesia_available:
+        local_provider_options.append("Cartesia-MLX")
+
+    local_provider = st.radio(
+        "Select Local Provider",
+        options=local_provider_options,
+        horizontal=True,
+        index=0,
+    )
+
+    # Add note about Cartesia-MLX installation if selected
+    if local_provider == "Cartesia-MLX":
+        st.info(
+            "⚠️ Cartesia-MLX requires additional installation. Please check the README (see Setup Section) for instructions on how to install the cartesia-mlx package."
+        )
+
+    if local_provider == "MLX":
+        st.info(
+            "⚠️ MLX requires additional installation. Please check the README (see Setup Section) for instructions on how to install the mlx-lm package."
+        )
+
     # Protocol selection
     st.subheader("Protocol")
 
-    if selected_provider in ["OpenAI", "Together", "OpenRouter"]:
+    # Set a default protocol value
+    protocol = "Minion"  # Default protocol
+
+    if selected_provider in [
+        "OpenAI",
+        "AzureOpenAI",
+        "Together",
+        "OpenRouter",
+        "DeepSeek",
+    ]:  # Added AzureOpenAI to the list
         protocol_options = ["Minion", "Minions", "Minions-MCP"]
         protocol = st.segmented_control(
             "Communication protocol", options=protocol_options, default="Minion"
         )
-
-        # Add privacy mode toggle when Minion protocol is selected
-        if protocol == "Minion":
-            privacy_mode = st.toggle(
-                "Privacy Mode",
-                value=False,
-                help="When enabled, worker responses will be filtered to remove potentially sensitive information",
-            )
-        else:
-            privacy_mode = False
-        
-        if protocol == "Minions":
-            use_bm25 = st.toggle(
-                "Smart Retrieval", 
-                value=True,
-                help="When enabled, only the most relevant chunks of context will be examined by minions, speeding up execution",
-            )
-        else:
-            use_bm25 = False
-
-        # Add MCP server selection when Minions-MCP is selected
-        if protocol == "Minions-MCP":
-            # Add disclaimer about mcp.json configuration
-            st.warning(
-                "**Important:** To use Minions-MCP, make sure your `mcp.json` file is properly configured with your desired MCP servers. "
-            )
-
-            # Initialize MCP config manager to get available servers
-            mcp_config_manager = MCPConfigManager()
-            available_servers = mcp_config_manager.list_servers()
-
-            if available_servers:
-                mcp_server_name = st.selectbox(
-                    "MCP Server",
-                    options=available_servers,
-                    index=0 if "filesystem" in available_servers else 0,
-                )
-                # Store the selected server name in session state
-                st.session_state.mcp_server_name = mcp_server_name
-            else:
-                st.warning(
-                    "No MCP servers found in configuration. Please check your MCP configuration."
-                )
-                mcp_server_name = "filesystem"  # Default fallback
-                st.session_state.mcp_server_name = mcp_server_name
-
     else:
-        # For other providers, default to Minion protocol
-        protocol = "Minion"
-        st.info("Only the Minion protocol is available for this provider.")
+        # For providers that don't support all protocols, show a message and use the default
+        st.info(f"The {selected_provider} provider only supports the Minion protocol.")
 
-        # Add privacy mode toggle for Minion protocol
+    # Add privacy mode toggle when Minion protocol is selected
+    if protocol == "Minion":
         privacy_mode = st.toggle(
             "Privacy Mode",
             value=False,
             help="When enabled, worker responses will be filtered to remove potentially sensitive information",
         )
+    else:
+        privacy_mode = False
+
+    if protocol == "Minions":
+        use_bm25 = st.toggle(
+            "Smart Retrieval",
+            value=True,
+            help="When enabled, only the most relevant chunks of context will be examined by minions, speeding up execution",
+        )
+    else:
+        use_bm25 = False
+
+    # Add MCP server selection when Minions-MCP is selected
+    if protocol == "Minions-MCP":
+        # Add disclaimer about mcp.json configuration
+        st.warning(
+            "**Important:** To use Minions-MCP, make sure your `mcp.json` file is properly configured with your desired MCP servers. "
+        )
+
+        # Initialize MCP config manager to get available servers
+        mcp_config_manager = MCPConfigManager()
+        available_servers = mcp_config_manager.list_servers()
+
+        if available_servers:
+            mcp_server_name = st.selectbox(
+                "MCP Server",
+                options=available_servers,
+                index=0 if "filesystem" in available_servers else 0,
+            )
+            # Store the selected server name in session state
+            st.session_state.mcp_server_name = mcp_server_name
+        else:
+            st.warning(
+                "No MCP servers found in configuration. Please check your MCP configuration."
+            )
+            mcp_server_name = "filesystem"  # Default fallback
+            st.session_state.mcp_server_name = mcp_server_name
 
     # Model Settings
     st.subheader("Model Settings")
@@ -710,24 +956,63 @@ with st.sidebar:
     with local_col:
         st.markdown("### Local Model")
         st.image("assets/minion_resized.jpg", use_container_width=True)
-        local_model_options = {
-            "llama3.2 (Recommended)": "llama3.2",
-            "llama3.1:8b (Recommended)": "llama3.1:8b",
-            "llama3.2:1b": "llama3.2:1b",
-            "phi4": "phi4",
-            "qwen2.5:1.5b": "qwen2.5:1.5b",
-            "qwen2.5:3b (Recommended)": "qwen2.5:3b",
-            "qwen2.5:7b (Recommended)": "qwen2.5:7b",
-            "qwen2.5:14b": "qwen2.5:14b",
-            "mistral7b": "mistral7b",
-            "deepseek-r1:1.5b": "deepseek-r1:1.5b",
-            "deepseek-r1:7b": "deepseek-r1:7b",
-            "deepseek-r1:8b": "deepseek-r1:8b",
-        }
+
+        # Show different model options based on local provider selection
+        if local_provider == "MLX":
+            local_model_options = {
+                "Llama-3.2-3B-Instruct-4bit (Recommended)": "mlx-community/Llama-3.2-3B-Instruct-4bit",
+                "Qwen2.5-7B-8bit": "mlx-community/Qwen2.5-7B-8bit",
+                "Qwen2.5-3B-8bit": "mlx-community/Qwen2.5-3B-8bit",
+                "Llama-3.2-3B-Instruct-8bit": "mlx-community/Llama-3.2-3B-Instruct-8bit",
+                "Llama-3.1-8B-Instruct": "mlx-community/Llama-3.1-8B-Instruct",
+            }
+        elif local_provider == "Cartesia-MLX":
+            local_model_options = {
+                "Llamba-8B-8bit (Recommended)": "cartesia-ai/Llamba-8B-8bit-mlx",
+                "Llamba-1B-4bit": "cartesia-ai/Llamba-1B-4bit-mlx",
+                "Llamba-3B-4bit": "cartesia-ai/Llamba-3B-4bit-mlx",
+            }
+        else:  # Ollama            # Get available Ollama models
+            available_ollama_models = OllamaClient.get_available_models()
+
+            # Default recommended models list
+            recommended_models = ["llama3.2", "llama3.1:8b", "qwen2.5:3b", "qwen2.5:7b"]
+
+            # Initialize with default model options
+            local_model_options = {
+                "llama3.2 (Recommended)": "llama3.2",
+                "llama3.1:8b (Recommended)": "llama3.1:8b",
+                "llama3.2:1b": "llama3.2:1b",
+                "gemma3:4b": "gemma3:4b",
+                "granite3.2-vision": "granite3.2-vision",
+                "phi4": "phi4",
+                "qwen2.5:1.5b": "qwen2.5:1.5b",
+                "qwen2.5:3b (Recommended)": "qwen2.5:3b",
+                "qwen2.5:7b (Recommended)": "qwen2.5:7b",
+                "qwen2.5:14b": "qwen2.5:14b",
+                "mistral7b": "mistral7b",
+                "deepseek-r1:1.5b": "deepseek-r1:1.5b",
+                "deepseek-r1:7b": "deepseek-r1:7b",
+                "deepseek-r1:8b": "deepseek-r1:8b",
+            }
+
+            # Add any additional available models from Ollama that aren't in the default list
+            if available_ollama_models:
+                for model in available_ollama_models:
+                    model_key = model
+                    if model in recommended_models:
+                        # If it's a recommended model but not in defaults, add with (Recommended)
+                        if model not in local_model_options.values():
+                            model_key = f"{model} (Recommended)"
+                    # Add the model if it's not already in the options
+                    if model not in local_model_options.values():
+                        local_model_options[model_key] = model
+
         local_model_display = st.selectbox(
             "Model", options=list(local_model_options.keys()), index=0
         )
         local_model_name = local_model_options[local_model_display]
+        st.session_state.current_local_model = local_model_name
 
         show_local_params = st.toggle(
             "Change defaults", value=False, key="local_defaults_toggle"
@@ -745,19 +1030,31 @@ with st.sidebar:
                 st.error("Local Max Tokens must be an integer.")
                 st.stop()
         else:
-            local_temperature = 0.0
+            # Set default temperature to 0.001 for Cartesia models
+            local_temperature = 0.001 if local_provider == "Cartesia-MLX" else 0.0
             local_max_tokens = 4096
 
     # Remote model settings
     with remote_col:
         st.markdown("### Remote Model")
         st.image("assets/gru_resized.jpg", use_container_width=True)
+
+        # If MLX is selected, use the same models for remote
         if selected_provider == "OpenAI":
             model_mapping = {
                 "gpt-4o (Recommended)": "gpt-4o",
+                "gpt-4.5-preview": "gpt-4.5-preview",
                 "gpt-4o-mini": "gpt-4o-mini",
                 "o3-mini": "o3-mini",
                 "o1": "o1",
+            }
+            default_model_index = 0
+        elif selected_provider == "AzureOpenAI":
+            model_mapping = {
+                "gpt-4o (Recommended)": "gpt-4o",
+                "gpt-4": "gpt-4",
+                "gpt-4-turbo": "gpt-4-turbo",
+                "gpt-35-turbo": "gpt-35-turbo",
             }
             default_model_index = 0
         elif selected_provider == "OpenRouter":
@@ -784,6 +1081,7 @@ with st.sidebar:
                 "Meta Llama 3.1 405B (Recommended)": "meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo",
                 "DeepSeek-R1": "deepseek-ai/DeepSeek-R1",
                 "Llama 3.3 70B": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+                "QWQ-32B": "Qwen/QwQ-32B-Preview",
             }
             default_model_index = 0
         elif selected_provider == "Perplexity":
@@ -803,6 +1101,12 @@ with st.sidebar:
                 "qwen-2.5-32b": "qwen-2.5-32b",
             }
             default_model_index = 0
+        elif selected_provider == "DeepSeek":
+            model_mapping = {
+                "deepseek-chat (Recommended)": "deepseek-chat",
+                "deepseek-reasoner": "deepseek-reasoner",
+            }
+            default_model_index = 0
         else:
             model_mapping = {}
             default_model_index = 0
@@ -814,6 +1118,7 @@ with st.sidebar:
             key="remote_model",
         )
         remote_model_name = model_mapping[remote_model_display]
+        st.session_state.current_remote_model = remote_model_name
 
         show_remote_params = st.toggle(
             "Change defaults", value=False, key="remote_defaults_toggle"
@@ -834,6 +1139,26 @@ with st.sidebar:
             remote_temperature = 0.0
             remote_max_tokens = 4096
 
+    # Add voice generation toggle if available - MOVED HERE from the top
+    if voice_generation_available:
+        st.subheader("Voice Generation")
+        voice_generation_enabled = st.toggle(
+            "Enable Minion Voice",
+            value=False,
+            help="When enabled, minion responses will be spoken using CSM-MLX voice synthesis",
+        )
+        st.session_state.voice_generation_enabled = voice_generation_enabled
+
+        if voice_generation_enabled:
+            st.success("🔊 Minion voice generation is enabled!")
+            st.info("Minions will speak their responses (limited to 500 characters)")
+    else:
+        st.info(
+            "Voice generation requires CSM-MLX. Install with: `pip install -e '.[csm-mlx]'`"
+        )
+        st.session_state.voice_generation_enabled = False
+
+
 # -------------------------
 #   Main app layout
 # -------------------------
@@ -845,14 +1170,49 @@ with st.sidebar:
 st.subheader("Context")
 text_input = st.text_area("Optionally paste text here", value="", height=150)
 
+
+st.markdown("Or upload context from a webpage")
+# Check if FIRECRAWL_API_KEY is set in environment or provided by user
+firecrawl_api_key_env = os.getenv("FIRECRAWL_API_KEY", "")
+
+# Display URL input and API key fields side by side
+c1, c2 = st.columns(2)
+with c2:
+    # make the text input not visible as it is a password input
+    firecrawl_api_key = st.text_input(
+        "FIRECRAWL_API_KEY", type="password", key="firecrawl_api_key"
+    )
+
+# Set the API key in environment if provided by user
+if firecrawl_api_key and firecrawl_api_key != firecrawl_api_key_env:
+    os.environ["FIRECRAWL_API_KEY"] = firecrawl_api_key
+
+# Only show URL input if API key is available
+with c1:
+    if firecrawl_api_key:
+        url_input = st.text_input("Or paste a URL here", value="")
+
+    else:
+        st.info("Set FIRECRAWL_API_KEY to enable URL scraping")
+        url_input = ""
+
 uploaded_files = st.file_uploader(
-    "Or upload PDF / TXT (Not more than a 100 pages total!)",
-    type=["txt", "pdf"],
+    "Or upload PDF / TXT / Images (Not more than a 100 pages total!)",
+    type=["txt", "pdf", "png", "jpg", "jpeg"],
     accept_multiple_files=True,
 )
 
-
 file_content = ""
+images = []
+# if url_input is not empty, scrape the url
+if url_input:
+    # check if the FIRECRAWL_API_KEY is set
+    if not os.getenv("FIRECRAWL_API_KEY"):
+        st.error("FIRECRAWL_API_KEY is not set")
+        st.stop()
+    file_content = scrape_url(url_input)["markdown"]
+
+
 if uploaded_files:
     all_file_contents = []
     total_size = 0
@@ -865,6 +1225,15 @@ if uploaded_files:
 
             if file_type == "pdf":
                 current_content = extract_text_from_pdf(uploaded_file.read()) or ""
+
+            elif file_type in ["png", "jpg", "jpeg"]:
+                image_bytes = uploaded_file.read()
+                image_base64 = base64.b64encode(image_bytes).decode("utf-8")
+                images.append(image_base64)
+                if st.session_state.current_local_model == "granite3.2-vision":
+                    current_content = "file is an image"
+                else:
+                    current_content = extract_text_from_image(image_base64) or ""
             else:
                 current_content = uploaded_file.getvalue().decode()
 
@@ -897,6 +1266,7 @@ elif text_input:
     doc_metadata = f"Input: Text input only. Length: {len(text_input)} characters."
 else:
     context = file_content
+
 padding = 8000
 estimated_tokens = int(len(context) / 4 + padding) if context else 4096
 num_ctx_values = [2048, 4096, 8192, 16384, 32768, 65536, 131072]
@@ -936,13 +1306,21 @@ if user_query:
 
     with st.status(f"Running {protocol} protocol...", expanded=True) as status:
         try:
-            # Initialize clients first (only once) or if protocol has changed
+            # Initialize clients first (only once) or if protocol or providers have changed
             if (
                 "local_client" not in st.session_state
                 or "remote_client" not in st.session_state
                 or "method" not in st.session_state
                 or "current_protocol" not in st.session_state
+                or "current_local_provider" not in st.session_state
+                or "current_remote_provider" not in st.session_state
+                or "current_remote_model" not in st.session_state
+                or "current_local_model" not in st.session_state
                 or st.session_state.current_protocol != protocol
+                or st.session_state.current_local_provider != local_provider
+                or st.session_state.current_remote_provider != selected_provider
+                or st.session_state.current_remote_model != remote_model_name
+                or st.session_state.current_local_model != local_model_name
             ):
 
                 st.write(f"Initializing clients for {protocol} protocol...")
@@ -954,10 +1332,19 @@ if user_query:
                         "mcp_server_name", "filesystem"
                     )
 
-                initialize_clients(
+                if local_provider == "Cartesia-MLX":
+                    if local_temperature < 0.01:
+                        local_temperature = 0.00001
+
+                (
+                    st.session_state.local_client,
+                    st.session_state.remote_client,
+                    st.session_state.method,
+                ) = initialize_clients(
                     local_model_name,
                     remote_model_name,
                     selected_provider,
+                    local_provider,
                     protocol,
                     local_temperature,
                     local_max_tokens,
@@ -967,12 +1354,22 @@ if user_query:
                     num_ctx,
                     mcp_server_name=mcp_server_name,
                 )
-                # Store the current protocol in session state
+                # Store the current protocol and local provider in session state
                 st.session_state.current_protocol = protocol
+                st.session_state.current_local_provider = local_provider
+                st.session_state.current_remote_provider = selected_provider
+                st.session_state.current_remote_model = remote_model_name
+                st.session_state.current_local_model = local_model_name
 
             # Then run the protocol with pre-initialized clients
             output, setup_time, execution_time = run_protocol(
-                user_query, context, doc_metadata, status, protocol
+                user_query,
+                context,
+                doc_metadata,
+                status,
+                protocol,
+                local_provider,
+                images,
             )
 
             status.update(
@@ -1043,9 +1440,12 @@ if user_query:
                 st.bar_chart(df, x="Model", y="Count", color="Token Type")
 
                 # Display cost information for OpenAI models
-                if selected_provider == "OpenAI" and remote_model_name in OPENAI_PRICES:
+                if (
+                    selected_provider in ["OpenAI", "AzureOpenAI", "DeepSeek"]
+                    and remote_model_name in API_PRICES[selected_provider]
+                ):
                     st.header("Remote Model Cost")
-                    pricing = OPENAI_PRICES[remote_model_name]
+                    pricing = API_PRICES[selected_provider][remote_model_name]
                     prompt_cost = (
                         output["remote_usage"].prompt_tokens / 1_000_000
                     ) * pricing["input"]

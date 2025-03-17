@@ -75,7 +75,6 @@ class Minion:
         self.max_rounds = max_rounds
         self.callback = callback
         self.log_dir = log_dir
-
         # Create log directory if it doesn't exist
         os.makedirs(log_dir, exist_ok=True)
 
@@ -87,6 +86,7 @@ class Minion:
         doc_metadata=None,
         logging_id=None,  # this is the name/id to give to the logging .json file
         is_privacy=False,
+        images=None,
     ):
         """Run the minion protocol to answer a task using local and remote models.
 
@@ -131,13 +131,6 @@ class Minion:
                 "output": None,
             }
         )
-
-        worker_messages = [
-            {
-                "role": "system",
-                "content": WORKER_SYSTEM_PROMPT.format(context=context, task=task),
-            }
-        ]
 
         # print whether privacy is enabled
         print("Privacy is enabled: ", is_privacy)
@@ -204,6 +197,7 @@ class Minion:
                 {
                     "role": "system",
                     "content": WORKER_SYSTEM_PROMPT.format(context=context, task=task),
+                    "images": images,
                 }
             ]
 
@@ -236,9 +230,14 @@ class Minion:
 
         # Extract first question for worker
         if isinstance(self.remote_client, (OpenAIClient, TogetherClient)):
-            supervisor_json = json.loads(supervisor_response[0])
+            try:
+                supervisor_json = json.loads(supervisor_response[0])
+
+            except:
+                supervisor_json = _extract_json(supervisor_response[0])
         else:
             supervisor_json = _extract_json(supervisor_response[0])
+
         worker_messages.append({"role": "user", "content": supervisor_json["message"]})
 
         # Add worker prompt to conversation log
@@ -247,10 +246,8 @@ class Minion:
         )
 
         final_answer = None
-        print("entering loop with max_rounds: ", max_rounds)
         for round in range(max_rounds):
             # Get worker's response
-            print("getting worker's response")
             if self.callback:
                 self.callback("worker", None, is_final=False)
 
@@ -258,7 +255,6 @@ class Minion:
                 messages=worker_messages
             )
 
-            print("worker_response: ", worker_response[0])
             local_usage += worker_usage
 
             if is_privacy:
@@ -374,11 +370,13 @@ class Minion:
 
             # Parse supervisor's decision
             if isinstance(self.remote_client, (OpenAIClient, TogetherClient)):
-                supervisor_json = json.loads(supervisor_response[0])
+                try:
+                    supervisor_json = json.loads(supervisor_response[0])
+                except:
+                    supervisor_json = _extract_json(supervisor_response[0])
             else:
                 supervisor_json = _extract_json(supervisor_response[0])
 
-            print("Supervisor_json:", supervisor_json)
             if supervisor_json["decision"] == "provide_final_answer":
                 final_answer = supervisor_json["answer"]
                 conversation_log["generated_final_answer"] = final_answer

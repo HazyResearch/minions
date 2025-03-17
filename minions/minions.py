@@ -33,8 +33,8 @@ from minions.prompts.minions import (
 
 
 def chunk_by_section(
-        doc: str, max_chunk_size: int = 3000, overlap: int = 20
-    )-> List[str]:
+    doc: str, max_chunk_size: int = 3000, overlap: int = 20
+) -> List[str]:
     sections = []
     start = 0
     while start < len(doc):
@@ -44,24 +44,28 @@ def chunk_by_section(
     return sections
 
 
-def retrieve_top_k_chunks(keywords: List[str], chunks: List[str], weights: Dict[str, float], k: int = 10) -> List[str]:
-    '''
+def retrieve_top_k_chunks(
+    keywords: List[str], chunks: List[str], weights: Dict[str, float], k: int = 10
+) -> List[str]:
+    """
     Returns the k most relevant chunks based on weighted BM25+ ranking.
 
     Example:
         Task: "What was Mrs. Anderson's tumor marker levels in 2021"
         queries = {"Mrs. Anderson": 5.0, "tumor marker": 3.0, "2021": 1.5, "Anderson": 1.0}
         relevant_chunks = retrieve_top_k_chunks(queries.keys(), chunks, k=10, weights=queries)
-    '''
+    """
     weights = {keyword: weights.get(keyword, 1.0) for keyword in keywords}
     bm25_retriever = BM25Plus(chunks)
-    
+
     final_scores = np.zeros(len(chunks))
     for keyword, weight in weights.items():
         scores = bm25_retriever.get_scores(keyword)
         final_scores += weight * scores
-    
-    top_k_indices = sorted(range(len(final_scores)), key=lambda i: final_scores[i], reverse=True)[:k]
+
+    top_k_indices = sorted(
+        range(len(final_scores)), key=lambda i: final_scores[i], reverse=True
+    )[:k]
     top_k_indices = sorted(top_k_indices)
     relevant_chunks = [chunks[i] for i in top_k_indices]
     return relevant_chunks
@@ -195,11 +199,11 @@ class Minions:
             or DECOMPOSE_TASK_PROMPT_AGG_FUNC_LATER_ROUND
         )
         self.decompose_retrieval_task_prompt = (
-            kwargs.get("decompose_retrieval_task_prompt", None) 
+            kwargs.get("decompose_retrieval_task_prompt", None)
             or DECOMPOSE_RETRIEVAL_TASK_PROMPT_AGGREGATION_FUNC
         )
         self.decompose_retrieval_task_prompt_abbreviated = (
-            kwargs.get("decompose_retrieval_task_prompt_abbreviated", None) 
+            kwargs.get("decompose_retrieval_task_prompt_abbreviated", None)
             or DECOMPOSE_RETRIEVAL_TASK_PROMPT_AGG_FUNC_LATER_ROUND
         )
         self.synthesis_cot_prompt = REMOTE_SYNTHESIS_COT or kwargs.get(
@@ -295,7 +299,15 @@ class Minions:
 
         for round_idx in range(self.max_rounds):
             print(f"Round {round_idx + 1}/{self.max_rounds}")
-            total_chars = int(doc_metadata.split("Total extracted text length: ")[1].split(" characters")[0])
+            try:
+                total_chars = int(
+                    doc_metadata.split("Total extracted text length: ")[1].split(
+                        " characters"
+                    )[0]
+                )
+            except:
+                # compute characters in context
+                total_chars = sum(len(doc) for doc in context)
 
             decompose_message_kwargs = dict(
                 num_samples=self.num_samples,
@@ -306,20 +318,21 @@ class Minions:
                 transform_signature_source=getsource(transform_outputs),
                 # read_file_source=getsource(read_folder),
                 chunking_source="\n\n".join(
-                    [
-                        getsource(
-                            chunk_by_section
-                        ).split("    sections = ")[0]
-                    ]
+                    [getsource(chunk_by_section).split("    sections = ")[0]]
                 ),
-                retrieval_source=getsource(retrieve_top_k_chunks).split("    weights = ")[0],
+                retrieval_source=getsource(retrieve_top_k_chunks).split(
+                    "    weights = "
+                )[0],
                 num_tasks_per_round=num_tasks_per_round,
                 num_samples_per_task=num_samples_per_task,
                 total_chars=total_chars,
             )
 
-            decompose_prompt = self.decompose_task_prompt if not use_bm25 \
-                               else self.decompose_retrieval_task_prompt
+            decompose_prompt = (
+                self.decompose_task_prompt
+                if not use_bm25
+                else self.decompose_retrieval_task_prompt
+            )
             # create the decompose prompt -- if in later rounds, use a shorter version
             decompose_message = {
                 "role": "user",
@@ -333,8 +346,11 @@ class Minions:
             if round_idx == 0:
                 supervisor_messages.append(decompose_message)
             else:
-                decompose_prompt_abbrev = self.decompose_task_prompt_abbreviated if not use_bm25 \
-                                          else self.decompose_retrieval_task_prompt_abbreviated
+                decompose_prompt_abbrev = (
+                    self.decompose_task_prompt_abbreviated
+                    if not use_bm25
+                    else self.decompose_retrieval_task_prompt_abbreviated
+                )
                 if feedback is not None:
                     decompose_message = {
                         "role": "user",

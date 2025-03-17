@@ -259,6 +259,7 @@ class SyncMinionsMCP(Minions):
     ):
         """Initialize SyncMinionsMCP with local, remote LLM clients and MCP."""
         # Modify the decompose task prompts to include MCP tools info
+
         decompose_task_prompt = (
             kwargs.get("decompose_task_prompt", None)
             or DECOMPOSE_TASK_PROMPT_AGGREGATION_FUNC
@@ -331,6 +332,7 @@ class SyncMinionsMCP(Minions):
         max_rounds=None,
         num_tasks_per_round=3,
         num_samples_per_task=1,
+        use_bm25=False,
     ):
         """Run the minions protocol with MCP tools available"""
         # Generate MCP tools info
@@ -357,6 +359,7 @@ class SyncMinionsMCP(Minions):
             num_tasks_per_round=num_tasks_per_round,
             num_samples_per_task=num_samples_per_task,
             mcp_tools_info=mcp_tools_info,
+            use_bm25=use_bm25,
         )
 
         return result

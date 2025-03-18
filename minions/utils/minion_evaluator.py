@@ -471,3 +471,7 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+# sample usage
+# python minion_evaluator.py --context_path "context.txt" --task "task.txt" --gru_model "gpt-4o-mini" --minion_model "llama3.2:1b" --output "evaluation_report.json"

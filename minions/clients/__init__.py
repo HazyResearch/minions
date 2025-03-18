@@ -39,3 +39,14 @@ except ImportError:
     print(
         "Warning: cartesia_mlx is not installed. If you want to use cartesia_mlx, please follow the instructions in the README to install it."
     )
+
+
+try:
+    from .mlx_omni import MLXOmniClient
+
+    __all__.append("MLXOmniClient")
+except ImportError:
+    # print warning that mlx_omni is not installed
+    print(
+        "Warning: mlx_omni is not installed. If you want to use mlx_omni, please install it with `pip install mlx-omni-server`"
+    )

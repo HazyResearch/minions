@@ -507,7 +507,11 @@ def main():
     if args.protocol == "minions":
         protocol = Minions(local_client, remote_client, callback=message_callback)
     elif args.protocol == "minions_deep_research":
-        protocol = MinionsDeepResearch(local_client, remote_client, callback=message_callback)
+        remote_search_client = OpenAIClient(model_name="gpt-4o",
+                                            use_responses_api=True,
+                                            tools=[{"type": "web_search_preview"}])
+
+        protocol = MinionsDeepResearch(local_client, remote_client, remote_search_client, callback=message_callback)
     else:  # minion
         protocol = Minion(local_client, remote_client, callback=message_callback)
 

@@ -163,6 +163,7 @@ class MinionsDeepResearch:
         self,
         local_client=None,
         remote_client=None,
+        remote_search_client=None,
         max_rounds=5,
         callback=None,
         **kwargs,
@@ -177,6 +178,7 @@ class MinionsDeepResearch:
         """
         self.local_client = local_client
         self.remote_client = remote_client
+        self.remote_search_client = remote_search_client
         self.max_rounds = max_rounds
         self.max_jobs_per_round = 2048
         self.callback = callback
@@ -217,6 +219,9 @@ class MinionsDeepResearch:
         )
         self.synthesis_final_prompt = REMOTE_SYNTHESIS_FINAL or kwargs.get(
             "synthesis_final_prompt", None
+        )
+        self.search_context_prompt = SEARCH_CONTEXT_PROMPT or kwargs.get(
+            "search_context_prompt", None
         )
 
     def _execute_code(
@@ -265,24 +270,16 @@ class MinionsDeepResearch:
         # Initialize usage tracking
         remote_usage = Usage()
         local_usage = Usage()
-
-        # 1. [REMOTE] CONTEXT --- Read the query with big model and generate web-search context
-        remote_search_client = OpenAIClient(model_name="gpt-4o-mini",
-                                            use_responses_api=True,
-                                            tools=[{"type": "web_search_preview"}])
-
-        # Use web preview client to search and collect context about the query
+         # 1. [REMOTE] CONTEXT --- Read the query with search model and generate context
+        # ---------- START ----------
         supervisor_messages = [
-            {
-                "role": "user",
-                "content": SEARCH_CONTEXT_PROMPT.format(query=task)
-            }
+            {"role": "user", "content": self.search_context_prompt.format(query=task)}
         ]
 
         if self.callback:
             self.callback("supervisor", None, is_final=False)
 
-        web_context_response, web_usage = remote_search_client.chat(
+        web_context_response, web_usage = self.remote_search_client.chat(
             messages=supervisor_messages
         )
         remote_usage += web_usage
@@ -298,17 +295,18 @@ class MinionsDeepResearch:
             self.callback("supervisor", supervisor_messages[-1], is_final=True)
 
         doc_metadata = "Context from web search"
+        # ---------- END ----------
 
         # 2. [REMOTE] ADVICE --- Read the query with big model and provide advice
         # ---------- START ----------
         supervisor_messages.append(
-            {"role": "user", "content": self.advice_prompt.format(query=task, metadata=doc_metadata)},
+            {"role": "user", "content": self.advice_prompt.format(query=task, metadata=doc_metadata)}
         )
 
         if self.callback:
             self.callback("supervisor", None, is_final=False)
 
-        advice_response, usage = self.remote_client.chat(
+        advice_response, usage = self.remote_search_client.chat(
             supervisor_messages,
         )
         remote_usage += usage
@@ -681,7 +679,8 @@ class MinionsDeepResearch:
                     }
                 )
 
-                step_by_step_response, usage = self.remote_client.chat(
+                # use the search model to think step by step
+                step_by_step_response, usage = self.remote_search_client.chat(
                     supervisor_messages,
                 )
                 remote_usage += usage

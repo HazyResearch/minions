@@ -267,36 +267,43 @@ class MinionsDeepResearch:
         local_usage = Usage()
 
         # 1. [REMOTE] CONTEXT --- Read the query with big model and generate web-search context
-        web_preview_client = OpenAIClient(model_name="gpt-4o-mini",
-                                          use_responses_api=True,
-                                          tools=[{"type": "web_search_preview"}])
+        remote_search_client = OpenAIClient(model_name="gpt-4o-mini",
+                                            use_responses_api=True,
+                                            tools=[{"type": "web_search_preview"}])
 
         # Use web preview client to search and collect context about the query
-        web_search_messages = [
+        supervisor_messages = [
             {
                 "role": "user",
                 "content": SEARCH_CONTEXT_PROMPT.format(query=task)
             }
         ]
 
-        web_context_response, web_usage = web_preview_client.chat(
-            messages=web_search_messages
+        if self.callback:
+            self.callback("supervisor", None, is_final=False)
+
+        web_context_response, web_usage = remote_search_client.chat(
+            messages=supervisor_messages
         )
         remote_usage += web_usage
 
         # Extract the web search results from response, will be chunked later
         context = web_context_response[0]
 
+        supervisor_messages.append(
+            {"role": "assistant", "content": web_context_response[0]},
+        )
+
+        if self.callback:
+            self.callback("supervisor", supervisor_messages[-1], is_final=True)
+
         doc_metadata = "Context from web search"
 
         # 2. [REMOTE] ADVICE --- Read the query with big model and provide advice
         # ---------- START ----------
-        supervisor_messages = [
-            {
-                "role": "user",
-                "content": self.advice_prompt.format(query=task, metadata=doc_metadata),
-            },
-        ]
+        supervisor_messages.append(
+            {"role": "user", "content": self.advice_prompt.format(query=task, metadata=doc_metadata)},
+        )
 
         if self.callback:
             self.callback("supervisor", None, is_final=False)

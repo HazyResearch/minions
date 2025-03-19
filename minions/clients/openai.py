@@ -83,8 +83,10 @@ class OpenAIClient:
         # extract the text from the output_text
         outputs = []
         for output in output_text:
-            for content in output.content:
-                outputs.append(content.text)
+            # filter out the ResponseFunctionWebSearch object
+            if hasattr(output, "content"):
+                for content in output.content:
+                    outputs.append(content.text)
 
         usage = response.usage.input_tokens
 

@@ -8,6 +8,8 @@ from rank_bm25 import BM25Plus
 import numpy as np
 import os
 
+from minions.clients.openai import OpenAIClient
+
 from minions.usage import Usage
 
 from minions.prompts.minions import (
@@ -29,6 +31,7 @@ from minions.prompts.minions import (
     REMOTE_SYNTHESIS_COT,
     REMOTE_SYNTHESIS_JSON,
     REMOTE_SYNTHESIS_FINAL,
+    SEARCH_CONTEXT_PROMPT,
 )
 
 
@@ -155,7 +158,7 @@ USEFUL_IMPORTS = {
 }
 
 
-class Minions:
+class MinionsDeepResearch:
     def __init__(
         self,
         local_client=None,
@@ -239,8 +242,6 @@ class Minions:
     def __call__(
         self,
         task: str,
-        doc_metadata: str,
-        context: List[str],
         max_rounds=None,
         num_tasks_per_round=3,
         num_samples_per_task=1,
@@ -252,8 +253,6 @@ class Minions:
 
         Args:
             task: The task/question to answer
-            doc_metadata: Type of document being analyzed
-            context: List of context strings
             max_rounds: Override default max_rounds if provided
             log_path: Optional path to save conversation logs
 
@@ -267,7 +266,30 @@ class Minions:
         remote_usage = Usage()
         local_usage = Usage()
 
-        # 1. [REMOTE] ADVICE --- Read the query with big model and provide advice
+        # 1. [REMOTE] CONTEXT --- Read the query with big model and generate web-search context
+        web_preview_client = OpenAIClient(model_name="gpt-4.5-preview",
+                                          use_responses_api=True,
+                                          tools=[{"type": "web_search_preview"}])
+
+        # Use web preview client to search and collect context about the query
+        web_search_messages = [
+            {
+                "role": "user",
+                "content": SEARCH_CONTEXT_PROMPT.format(query=task)
+            }
+        ]
+
+        web_context_response, web_usage = web_preview_client.chat(
+            messages=web_search_messages
+        )
+        remote_usage += web_usage
+
+        # Extract the web search results from response, will be chunked later
+        context = web_context_response[0]
+
+        doc_metadata = "Context from web search"
+
+        # 2. [REMOTE] ADVICE --- Read the query with big model and provide advice
         # ---------- START ----------
         supervisor_messages = [
             {
@@ -364,7 +386,7 @@ class Minions:
                     }
                 supervisor_messages = supervisor_messages[:2] + [decompose_message]
 
-            # 2. [REMOTE] PREPARE TASKS --- Prompt the supervisor to write code
+            # 3. [REMOTE] PREPARE TASKS --- Prompt the supervisor to write code
             # ---------- START ----------
             for attempt_idx in range(self.max_code_attempts):
                 print(f"Attempt {attempt_idx + 1}/{self.max_code_attempts}")
@@ -487,7 +509,7 @@ class Minions:
                 break
             # --------- END ---------
 
-            # 3. [REMOTE] LOCAL WORKERS EXECUTE TASKS
+            # 4. [REMOTE] LOCAL WORKERS EXECUTE TASKS
             # ---------- START ----------
             worker_chats = []
             # output is a list of task_dicts
@@ -561,7 +583,7 @@ class Minions:
                 )
 
             except Exception as e:
-                # 4. [EDGE] FILTER
+                # 5. [EDGE] FILTER
                 # ---------- START ----------
                 def filter_fn(job: Job) -> bool:
                     answer = job.output.answer
@@ -577,7 +599,7 @@ class Minions:
                 )
                 # ---------- END ----------
 
-                # 5. [REMOTE] AGGREGATE AND FILTER --- Synthesize the results from the worker models
+                # 6. [REMOTE] AGGREGATE AND FILTER --- Synthesize the results from the worker models
                 # ---------- START ----------
                 tasks = {}
                 for job in jobs:

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from minions.minion import Minion
 from minions.minions import Minions
+from minions.minions_deep_research import MinionsDeepResearch
 from minions.clients.ollama import OllamaClient
 from minions.clients.openai import OpenAIClient
 from minions.clients.anthropic import AnthropicClient
@@ -325,7 +326,7 @@ def initialize_client(
         raise ValueError(f"Unsupported provider: {provider}")
 
 
-def chat_loop(protocol, context, doc_metadata):
+def chat_loop(protocol, context, doc_metadata, is_deep_research):
     """Run an interactive chat loop with the protocol."""
     print("\n\033[1;33m=== Minions ===\033[0m")
     print("Type 'exit', 'quit', or Ctrl+D to end the conversation.")
@@ -351,12 +352,19 @@ def chat_loop(protocol, context, doc_metadata):
             is_streaming = False
 
             # Execute the protocol
-            output = protocol(
-                task=user_input,
-                doc_metadata=doc_metadata,
-                context=[context],
-                max_rounds=5,
-            )
+            if is_deep_research:
+                # deep research protocol gets context from the web
+                output = protocol(
+                    task=user_input,
+                    max_rounds=5,
+                )
+            else:
+                output = protocol(
+                    task=user_input,
+                    doc_metadata=doc_metadata,
+                    context=[context],
+                    max_rounds=5,
+                )
 
             # Store the conversation
             history.append({"role": "user", "content": user_input})
@@ -391,7 +399,7 @@ def main():
     parser.add_argument(
         "--protocol",
         type=str,
-        choices=["minion", "minions"],
+        choices=["minion", "minions", "minions_deep_research"],
         default="minion",
         help="The protocol to use (default: minion)",
     )
@@ -453,7 +461,7 @@ def main():
     setup_start_time = time.time()
 
     # Configure protocol-specific settings
-    if args.protocol == "minions":
+    if args.protocol == "minions" or args.protocol == "minions_deep_research":
         # the local worker operates on chunks of data
         num_ctx = 4096
         structured_output_schema = JobOutput
@@ -498,6 +506,8 @@ def main():
     print(f"Initializing {args.protocol} protocol")
     if args.protocol == "minions":
         protocol = Minions(local_client, remote_client, callback=message_callback)
+    elif args.protocol == "minions_deep_research":
+        protocol = MinionsDeepResearch(local_client, remote_client, callback=message_callback)
     else:  # minion
         protocol = Minion(local_client, remote_client, callback=message_callback)
 
@@ -505,7 +515,8 @@ def main():
     print(f"Setup completed in {setup_time:.2f} seconds")
 
     # Start the interactive chat loop
-    chat_loop(protocol, context, doc_metadata)
+    is_deep_research = args.protocol == "minions_deep_research"
+    chat_loop(protocol, context, doc_metadata, is_deep_research)
 
 
 if __name__ == "__main__":

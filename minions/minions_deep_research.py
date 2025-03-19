@@ -267,7 +267,7 @@ class MinionsDeepResearch:
         local_usage = Usage()
 
         # 1. [REMOTE] CONTEXT --- Read the query with big model and generate web-search context
-        web_preview_client = OpenAIClient(model_name="gpt-4.5-preview",
+        web_preview_client = OpenAIClient(model_name="gpt-4o-mini",
                                           use_responses_api=True,
                                           tools=[{"type": "web_search_preview"}])
 

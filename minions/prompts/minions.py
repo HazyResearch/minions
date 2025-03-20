@@ -88,8 +88,8 @@ Your response:"""
 
 
 REMOTE_ANSWER_OR_CONTINUE = """\
-Now synthesize the findings from multiple junior workers (LLMs). 
-Your task is to finalize an answer to the question below **if and only if** you have sufficient, reliable information. 
+Now synthesize the findings from multiple junior workers (LLMs).
+Your task is to finalize an answer to the question below **if and only if** you have sufficient, reliable information.
 Otherwise, you must request additional work.
 
 ---
@@ -104,7 +104,7 @@ Otherwise, you must request additional work.
 First think step-by-step and then answer the question using the exact format below.
 
 ## ANSWER GUIDELINES
-1. **Determine if the collected Job Outputs provide enough trustworthy, consistent evidence to confidently answer the question.** 
+1. **Determine if the collected Job Outputs provide enough trustworthy, consistent evidence to confidently answer the question.**
    - If the data is incomplete or contradictory, do NOT guess. Instead, specify what is missing.
    - If the evidence is sufficient, provide a final answer.
 
@@ -126,7 +126,7 @@ First think step-by-step and then answer the question using the exact format bel
      - What criteria or details are important
      DO NOT include any code or programming instructions in this field.
    - "scratchpad": Notes on information gathered so far
-     
+
 Here is the template for your JSON response (with no extra text outside the JSON):
 
 <think step-by-step here>
@@ -179,7 +179,7 @@ REMOTE_ANSWER = """\
 2. Collected Job Outputs (from junior models):
 {extractions}
 
-## Instructions: Please inspect the question and the Job Outputs. 
+## Instructions: Please inspect the question and the Job Outputs.
 Then finalize your answer and return the JSON object accordingly.
 
 Here is the template for your JSON response (with no extra text outside the JSON):
@@ -194,14 +194,14 @@ Here is the template for your JSON response (with no extra text outside the JSON
 """
 
 ADVICE_PROMPT = """\
-We need to answer the following question based on {metadata}.: 
+We need to answer the following question based on {metadata}.:
 
 ## Question
 {query}
 
 ---
 
-Please provide succinct advice on the critical information we need to extract from the {metadata} to answer this question. 
+Please provide succinct advice on the critical information we need to extract from the {metadata} to answer this question.
 
 Also consider the following constraints:
 - In your response do NOT use numbered lists.
@@ -223,7 +223,7 @@ Also consider the following constraints:
 
 
 ADVICE_PROMPT_STEPS = """\
-We need to answer the following question based on {metadata}.: 
+We need to answer the following question based on {metadata}.:
 
 ## Question
 {query}
@@ -234,22 +234,22 @@ Please provide succinct advice on the information we need to extract from the {m
 """
 
 ADVANCED_STEPS_INSTRUCTIONS = """\
-Our conversation history includes information about previous rounds of jobs and their outputs. Use this information to inform your new jobs. 
-I.e., 
-- Based on the Job outputs above, subselect `chunk_id`s that require further reasoning and are relevant to the question (i.e., contain a date or table that are relevant.). Use the job_id (<chunk_id>_<task_id>)to get the chunk_id 
+Our conversation history includes information about previous rounds of jobs and their outputs. Use this information to inform your new jobs.
+I.e.,
+- Based on the Job outputs above, subselect `chunk_id`s that require further reasoning and are relevant to the question (i.e., contain a date or table that are relevant.). Use the job_id (<chunk_id>_<task_id>)to get the chunk_id
 - Reformat tasks that are not yet complete.
-- Make your `advice` more concrete. 
+- Make your `advice` more concrete.
 """
 
 DECOMPOSE_TASK_PROMPT = """\
 # Decomposition Round #{step_number}
 
 You do not have access to the raw document(s), but instead can assign tasks to small and less capable language models that can access chunks of the document(s).
-Note that the document(s) can be very long, so each task should be performed only over a small chunk of text. 
+Note that the document(s) can be very long, so each task should be performed only over a small chunk of text.
 The small language model can only access one chunk of the document(s) at a time, so do not assign tasks that require integration of information from multiple chunks.
 
 Write a Python function that will output formatted tasks for a small language model.
-Make sure that NONE of the tasks require multiple steps. Each task should be atomic! 
+Make sure that NONE of the tasks require multiple steps. Each task should be atomic!
 Consider using nested for-loops to apply a set of tasks to a set of chunks.
 The same `task_id` should be applied to multiple chunks. DO NOT instantiate a new `task_id` for each combination of task and chunk.
 Use the conversational history to inform what chunking strategy has already been applied.
@@ -352,9 +352,9 @@ The following models are already in the global scope. **Do NOT redefine or re-im
 ## Important Reminders:
 - **DO NOT** assign tasks that require reading multiple chunks or referencing entire documents.
 - Keep tasks **chunk-local and atomic**.
-- **You** (the supervisor) are responsible for aggregating and interpreting outputs in `transform_outputs()`. 
+- **You** (the supervisor) are responsible for aggregating and interpreting outputs in `transform_outputs()`.
 
-Now, please provide the code for `prepare_jobs()` and `transform_outputs()`. 
+Now, please provide the code for `prepare_jobs()` and `transform_outputs()`.
 
 
 """
@@ -363,22 +363,22 @@ DECOMPOSE_TASK_PROMPT_AGG_FUNC_LATER_ROUND = """\
 # Decomposition Round #{step_number}
 
 You do not have access to the raw document(s), but instead can assign tasks to small and less capable language models that can read the document(s).
-Note that the document(s) can be very long, so each task should be performed only over a small chunk of text. 
+Note that the document(s) can be very long, so each task should be performed only over a small chunk of text.
 
 
 # Your job is to write two Python functions:
 
 Function #1 (prepare_jobs): will output formatted tasks for a small language model.
--> Make sure that NONE of the tasks require multiple steps. Each task should be atomic! 
+-> Make sure that NONE of the tasks require multiple steps. Each task should be atomic!
 -> Consider using nested for-loops to apply a set of tasks to a set of chunks.
 -> The same `task_id` should be applied to multiple chunks. DO NOT instantiate a new `task_id` for each combination of task and chunk.
 -> Use the conversational history to inform what chunking strategy has already been applied.
--> You are provided access to the outputs of the previous jobs (see prev_job_outputs). 
+-> You are provided access to the outputs of the previous jobs (see prev_job_outputs).
 -> If its helpful, you can reason over the prev_job_outputs vs. the original context.
 -> If tasks should be done sequentially, do not run them all in this round. Wait for the next round to run sequential tasks.
 
 Function #2 (transform_outputs): The second function will aggregate the outputs of the small language models and provide an aggregated string for the supervisor to review.
--> Filter the jobs based on the output of the small language models (write a custome filter function -- in some steps you might want to filter for a specific keyword, in others you might want to no pass anything back, so you filter out everything!). 
+-> Filter the jobs based on the output of the small language models (write a custome filter function -- in some steps you might want to filter for a specific keyword, in others you might want to no pass anything back, so you filter out everything!).
 -> Aggregate the jobs based on the task_id and chunk_id.
 
 {ADVANCED_STEPS_INSTRUCTIONS}
@@ -440,38 +440,38 @@ def transform_outputs(
 ) -> Dict[str, Any]:
     def filter_fn(job):
         answer = job.output.answer
-        return answer is not None or str(answer).lower().strip() != "none" or answer == "null" 
-    
+        return answer is not None or str(answer).lower().strip() != "none" or answer == "null"
+
     # Filter jobs
     for job in jobs:
         job.include = filter_fn(job)
-    
+
     # Aggregate and filter jobs
     tasks = {{}}
     for job in jobs:
         task_id = job.manifest.task_id
         chunk_id = job.manifest.chunk_id
-        
+
         if task_id not in tasks:
             tasks[task_id] = {{
                 "task_id": task_id,
                 "task": job.manifest.task,
                 "chunks": {{}},
             }}
-        
+
         if chunk_id not in tasks[task_id]["chunks"]:
             tasks[task_id]["chunks"][chunk_id] = []
-        
+
         tasks[task_id]["chunks"][chunk_id].append(job)
-    
+
     # Build the aggregated string
     aggregated_str = ""
     for task_id, task_info in tasks.items():
         aggregated_str += f"## Task (task_id=`{{task_id}}`): {{task_info['task']}}\n\n"
-        
+
         for chunk_id, chunk_jobs in task_info["chunks"].items():
             filtered_jobs = [j for j in chunk_jobs if j.include]
-            
+
             aggregated_str += f"### Chunk # {{chunk_id}}\n"
             if filtered_jobs:
                 for idx, job in enumerate(filtered_jobs, start=1):
@@ -479,9 +479,9 @@ def transform_outputs(
                     aggregated_str += f"   {{job.sample}}\n\n"
             else:
                 aggregated_str += "   No jobs returned successfully for this chunk.\n\n"
-        
+
         aggregated_str += "\n-----------------------\n\n"
-    
+
     return aggregated_str
 ```
 """
@@ -491,7 +491,7 @@ DECOMPOSE_RETRIEVAL_TASK_PROMPT_AGGREGATION_FUNC = """\
 # Decomposition Round #{step_number}
 
 You do not have access to the raw document(s), but instead can assign tasks to small and less capable language models that can read the document(s).
-Note that the document(s) can be very long, so each task should be performed only over a small chunk of text. 
+Note that the document(s) can be very long, so each task should be performed only over a small chunk of text.
 
 ## Your Job: Write Two Python Functions
 
@@ -551,9 +551,9 @@ The following models are already in the global scope. **Do NOT redefine or re-im
 ## Important Reminders:
 - **DO NOT** assign tasks that require reading multiple chunks or referencing entire documents.
 - Keep tasks **chunk-local and atomic**.
-- **You** (the supervisor) are responsible for aggregating and interpreting outputs in `transform_outputs()`. 
+- **You** (the supervisor) are responsible for aggregating and interpreting outputs in `transform_outputs()`.
 
-Now, please provide the code for `prepare_jobs()` and `transform_outputs()`. 
+Now, please provide the code for `prepare_jobs()` and `transform_outputs()`.
 
 """
 
@@ -565,19 +565,19 @@ You (the supervisor) cannot directly read the document(s). Instead, you can assi
 ## Your Job: Write Two Python Functions
 
 Function #1 (prepare_jobs): will output formatted tasks for a small language model.
--> Make sure that NONE of the tasks require multiple steps. Each task should be atomic! 
+-> Make sure that NONE of the tasks require multiple steps. Each task should be atomic!
 -> Consider using nested for-loops to apply a set of tasks to a set of chunks.
 -> The same `task_id` should be applied to multiple chunks. DO NOT instantiate a new `task_id` for each combination of task and chunk.
 -> Use the conversational history to inform what chunking strategy has already been applied.
 -> If the previous job was unsuccessful, try a different `chunk_size`: 2000 if task is factual and specific; 5000 if task is general. Try a larger retrieval value of `k` like 20 for retrieval.
--> Create keywords for retrieving relevant chunks. Extract precise keyword search queries that are **directly derived** from the user's question—avoid overly broad or generic terms. 
+-> Create keywords for retrieving relevant chunks. Extract precise keyword search queries that are **directly derived** from the user's question—avoid overly broad or generic terms.
 -> Assign high weights to the most essential terms from the query (e.g., proper nouns, dates, numerical values) to maximize retrieval accuracy. Feed your queries to the provided *retrieval function*.
--> You are provided access to the outputs of the previous jobs (see prev_job_outputs). 
+-> You are provided access to the outputs of the previous jobs (see prev_job_outputs).
 -> If its helpful, you can reason over the prev_job_outputs vs. the original context.
 -> If tasks should be done sequentially, do not run them all in this round. Wait for the next round to run sequential tasks.
 
 Function #2 (transform_outputs): The second function will aggregate the outputs of the small language models and provide an aggregated string for the supervisor to review.
--> Filter the jobs based on the output of the small language models (write a custome filter function -- in some steps you might want to filter for a specific keyword, in others you might want to no pass anything back, so you filter out everything!). 
+-> Filter the jobs based on the output of the small language models (write a custome filter function -- in some steps you might want to filter for a specific keyword, in others you might want to no pass anything back, so you filter out everything!).
 -> Aggregate the jobs based on the task_id and chunk_id.
 
 {ADVANCED_STEPS_INSTRUCTIONS}
@@ -638,7 +638,7 @@ Based on the previous job outputs, write a python function called (prepare_jobs)
 - The same `task_id` should be applied to multiple chunks. DO NOT instantiate a new `task_id` for each combination of task and chunk.
 
 Additionally,
-- You are provided access to the outputs of the previous jobs (see job_outputs). 
+- You are provided access to the outputs of the previous jobs (see job_outputs).
 - If its helpful, you can append context from previous job outputs as `metadata` to new chunks. Here is sample code for that:
 
 ```
@@ -665,7 +665,7 @@ for doc_id, document in enumerate(context):
 """
 
 REMOTE_SYNTHESIS_COT = """\
-Now synthesize the findings from multiple junior workers (LLMs). 
+Now synthesize the findings from multiple junior workers (LLMs).
 Your task is to analyze the collected information and think step-by-step about whether we can answer the question.
 Be brief and concise in your analysis.
 
@@ -742,4 +742,16 @@ Field Descriptions:
 - decision: must be "provide_final_answer"
 - answer: Final answer
 - scratchpad: Summary of gathered information and current analysis.
+"""
+
+SEARCH_CONTEXT_PROMPT = """
+Please search the web for relevant information about the query.
+
+## Query
+{query}
+
+## Instructions
+- Search the web for information about the query and get the most relevant results.
+- Clearly demarcate the results from different sources.
+- If you cannot find any relevant information, return "No relevant information found".
 """

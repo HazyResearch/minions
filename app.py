@@ -35,7 +35,9 @@ cartesia_available = "CartesiaMLXClient" in globals()
 # Log availability for debugging
 print(f"MLXLMClient available: {mlx_available}")
 print(f"CartesiaMLXClient available: {cartesia_available}")
-print(f"Voice generation available: {voice_generation_available if voice_generation_available is not None else 'Not checked yet'}")
+print(
+    f"Voice generation available: {voice_generation_available if voice_generation_available is not None else 'Not checked yet'}"
+)
 
 
 class StructuredLocalOutput(BaseModel):
@@ -284,10 +286,14 @@ def message_callback(role, message, is_final=True):
                     voice_text = (
                         message[:500] + "..." if len(message) > 500 else message
                     )
-                    audio_base64 = st.session_state.voice_generator.generate_audio(voice_text)
+                    audio_base64 = st.session_state.voice_generator.generate_audio(
+                        voice_text
+                    )
                     if audio_base64:
                         st.markdown(
-                            st.session_state.voice_generator.get_audio_html(audio_base64),
+                            st.session_state.voice_generator.get_audio_html(
+                                audio_base64
+                            ),
                             unsafe_allow_html=True,
                         )
                 elif isinstance(message, dict):
@@ -297,10 +303,14 @@ def message_callback(role, message, is_final=True):
                             if len(message["content"]) > 500
                             else message["content"]
                         )
-                        audio_base64 = st.session_state.voice_generator.generate_audio(voice_text)
+                        audio_base64 = st.session_state.voice_generator.generate_audio(
+                            voice_text
+                        )
                         if audio_base64:
                             st.markdown(
-                                st.session_state.voice_generator.get_audio_html(audio_base64),
+                                st.session_state.voice_generator.get_audio_html(
+                                    audio_base64
+                                ),
                                 unsafe_allow_html=True,
                             )
 
@@ -1141,33 +1151,40 @@ with st.sidebar:
         value=False,
         help="When enabled, minion responses will be spoken using CSM-MLX voice synthesis",
     )
-    
+
     # Only try to import and initialize the voice generator if user enables it
     if voice_generation_enabled and voice_generation_available is None:
         try:
             from minions.utils.voice_generator import VoiceGenerator
+
             st.session_state.voice_generator = VoiceGenerator()
             voice_generation_available = st.session_state.voice_generator.csm_available
-            
+
             if voice_generation_available:
                 st.success("🔊 Minion voice generation is enabled!")
-                st.info("Minions will speak their responses (limited to 500 characters)")
+                st.info(
+                    "Minions will speak their responses (limited to 500 characters)"
+                )
             else:
                 st.error("Voice generation could not be initialized")
                 st.info("Make sure CSM-MLX is properly installed")
                 voice_generation_enabled = False
         except ImportError:
-            st.error("Voice generation requires CSM-MLX. Install with: `pip install -e '.[csm-mlx]'`")
+            st.error(
+                "Voice generation requires CSM-MLX. Install with: `pip install -e '.[csm-mlx]'`"
+            )
             voice_generation_available = False
             voice_generation_enabled = False
     elif voice_generation_enabled and voice_generation_available is False:
         st.error("Voice generation is not available")
-        st.info("Make sure CSM-MLX is properly installed with: `pip install -e '.[csm-mlx]'`")
+        st.info(
+            "Make sure CSM-MLX is properly installed with: `pip install -e '.[csm-mlx]'`"
+        )
         voice_generation_enabled = False
     elif voice_generation_enabled and voice_generation_available:
         st.success("🔊 Minion voice generation is enabled!")
         st.info("Minions will speak their responses (limited to 500 characters)")
-        
+
     st.session_state.voice_generation_enabled = voice_generation_enabled
 
 
@@ -1214,8 +1231,54 @@ uploaded_files = st.file_uploader(
     accept_multiple_files=True,
 )
 
+uploaded_zip = st.file_uploader(
+    "Or upload ZIP folder of Files (Not more than a 100 pages total!)",
+    type=["zip"],
+    accept_multiple_files=False,
+)
+
+if uploaded_zip:
+    import zipfile
+    import io
+    import tempfile
+    import os
+    from PIL import Image
+
+    # read zip
+    with tempfile.TemporaryDirectory() as temp_dir:
+        with zipfile.ZipFile(io.BytesIO(uploaded_zip.read()), "r") as zip_ref:
+            zip_ref.extractall(temp_dir)
+
+            zipped_files = []
+            for root, _, files in os.walk(temp_dir):
+                for file in files:
+                    file_path = os.path.join(root, file)
+                    file_ext = os.path.splitext(file)[1].lower()
+
+                    if file_ext in [
+                        ".pdf",
+                        ".txt",
+                        ".png",
+                        ".jpg",
+                        ".jpeg",
+                    ] and not file.startswith("."):
+                        with open(file_path, "rb") as img_file:
+                            file_bytes = io.BytesIO(img_file.read())
+                            file_bytes.name = file
+                            zipped_files.append(file_bytes)
+
+            # Add extracted files to uploaded_files
+            if not uploaded_files:
+                uploaded_files = zipped_files
+            else:
+                uploaded_files.extend(zipped_files)
+
+            st.info(f"Found {len(zipped_files)} files in zip file")
+
 file_content = ""
 images = []
+embeddings = []
+temp_paths = []
 # if url_input is not empty, scrape the url
 if url_input:
     # check if the FIRECRAWL_API_KEY is set
@@ -1224,24 +1287,87 @@ if url_input:
         st.stop()
     file_content = scrape_url(url_input)["markdown"]
 
+from minions.utils.multimodal_retrievers import ChromaDBCollection
+from datetime import datetime
+
+emb_model = "granite3.2-vision"  # "llava"
+# Use a constant collection name for the context session
+if "chromadb" not in st.session_state:
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    collection_name = f"minions_context_session_{timestamp}"
+    st.session_state.chromadb = ChromaDBCollection(
+        embedding_model=emb_model,
+        collection_name=collection_name,
+    )
+chromadb = st.session_state.chromadb
+print("MultiModalEmbedder and ChromaDBCollection available: True")
+
+# Track processed files to avoid duplicates
+if "added_context" not in st.session_state:
+    st.session_state.added_context = set()
 
 if uploaded_files:
     all_file_contents = []
     total_size = 0
     file_names = []
+    from minions.utils.multimodal_retrievers import (
+        embed_and_add,
+        TextEmbedding,
+        ImageEmbedding,
+        VideoEmbedding,
+    )
+
     for uploaded_file in uploaded_files:
         try:
+            # Skip if we've already added this file as context
+            if uploaded_file.name in st.session_state.added_context:
+                continue
+
             file_type = uploaded_file.name.lower().split(".")[-1]
             current_content = ""
+
+            import tempfile
+
+            # Create a temporary file to store the file name
+            with tempfile.NamedTemporaryFile(delete=False) as temp_file:
+                temp_file.write(uploaded_file.name.encode())
+                temp_path = temp_file.name
+
+                if "temp_paths" not in st.session_state:
+                    st.session_state.temp_paths = {}
+
+                st.session_state.temp_paths[temp_path] = uploaded_file.name
+                temp_paths.append(temp_path)
+
             file_names.append(uploaded_file.name)
 
             if file_type == "pdf":
                 current_content = extract_text_from_pdf(uploaded_file.read()) or ""
 
+                # embed text in pdf
+                text_embedding, text_ids = embed_and_add(
+                    chromadb,
+                    content=current_content,
+                    content_type="text",
+                    path=temp_path,
+                )
+                embeddings.append(text_embedding)
+
             elif file_type in ["png", "jpg", "jpeg"]:
                 image_bytes = uploaded_file.read()
                 image_base64 = base64.b64encode(image_bytes).decode("utf-8")
                 images.append(image_base64)
+
+                # Generate embeddings for the image
+                image_embedding, image_ids = embed_and_add(
+                    chromadb,
+                    content=image_base64,
+                    content_type="image",
+                    upload=False,
+                    path=temp_path,
+                )
+                embeddings.append(image_embedding)
+
                 if st.session_state.current_local_model == "granite3.2-vision":
                     current_content = "file is an image"
                 else:
@@ -1249,51 +1375,45 @@ if uploaded_files:
             else:
                 current_content = uploaded_file.getvalue().decode()
 
-            if current_content:
-                all_file_contents.append("\n--------------------")
-                all_file_contents.append(
-                    f"### Content from {uploaded_file.name}:\n{current_content}"
-                )
-                total_size += uploaded_file.size
+            # Mark this file as added
+            st.session_state.added_context.add(uploaded_file.name)
+
         except Exception as e:
             st.error(f"Error processing file {uploaded_file.name}: {str(e)}")
 
-    if all_file_contents:
-        file_content = "\n".join(all_file_contents)
-        # Create doc_metadata string
-        doc_metadata = f"Input: {len(file_names)} documents ({', '.join(file_names)}). Total extracted text length: {len(file_content)} characters."
-    else:
-        doc_metadata = ""
-else:
-    doc_metadata = ""
-
-if text_input and file_content:
-    context = f"{text_input}\n## file upload:\n{file_content}"
-    if doc_metadata:
-        doc_metadata = (
-            f"Input: Text input and {doc_metadata[6:]}"  # Remove "Input: " from start
-        )
-elif text_input:
-    context = text_input
-    doc_metadata = f"Input: Text input only. Length: {len(text_input)} characters."
-else:
-    context = file_content
-
 padding = 8000
-estimated_tokens = int(len(context) / 4 + padding) if context else 4096
-num_ctx_values = [2048, 4096, 8192, 16384, 32768, 65536, 131072]
-closest_value = min(
-    [x for x in num_ctx_values if x >= estimated_tokens], default=131072
-)
-num_ctx = closest_value
 
-if context:
-    st.info(
-        f"Extracted: {len(file_content)} characters. Ballpark estimated total tokens: {estimated_tokens - padding}"
-    )
+num_entries = chromadb.collection_size()
+if embeddings or st.session_state.added_context:
+    st.info(f"Context currently has {num_entries} entries.")
 
-with st.expander("View Combined Context"):
-    st.text(context)
+with st.expander("View Context Embeddings"):
+    image_i = 0
+    for i, embedding in enumerate(embeddings):
+        if type(embedding) == TextEmbedding:
+            st.subheader("Text Embeddings")
+
+            st.write(f"Embedding dimensions: {len(embedding.embedding)}")
+            st.write(embedding)
+
+        if type(embedding) == ImageEmbedding:
+            if images:
+                st.subheader("Image Embeddings")
+                image_base64 = images[image_i]
+                try:
+                    col1, col2 = st.columns([1, 3])
+                    with col1:
+                        st.image(
+                            f"data:image/jpeg;base64,{image_base64}",
+                            caption=f"Image {i+1}",
+                        )
+                    with col2:
+                        st.write(f"Embedding dimensions: {len(embedding.embedding)}")
+                        st.write(embedding)
+                except Exception as e:
+                    st.error(f"Error geanerating embedding for image {i+1}: {str(e)}")
+
+                image_i += 1
 
 # Add required context description
 context_description = st.text_input(
@@ -1308,6 +1428,15 @@ user_query = st.chat_input("Enter your query or request here...", key="persisten
 # A container at the top to display final answer
 final_answer_placeholder = st.empty()
 
+if embeddings or st.session_state.added_context:
+    top_k = st.slider(
+        "Number of context items to retrieve",
+        min_value=1,
+        max_value=num_entries,
+        value=2,
+        step=1,
+    )
+
 if user_query:
     # Validate context description is provided
     if not context_description.strip():
@@ -1315,6 +1444,97 @@ if user_query:
             "Please provide a one-sentence description of the context before proceeding."
         )
         st.stop()
+
+    # Fetch most relevant context embeddings for query
+    from minions.utils.multimodal_retrievers import embed_and_retrieve
+
+    results = embed_and_retrieve(chromadb=chromadb, query_text=user_query, top_k=top_k)
+
+    # instead of generating context/all_file_contents using all files, only select information
+    # out of the top_k most relevant files
+    all_file_contents = []
+    file_names = []
+    with st.expander("View Retrieval Results"):
+        if results:
+            st.subheader("Retrieval Results")
+            for i, (embedding, distance) in enumerate(results):
+                current_content = ""
+                file_name = st.session_state.temp_paths[embedding.content_path]
+                file_names.append(file_name)
+
+                try:
+                    if type(embedding) == TextEmbedding:
+                        st.write(f"Embedding Distance: {distance}")
+                        st.write(f"Embedding dimensions: {len(embedding.embedding)}")
+                        st.write(embedding)
+
+                        current_content = embedding.content
+
+                    elif type(embedding) == ImageEmbedding:
+                        # first read image
+                        with open(embedding.content_path, "rb") as img_file:
+                            image_bytes = img_file.read()
+                            image_base64 = base64.b64encode(image_bytes).decode("utf-8")
+
+                        if st.session_state.current_local_model == "granite3.2-vision":
+                            current_content = "file is an image"
+                        else:
+                            current_content = (
+                                extract_text_from_image(image_base64) or ""
+                            )
+
+                        col1, col2 = st.columns([1, 3])
+                        with col1:
+                            st.image(
+                                f"data:image/jpeg;base64,{image_base64}",
+                                caption=f"Image {i+1}",
+                            )
+                        with col2:
+                            st.write(f"Embedding Distance: {distance}")
+                            st.write(
+                                f"Embedding dimensions: {len(embedding.embedding)}"
+                            )
+                            st.write(embedding)
+
+                    if current_content:
+                        all_file_contents.append("\n--------------------")
+                        all_file_contents.append(
+                            f"### Content from {file_name}:\n{current_content}"
+                        )
+                        # total_size += uploaded_file.size
+
+                except Exception as e:
+                    st.error(f"Error parsing embedding {i+1}: {str(e)}")
+
+            if all_file_contents:
+                file_content = "\n".join(all_file_contents)
+                # Create doc_metadata string
+                doc_metadata = f"Input: {len(file_names)} documents ({', '.join(file_names)}). Total extracted text length: {len(file_content)} characters."
+            else:
+                doc_metadata = ""
+        else:
+            doc_metadata = ""
+
+    if text_input and file_content:
+        context = f"{text_input}\n## file upload:\n{file_content}"
+        if doc_metadata:
+            doc_metadata = f"Input: Text input and {doc_metadata[6:]}"  # Remove "Input: " from start
+    elif text_input:
+        context = text_input
+        doc_metadata = f"Input: Text input only. Length: {len(text_input)} characters."
+    else:
+        context = file_content
+
+    if context:
+        with st.expander("Final Context:"):
+            st.write(context)
+
+    estimated_tokens = int(len(context) / 4 + padding) if context else 4096
+    num_ctx_values = [2048, 4096, 8192, 16384, 32768, 65536, 131072]
+    closest_value = min(
+        [x for x in num_ctx_values if x >= estimated_tokens], default=131072
+    )
+    num_ctx = closest_value
 
     with st.status(f"Running {protocol} protocol...", expanded=True) as status:
         try:
@@ -1483,7 +1703,8 @@ if user_query:
                         f"{remote_total:,} total tokens",
                     )
 
-            # Display meta information for minions protocol
+            # Display meta information for minions protocol    # TODO: support batch addition and batch operations natively
+
             if "meta" in output:
                 st.header("Meta Information")
                 for round_idx, round_meta in enumerate(output["meta"]):
@@ -1497,3 +1718,8 @@ if user_query:
 
         except Exception as e:
             st.error(f"An error occurred: {str(e)}")
+
+# add a context cleanup button!
+# clean up all temp files
+for temp_path in temp_paths:
+    os.unlink(temp_path)

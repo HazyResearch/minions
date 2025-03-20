@@ -751,8 +751,7 @@ Please search the web for relevant information about the query.
 {query}
 
 ## Instructions
-- Search the web for relevant information about the query.
+- Search the web for information about the query and get the most relevant results.
 - Clearly demarcate the results from different sources.
-- For each source, return a short description of the source and the context.
 - If you cannot find any relevant information, return "No relevant information found".
 """

@@ -231,6 +231,16 @@ minions --context <path_to_context> --protocol <minion|minions>
 
 ## Miscellaneous Setup
 
+### Running MLX Client (for optimal performance)
+
+To get the best performance on an M3 Mac, I needed to reboot and run the following commands:
+```bash
+sudo sysctl iogpu.wired_lwm_mb=400000
+sudo sysctl iogpu.wired_limit_mb=150000
+sudo sysctl iogpu.disable_wired_collector=1
+```
+The rebooting eliminates internal fragmentation and the kernel parameters prevent memory from being reclaimed from the GPU.
+
 ### Using Azure OpenAI with Minions
 
 #### Set Environment Variables

@@ -35,7 +35,9 @@ cartesia_available = "CartesiaMLXClient" in globals()
 # Log availability for debugging
 print(f"MLXLMClient available: {mlx_available}")
 print(f"CartesiaMLXClient available: {cartesia_available}")
-print(f"Voice generation available: {voice_generation_available if voice_generation_available is not None else 'Not checked yet'}")
+print(
+    f"Voice generation available: {voice_generation_available if voice_generation_available is not None else 'Not checked yet'}"
+)
 
 
 class StructuredLocalOutput(BaseModel):
@@ -284,10 +286,14 @@ def message_callback(role, message, is_final=True):
                     voice_text = (
                         message[:500] + "..." if len(message) > 500 else message
                     )
-                    audio_base64 = st.session_state.voice_generator.generate_audio(voice_text)
+                    audio_base64 = st.session_state.voice_generator.generate_audio(
+                        voice_text
+                    )
                     if audio_base64:
                         st.markdown(
-                            st.session_state.voice_generator.get_audio_html(audio_base64),
+                            st.session_state.voice_generator.get_audio_html(
+                                audio_base64
+                            ),
                             unsafe_allow_html=True,
                         )
                 elif isinstance(message, dict):
@@ -297,10 +303,14 @@ def message_callback(role, message, is_final=True):
                             if len(message["content"]) > 500
                             else message["content"]
                         )
-                        audio_base64 = st.session_state.voice_generator.generate_audio(voice_text)
+                        audio_base64 = st.session_state.voice_generator.generate_audio(
+                            voice_text
+                        )
                         if audio_base64:
                             st.markdown(
-                                st.session_state.voice_generator.get_audio_html(audio_base64),
+                                st.session_state.voice_generator.get_audio_html(
+                                    audio_base64
+                                ),
                                 unsafe_allow_html=True,
                             )
 
@@ -371,6 +381,7 @@ def initialize_clients(
     api_key,
     num_ctx=4096,
     mcp_server_name=None,
+    reasoning_effort="medium",
 ):
     """Initialize the local and remote clients outside of the run_protocol function."""
     # Store model parameters in session state for potential reinitialization
@@ -453,6 +464,7 @@ def initialize_clients(
             api_key=api_key,
             use_responses_api=use_responses_api,
             tools=tools,
+            reasoning_effort=reasoning_effort,
         )
     elif provider == "AzureOpenAI":
         # Get Azure-specific parameters from environment variables
@@ -548,6 +560,22 @@ def initialize_clients(
             st.session_state.remote_client,
             callback=message_callback,
         )
+
+    # Get reasoning_effort from the widget value directly
+    if "reasoning_effort" in st.session_state:
+        reasoning_effort = st.session_state.reasoning_effort
+    else:
+        reasoning_effort = "medium"  # Default if not set
+
+    (
+        st.session_state.local_client,
+        st.session_state.remote_client,
+        st.session_state.method,
+    ) = (
+        st.session_state.local_client,
+        st.session_state.remote_client,
+        st.session_state.method,
+    )
 
     return (
         st.session_state.local_client,
@@ -1042,6 +1070,7 @@ with st.sidebar:
                 "gpt-4o-mini": "gpt-4o-mini",
                 "o3-mini": "o3-mini",
                 "o1": "o1",
+                "o1-pro": "o1-pro",
             }
             default_model_index = 0
         elif selected_provider == "AzureOpenAI":
@@ -1130,9 +1159,19 @@ with st.sidebar:
             except ValueError:
                 st.error("Remote Max Tokens must be an integer.")
                 st.stop()
+
+            # Replace slider with select box for reasoning effort
+            reasoning_effort = st.selectbox(
+                "Reasoning Effort",
+                options=["low", "medium", "high"],
+                index=1,  # Default to "medium"
+                help="Controls how much effort the model puts into reasoning",
+                key="reasoning_effort",
+            )
         else:
             remote_temperature = 0.0
             remote_max_tokens = 4096
+            reasoning_effort = "medium"  # Default reasoning effort
 
     # Add voice generation toggle if available - MOVED HERE from the top
     st.subheader("Voice Generation")
@@ -1141,33 +1180,40 @@ with st.sidebar:
         value=False,
         help="When enabled, minion responses will be spoken using CSM-MLX voice synthesis",
     )
-    
+
     # Only try to import and initialize the voice generator if user enables it
     if voice_generation_enabled and voice_generation_available is None:
         try:
             from minions.utils.voice_generator import VoiceGenerator
+
             st.session_state.voice_generator = VoiceGenerator()
             voice_generation_available = st.session_state.voice_generator.csm_available
-            
+
             if voice_generation_available:
                 st.success("🔊 Minion voice generation is enabled!")
-                st.info("Minions will speak their responses (limited to 500 characters)")
+                st.info(
+                    "Minions will speak their responses (limited to 500 characters)"
+                )
             else:
                 st.error("Voice generation could not be initialized")
                 st.info("Make sure CSM-MLX is properly installed")
                 voice_generation_enabled = False
         except ImportError:
-            st.error("Voice generation requires CSM-MLX. Install with: `pip install -e '.[csm-mlx]'`")
+            st.error(
+                "Voice generation requires CSM-MLX. Install with: `pip install -e '.[csm-mlx]'`"
+            )
             voice_generation_available = False
             voice_generation_enabled = False
     elif voice_generation_enabled and voice_generation_available is False:
         st.error("Voice generation is not available")
-        st.info("Make sure CSM-MLX is properly installed with: `pip install -e '.[csm-mlx]'`")
+        st.info(
+            "Make sure CSM-MLX is properly installed with: `pip install -e '.[csm-mlx]'`"
+        )
         voice_generation_enabled = False
     elif voice_generation_enabled and voice_generation_available:
         st.success("🔊 Minion voice generation is enabled!")
         st.info("Minions will speak their responses (limited to 500 characters)")
-        
+
     st.session_state.voice_generation_enabled = voice_generation_enabled
 
 
@@ -1348,6 +1394,12 @@ if user_query:
                     if local_temperature < 0.01:
                         local_temperature = 0.00001
 
+                # Get reasoning_effort from the widget value directly
+                if "reasoning_effort" in st.session_state:
+                    reasoning_effort = st.session_state.reasoning_effort
+                else:
+                    reasoning_effort = "medium"  # Default if not set
+
                 (
                     st.session_state.local_client,
                     st.session_state.remote_client,
@@ -1365,6 +1417,7 @@ if user_query:
                     provider_key,
                     num_ctx,
                     mcp_server_name=mcp_server_name,
+                    reasoning_effort=reasoning_effort,
                 )
                 # Store the current protocol and local provider in session state
                 st.session_state.current_protocol = protocol

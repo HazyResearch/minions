@@ -1,21 +1,21 @@
-SUPERVISOR_INITIAL_PROMPT_OLD = """\
-We need to perform the following task.
-
-### Task
-{task}
-
-### Instructions
-You will not have direct access to the context, but can chat with a small language model which has read the entire thing.
-
-Feel free to think step-by-step, but eventually you must provide an output in the format below:
-
-<think step by step here>
-```json
-{{
-    "message": "<your message to the small language model. If you are asking model to do a task, make sure it is a single task!>"
-}}
-```
-"""
+# SUPERVISOR_INITIAL_PROMPT_OLD = """\
+# We need to perform the following task.
+#
+# ### Task
+# {task}
+#
+# ### Instructions
+# You will not have direct access to the context, but can chat with a small language model which has read the entire thing.
+#
+# Feel free to think step-by-step, but eventually you must provide an output in the format below:
+#
+# <think step by step here>
+# ```json
+# {{
+#     "message": "<your message to the small language model. If you are asking model to do a task, make sure it is a single task!>"
+# }}
+# ```
+# """
 
 WORKER_PRIVACY_SHIELD_PROMPT = """\
 You are a helpful assistant that is very mindful of user privacy. You are communicating with a powerful large language model that you are sharing information with. Revise the following text to preserve user privacy. We have already extracted the PII from the original document. Remove any PII from the text. Provide your output without any preamble. 
@@ -39,36 +39,36 @@ You are a helpful assistant that is very mindful of user privacy. You are commun
 
 ### Query without PII (remove the PII from the query, and rephrase the query if necessary):"""
 
-SUPERVISOR_CONVERSATION_PROMPT_OLD = """
-Here is the response from the small language model:
-
-### Response
-{response}
-
-
-### Instructions
-Analyze the response and think-step-by-step to determine if you have enough information to answer the question.
-
-If you have enough information or if the task is complete provide a final answer in the format below.
-
-<think step by step here>
-```json
-{{
-    "decision": "provide_final_answer", 
-    "answer": "<your answer>"
-}}
-```
-
-Otherwise, if the task is not complete, request the small language model to do additional work, by outputting the following:
-
-<think step by step here>
-```json
-{{
-    "decision": "request_additional_info",
-    "message": "<your message to the small language model>"
-}}
-```
-"""
+# SUPERVISOR_CONVERSATION_PROMPT_OLD = """
+# Here is the response from the small language model:
+#
+# ### Response
+# {response}
+#
+#
+# ### Instructions
+# Analyze the response and think-step-by-step to determine if you have enough information to answer the question.
+#
+# If you have enough information or if the task is complete provide a final answer in the format below.
+#
+# <think step by step here>
+# ```json
+# {{
+#     "decision": "provide_final_answer",
+#     "answer": "<your answer>"
+# }}
+# ```
+#
+# Otherwise, if the task is not complete, request the small language model to do additional work, by outputting the following:
+#
+# <think step by step here>
+# ```json
+# {{
+#     "decision": "request_additional_info",
+#     "message": "<your message to the small language model>"
+# }}
+# ```
+# """
 
 SUPERVISOR_FINAL_PROMPT_OLD = """\
 Here is the response from the small language model:
@@ -98,11 +98,13 @@ Read the context below and prepare to answer questions from an expert user.
 ### Context
 {context}
 
+Further context will be provided if the expert user uses MCP tools.
+
 ### Question
 {task}
 """
 
-SUPERVISOR_INITIAL_PROMPT = """\
+SUPERVISOR_INITIAL_PROMPT_MCP = """\
 We need to perform the following task.
 
 ### Task
@@ -110,44 +112,53 @@ We need to perform the following task.
 
 ### Instructions
 You will not have direct access to the context, but can chat with a small language model which has read the entire thing.
+If you think the small language model may need more context, you can also specify an MCP tool call, whose output will
+be given to the small language model just prior to your task.
+
+### MCP Tools Info
+{mcp_tools_info}
+
+Important: if you use an MCP tool, make sure you tell the small model exactly what you want it do with the output.
 
 Feel free to think step-by-step, but eventually you must provide an output in the format below:
 
 ```json
 {{
+    "mcp_tool_call": null,  # or, a tool call formatted in JSON as per its usage
     "message": "<your message to the small language model. If you are asking model to do a task, make sure it is a single task!>"
 }}
 ```
 """
 
-SUPERVISOR_CONVERSATION_PROMPT = """
-Here is the response from the small language model:
-
-### Response
-{response}
-
-
-### Instructions
-Analyze the response and think-step-by-step to determine if you have enough information to answer the question.
-
-If you have enough information or if the task is complete provide a final answer in the format below.
-
-```json
-{{
-    "decision": "provide_final_answer", 
-    "answer": "<your answer>"
-}}
-```
-
-Otherwise, if the task is not complete, request the small language model to do additional work, by outputting the following:
-
-```json
-{{
-    "decision": "request_additional_info",
-    "message": "<your message to the small language model>"
-}}
-```
-"""
+# SUPERVISOR_CONVERSATION_PROMPT_MCP = """
+# Here is the response from the small language model:
+#
+# ### Response
+# {response}
+#
+#
+# ### Instructions
+# Analyze the response and think-step-by-step to determine if you have enough information to answer the question.
+#
+# If you have enough information or if the task is complete provide a final answer in the format below.
+#
+# ```json
+# {{
+#     "decision": "provide_final_answer",
+#     "answer": "<your answer>"
+# }}
+# ```
+#
+# Otherwise, if the task is not complete, request the small language model to do additional work, by outputting the following:
+#
+# ```json
+# {{
+#     "decision": "request_additional_info",
+#     "mcp_tool_call": null,  # or, a tool call formatted in JSON as per its usage
+#     "message": "<your message to the small language model>"
+# }}
+# ```
+# """
 
 SUPERVISOR_FINAL_PROMPT = """\
 Here is the response from the small language model:
@@ -187,7 +198,7 @@ Think about:
 
 """
 
-REMOTE_SYNTHESIS_FINAL = """\
+REMOTE_SYNTHESIS_FINAL_MCP = """\
 Here is the response after step-by-step thinking.
 
 ### Response
@@ -208,6 +219,7 @@ Otherwise, if the task is not complete, request the small language model to do a
 ```json
 {{
     "decision": "request_additional_info",
+    "mcp_tool_call": null,  # or, a tool call formatted in JSON as per its usage
     "message": "<your message to the small language model>"
 }}
 ```

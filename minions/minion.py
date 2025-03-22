@@ -5,7 +5,12 @@ import os
 from datetime import datetime
 
 from minions.clients import OpenAIClient, TogetherClient
+from minions.minions_mcp import SyncMCPClient
 
+from minions.prompts.minion_mcp import (
+    SUPERVISOR_INITIAL_PROMPT_MCP,
+    REMOTE_SYNTHESIS_FINAL_MCP
+)
 from minions.prompts.minion import (
     SUPERVISOR_CONVERSATION_PROMPT,
     SUPERVISOR_FINAL_PROMPT,
@@ -61,6 +66,7 @@ class Minion:
         max_rounds=3,
         callback=None,
         log_dir="minion_logs",
+        mcp_client: SyncMCPClient | None = None,
     ):
         """Initialize the Minion with local and remote LLM clients.
 
@@ -75,8 +81,20 @@ class Minion:
         self.max_rounds = max_rounds
         self.callback = callback
         self.log_dir = log_dir
+        self.mcp_client = mcp_client
+
         # Create log directory if it doesn't exist
         os.makedirs(log_dir, exist_ok=True)
+
+        # Set up prompts based on whether we have access to an MCP client
+        self.supervisor_initial_prompt = SUPERVISOR_INITIAL_PROMPT
+        self.remote_synthesis_final = REMOTE_SYNTHESIS_FINAL
+
+        if mcp_client is not None:
+            self.supervisor_initial_prompt = SUPERVISOR_INITIAL_PROMPT_MCP
+            self.remote_synthesis_final = REMOTE_SYNTHESIS_FINAL_MCP
+
+        self.mcp_tools_info = None if self.mcp_client is None else self._generate_mcp_tools_info()
 
     def __call__(
         self,
@@ -115,19 +133,11 @@ class Minion:
             "generated_final_answer": "",
         }
 
-        # Initialize message histories and usage tracking
-        supervisor_messages = [
-            {
-                "role": "user",
-                "content": SUPERVISOR_INITIAL_PROMPT.format(task=task),
-            }
-        ]
-
         # Add initial supervisor prompt to conversation log
         conversation_log["conversation"].append(
             {
                 "user": "remote",
-                "prompt": SUPERVISOR_INITIAL_PROMPT.format(task=task),
+                "prompt": self.supervisor_initial_prompt.format(task=task, mcp_tools_info=self.mcp_tools_info),
                 "output": None,
             }
         )
@@ -175,8 +185,9 @@ class Minion:
             supervisor_messages = [
                 {
                     "role": "user",
-                    "content": SUPERVISOR_INITIAL_PROMPT.format(
-                        task=pii_reformatted_task
+                    "content": self.supervisor_initial_prompt.format(
+                        task=pii_reformatted_task,
+                        mcp_tools_info=self.mcp_tools_info,
                     ),
                 }
             ]
@@ -190,7 +201,7 @@ class Minion:
             supervisor_messages = [
                 {
                     "role": "user",
-                    "content": SUPERVISOR_INITIAL_PROMPT.format(task=task),
+                    "content": self.supervisor_initial_prompt.format(task=task, mcp_tools_info=self.mcp_tools_info),
                 }
             ]
             worker_messages = [
@@ -247,13 +258,42 @@ class Minion:
 
         final_answer = None
         for round in range(max_rounds):
+            print(f"\n\n\n-------\nRound {round+1}/{max_rounds}\nLogged convo so far to {self.log_dir}.")
+            print(f"Supervisor's message: {supervisor_json["message"]}")
+            print(f"Supervisor's tool call: {supervisor_json["mcp_tool_call"]}")
+            with open(os.path.join(self.log_dir, f"convo_{logging_id}.json"), "w") as f:
+                json.dump(conversation_log, f)
+
             # Get worker's response
             if self.callback:
                 self.callback("worker", None, is_final=False)
 
+            # If the supervisor has specified MCP tools to be called, then we call them
+            if self.mcp_client is not None:
+                if supervisor_json["mcp_tool_call"] is not None:
+                    # Here, we assume the supervisor has stuck to the format in self._generate_mcp_tools_info()
+                    tool_name = supervisor_json["mcp_tool_call"]["tool_name"]
+                    tool_params = supervisor_json["mcp_tool_call"]["parameters"]
+
+                    print(f"About to call MCP tool '{tool_name}' with params\n{tool_params}\n")
+                    if input("OK? (y/n): ").lower() != "y":
+                        raise RuntimeError("Aborting!")
+
+                    mcp_output = self.mcp_client.execute_tool(tool_name=tool_name, **tool_params)
+
+                    # Provide MCP output to local client
+                    context_to_prepend = f"**New context:** I performed an MCP tool call:\n" \
+                                         f"{supervisor_json['mcp_tool_call']}\n" \
+                                         f"The output was {mcp_output}. Now, help me with the following:\n"
+
+                    worker_messages[-1]["content"] = context_to_prepend + worker_messages[-1]["content"]
+                    conversation_log["conversation"][-1]["prompt"] = worker_messages[-1]["content"]
+
             worker_response, worker_usage, done_reason = self.local_client.chat(
                 messages=worker_messages
             )
+
+            print(f"\n\nWorker response:\n{worker_response}")
 
             local_usage += worker_usage
 
@@ -334,7 +374,7 @@ class Minion:
                 ]
 
                 # Second step: Get structured output
-                supervisor_prompt = REMOTE_SYNTHESIS_FINAL.format(
+                supervisor_prompt = self.remote_synthesis_final.format(
                     response=step_by_step_response[0]
                 )
 
@@ -416,3 +456,30 @@ class Minion:
             "local_usage": local_usage,
             "log_file": log_path,
         }
+
+    def _generate_mcp_tools_info(self):
+        """Generate explanation of available MCP tools for supervisor."""
+        mcp_tools_info = "### Available MCP Tools\n\n"
+        for tool in self.mcp_client.available_tools:
+            mcp_tools_info += f"## {tool['name']}\n\n"
+            mcp_tools_info += f"**Description**: {tool['description']}\n\n"
+
+            # Create parameter list from schema
+            params = []
+            if "properties" in tool["input_schema"]:
+                for param_name in tool["input_schema"]["properties"].keys():
+                    params.append(param_name)
+
+            # mcp_tools_info += f"**Usage**: mcp_tools.execute_tool(\"{tool['name']}\", {', '.join([f'{p}={p}' for p in params])})\n\n"
+            # mcp_tools_info += f"**Usage**: mcp_tools.execute_tool(\"{tool['name']}\", {', '.join([f'{p}={p}' for p in params])})\n\n"
+            mcp_tools_info += f"""**JSON Format**:
+```json
+{{
+    "tool_name": "{tool['name']}",
+    "parameters": {{
+        {', '.join([f'"{p}": "<{p}_value>"' for p in params])}
+    }}
+}}
+```
+"""
+        return mcp_tools_info

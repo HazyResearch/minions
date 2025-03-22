@@ -259,5 +259,4 @@ def calculate_gpu_memory(
         "Grad & Optimizer memory": math.ceil(grad_opt_memory),
         "cuda + other overhead": cuda_overhead
     }
-    print(result)
     return result

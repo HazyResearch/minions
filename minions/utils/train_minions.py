@@ -13,7 +13,6 @@ try:
 except ImportError:
     TORCH_AVAILABLE = False
 from estimate_memory import calculate_gpu_memory, DeviceType
-from model_config import ModelConfig
 
 #TODO: add QLoRA
 class TrainingMethod(Enum):
@@ -271,7 +270,6 @@ class TrainingConfigurator:
                 )
 
                 print(memory_needed, available_memory, training_method, model)
-
                 if memory_needed <= available_memory and memory_needed > max_memory_usage:
                     max_memory_usage = memory_needed
                     best_config = (model, training_method, min_batch_size)

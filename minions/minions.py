@@ -43,45 +43,6 @@ def chunk_by_section(
         sections.append(doc[start:end])
         start += max_chunk_size - overlap
     return sections
-
-
-def chunk_by_paragraph(
-    doc: str, max_chunk_size: int = 3000, overlap_sentences: int = 2
-) -> List[str]:
-    sentence_regex = re.compile(r"(?<=[.!?])\s+")
-    paragraphs = [p.strip() for p in re.split(r"\n\s*\n", doc) if p.strip()]
-
-    chunks = []
-    current_paragraphs = []
-    current_length = 0
-
-    for paragraph in paragraphs:
-        sep_len = 2 if current_paragraphs else 0  # separator is used when joining paragraphs with "\n\n"
-        candidate_length = current_length + sep_len + len(paragraph)
-        
-        if candidate_length > max_chunk_size and current_paragraphs:
-            chunk_text = "\n\n".join(current_paragraphs)
-            chunks.append(chunk_text)
-            
-            if overlap_sentences:
-                sentences = sentence_regex.split(current_paragraphs[-1])
-                overlap = " ".join(sentences[-min(overlap_sentences, len(sentences)):])
-                current_paragraphs = [overlap, paragraph]
-                current_length = len(overlap) + 2 + len(paragraph)
-            else:
-                current_paragraphs = [paragraph]
-                current_length = len(paragraph)
-        else:
-            current_paragraphs.append(paragraph)
-            current_length = candidate_length
-
-    if current_paragraphs:
-        chunks.append("\n\n".join(current_paragraphs))
-
-    print("CHUNKS")
-    print(chunks)
-    print("-" * 60)
-    return chunks
     
 
 def chunk_by_page(
@@ -91,36 +52,108 @@ def chunk_by_page(
     if page_markers is None:
         page_markers = [
             r"\f",  # form feed character
-            r"(?im)^page\s+\d+(\s+of\s+\d+)?\s*$", # "Page X" or "Page X of Y"
-            r"(?m)^[\s_\-()]*\d+[\s_\-()]*$", # standalone numbers or numbers wrapped in minimal decoration, e.g. - 3 -
-            r"(?im)^[-=#]{3,}\s*.*page.*[-=#]{3,}\s*$", # lines like --- page --- or === pg === or ### === ### (dash, equal, or hash variants)
-            r"(?im)^\s*[\[<\(]\s*page(?:\s+\d+)?\s*[\]>)]\s*$", # lines like [page] or [page 3] (or any bracket variant)
+            r"^page\s+\d+(\s+of\s+\d+)?\s*$",  # "Page X" or "Page X of Y"
+            r"^[\s_\-()]*\d+[\s_\-()]*$",  # standalone numbers or decorated numbers (e.g. - 3 -)
+            r"^[-=#]{3,}\s*.*page.*[-=#]{3,}\s*$",  # lines like --- page ---, === pg ===, etc.
+            r"^\s*[\[<\(]\s*page(?:\s+\d+)?\s*[\]>)]\s*$",  # lines like [page] or [page 3] (or any bracket variant)
         ]
     pattern = "|".join(page_markers)
-    matches = list(re.finditer(pattern, doc))
+    compiled_pattern = re.compile(pattern, re.IGNORECASE | re.MULTILINE)
+    matches = list(re.finditer(compiled_pattern, doc))
     if not matches:
         return [doc]
     pages = []
     start = 0
     for match in matches:
-        chunk = doc[start:match.start()].strip()
+        chunk = doc[start:match.start()]
         if chunk:
             pages.append(chunk)
         start = match.end()
-    last_chunk = doc[start:].strip()
+    last_chunk = doc[start:]
     if last_chunk:
         pages.append(last_chunk)
+    print(pages)
     return pages
     
+
+def chunk_sentences(
+    sentences: List[str], max_chunk_size: int, overlap_sentences: int
+) -> List[str]:
+    """
+    Helper to group sentences into chunks with overlap.
+    """
+    chunks = []
+    current_chunk = []
+    current_length = 0
+
+    for sentence in sentences:
+        sep = " " if current_chunk else ""
+        new_length = current_length + len(sep) + len(sentence)
+        if new_length > max_chunk_size and current_chunk:
+            chunks.append(" ".join(current_chunk))
+            overlap = current_chunk[-overlap_sentences:] if overlap_sentences else []
+            current_chunk = overlap + [sentence]
+            current_length = sum(len(s) for s in current_chunk) + len(current_chunk) - 1
+        else:
+            current_chunk.append(sentence)
+            current_length = new_length
+    if current_chunk:
+        chunks.append(" ".join(current_chunk))
+    return chunks
+
+
+def chunk_by_paragraph(
+    doc: str, max_chunk_size: int = 1500, overlap_sentences: int = 0
+) -> List[str]:
+    sentence_regex = re.compile(r"(?<=[.!?])\s+")
+    paragraphs = [p.strip() for p in re.split(r"\n\s*\n", doc) if p.strip()]
+
+    chunks = []
+    current_paragraphs = []
+    current_length = 0
+
+    for paragraph in paragraphs:
+        if len(paragraph) > max_chunk_size: # if the paragraph is too large, break it into sentences
+            if current_paragraphs:
+                chunks.append("\n\n".join(current_paragraphs))
+                current_paragraphs = []
+                current_length = 0
+            sentences = sentence_regex.split(paragraph)
+            sentence_chunks = chunk_sentences(sentences, max_chunk_size, overlap_sentences)
+            chunks.extend(sentence_chunks)
+        else: # normal paragraph that fits within max_chunk_size
+            sep_len = 2 if current_paragraphs else 0  # "\n\n" separator length
+            candidate_length = current_length + sep_len + len(paragraph)
+            if candidate_length > max_chunk_size and current_paragraphs:
+                chunk_text = "\n\n".join(current_paragraphs)
+                chunks.append(chunk_text)
+
+                if overlap_sentences:
+                    sentences = sentence_regex.split(current_paragraphs[-1])
+                    overlap = " ".join(sentences[-min(overlap_sentences, len(sentences)):])
+                    current_paragraphs = [overlap, paragraph]
+                    current_length = len(overlap) + 2 + len(paragraph)
+                else:
+                    current_paragraphs = [paragraph]
+                    current_length = len(paragraph)
+            else:
+                current_paragraphs.append(paragraph)
+                current_length = candidate_length
+
+    if current_paragraphs:
+        chunks.append("\n\n".join(current_paragraphs))
+    return chunks
+
 
 def extract_imports(lines: List[str], tree: ast.AST) -> str:
     import_lines = set()
     for node in ast.walk(tree):
         if isinstance(node, (ast.Import, ast.ImportFrom)):
-            import_lines.add(lines[node.lineno - 1].strip())
+            import_lines.add(lines[node.lineno - 1])
     if import_lines:
-        return "\n".join(sorted(import_lines)) + "\n\n"
+        return "\n".join(import_lines) + "\n\n"
     return ""
+
 
 def extract_function_header(lines: List[str], start_line: int) -> List[str]:
     header_lines = []
@@ -133,39 +166,45 @@ def extract_function_header(lines: List[str], start_line: int) -> List[str]:
             break
     return header_lines
 
+
 def extract_function(lines: List[str], node: ast.FunctionDef) -> str:
     if node.decorator_list:
         start_line = min(dec.lineno for dec in node.decorator_list) - 1
     else:
         start_line = node.lineno - 1
     end_line = getattr(node, 'end_lineno', node.lineno)
-    function_chunk = "\n".join(lines[start_line:end_line]).strip()
+    function_chunk = "\n".join(lines[start_line:end_line])
     return function_chunk
 
-def chunk_by_code(doc: str) -> List[str]:
+
+def chunk_by_code(doc: str, functions_per_chunk: int = 1) -> List[str]:
     """
-    Splits Python code into chunks by function (with decorators)
+    Splits Python code into chunks by function (with decorators).
+    Optionally specify number of functions per chunk
     """
     try:
         tree = ast.parse(doc)
     except SyntaxError:
         return [doc]
     lines = doc.splitlines()
-    chunks = []
+    functions = []
     
     for node in tree.body:
         if isinstance(node, ast.FunctionDef): # stand-alone functions
-            chunks.append(extract_function(lines, node))
+            functions.append(extract_function(lines, node))
         elif isinstance(node, ast.ClassDef):
             for item in node.body:
                 if isinstance(item, ast.FunctionDef):
-                    chunks.append(extract_function(lines, item))
-    print("CHUNKS")
-    print(chunks)
-    print("-" * 60)
+                    functions.append(extract_function(lines, item))
+    chunks = []
+    for i in range(0, len(functions), functions_per_chunk):
+        batch = functions[i:i + functions_per_chunk]
+        chunk = "\n\n".join(batch)
+        chunks.append(chunk)
+    
     return chunks
 
-def chunk_by_code_with_class_structure(doc: str) -> List[str]:
+def chunk_by_function_and_class(doc: str) -> List[str]:
     """
     Splits Python code into chunks by function and class definitions.
 

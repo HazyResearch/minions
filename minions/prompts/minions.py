@@ -309,9 +309,9 @@ You (the supervisor) cannot directly read the document(s). Instead, you can assi
 ### FUNCTION #1: `prepare_jobs(context, prev_job_manifests, prev_job_outputs) -> List[JobManifest]`
 - Break the document(s) into chunks using one of the provided chunking functions. Determine the document type and select the appropriate chunking function. Use information from the metadata and task to help you determine the most appropriate chunking function.
     a) **Code Documents**: If the document contains programming code, choose the chunking function `chunk_by_code`.
-    b) **Multipage documents** (e.g. novels, long reports)**: If the document is lengthy, choose the chunking function `chunk_by_page`.
-    c) **Shorter Text Documents** (e.g. prose, articles, reports)**: If the document seems to be structured writing, choose the chunking function `chunk_by_paragraph`. Determine the chunk size yourself according to the task: simple information extraction tasks can benefit from smaller chunks, while summarization tasks can benefit from larger chunks.
-    d) **Other/General** (when none of the above clearly apply): If the document does not seem to have any structure, choose the chunking function `chunk_by_section`. Determine the chunk size yourself according to the task: simple information extraction tasks can benefit from smaller chunks, while summarization tasks can benefit from larger chunks.
+    b) **Multipage documents** (e.g. novels, long reports)**: If the document spans many pages or includes explicit page markers, choose the chunking function `chunk_by_page` to split it into page-based segments.
+    c) **Shorter Text Documents** (e.g. prose, articles, reports)**: If the document seems to be structured writing, choose the chunking function `chunk_by_paragraph`. Determine the chunk size yourself according to the task: narrow information extraction tasks can benefit from smaller chunks, while summarization tasks can benefit from larger chunks.
+    d) **Other/General** (when none of the above clearly apply): If the document does not seem to have any structure, choose the chunking function `chunk_by_section`. Determine the chunk size yourself according to the task: narrow information extraction tasks can benefit from smaller chunks, while summarization tasks can benefit from larger chunks.
 - Each job must be **atomic** and require only information from the **single chunk** provided to the worker.
 - If you need to repeat the same task on multiple chunks, **re-use** the same `task_id`. Do **not** create a separate `task_id` for each chunk.
 - If tasks must happen **in sequence**, do **not** include them all in this round; move to a subsequent round to handle later steps.
@@ -352,6 +352,24 @@ The following models are already in the global scope. **Do NOT redefine or re-im
 ```
 {chunking_source}
 ```
+## Chunking Function Examples
+###Example 1: Code Document
+Metadata: "Source code for a data processing module."
+Task: "Describe what each function does and identify potential inefficiencies."
+Appropriate Chunking Method: chunk_by_code
+Reason: The document is a programming file with multiple function and class definitions. Splitting by code boundaries preserves the logical structure of each function.
+
+###Example 2: Medical Report
+Metadata: "Medical visit report."
+Task: "What dosage of Tylenol was the patient prescribed?"
+Appropriate Chunking Method: chunk_by_paragraph with a small chunk size
+Reason: The document is a narrative text report. Using chunk_by_paragraph with a smaller chunk size helps isolate the specific sections or paragraphs where detailed dosage information is likely mentioned, ensuring that the worker processes only the relevant content.
+
+###Example 3: Novel
+Metadata: "A lengthy fantasy novel with clear page breaks."
+Task: "Summarize the key plot developments and character relationships."
+Appropriate Chunking Method: chunk_by_page
+Reason: The document spans many pages and includes explicit page markers. Splitting by page preserves the narrative flow and logical divisions..
 
 ## Important Reminders:
 - **DO NOT** assign tasks that require reading multiple chunks or referencing entire documents.

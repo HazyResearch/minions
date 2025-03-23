@@ -307,11 +307,11 @@ You (the supervisor) cannot directly read the document(s). Instead, you can assi
 ## Your Job: Write Two Python Functions
 
 ### FUNCTION #1: `prepare_jobs(context, prev_job_manifests, prev_job_outputs) -> List[JobManifest]`
-- Break the document(s) into chunks using one of the provided chunking functions. Determine the most appropriate chunking function yourself based on the **document type** of the context:
-    - For documents containing **code**: Choose the function `chunk_by_code`.
-    - For **long multipage documents (e.g. novels, long reports)**: Choose the function `chunk_by_page`.
-    - For **shorter prose or other written documents (e.g. articles, short report)**: Choose the function `chunk_by_paragraph`.
-    - For **other general purposes** that don't fit the above three categories: Choose the function `chunk_by_section`. Determine the chunk size yourself according to the task: simple information extraction tasks can benefit from smaller chunks, while summarization tasks can benefit from larger chunks.
+- Break the document(s) into chunks using one of the provided chunking functions. Determine the document type and select the appropriate chunking function. Use information from the metadata and task to help you determine the most appropriate chunking function.
+    a) **Code Documents**: If the document contains programming code, choose the chunking function `chunk_by_code`.
+    b) **Multipage documents** (e.g. novels, long reports)**: If the document is lengthy, choose the chunking function `chunk_by_page`.
+    c) **Shorter Text Documents** (e.g. prose, articles, reports)**: If the document seems to be structured writing, choose the chunking function `chunk_by_paragraph`. Determine the chunk size yourself according to the task: simple information extraction tasks can benefit from smaller chunks, while summarization tasks can benefit from larger chunks.
+    d) **Other/General** (when none of the above clearly apply): If the document does not seem to have any structure, choose the chunking function `chunk_by_section`. Determine the chunk size yourself according to the task: simple information extraction tasks can benefit from smaller chunks, while summarization tasks can benefit from larger chunks.
 - Each job must be **atomic** and require only information from the **single chunk** provided to the worker.
 - If you need to repeat the same task on multiple chunks, **re-use** the same `task_id`. Do **not** create a separate `task_id` for each chunk.
 - If tasks must happen **in sequence**, do **not** include them all in this round; move to a subsequent round to handle later steps.

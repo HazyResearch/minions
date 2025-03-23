@@ -22,6 +22,7 @@ import json
 from streamlit_theme import st_theme
 from dotenv import load_dotenv
 import base64
+from minions.minion_notebooklm import MinionNotebookLM
 
 
 # Load environment variables from .env file
@@ -542,6 +543,12 @@ def initialize_clients(
             mcp_server_name=mcp_server_name,
             callback=message_callback,
         )
+    elif protocol == "Minions-NotebookLM":
+        st.session_state.method = MinionNotebookLM(
+            st.session_state.local_client,
+            st.session_state.remote_client,
+            callback=message_callback,
+        )
     else:  # Minion protocol
         st.session_state.method = Minion(
             st.session_state.local_client,
@@ -640,6 +647,13 @@ def run_protocol(
                 context=[context],
                 max_rounds=5,
                 use_bm25=use_bm25,
+            )
+        elif protocol == "Minions-NotebookLM":
+            output = st.session_state.method(
+                task=task,
+                doc_metadata=doc_metadata,
+                context=[context],
+                max_rounds=5,
             )
         else:
             output = st.session_state.method(
@@ -888,7 +902,7 @@ with st.sidebar:
         "OpenRouter",
         "DeepSeek",
     ]:  # Added AzureOpenAI to the list
-        protocol_options = ["Minion", "Minions", "Minions-MCP"]
+        protocol_options = ["Minion", "Minions", "Minions-MCP", "Minions-NotebookLM"]
         protocol = st.segmented_control(
             "Communication protocol", options=protocol_options, default="Minion"
         )
@@ -1494,6 +1508,69 @@ if user_query:
                         st.write(
                             f"Remote messages: {len(round_meta['remote']['messages'])}"
                         )
+
+            # Add this function to format the final answer as a podcast transcript
+            def format_as_podcast_transcript(text):
+                """Convert a regular text into a podcast transcript format with HOST tags."""
+                # Split the text into paragraphs or sentences for alternating speakers
+                paragraphs = [p.strip() for p in text.split('\n') if p.strip()]
+                
+                if not paragraphs:
+                    # If no clear paragraphs, split by sentences
+                    import re
+                    sentences = [s.strip() for s in re.split(r'(?<=[.!?])\s+', text) if s.strip()]
+                    paragraphs = sentences
+                
+                # Create transcript with alternating hosts
+                transcript = "<PODCAST TRANSCRIPT>\n"
+                for i, paragraph in enumerate(paragraphs):
+                    host_num = (i % 2) + 1  # Alternate between HOST 1 and HOST 2
+                    transcript += f"HOST {host_num}: {paragraph}\n"
+                
+                return transcript
+
+            # Modify the section where you process the output to include podcast generation
+            if "final_answer" in output and output["final_answer"]:
+                final_answer = output["final_answer"]
+                
+                # Display the text answer
+                st.markdown(final_answer)
+                
+                # Check if voice generation is available
+                if 'voice_generator' in st.session_state and st.session_state.voice_generator.csm_available:
+                    with st.spinner("Generating podcast audio..."):
+                        # Format the answer as a podcast transcript
+                        transcript = format_as_podcast_transcript(final_answer)
+                        
+                        # Generate a unique filename
+                        import time
+                        import os
+                        timestamp = int(time.time())
+                        audio_filename = f"minion_logs/podcast_{timestamp}.wav"
+                        os.makedirs("minion_logs", exist_ok=True)
+                        
+                        # Generate the podcast audio
+                        from minions.podcast_generator import PodcastGenerator
+                        if 'podcast_gen' not in st.session_state:
+                            st.session_state.podcast_gen = PodcastGenerator()
+                            
+                        st.session_state.podcast_gen.generate_from_transcript(
+                            transcript, 
+                            output_filename=audio_filename
+                        )
+                        
+                        # Display audio player in the UI
+                        st.subheader("Listen to this answer as a podcast:")
+                        st.audio(audio_filename)
+                        
+                        # Add a download button
+                        with open(audio_filename, "rb") as file:
+                            btn = st.download_button(
+                                label="Download Podcast Audio",
+                                data=file,
+                                file_name=os.path.basename(audio_filename),
+                                mime="audio/wav"
+                            )
 
         except Exception as e:
             st.error(f"An error occurred: {str(e)}")

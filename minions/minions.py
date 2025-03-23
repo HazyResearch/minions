@@ -6,6 +6,7 @@ from pydantic import BaseModel, field_validator, Field
 from inspect import getsource
 from rank_bm25 import BM25Plus
 import numpy as np
+import ast
 import os
 
 from minions.usage import Usage
@@ -43,6 +44,137 @@ def chunk_by_section(
         start += max_chunk_size - overlap
     return sections
 
+
+def chunk_by_paragraph(
+    doc: str, max_chunk_size: int = 3000, overlap_sentences: int = 2
+) -> List[str]:
+    chunks = []
+    sentence_regex = r"(?<=[.!?])\s+"
+    paragraphs = [p.strip() for p in re.split(r"\n\s*\n", doc) if p.strip()]
+    for i, paragraph in enumerate(paragraphs):
+        if len(paragraph) > max_chunk_size: # split large paragraphs further
+            sentences = re.split(sentence_regex, paragraph)
+            current_chunk = ""
+            for sentence in sentences:
+                if len(current_chunk) + len(sentence) > max_chunk_size and current_chunk:
+                    chunks.append(current_chunk)
+                    current_chunk = current_chunk[-overlap_sentences:] if overlap_sentences > 0 else []
+                    current_chunk.append(sentence)
+                else:
+                    current_chunk += " " + sentence if current_chunk else sentence
+            if current_chunk:
+                chunks.append(current_chunk)
+        else: # normal sized paragraph
+            if i == 0:
+                chunks.append(paragraph)
+            else:
+                prev_sentences = re.split(sentence_regex, paragraphs[i-1])
+                overlap_text = ""
+                if prev_sentences and overlap_sentences > 0:
+                    overlap_text = " ".join(prev_sentences[-min(overlap_sentences, len(prev_sentences)):]) + "\n\n"
+                chunks.append(overlap_text + paragraph)
+    return chunks
+    
+
+def chunk_by_page(
+        doc: str,
+        page_markers: Optional[List[str]] = None
+) -> List[str]:
+    if page_markers is None:
+        page_markers = [
+            r"\f",                       # form feed character
+            r"(?m)^Page\s+\d+$",         # "Page X" format (eg Page 1)
+            r"(?m)^[\s_-(]*\d+[\s_-)]*$" # standalone page num with optional decorative elements (eg "- 20 -")
+        ]
+    pattern = "|".join(page_markers)
+    matches = list(re.finditer(pattern, doc))
+    if not matches:
+        return [doc]
+    pages = []
+    start = 0
+    for match in matches:
+        chunk = doc[start:match.start()].strip()
+        if chunk:
+            pages.append(chunk)
+        start = match.end()
+    last_chunk = doc[start:].strip()
+    if last_chunk:
+        pages.append(last_chunk)
+    return pages
+    
+
+def extract_imports(lines: List[str], tree: ast.AST) -> str:
+    import_lines = set()
+    for node in ast.walk(tree):
+        if isinstance(node, (ast.Import, ast.ImportFrom)):
+            import_lines.add(lines[node.lineno - 1].strip())
+    if import_lines:
+        return "\n".join(sorted(import_lines)) + "\n\n"
+    return ""
+
+def extract_function_header(lines: List[str], start_line: int) -> List[str]:
+    header_lines = []
+    paren_count = 0
+    for i in range(start_line, len(lines)):
+        line = lines[i]
+        header_lines.append(line)
+        paren_count += line.count('(') - line.count(')')
+        if ':' in line and paren_count == 0: # header is complete
+            break
+    return header_lines
+
+def extract_function(lines: List[str], node: ast.FunctionDef) -> str:
+    if node.decorator_list:
+        start_line = min(dec.lineno for dec in node.decorator_list) - 1
+    else:
+        start_line = node.lineno - 1
+    end_line = getattr(node, 'end_lineno', node.lineno)
+    function_chunk = "\n".join(lines[start_line:end_line]).strip()
+    return function_chunk
+
+def chunk_by_code(doc: str) -> List[str]:
+    """
+    Splits Python code into chunks by function and class definitions.
+
+    For stand-alone functions, the chunk is the entire function (with decorators).
+    For classes, two types of chunks:
+      1) Each method (prefixed with the class header)
+      2) A class structure chunk with the class header, class variables, and method signatures
+      
+    Each chunk is prepended with import statements.
+    """
+    try:
+        tree = ast.parse(doc)
+    except SyntaxError:
+        return [doc]
+    lines = doc.splitlines()
+    import_lines = extract_imports(lines, tree)
+    chunks = []
+    
+    for node in tree.body:
+        if isinstance(node, ast.FunctionDef): # stand-alone functions
+            chunks.append(import_lines + extract_function(lines, node))
+        elif isinstance(node, ast.ClassDef):
+            class_header = lines[node.lineno - 1].strip()
+            class_lines = [class_header] # chunk for class structure
+
+            for item in node.body:
+                start_line = item.lineno - 1
+                if isinstance(item, ast.Assign): # add class variables to class chunk
+                    end_line = getattr(item, 'end_lineno', item.lineno)
+                    for i in range(start_line, end_line):
+                        class_lines.append("    " + lines[i])
+                elif isinstance(item, ast.FunctionDef):
+                    # add function chunk
+                    chunks.append(f"{import_lines}{class_header}\n{extract_function(lines, item)}")
+                    
+                    # add function header to class chunk
+                    for line in extract_function_header(lines, start_line):
+                        class_lines.append("    " + line)
+                    
+            class_structure = "\n".join(class_lines)
+            chunks.append(import_lines + class_structure)
+    return chunks
 
 def retrieve_top_k_chunks(
     keywords: List[str], chunks: List[str], weights: Dict[str, float], k: int = 10

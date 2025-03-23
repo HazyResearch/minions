@@ -54,16 +54,17 @@ def chunk_by_paragraph(
     for i, paragraph in enumerate(paragraphs):
         if len(paragraph) > max_chunk_size: # split large paragraphs further
             sentences = re.split(sentence_regex, paragraph)
-            current_chunk = ""
+            current_chunk = []
             for sentence in sentences:
-                if len(current_chunk) + len(sentence) > max_chunk_size and current_chunk:
-                    chunks.append(current_chunk)
+                candidate = " ".join(current_chunk + [sentence])
+                if len(candidate) > max_chunk_size and current_chunk:
+                    chunks.append(" ".join(current_chunk))
                     current_chunk = current_chunk[-overlap_sentences:] if overlap_sentences > 0 else []
                     current_chunk.append(sentence)
                 else:
-                    current_chunk += " " + sentence if current_chunk else sentence
+                    current_chunk.append(sentence)
             if current_chunk:
-                chunks.append(current_chunk)
+                chunks.append(" ".join(current_chunk))
         else: # normal sized paragraph
             if i == 0:
                 chunks.append(paragraph)
@@ -450,7 +451,12 @@ class Minions:
                 transform_signature_source=getsource(transform_outputs),
                 # read_file_source=getsource(read_folder),
                 chunking_source="\n\n".join(
-                    [getsource(chunk_by_section).split("    sections = ")[0]]
+                    [
+                        getsource(chunk_by_section).split(" sections = ")[0],
+                        getsource(chunk_by_code).split('"""')[0],
+                        getsource(chunk_by_page).split("if ")[0],
+                        getsource(chunk_by_paragraph).split("chunks =")[0],
+                    ]
                 ),
                 retrieval_source=getsource(retrieve_top_k_chunks).split(
                     "    weights = "
@@ -538,6 +544,9 @@ class Minions:
                 starting_globals = {
                     **USEFUL_IMPORTS,
                     "chunk_by_section": chunk_by_section,
+                    "chunk_by_paragraph": chunk_by_paragraph,
+                    "chunk_by_page": chunk_by_page,
+                    "chunk_by_code": chunk_by_code,
                     "retrieve_top_k_chunks": retrieve_top_k_chunks,
                     "JobManifest": JobManifest,
                     "JobOutput": JobOutput,

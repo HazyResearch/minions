@@ -307,11 +307,11 @@ You (the supervisor) cannot directly read the document(s). Instead, you can assi
 ## Your Job: Write Two Python Functions
 
 ### FUNCTION #1: `prepare_jobs(context, prev_job_manifests, prev_job_outputs) -> List[JobManifest]`
-- Break the document(s) into chunks (using one of the provided chunking functions, if needed). Choose the chunking function based on **document type**:
-    - For **code documents**: Use `chunk_by_code_function` to split the document by function and class definitions.
-    - For **long documents with page boundaries**: Use `chunk_by_page` to split based on form feed characters or page numbering formats.
-    - For **prose or text documents**: Use `chunk_by_paragraph` to split by paragraphs.
-    - For **other general purposes**: Use `chunk_by_section` and determine the chunk size yourself according to the task: simple information extraction tasks can benefit from smaller chunks, while summarization tasks can benefit from larger chunks.
+- Break the document(s) into chunks using one of the provided chunking functions. Determine the most appropriate chunking function yourself based on the **document type** of the context:
+    - For documents containing **code**: Choose the function `chunk_by_code`.
+    - For **long multipage documents (e.g. novels, long reports)**: Choose the function `chunk_by_page`.
+    - For **shorter prose or other written documents (e.g. articles, short report)**: Choose the function `chunk_by_paragraph`.
+    - For **other general purposes** that don't fit the above three categories: Choose the function `chunk_by_section`. Determine the chunk size yourself according to the task: simple information extraction tasks can benefit from smaller chunks, while summarization tasks can benefit from larger chunks.
 - Each job must be **atomic** and require only information from the **single chunk** provided to the worker.
 - If you need to repeat the same task on multiple chunks, **re-use** the same `task_id`. Do **not** create a separate `task_id` for each chunk.
 - If tasks must happen **in sequence**, do **not** include them all in this round; move to a subsequent round to handle later steps.
@@ -352,19 +352,6 @@ The following models are already in the global scope. **Do NOT redefine or re-im
 ```
 {chunking_source}
 ```
-
-## Chunking Examples
-- **Example 1: Code Document**  
-  When processing a Python file, call `chunk_by_code(doc)` so that each function or method becomes a separate chunk. 
-  
-- **Example 2: Long Document or Document with Page Breaks**  
-  If the document contains page markers or page breaks (such as text from a long PDF), use `chunk_by_page(doc)` to split the text into page-sized chunks.
-
-- **Example 3: Text Document with Paragraphs**  
-  For a narrative document with paragraphs, use `chunk_by_paragraph(doc)`.
-
-- **Example 4: Generic Text Without Clear Structure**  
-  If the document is one long continuous text (such as a log file) or doesn;t have clear structure, use `chunk_by_section(doc)`.
 
 ## Important Reminders:
 - **DO NOT** assign tasks that require reading multiple chunks or referencing entire documents.

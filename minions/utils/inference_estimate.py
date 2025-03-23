@@ -130,7 +130,7 @@ class InferenceEstimator:
         self.hw_profile = HardwareProfiler.profile() 
         self.model_profile = ModelProfiler.profile(model_client.model_name)
 
-        self.empirical_throughput = self._compute_empirical_throughput() 
+        # self.empirical_throughput = self._compute_empirical_throughput() 
 
     # def _compute_empirical_throughput(self, num_trials: int = 5) -> float:
     #     """
@@ -208,13 +208,7 @@ class InferenceEstimator:
 
     def estimate(self, num_input_tokens: int) -> tuple[float, float]: 
         """
-            We utilize the following approach: 
-
-            T_theoretical, T_empirical, and efficiency are computed. 
-
-            T_adjusted = T_theoretical * efficiency
-            ETA = T_adjusted / num_input_tokens
-            return T_adjusted, ETA 
+            Estimate the tokens/sec and ETA. 
         """
         theoretical_throughput = self._compute_theoretical_throughput(num_input_tokens)
         return theoretical_throughput, num_input_tokens / theoretical_throughput

@@ -2,6 +2,8 @@ import streamlit as st
 from minions.minion import Minion
 from minions.minions import Minions
 from minions.minions_mcp import SyncMinionsMCP, MCPConfigManager
+from minions.minions_deep_research import DeepResearchMinions
+from deep_research_ui import render_deep_research_ui
 from minions.utils.firecrawl_util import scrape_url
 
 # Instead of trying to import at startup, set voice_generation_available to None
@@ -51,7 +53,7 @@ st.markdown(
     """
     <style>
         [data-testid="stSidebar"][aria-expanded="true"]{
-            min-width: 350px;
+            min-width: 450px;
             max-width: 750px;
         }
     </style>
@@ -85,6 +87,8 @@ PROVIDER_TO_ENV_VAR_KEY = {
     "Perplexity": "PERPLEXITY_API_KEY",
     "Groq": "GROQ_API_KEY",
     "DeepSeek": "DEEPSEEK_API_KEY",
+    "Firecrawl": "FIRECRAWL_API_KEY",
+    "SERP": "SERPAPI_API_KEY",
 }
 
 
@@ -554,6 +558,14 @@ def initialize_clients(
             mcp_server_name=mcp_server_name,
             callback=message_callback,
         )
+    elif protocol == "DeepResearch":
+        st.session_state.method = DeepResearchMinions(
+            local_client=st.session_state.local_client,
+            remote_client=st.session_state.remote_client,
+            callback=message_callback,
+            max_rounds=3,
+            max_sources_per_round=5,
+        )
     else:  # Minion protocol
         st.session_state.method = Minion(
             st.session_state.local_client,
@@ -668,6 +680,12 @@ def run_protocol(
                 context=[context],
                 max_rounds=5,
                 use_bm25=use_bm25,
+            )
+        elif protocol == "DeepResearch":
+            output = st.session_state.method(
+                query=task,
+                firecrawl_api_key=st.session_state.get('firecrawl_api_key'),
+                serpapi_key=st.session_state.get('serpapi_api_key')
             )
         else:
             output = st.session_state.method(
@@ -916,7 +934,7 @@ with st.sidebar:
         "OpenRouter",
         "DeepSeek",
     ]:  # Added AzureOpenAI to the list
-        protocol_options = ["Minion", "Minions", "Minions-MCP"]
+        protocol_options = ["Minion", "Minions", "Minions-MCP", "DeepResearch"]
         protocol = st.segmented_control(
             "Communication protocol", options=protocol_options, default="Minion"
         )
@@ -1225,328 +1243,385 @@ with st.sidebar:
 # else:
 #     st.title("Minion!")
 
-st.subheader("Context")
-text_input = st.text_area("Optionally paste text here", value="", height=150)
+
+if protocol == "DeepResearch":    
+    # Check both session state and environment variables for API keys
+    firecrawl_api_key = (
+        st.session_state.get('firecrawl_api_key') or 
+        os.getenv("FIRECRAWL_API_KEY")
+    )
+    serpapi_key = (
+        st.session_state.get('serpapi_api_key') or 
+        os.getenv("SERPAPI_API_KEY")
+    )
+    
+    # Store the keys in session state if they came from env vars
+    if firecrawl_api_key and not st.session_state.get('firecrawl_api_key'):
+        st.session_state.firecrawl_api_key = firecrawl_api_key
+    if serpapi_key and not st.session_state.get('serpapi_api_key'):
+        st.session_state.serpapi_api_key = serpapi_key
+    
+    # Initialize clients for DeepResearch
+    if (
+        "local_client" not in st.session_state
+        or "remote_client" not in st.session_state
+        or "method" not in st.session_state
+        or "current_protocol" not in st.session_state
+        or st.session_state.current_protocol != protocol
+    ):
+        st.write("Initializing clients for DeepResearch protocol...")
+        
+        local_client, remote_client, method = initialize_clients(
+            local_model_name,
+            remote_model_name,
+            selected_provider,
+            local_provider,
+            protocol,
+            local_temperature,
+            local_max_tokens,
+            remote_temperature,
+            remote_max_tokens,
+            provider_key,
+            num_ctx=4096,
+            reasoning_effort=reasoning_effort,
+        )
+        
+        # Update session state
+        st.session_state.local_client = local_client
+        st.session_state.remote_client = remote_client
+        st.session_state.method = method
+        st.session_state.current_protocol = protocol
+        st.session_state.current_local_provider = local_provider
+        st.session_state.current_remote_provider = selected_provider
+    
+    # Render UI
+    render_deep_research_ui(minions_instance=st.session_state.method)
 
 
-st.markdown("Or upload context from a webpage")
-# Check if FIRECRAWL_API_KEY is set in environment or provided by user
-firecrawl_api_key_env = os.getenv("FIRECRAWL_API_KEY", "")
 
-# Display URL input and API key fields side by side
-c1, c2 = st.columns(2)
-with c2:
-    # make the text input not visible as it is a password input
-    firecrawl_api_key = st.text_input(
-        "FIRECRAWL_API_KEY", type="password", key="firecrawl_api_key"
+else:
+    st.subheader("Context")
+    text_input = st.text_area("Optionally paste text here", value="", height=150)
+
+
+    st.markdown("Or upload context from a webpage")
+    # Check if FIRECRAWL_API_KEY is set in environment or provided by user
+    firecrawl_api_key_env = os.getenv("FIRECRAWL_API_KEY", "")
+
+    # Display URL input and API key fields side by side
+    c1, c2 = st.columns(2)
+    with c2:
+        # make the text input not visible as it is a password input
+        firecrawl_api_key = st.text_input(
+            "FIRECRAWL_API_KEY", type="password", key="firecrawl_api_key"
+        )
+
+    # Set the API key in environment if provided by user
+    if firecrawl_api_key and firecrawl_api_key != firecrawl_api_key_env:
+        os.environ["FIRECRAWL_API_KEY"] = firecrawl_api_key
+
+    # Only show URL input if API key is available
+    with c1:
+        if firecrawl_api_key:
+            url_input = st.text_input("Or paste a URL here", value="")
+
+        else:
+            st.info("Set FIRECRAWL_API_KEY to enable URL scraping")
+            url_input = ""
+
+    uploaded_files = st.file_uploader(
+        "Or upload PDF / TXT / Images (Not more than a 100 pages total!)",
+        type=["txt", "pdf", "png", "jpg", "jpeg"],
+        accept_multiple_files=True,
     )
 
-# Set the API key in environment if provided by user
-if firecrawl_api_key and firecrawl_api_key != firecrawl_api_key_env:
-    os.environ["FIRECRAWL_API_KEY"] = firecrawl_api_key
-
-# Only show URL input if API key is available
-with c1:
-    if firecrawl_api_key:
-        url_input = st.text_input("Or paste a URL here", value="")
-
-    else:
-        st.info("Set FIRECRAWL_API_KEY to enable URL scraping")
-        url_input = ""
-
-uploaded_files = st.file_uploader(
-    "Or upload PDF / TXT / Images (Not more than a 100 pages total!)",
-    type=["txt", "pdf", "png", "jpg", "jpeg"],
-    accept_multiple_files=True,
-)
-
-file_content = ""
-images = []
-# if url_input is not empty, scrape the url
-if url_input:
-    # check if the FIRECRAWL_API_KEY is set
-    if not os.getenv("FIRECRAWL_API_KEY"):
-        st.error("FIRECRAWL_API_KEY is not set")
-        st.stop()
-    file_content = scrape_url(url_input)["markdown"]
+    file_content = ""
+    images = []
+    # if url_input is not empty, scrape the url
+    if url_input:
+        # check if the FIRECRAWL_API_KEY is set
+        if not os.getenv("FIRECRAWL_API_KEY"):
+            st.error("FIRECRAWL_API_KEY is not set")
+            st.stop()
+        file_content = scrape_url(url_input)["markdown"]
 
 
-if uploaded_files:
-    all_file_contents = []
-    total_size = 0
-    file_names = []
-    for uploaded_file in uploaded_files:
-        try:
-            file_type = uploaded_file.name.lower().split(".")[-1]
-            current_content = ""
-            file_names.append(uploaded_file.name)
+    if uploaded_files:
+        all_file_contents = []
+        total_size = 0
+        file_names = []
+        for uploaded_file in uploaded_files:
+            try:
+                file_type = uploaded_file.name.lower().split(".")[-1]
+                current_content = ""
+                file_names.append(uploaded_file.name)
 
-            if file_type == "pdf":
-                current_content = extract_text_from_pdf(uploaded_file.read()) or ""
+                if file_type == "pdf":
+                    current_content = extract_text_from_pdf(uploaded_file.read()) or ""
 
-            elif file_type in ["png", "jpg", "jpeg"]:
-                image_bytes = uploaded_file.read()
-                image_base64 = base64.b64encode(image_bytes).decode("utf-8")
-                images.append(image_base64)
-                if st.session_state.current_local_model == "granite3.2-vision":
-                    current_content = "file is an image"
+                elif file_type in ["png", "jpg", "jpeg"]:
+                    image_bytes = uploaded_file.read()
+                    image_base64 = base64.b64encode(image_bytes).decode("utf-8")
+                    images.append(image_base64)
+                    if st.session_state.current_local_model == "granite3.2-vision":
+                        current_content = "file is an image"
+                    else:
+                        current_content = extract_text_from_image(image_base64) or ""
                 else:
-                    current_content = extract_text_from_image(image_base64) or ""
-            else:
-                current_content = uploaded_file.getvalue().decode()
+                    current_content = uploaded_file.getvalue().decode()
 
-            if current_content:
-                all_file_contents.append("\n--------------------")
-                all_file_contents.append(
-                    f"### Content from {uploaded_file.name}:\n{current_content}"
-                )
-                total_size += uploaded_file.size
-        except Exception as e:
-            st.error(f"Error processing file {uploaded_file.name}: {str(e)}")
+                if current_content:
+                    all_file_contents.append("\n--------------------")
+                    all_file_contents.append(
+                        f"### Content from {uploaded_file.name}:\n{current_content}"
+                    )
+                    total_size += uploaded_file.size
+            except Exception as e:
+                st.error(f"Error processing file {uploaded_file.name}: {str(e)}")
 
-    if all_file_contents:
-        file_content = "\n".join(all_file_contents)
-        # Create doc_metadata string
-        doc_metadata = f"Input: {len(file_names)} documents ({', '.join(file_names)}). Total extracted text length: {len(file_content)} characters."
+        if all_file_contents:
+            file_content = "\n".join(all_file_contents)
+            # Create doc_metadata string
+            doc_metadata = f"Input: {len(file_names)} documents ({', '.join(file_names)}). Total extracted text length: {len(file_content)} characters."
+        else:
+            doc_metadata = ""
     else:
         doc_metadata = ""
-else:
-    doc_metadata = ""
 
-if text_input and file_content:
-    context = f"{text_input}\n## file upload:\n{file_content}"
-    if doc_metadata:
-        doc_metadata = (
-            f"Input: Text input and {doc_metadata[6:]}"  # Remove "Input: " from start
+    if text_input and file_content:
+        context = f"{text_input}\n## file upload:\n{file_content}"
+        if doc_metadata:
+            doc_metadata = (
+                f"Input: Text input and {doc_metadata[6:]}"  # Remove "Input: " from start
+            )
+    elif text_input:
+        context = text_input
+        doc_metadata = f"Input: Text input only. Length: {len(text_input)} characters."
+    else:
+        context = file_content
+
+    padding = 8000
+    estimated_tokens = int(len(context) / 4 + padding) if context else 4096
+    num_ctx_values = [2048, 4096, 8192, 16384, 32768, 65536, 131072]
+    closest_value = min(
+        [x for x in num_ctx_values if x >= estimated_tokens], default=131072
+    )
+    num_ctx = closest_value
+
+    if context:
+        st.info(
+            f"Extracted: {len(file_content)} characters. Ballpark estimated total tokens: {estimated_tokens - padding}"
         )
-elif text_input:
-    context = text_input
-    doc_metadata = f"Input: Text input only. Length: {len(text_input)} characters."
-else:
-    context = file_content
 
-padding = 8000
-estimated_tokens = int(len(context) / 4 + padding) if context else 4096
-num_ctx_values = [2048, 4096, 8192, 16384, 32768, 65536, 131072]
-closest_value = min(
-    [x for x in num_ctx_values if x >= estimated_tokens], default=131072
-)
-num_ctx = closest_value
+    with st.expander("View Combined Context"):
+        st.text(context)
 
-if context:
-    st.info(
-        f"Extracted: {len(file_content)} characters. Ballpark estimated total tokens: {estimated_tokens - padding}"
+    # Add required context description
+    context_description = st.text_input(
+        "One-sentence description of the context (Required)", key="context_description"
     )
 
-with st.expander("View Combined Context"):
-    st.text(context)
+    # -------------------------
+    #  Chat-like user input
+    # -------------------------
+    user_query = st.chat_input("Enter your query or request here...", key="persistent_chat")
 
-# Add required context description
-context_description = st.text_input(
-    "One-sentence description of the context (Required)", key="context_description"
-)
+    # A container at the top to display final answer
+    final_answer_placeholder = st.empty()
 
-# -------------------------
-#  Chat-like user input
-# -------------------------
-user_query = st.chat_input("Enter your query or request here...", key="persistent_chat")
-
-# A container at the top to display final answer
-final_answer_placeholder = st.empty()
-
-if user_query:
-    # Validate context description is provided
-    if not context_description.strip():
-        st.error(
-            "Please provide a one-sentence description of the context before proceeding."
-        )
-        st.stop()
-
-    with st.status(f"Running {protocol} protocol...", expanded=True) as status:
-        try:
-            # Initialize clients first (only once) or if protocol or providers have changed
-            if (
-                "local_client" not in st.session_state
-                or "remote_client" not in st.session_state
-                or "method" not in st.session_state
-                or "current_protocol" not in st.session_state
-                or "current_local_provider" not in st.session_state
-                or "current_remote_provider" not in st.session_state
-                or "current_remote_model" not in st.session_state
-                or "current_local_model" not in st.session_state
-                or st.session_state.current_protocol != protocol
-                or st.session_state.current_local_provider != local_provider
-                or st.session_state.current_remote_provider != selected_provider
-                or st.session_state.current_remote_model != remote_model_name
-                or st.session_state.current_local_model != local_model_name
-            ):
-
-                st.write(f"Initializing clients for {protocol} protocol...")
-
-                # Get MCP server name if using Minions-MCP
-                mcp_server_name = None
-                if protocol == "Minions-MCP":
-                    mcp_server_name = st.session_state.get(
-                        "mcp_server_name", "filesystem"
-                    )
-
-                if local_provider == "Cartesia-MLX":
-                    if local_temperature < 0.01:
-                        local_temperature = 0.00001
-
-                # Get reasoning_effort from the widget value directly
-                if "reasoning_effort" in st.session_state:
-                    reasoning_effort = st.session_state.reasoning_effort
-                else:
-                    reasoning_effort = "medium"  # Default if not set
-
-                (
-                    st.session_state.local_client,
-                    st.session_state.remote_client,
-                    st.session_state.method,
-                ) = initialize_clients(
-                    local_model_name,
-                    remote_model_name,
-                    selected_provider,
-                    local_provider,
-                    protocol,
-                    local_temperature,
-                    local_max_tokens,
-                    remote_temperature,
-                    remote_max_tokens,
-                    provider_key,
-                    num_ctx,
-                    mcp_server_name=mcp_server_name,
-                    reasoning_effort=reasoning_effort,
-                )
-                # Store the current protocol and local provider in session state
-                st.session_state.current_protocol = protocol
-                st.session_state.current_local_provider = local_provider
-                st.session_state.current_remote_provider = selected_provider
-                st.session_state.current_remote_model = remote_model_name
-                st.session_state.current_local_model = local_model_name
-
-            # Then run the protocol with pre-initialized clients
-            output, setup_time, execution_time = run_protocol(
-                user_query,
-                context,
-                doc_metadata,
-                status,
-                protocol,
-                local_provider,
-                images,
+    if user_query:
+        # Validate context description is provided
+        if not context_description.strip():
+            st.error(
+                "Please provide a one-sentence description of the context before proceeding."
             )
+            st.stop()
 
-            status.update(
-                label=f"{protocol} protocol execution complete!", state="complete"
-            )
-
-            # Display final answer at the bottom with enhanced styling
-            st.markdown("---")  # Add a visual separator
-            # render the oriiginal query
-            st.markdown("## 🚀 Query")
-            st.info(user_query)
-            st.markdown("## 🎯 Final Answer")
-            st.info(output["final_answer"])
-
-            # Timing info
-            st.header("Runtime")
-            total_time = setup_time + execution_time
-            # st.metric("Setup Time", f"{setup_time:.2f}s", f"{(setup_time/total_time*100):.1f}% of total")
-            st.metric("Execution Time", f"{execution_time:.2f}s")
-
-            # Token usage for both protocols
-            if "local_usage" in output and "remote_usage" in output:
-                st.header("Token Usage")
-                local_total = (
-                    output["local_usage"].prompt_tokens
-                    + output["local_usage"].completion_tokens
-                )
-                remote_total = (
-                    output["remote_usage"].prompt_tokens
-                    + output["remote_usage"].completion_tokens
-                )
-                c1, c2 = st.columns(2)
-                c1.metric(
-                    f"{local_model_name} (Local) Total Tokens",
-                    f"{local_total:,}",
-                    f"Prompt: {output['local_usage'].prompt_tokens:,}, "
-                    f"Completion: {output['local_usage'].completion_tokens:,}",
-                )
-                c2.metric(
-                    f"{remote_model_name} (Remote) Total Tokens",
-                    f"{remote_total:,}",
-                    f"Prompt: {output['remote_usage'].prompt_tokens:,}, "
-                    f"Completion: {output['remote_usage'].completion_tokens:,}",
-                )
-                # Convert to long format DataFrame for explicit ordering
-                df = pd.DataFrame(
-                    {
-                        "Model": [
-                            f"Local: {local_model_name}",
-                            f"Local: {local_model_name}",
-                            f"Remote: {remote_model_name}",
-                            f"Remote: {remote_model_name}",
-                        ],
-                        "Token Type": [
-                            "Prompt Tokens",
-                            "Completion Tokens",
-                            "Prompt Tokens",
-                            "Completion Tokens",
-                        ],
-                        "Count": [
-                            output["local_usage"].prompt_tokens,
-                            output["local_usage"].completion_tokens,
-                            output["remote_usage"].prompt_tokens,
-                            output["remote_usage"].completion_tokens,
-                        ],
-                    }
-                )
-                st.bar_chart(df, x="Model", y="Count", color="Token Type")
-
-                # Display cost information for OpenAI models
+        with st.status(f"Running {protocol} protocol...", expanded=True) as status:
+            try:
+                # Initialize clients first (only once) or if protocol or providers have changed
                 if (
-                    selected_provider in ["OpenAI", "AzureOpenAI", "DeepSeek"]
-                    and remote_model_name in API_PRICES[selected_provider]
+                    "local_client" not in st.session_state
+                    or "remote_client" not in st.session_state
+                    or "method" not in st.session_state
+                    or "current_protocol" not in st.session_state
+                    or "current_local_provider" not in st.session_state
+                    or "current_remote_provider" not in st.session_state
+                    or "current_remote_model" not in st.session_state
+                    or "current_local_model" not in st.session_state
+                    or st.session_state.current_protocol != protocol
+                    or st.session_state.current_local_provider != local_provider
+                    or st.session_state.current_remote_provider != selected_provider
+                    or st.session_state.current_remote_model != remote_model_name
+                    or st.session_state.current_local_model != local_model_name
                 ):
-                    st.header("Remote Model Cost")
-                    pricing = API_PRICES[selected_provider][remote_model_name]
-                    prompt_cost = (
-                        output["remote_usage"].prompt_tokens / 1_000_000
-                    ) * pricing["input"]
-                    completion_cost = (
-                        output["remote_usage"].completion_tokens / 1_000_000
-                    ) * pricing["output"]
-                    total_cost = prompt_cost + completion_cost
 
-                    col1, col2, col3 = st.columns(3)
-                    col1.metric(
-                        "Prompt Cost",
-                        f"${prompt_cost:.4f}",
-                        f"{output['remote_usage'].prompt_tokens:,} tokens (at ${pricing['input']:.2f}/1M)",
-                    )
-                    col2.metric(
-                        "Completion Cost",
-                        f"${completion_cost:.4f}",
-                        f"{output['remote_usage'].completion_tokens:,} tokens (at ${pricing['output']:.2f}/1M)",
-                    )
-                    col3.metric(
-                        "Total Cost",
-                        f"${total_cost:.4f}",
-                        f"{remote_total:,} total tokens",
-                    )
+                    st.write(f"Initializing clients for {protocol} protocol...")
 
-            # Display meta information for minions protocol
-            if "meta" in output:
-                st.header("Meta Information")
-                for round_idx, round_meta in enumerate(output["meta"]):
-                    st.subheader(f"Round {round_idx + 1}")
-                    if "local" in round_meta:
-                        st.write(f"Local jobs: {len(round_meta['local']['jobs'])}")
-                    if "remote" in round_meta:
-                        st.write(
-                            f"Remote messages: {len(round_meta['remote']['messages'])}"
+                    # Get MCP server name if using Minions-MCP
+                    mcp_server_name = None
+                    if protocol == "Minions-MCP":
+                        mcp_server_name = st.session_state.get(
+                            "mcp_server_name", "filesystem"
                         )
 
-        except Exception as e:
-            st.error(f"An error occurred: {str(e)}")
+                    if local_provider == "Cartesia-MLX":
+                        if local_temperature < 0.01:
+                            local_temperature = 0.00001
+
+                    # Get reasoning_effort from the widget value directly
+                    if "reasoning_effort" in st.session_state:
+                        reasoning_effort = st.session_state.reasoning_effort
+                    else:
+                        reasoning_effort = "medium"  # Default if not set
+
+                    (
+                        st.session_state.local_client,
+                        st.session_state.remote_client,
+                        st.session_state.method,
+                    ) = initialize_clients(
+                        local_model_name,
+                        remote_model_name,
+                        selected_provider,
+                        local_provider,
+                        protocol,
+                        local_temperature,
+                        local_max_tokens,
+                        remote_temperature,
+                        remote_max_tokens,
+                        provider_key,
+                        num_ctx,
+                        mcp_server_name=mcp_server_name,
+                        reasoning_effort=reasoning_effort,
+                    )
+                    # Store the current protocol and local provider in session state
+                    st.session_state.current_protocol = protocol
+                    st.session_state.current_local_provider = local_provider
+                    st.session_state.current_remote_provider = selected_provider
+                    st.session_state.current_remote_model = remote_model_name
+                    st.session_state.current_local_model = local_model_name
+
+                # Then run the protocol with pre-initialized clients
+                output, setup_time, execution_time = run_protocol(
+                    user_query,
+                    context,
+                    doc_metadata,
+                    status,
+                    protocol,
+                    local_provider,
+                    images,
+                )
+
+                status.update(
+                    label=f"{protocol} protocol execution complete!", state="complete"
+                )
+
+                # Display final answer at the bottom with enhanced styling
+                st.markdown("---")  # Add a visual separator
+                # render the oriiginal query
+                st.markdown("## 🚀 Query")
+                st.info(user_query)
+                st.markdown("## 🎯 Final Answer")
+                st.info(output["final_answer"])
+
+                # Timing info
+                st.header("Runtime")
+                total_time = setup_time + execution_time
+                # st.metric("Setup Time", f"{setup_time:.2f}s", f"{(setup_time/total_time*100):.1f}% of total")
+                st.metric("Execution Time", f"{execution_time:.2f}s")
+
+                # Token usage for both protocols
+                if "local_usage" in output and "remote_usage" in output:
+                    st.header("Token Usage")
+                    local_total = (
+                        output["local_usage"].prompt_tokens
+                        + output["local_usage"].completion_tokens
+                    )
+                    remote_total = (
+                        output["remote_usage"].prompt_tokens
+                        + output["remote_usage"].completion_tokens
+                    )
+                    c1, c2 = st.columns(2)
+                    c1.metric(
+                        f"{local_model_name} (Local) Total Tokens",
+                        f"{local_total:,}",
+                        f"Prompt: {output['local_usage'].prompt_tokens:,}, "
+                        f"Completion: {output['local_usage'].completion_tokens:,}",
+                    )
+                    c2.metric(
+                        f"{remote_model_name} (Remote) Total Tokens",
+                        f"{remote_total:,}",
+                        f"Prompt: {output['remote_usage'].prompt_tokens:,}, "
+                        f"Completion: {output['remote_usage'].completion_tokens:,}",
+                    )
+                    # Convert to long format DataFrame for explicit ordering
+                    df = pd.DataFrame(
+                        {
+                            "Model": [
+                                f"Local: {local_model_name}",
+                                f"Local: {local_model_name}",
+                                f"Remote: {remote_model_name}",
+                                f"Remote: {remote_model_name}",
+                            ],
+                            "Token Type": [
+                                "Prompt Tokens",
+                                "Completion Tokens",
+                                "Prompt Tokens",
+                                "Completion Tokens",
+                            ],
+                            "Count": [
+                                output["local_usage"].prompt_tokens,
+                                output["local_usage"].completion_tokens,
+                                output["remote_usage"].prompt_tokens,
+                                output["remote_usage"].completion_tokens,
+                            ],
+                        }
+                    )
+                    st.bar_chart(df, x="Model", y="Count", color="Token Type")
+
+                    # Display cost information for OpenAI models
+                    if (
+                        selected_provider in ["OpenAI", "AzureOpenAI", "DeepSeek"]
+                        and remote_model_name in API_PRICES[selected_provider]
+                    ):
+                        st.header("Remote Model Cost")
+                        pricing = API_PRICES[selected_provider][remote_model_name]
+                        prompt_cost = (
+                            output["remote_usage"].prompt_tokens / 1_000_000
+                        ) * pricing["input"]
+                        completion_cost = (
+                            output["remote_usage"].completion_tokens / 1_000_000
+                        ) * pricing["output"]
+                        total_cost = prompt_cost + completion_cost
+
+                        col1, col2, col3 = st.columns(3)
+                        col1.metric(
+                            "Prompt Cost",
+                            f"${prompt_cost:.4f}",
+                            f"{output['remote_usage'].prompt_tokens:,} tokens (at ${pricing['input']:.2f}/1M)",
+                        )
+                        col2.metric(
+                            "Completion Cost",
+                            f"${completion_cost:.4f}",
+                            f"{output['remote_usage'].completion_tokens:,} tokens (at ${pricing['output']:.2f}/1M)",
+                        )
+                        col3.metric(
+                            "Total Cost",
+                            f"${total_cost:.4f}",
+                            f"{remote_total:,} total tokens",
+                        )
+
+                # Display meta information for minions protocol
+                if "meta" in output:
+                    st.header("Meta Information")
+                    for round_idx, round_meta in enumerate(output["meta"]):
+                        st.subheader(f"Round {round_idx + 1}")
+                        if "local" in round_meta:
+                            st.write(f"Local jobs: {len(round_meta['local']['jobs'])}")
+                        if "remote" in round_meta:
+                            st.write(
+                                f"Remote messages: {len(round_meta['remote']['messages'])}"
+                            )
+
+            except Exception as e:
+                st.error(f"An error occurred: {str(e)}")

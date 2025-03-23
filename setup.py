@@ -20,6 +20,8 @@ setup(
         "rank_bm25",  # for smart retrieval
         "PyMuPDF",  # for PDF handling
         "firecrawl-py",  # for scraping urls
+        "serpapi",  # for web search
+        "google_search_results",  # for web search
     ],
     extras_require={
         "mlx": ["mlx-lm"],

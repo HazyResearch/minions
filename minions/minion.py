@@ -115,9 +115,6 @@ class Minion:
             max_rounds: Override default max_rounds if provided
             doc_metadata: Optional metadata about the documents
             logging_id: Optional identifier for the task, used for named log files
-            is_privacy: Whether to enable privacy protection
-            images: Optional images to include in the context
-            is_follow_up: Whether this is a follow-up question in a multi-turn conversation
 
         Returns:
             Dict containing final_answer, conversation histories, and usage statistics

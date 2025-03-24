@@ -65,7 +65,7 @@ pip install nanobind@git+https://github.com/wjakob/nanobind.git@2f04eac452a6d914
 4. Install the Cartesia Metal backend by running the following command:
 
 ```
-pip install git+https://github.com/cartesia-ai/edge.git#subdirectory=cartesia-metal
+
 ```
 
 5. Install the Cartesia-MLX package by running the following command:
@@ -262,6 +262,32 @@ remote_client = AzureOpenAIClient(
 # Instantiate the Minion object with both clients
 minion = Minion(local_client, remote_client)
 ```
+
+## Inference Estimation 
+
+```python
+from minions.utils.inference_estimate import InferenceEstimator
+
+# Instantiate the InferenceEstimator object with both clients
+inference_estimator = InferenceEstimator(local_client)
+
+# ... begin Minion(s) protocol ... 
+
+estimated_tokens_per_second, eta = inference_estimator.estimate(estimated_input_tokens)
+# perform inference
+
+# ... end Minion(s) protocol ... 
+```
+
+Before actually running the protocol, we want to know what is the estimated throughput
+and ETA of the protocol. Since we are largely bottlenecked by the local models, we 
+compute these values for the local models. For the thoretical throughput (tok/s), we 
+take the ratio of peak_hw_flops / peak_model_flops, where 
+- peak_hw_flops = num_devices * num_cores_per_device * peak_flops_per_core * clock_rate
+- peak_model_flops = 2 * num_parameters * num_input_tokens * (optional: quantization_speedup)
+We support Nvidia GPUs, CPUs, and Apple Silicon MPS. Finally, to compute ETA (s), we compute 
+- ETA = num_input_tokens / thoretical_throughput 
+There are some discrepancies in this calculation, but it gives a decent rough ballpark estimate. 
 
 ## Maintainers
 

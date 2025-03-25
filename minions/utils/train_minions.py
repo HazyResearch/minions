@@ -19,6 +19,12 @@ class TrainingMethod(Enum):
     FULL_FINETUNE = "full_trn"
     LORA = "lora_trn"
 
+class ParallelMode(Enum):
+    NO_PARALLEL = "no_parallel"
+    DATA_PARALLEL = "data_parallel"
+    FDSP = "fdsp"
+    MODEL_PARALLEL = "model_parallel"
+
 @dataclass
 class ModelConfig:
     name: str
@@ -153,8 +159,16 @@ def parse_args():
                        help="Largest context length the model will be trained on (default: 1024)")
     parser.add_argument("--quant", type=str, default="float16",
                        help="What precision to train the model in (default: float16)")
+    parser.add_argument("--parallel-mode", type=str, default="data_parallel",
+                       choices=[mode.value for mode in ParallelMode],
+                       help="Parallelization strategy to use (default: data_parallel)")
     
-    return parser.parse_args()
+    args = parser.parse_args()
+    
+    # Convert parallel_mode string to enum
+    args.parallel_mode = ParallelMode(args.parallel_mode)
+    
+    return args
 
 def detect_hardware() -> Optional[HardwareSpec]:
     """Auto-detect hardware specifications. Returns None if detection fails."""
@@ -243,26 +257,28 @@ class TrainingConfigurator:
     def _get_quant_multiplier(self, quant: str) -> float:
         """Get the multiplier for the given precision"""
         return {
-            "float16": 2,
-            "bfloat16": 2,
+            "float16": 2, #bfloat16 takes same memory as float16
             "float8": 4,
-            "float4": 8,
+            "float4": 8, 
         }[quant]
     
-    #TODO: add model parallelism here (currently it is data parallelism)
-    #TODO: add quantization (for now f16 training is assumed)
-    #TODO: you can kind of make batch size irrelevant by using gradient accumulation. So for now lets have batch size as 1
-    #TODO: Assumes no 
+    #TODO: Add QLoRA (estimate_memory has support but need to figure out relevant deepspeed config)
+    #TODO: Add batch size/gradient accumulation as an argument
+    #TODO: Add overheads for different parallel modes
+    #TODO: Rather than user givening which parallel mode they want to use, we can calculate what will be the best for the hardware
     def find_optimal_configuration(
         self, 
         sequence_length: int = 1024,
         min_batch_size: int = 1,
-        quant: str = "float16"
+        quant: str = "float16",
+        parallel_mode: ParallelMode = ParallelMode.DATA_PARALLEL #Most common
     ) -> Tuple[ModelArchitecture, TrainingMethod, int]:
         """Find the largest model and best training method that fits in memory"""
         
-        
-        available_memory = self.hardware.memory * 1 #self.hardware.num_devices is not considered since this is data parallelism. If its fdsp we can change this
+        if (parallel_mode == ParallelMode.DATA_PARALLEL or parallel_mode == ParallelMode.NO_PARALLEL):
+            available_memory = self.hardware.memory * 1 #self.hardware.num_devices is not considered since this is data parallelism.
+        elif (parallel_mode == ParallelMode.FDSP or parallel_mode == ParallelMode.MODEL_PARALLEL):
+            available_memory = self.hardware.memory * self.hardware.num_devices  #If we have FDSP or Model parallelism, we split the model weights across devices
 
         best_config = None
         max_memory_usage = 0
@@ -351,7 +367,7 @@ class TrainingConfigurator:
 
         return base_config
 
-def generate_training_config(hardware_spec: Optional[HardwareSpec] = None, context_length: int = 1024, quant: str = "float16") -> str:
+def generate_training_config(hardware_spec: Optional[HardwareSpec] = None, context_length: int = 1024, quant: str = "float16", parallel_mode: ParallelMode = ParallelMode.DATA_PARALLEL) -> str:
     """Main function to generate training configuration"""
     
     if hardware_spec is None:
@@ -373,7 +389,7 @@ def generate_training_config(hardware_spec: Optional[HardwareSpec] = None, conte
     configurator = TrainingConfigurator(hardware_spec)
     
     # Find optimal configuration
-    model, training_method, batch_size = configurator.find_optimal_configuration(sequence_length=context_length, quant=quant)
+    model, training_method, batch_size = configurator.find_optimal_configuration(sequence_length=context_length, quant=quant, parallel_mode=parallel_mode)
     
     if not model:
         raise ValueError("No viable configuration found for the given hardware")
@@ -404,7 +420,12 @@ if __name__ == "__main__":
         hardware = None  # Will trigger auto-detection
     
     try:
-        yaml_config = generate_training_config(hardware, args.context_length, args.quant)
+        yaml_config = generate_training_config(
+            hardware, 
+            args.context_length, 
+            args.quant,
+            parallel_mode=args.parallel_mode
+        )
         print(f"\nGenerated DeepSpeed configuration:\n{yaml_config}")
     except ValueError as e:
         print(f"Error: {e}")

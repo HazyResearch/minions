@@ -149,6 +149,10 @@ def parse_args():
                        help="Number of devices (default: 1)")
     parser.add_argument("--device-name", type=str,
                        help="Name of the device (optional)")
+    parser.add_argument("--context-length", type=int, default=1024,
+                       help="Largest context length the model will be trained on (default: 1024)")
+    parser.add_argument("--quant", type=str, default="float16",
+                       help="What precision to train the model in (default: float16)")
     
     return parser.parse_args()
 
@@ -217,7 +221,8 @@ class TrainingConfigurator:
         model: ModelArchitecture,
         training_method: TrainingMethod,
         batch_size: int = 1,
-        sequence_length: int = 2048
+        sequence_length: int = 1024,
+        quant: str = "float16"
     ) -> float:
         """Estimate memory requirement for a given configuration"""
         
@@ -229,11 +234,20 @@ class TrainingConfigurator:
             batch_size=batch_size,
             training_type=training_method.value,
             optimizer="adam_opt",
-            platform=self.hardware.device_type  # Pass the device type
+            platform=self.hardware.device_type,
+            quant_type=quant
         )
         
         return memory_info["Total"] / 1024
 
+    def _get_quant_multiplier(self, quant: str) -> float:
+        """Get the multiplier for the given precision"""
+        return {
+            "float16": 2,
+            "bfloat16": 2,
+            "float8": 4,
+            "float4": 8,
+        }[quant]
     
     #TODO: add model parallelism here (currently it is data parallelism)
     #TODO: add quantization (for now f16 training is assumed)
@@ -241,8 +255,9 @@ class TrainingConfigurator:
     #TODO: Assumes no 
     def find_optimal_configuration(
         self, 
-        sequence_length: int = 2048,
-        min_batch_size: int = 1
+        sequence_length: int = 1024,
+        min_batch_size: int = 1,
+        quant: str = "float16"
     ) -> Tuple[ModelArchitecture, TrainingMethod, int]:
         """Find the largest model and best training method that fits in memory"""
         
@@ -252,11 +267,13 @@ class TrainingConfigurator:
         best_config = None
         max_memory_usage = 0
 
-        #Filter out models that are too big to even fit in memoey at f16 precision
+        quant_multiplier = self._get_quant_multiplier(quant)
+
+        #Filter out models that are too big to even fit in memoey at given precision
         viable_models = []
         for model in ModelArchitecture:
             model_size = model.get_size_billions()
-            if model_size <= (self.hardware.memory / 2):  # rough heuristic for f16
+            if model_size <= (self.hardware.memory / quant_multiplier):
                 viable_models.append(model)
                 
         for model in viable_models:
@@ -266,7 +283,8 @@ class TrainingConfigurator:
                     model=model,
                     training_method=training_method,
                     batch_size=min_batch_size,
-                    sequence_length=sequence_length
+                    sequence_length=sequence_length,
+                    quant=quant
                 )
 
                 print(memory_needed, available_memory, training_method, model)
@@ -333,7 +351,7 @@ class TrainingConfigurator:
 
         return base_config
 
-def generate_training_config(hardware_spec: Optional[HardwareSpec] = None) -> str:
+def generate_training_config(hardware_spec: Optional[HardwareSpec] = None, context_length: int = 1024, quant: str = "float16") -> str:
     """Main function to generate training configuration"""
     
     if hardware_spec is None:
@@ -355,7 +373,7 @@ def generate_training_config(hardware_spec: Optional[HardwareSpec] = None) -> st
     configurator = TrainingConfigurator(hardware_spec)
     
     # Find optimal configuration
-    model, training_method, batch_size = configurator.find_optimal_configuration(sequence_length=512)
+    model, training_method, batch_size = configurator.find_optimal_configuration(sequence_length=context_length, quant=quant)
     
     if not model:
         raise ValueError("No viable configuration found for the given hardware")
@@ -386,7 +404,7 @@ if __name__ == "__main__":
         hardware = None  # Will trigger auto-detection
     
     try:
-        yaml_config = generate_training_config(hardware)
+        yaml_config = generate_training_config(hardware, args.context_length, args.quant)
         print(f"\nGenerated DeepSpeed configuration:\n{yaml_config}")
     except ValueError as e:
         print(f"Error: {e}")

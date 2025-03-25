@@ -18,7 +18,9 @@ TERA = 1_000_000_000 * 1_000
 
 TrainingType = Literal["full_trn", "lora_trn"]
 OptimizerType = Literal["adam_opt", "sgd_opt"]
-QuantType = Literal["no_quant", "bnb_int8", "bnb_q4"]
+# QuantType = Literal["no_quant", "bnb_int8", "bnb_q4"]
+
+QuantType = Literal["float16", "float8", "float4"]
 
 def compute_model_size(config: ConfigLike) -> float:
     """Calculate the base model size in parameters."""
@@ -40,6 +42,7 @@ def compute_activation_memory(context_len: int, config: ConfigLike, platform: De
     - Layer norms
     - Residual connections
     - FP32 conversions where needed
+    - Doesn't take into account quanitzation sicne acitvations are usually converted to fp16
     """
     hidden_dim = config["hidden_dim"]
     heads = config["heads"]
@@ -53,7 +56,7 @@ def compute_activation_memory(context_len: int, config: ConfigLike, platform: De
         context_len * hidden_dim * 3 * float_bytes +  # QKV projections
         context_len * hidden_dim * 2 * float_bytes +  # QK transpose
         context_len * context_len * heads * float_bytes +  # attention matrix
-        context_len * context_len * heads * 4 +  # FP32 conversion
+        context_len * context_len * heads * 4 +  # FP32 conversion # Taken from llama's huggingface implementation
         context_len * context_len * heads * float_bytes +  # scaled attention
         context_len * hidden_dim * float_bytes +  # output projection
         context_len * hidden_dim * float_bytes +  # residual
@@ -94,6 +97,7 @@ def compute_activation_memory(context_len: int, config: ConfigLike, platform: De
     # Convert to MB
     return total / (1024 * 1024)
 
+# This is extra mmeory required by bitsandbytes for quantization. This is bnb specific, will need to be updated to work for other quant training methods
 def get_extra_memory(config: ConfigLike, quant: str, context_len: int) -> float:
     """Calculate extra memory needed for quantization."""
     constant_8_extra = 0.75
@@ -110,9 +114,9 @@ def get_extra_memory(config: ConfigLike, quant: str, context_len: int) -> float:
     ratio_context_len = context_len / 50
     context_len_sqrt_root = math.sqrt(ratio_context_len) if ratio_context_len > 1.0 else 1.0
     
-    if quant == "bnb_int8":
+    if quant == "float8":
         return constant_8_extra * common * base_len * context_len_sqrt_root * 1.25
-    elif quant == "bnb_q4":
+    elif quant == "float4":
         return constant_4_extra * common * base_len * context_len_sqrt_root
     elif quant == "qlora":
         return constant_qlora * common * base_len * context_len_sqrt_root
@@ -155,13 +159,13 @@ def get_grad_opt_memory(
     # LoRA specific calculation
     if training_type == "lora_trn":
         if optimizer == "adam_opt":
-            if quant_type == "no_quant":
+            if quant_type == "float16":
                 return config["num_layers"] * 8 * config["hidden_dim"] * 2 * 4 * 3 * 2
             else:
                 return (config["num_layers"] * 8 * config["hidden_dim"] * 2 * 4 * 3 +
                        get_extra_memory(config, quant_type, context_len) * batch_size)
-        else:  # sgd
-            if quant_type == "no_quant":
+        else:
+            if quant_type == "float16":
                 return config["num_layers"] * 8 * config["hidden_dim"] * 2 * 4 * 2
             else:
                 return (config["num_layers"] * 8 * config["hidden_dim"] * 2 * 4 * 1 +
@@ -169,9 +173,9 @@ def get_grad_opt_memory(
 
     # Full training calculation
     float_bytes = 2  # float16
-    if quant_type == "bnb_int8":
+    if quant_type == "float8":
         float_bytes = 1
-    elif quant_type == "bnb_q4":
+    elif quant_type == "float4":
         float_bytes = 0.5
 
     if optimizer == "adam_opt":
@@ -179,7 +183,7 @@ def get_grad_opt_memory(
     else:  # sgd
         memory = model_size * float_bytes
 
-    if quant_type != "no_quant":
+    if quant_type != "float16":
         memory += get_extra_memory(config, quant_type, context_len) * batch_size
 
     return memory
@@ -188,11 +192,11 @@ def calculate_gpu_memory(
     config: ConfigLike,
     context_len: int,
     batch_size: int = 1,
-    quant_type: QuantType = "no_quant",
+    quant_type: QuantType = "float16",
     training_type: Optional[TrainingType] = None,
     gradient_checkpointing: bool = False,
     optimizer: OptimizerType = "adam_opt",
-    platform: DeviceType = DeviceType.GPU  # Add platform parameter with GPU default
+    platform: DeviceType = DeviceType.GPU,  # Add platform parameter with GPU default,
 ) -> Dict[str, float]:
     """
     Calculate total GPU memory requirements in MB.
@@ -211,16 +215,19 @@ def calculate_gpu_memory(
     model_size_params = compute_model_size(config)
     
     # Convert to MB and adjust for quantization
-    if quant_type == "bnb_int8":
-        model_size_mb = (model_size_params / 2.0) / (1024 * 1024)
-    elif quant_type == "bnb_q4":
-        model_size_mb = (model_size_params / 4.0) / (1024 * 1024)
-    else:
+    # We can pass the model size directly from train_minions.py file as well. This is a more precise calculation of number of parameters (and therefore size)
+    
+    if quant_type == "float16":
         model_size_mb = model_size_params * 2.0 / (1024 * 1024)
+    elif quant_type == "bfloat16":
+        model_size_mb = model_size_params * 2.0 / (1024 * 1024)
+    elif quant_type == "float8":
+        model_size_mb = (model_size_params / 2.0) / (1024 * 1024)
+    elif quant_type == "float4":
+        model_size_mb = (model_size_params * 4.0) / (1024 * 1024)
     
     # Activation memory
     activation_memory = compute_activation_memory(context_len, config, platform, gradient_checkpointing)
-    
     
     # Extra memory for quantization
     extra_memory = get_extra_memory(config, quant_type, context_len)
@@ -240,7 +247,7 @@ def calculate_gpu_memory(
         grad_opt_memory = grad_opt_memory / (1024 * 1024)  # Convert to MB
     
     # CUDA overhead
-    cuda_overhead = 650
+    cuda_overhead = 650 #This can vary. This is just a rough estimate
     
     # Total memory
     total_memory = (

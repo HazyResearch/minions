@@ -66,7 +66,8 @@ API_PRICES = {
         "gpt-4o-mini": {"input": 0.15, "cached_input": 0.075, "output": 0.60},
         "gpt-4.5-preview": {"input": 75.00, "cached_input": 37.50, "output": 150.00},
         "o3-mini": {"input": 1.10, "cached_input": 0.55, "output": 4.40},
-        "o1-pro": {"input": 15.00, "cached_input": 7.50, "output": 60.00},
+        "o1": {"input": 15.00, "cached_input": 7.50, "output": 60.00},
+        "o1-pro": {"input": 150.00, "cached_input": 7.50, "output": 600.00},
     },
     # DeepSeek model pricing per 1M tokens
     "DeepSeek": {
@@ -1282,7 +1283,18 @@ if uploaded_files:
             file_names.append(uploaded_file.name)
 
             if file_type == "pdf":
-                current_content = extract_text_from_pdf(uploaded_file.read()) or ""
+                # check if docling is installed
+                try:
+                    import docling_core
+                    from minions.utils.doc_processing import process_pdf_to_markdown
+
+                    current_content = (
+                        process_pdf_to_markdown(uploaded_file.read()) or ""
+                    )
+                except:
+                    current_content = (
+                        process_pdf_to_markdown(uploaded_file.read()) or ""
+                    )
 
             elif file_type in ["png", "jpg", "jpeg"]:
                 image_bytes = uploaded_file.read()
@@ -1291,7 +1303,18 @@ if uploaded_files:
                 if st.session_state.current_local_model == "granite3.2-vision":
                     current_content = "file is an image"
                 else:
-                    current_content = extract_text_from_image(image_base64) or ""
+                    try:
+                        from minions.utils.doc_processing import (
+                            img_to_markdown_smoldocling,
+                        )
+
+                        current_content = img_to_markdown_smoldocling(
+                            image_base64,
+                            prompt="Convert this page to docling.",
+                            model_path="ds4sd/SmolDocling-256M-preview-mlx-bf16",
+                        )
+                    except:
+                        current_content = extract_text_from_image(image_base64) or ""
             else:
                 current_content = uploaded_file.getvalue().decode()
 

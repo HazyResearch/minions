@@ -10,7 +10,7 @@ from minions.minion import Minion
 from minions.minions_mcp import SyncMCPClient, MCPConfigManager
 
 PROJECT_DIR = pathlib.Path(__file__).parent.parent.parent
-LOG_DIR = PROJECT_DIR / "minions_logs"
+LOG_DIR = PROJECT_DIR / "minion_logs"
 MCP_CONFIG_PATH = PROJECT_DIR / "mcp.json"
 
 

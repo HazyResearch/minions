@@ -45,11 +45,12 @@ class MLXParallmClient:
             A tuple containing:
               - List of response strings.
               - Usage object with prompt and completion token counts.
-              - A string end marker ("END_OF_TEXT").
         """
         assert len(messages) > 0, "Messages cannot be empty."
         
-        prompt = "\n".join([msg["content"] for msg in messages])
+        prompt = self.tokenizer.apply_chat_template(
+            conversation=messages, add_generation_prompt=True, temp=self.temperature
+        )
         
         params = {
             "model": self.model,
@@ -63,7 +64,10 @@ class MLXParallmClient:
         
         response = generate(**params)
 
-        prompt_tokens = len(prompt)
+        # messages are structured as list of lists in run.py
+        # extract prompt tokens across all messages
+        prompt_tokens = sum(len(prompt_i) for prompt_i in prompt)
+
         try:
             encoded = self.tokenizer.encode(response)
             completion_tokens = len(encoded)
@@ -73,4 +77,4 @@ class MLXParallmClient:
         
         usage = Usage(prompt_tokens=prompt_tokens, completion_tokens=completion_tokens)
         
-        return [response], usage, "END_OF_TEXT"
+        return [response], usage

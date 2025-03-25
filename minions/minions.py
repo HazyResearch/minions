@@ -8,6 +8,12 @@ from rank_bm25 import BM25Plus
 import numpy as np
 import os
 
+from minions.utils.multimodal_retrievers import (
+    ChromaDBCollection, 
+    embed_and_add, 
+    embed_and_retrieve
+)
+
 from minions.usage import Usage
 
 from minions.prompts.minions import (
@@ -45,30 +51,61 @@ def chunk_by_section(
 
 
 def retrieve_top_k_chunks(
-    keywords: List[str], chunks: List[str], weights: Dict[str, float], k: int = 10
+    keywords: List[str], 
+    chunks: List[str], 
+    weights: Dict[str, float], 
+    k: int = 10, 
+    retrieval: str = "bm25"
 ) -> List[str]:
     """
-    Returns the k most relevant chunks based on weighted BM25+ ranking.
+    Returns the k most relevant chunks based on weighted ranking (BM25+ or embedding based).
 
     Example:
         Task: "What was Mrs. Anderson's tumor marker levels in 2021"
         queries = {"Mrs. Anderson": 5.0, "tumor marker": 3.0, "2021": 1.5, "Anderson": 1.0}
         relevant_chunks = retrieve_top_k_chunks(queries.keys(), chunks, k=10, weights=queries)
     """
-    weights = {keyword: weights.get(keyword, 1.0) for keyword in keywords}
-    bm25_retriever = BM25Plus(chunks)
+    if retrieval == "bm25":
+        weights = {keyword: weights.get(keyword, 1.0) for keyword in keywords}
+        bm25_retriever = BM25Plus(chunks)
 
-    final_scores = np.zeros(len(chunks))
-    for keyword, weight in weights.items():
-        scores = bm25_retriever.get_scores(keyword)
-        final_scores += weight * scores
+        final_scores = np.zeros(len(chunks))
+        for keyword, weight in weights.items():
+            scores = bm25_retriever.get_scores(keyword)
+            final_scores += weight * scores
 
-    top_k_indices = sorted(
-        range(len(final_scores)), key=lambda i: final_scores[i], reverse=True
-    )[:k]
-    top_k_indices = sorted(top_k_indices)
-    relevant_chunks = [chunks[i] for i in top_k_indices]
-    return relevant_chunks
+        top_k_indices = sorted(
+            range(len(final_scores)), key=lambda i: final_scores[i], reverse=True
+        )[:k]
+        top_k_indices = sorted(top_k_indices)
+        relevant_chunks = [chunks[i] for i in top_k_indices]
+        return relevant_chunks
+    elif retrieval == "embedding":        
+        collection = ChromaDBCollection(embedding_model="granite3.2-vision")
+        
+        # TODO: batch operation
+        for i, chunk in enumerate(chunks):
+            # Embed and add each chunk to the collection
+            embed_and_add(
+                collection,
+                content=chunk,
+                content_type="text",
+                path=""
+            )
+        # construct query by concatenating all keywords
+        query = " ".join(keywords)
+        
+        search_results = embed_and_retrieve(
+            collection,
+            query_text=query,
+            top_k=k
+        )
+        relevant_chunks = []
+        for result in search_results:
+            relevant_chunks.append(result.content)
+        return relevant_chunks
+    else:
+        raise Exception(f"Retrieval type {retrieval} not available!")
 
 
 class JobManifest(BaseModel):

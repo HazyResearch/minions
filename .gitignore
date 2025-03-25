@@ -45,3 +45,7 @@ data/
 .coverage
 htmlcov/
 .pytest_cache/ 
+
+
+# ChromaDB Persistance
+chroma/

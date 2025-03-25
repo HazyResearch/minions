@@ -15,6 +15,7 @@ class OllamaClient:
             num_ctx: int = 4096,
             structured_output_schema: Optional[BaseModel] = None,
             use_async: bool = False,
+            model_type: str = "chat"
     ):
         """Initialize Ollama Client."""
         self.model_name = model_name
@@ -226,3 +227,18 @@ class OllamaClient:
             return self.achat(messages, **kwargs)
         else:
             return self.schat(messages, **kwargs)
+
+    def embed(
+            self,
+            content,
+            **kwargs,
+    ):
+        """Embed content using model (must support embeddings)."""
+        import ollama
+
+        response = ollama.embed(
+            model=self.model_name,
+            input=content,
+            **kwargs
+        )
+        return response["embeddings"]

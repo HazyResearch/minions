@@ -1,0 +1,52 @@
+{
+  "name": "electron-app",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "main": "dist-electron/main.js",
+  "scripts": {
+    "dev": "concurrently \"vite\" \"tsc --project tsconfig.electron.json --watch\" \"wait-on http://localhost:5173 && VITE_DEV_SERVER_URL=http://localhost:5173 electron dist-electron/main.js\"",
+    "build": "vite build && tsc --project tsconfig.electron.json",
+    "start": "electron dist-electron/main.js",
+    "dist": "npm run build && electron-builder"
+  },
+  "build": {
+    "appId": "com.minions.electron",
+    "productName": "Minions",
+    "files": [
+      "dist",                 
+      "dist-electron",                 
+      "package.json"
+    ],
+    "mac": {
+      "target": "dmg"
+    },
+    "directories": {
+      "output": "release"
+    }
+  },
+  "dependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.21.0",
+    "@tailwindcss/postcss": "^4.0.15",
+    "@types/react": "^19.0.10",
+    "@types/react-dom": "^19.0.4",
+    "@vitejs/plugin-react": "^4.3.4",
+    "autoprefixer": "^10.4.21",
+    "concurrently": "^9.1.2",
+    "electron": "^35.0.3",
+    "electron-builder": "^25.1.8",
+    "eslint": "^9.21.0",
+    "eslint-plugin-react-hooks": "^5.1.0",
+    "eslint-plugin-react-refresh": "^0.4.19",
+    "globals": "^15.15.0",
+    "postcss": "^8.5.3",
+    "ts-node": "^10.9.2",
+    "typescript": "~5.7.2",
+    "typescript-eslint": "^8.24.1",
+    "vite": "^6.2.0"
+  }
+}

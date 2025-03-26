@@ -89,8 +89,8 @@ class JobManifest(BaseModel):
 
 class JobOutput(BaseModel):
     explanation: str
-    citation: str | None
-    answer: str | None
+    citation: Optional[str]
+    answer: Optional[str]
 
 
 def prepare_jobs(

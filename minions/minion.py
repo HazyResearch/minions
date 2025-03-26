@@ -16,8 +16,75 @@ from minions.prompts.minion import (
     WORKER_PRIVACY_SHIELD_PROMPT,
     REFORMAT_QUERY_PROMPT,
 )
+
 from minions.usage import Usage
 
+# Override the supervisor initial prompt to encourage task decomposition.
+SUPERVISOR_INITIAL_PROMPT = """\
+We need to perform the following task.
+
+### Task
+{task}
+
+### Instructions
+You will not have direct access to the context, but you can chat with a small language model that has read the entire content.
+
+Let's use an incremental, step-by-step approach to ensure we fully decompose the task before proceeding. Please follow these steps:
+
+1. Decompose the Task:
+   Break down the overall task into its key components or sub-tasks. Identify what needs to be done and list these sub-tasks.
+
+2. Explain Each Component:
+   For each sub-task, briefly explain why it is important and what you expect it to achieve. This helps clarify the reasoning behind your breakdown.
+
+3. Formulate a Focused Message:
+   Based on your breakdown, craft a single, clear message to send to the small language model. This message should represent one focused sub-task derived from your decomposition.
+
+4. Conclude with a Final Answer:  
+   After your reasoning, please provide a **concise final answer** that directly and conclusively addresses the original task. Make sure this final answer includes all the specific details requested in the task.
+
+Your output should be in the following JSON format:
+
+```json
+{{
+    "reasoning": "<your detailed, step-by-step breakdown here>",
+    "message": "<your final, focused message to the small language model>"
+}}
+"""
+
+# Override the final response prompt to encourage a more informative final answer
+REMOTE_SYNTHESIS_FINAL = """\
+Here is the detailed response from the step-by-step reasoning phase.
+
+### Detailed Response
+{response}
+
+### Instructions
+Based on the detailed reasoning above, synthesize a clear and informative final answer that directly addresses the task with all the specific details required. In your final answer, please:
+
+1. Summarize the key findings and reasoning steps.
+2. Clearly state the conclusive answer, incorporating the important details.
+3. Ensure the final answer is self-contained and actionable.
+
+If you determine that you have gathered enough information to fully answer the task, output the following JSON with your final answer:
+
+```json
+{{
+    "decision": "provide_final_answer", 
+    "answer": "<your detailed, conclusive final answer here>"
+}}
+```
+
+Otherwise, if the task is not complete, request the small language model to do additional work, by outputting the following:
+
+```json
+{{
+    "decision": "request_additional_info",
+    "message": "<your message to the small language model>"
+}}
+```
+
+"""
 
 def _escape_newlines_in_strings(json_str: str) -> str:
     # This regex naively matches any content inside double quotes (including escaped quotes)

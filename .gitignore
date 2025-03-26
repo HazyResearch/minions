@@ -44,4 +44,5 @@ data/
 .DS_Store
 .coverage
 htmlcov/
-.pytest_cache/ 
+.pytest_cache/
+trained_minion/

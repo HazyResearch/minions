@@ -1,0 +1,27 @@
+{
+  "task": "Where did this person do their PhD?",
+  "context": "I am a Postdoctoral Scholar at Stanford University, co-advised by Scott Linderman and Christopher Ré. I am also an academic partner with Databricks Mosaic AI, where I previously interned. I recently graduated from a PhD at Columbia’s Center for Theoretical Neuroscience, advised by John Cunningham and working closely with Liam Paninski.\n\nI build resource-efficient AI systems for science – in vision, timeseries, and text domains, fusing approaches from statistical ML and CS systems. Most notably, I worked on deep learning systems for tracking animal movement in videos - the Lightning Pose package (Nature Methods, 2024), scalability of Gaussian processes (ICML, 2021), and learning-forgetting tradeoffs in LLM finetuning for math and code generation (TMLR, 2024 (Featured Certification))\n\nThroughout my PhD, I collaborated closely with Lightning AI, named a Lightning Ambassador, and a featured developer in their first DevCon, June 2022.",
+  "conversation": [
+    {
+      "user": "remote",
+      "prompt": "We need to perform the following task.\n\n### Task\nWhere did this person do their PhD?\n\n### Instructions\nYou will not have direct access to the context, but can chat with a small language model which has read the entire thing.\n\nFeel free to think step-by-step, but eventually you must provide an output in the format below:\n\n```json\n{\n    \"message\": \"<your message to the small language model. If you are asking model to do a task, make sure it is a single task!>\"\n}\n```\n",
+      "output": "\n\n\n\n{\"message\":\"Where did the person mentioned in the context complete their PhD?\"}"
+    },
+    {
+      "user": "local",
+      "prompt": "Where did the person mentioned in the context complete their PhD?",
+      "output": "The person completed their PhD at Columbia's Center for Theoretical Neuroscience."
+    },
+    {
+      "user": "remote",
+      "prompt": "\nHere is the response from the small language model:\n\n### Response\nThe person completed their PhD at Columbia's Center for Theoretical Neuroscience.\n\n\n### Instructions\nAnalyze the response and think-step-by-step to determine if you have enough information to answer the question.\n\nThink about:\n1. What information we have gathered\n2. Whether it is sufficient to answer the question\n3. If not sufficient, what specific information is missing\n4. If sufficient, how we would calculate or derive the answer\n\n",
+      "output": "Step 1: Information Gathered\n- The small language model provided the information that the person completed their PhD at Columbia's Center for Theoretical Neuroscience.\n\nStep 2: Sufficiency of Information\n- The information provided by the small language model directly answers the question of where the person completed their PhD.\n\nStep 3: Missing Information\n- There is no missing information needed to answer the question. The response is clear and specific.\n\nStep 4: Deriving the Answer\n- The answer to the question \"Where did this person do their PhD?\" is directly given as \"Columbia's Center for Theoretical Neuroscience.\"\n\nSince the information is sufficient and directly answers the question, we can conclude that the task is complete."
+    },
+    {
+      "user": "remote",
+      "prompt": "Here is the response after step-by-step thinking.\n\n### Response\nStep 1: Information Gathered\n- The small language model provided the information that the person completed their PhD at Columbia's Center for Theoretical Neuroscience.\n\nStep 2: Sufficiency of Information\n- The information provided by the small language model directly answers the question of where the person completed their PhD.\n\nStep 3: Missing Information\n- There is no missing information needed to answer the question. The response is clear and specific.\n\nStep 4: Deriving the Answer\n- The answer to the question \"Where did this person do their PhD?\" is directly given as \"Columbia's Center for Theoretical Neuroscience.\"\n\nSince the information is sufficient and directly answers the question, we can conclude that the task is complete.\n\n### Instructions\nIf you have enough information or if the task is complete, write a final answer to fullfills the task. \n\n```json\n{\n    \"decision\": \"provide_final_answer\", \n    \"answer\": \"<your answer>\"\n}\n```\n\nOtherwise, if the task is not complete, request the small language model to do additional work, by outputting the following:\n\n```json\n{\n    \"decision\": \"request_additional_info\",\n    \"message\": \"<your message to the small language model>\"\n}\n```\n\n",
+      "output": "\n{\n    \"decision\": \"provide_final_answer\",\n    \"answer\": \"The person completed their PhD at Columbia's Center for Theoretical Neuroscience.\"\n}"
+    }
+  ],
+  "generated_final_answer": "The person completed their PhD at Columbia's Center for Theoretical Neuroscience."
+}

@@ -72,8 +72,7 @@ Here is the response from the small language model:
 ### Instructions
 Analyze the response and think-step-by-step to determine if you have enough information to answer the question. 
 
-The small language model has access to the following tools:
-{TOOL_DESCRIPTION}
+Recall that the small language model has access to a set of tools (see the context above for the list of tools).
 
 Think about:
 1. What information we have gathered
@@ -100,14 +99,13 @@ If you have enough information or if the task is complete, write a final answer 
 
 Otherwise, if the task is not complete, request the small language model to do additional work, by outputting the following:
 
-Recall that the small language model has access to the following tools:
-{TOOL_DESCRIPTION}
-
+Recall that the small language model has access to a set of tools (see the context above for the list of tools).
 
 ```json
 {{
     "decision": "request_additional_info",
-    "message": "<your message to the small language model>" # consider adding details about the tool call you want to make -- i.e., Please read the file (read_file where path="/Users/avanikanarayan/Downloads/summary.pdf') and extract the information about the company 
+    "message": "<your message to the small language model>" # consider adding details about the tool call you want to make -- i.e., Please read the file (read_file where path="/Users/avanikanarayan/Downloads/summary.pdf') and extract the information about the company
+}} 
 ```
 
 """

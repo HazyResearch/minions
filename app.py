@@ -1598,6 +1598,57 @@ if user_query:
                         f"${total_cost:.4f}",
                         f"{remote_total:,} total tokens",
                     )
+            
+            # Energy usage for both protocols
+            if ("remote_only_energy" in output) and ("minion_local_energy" in output) and ("minion_remote_energy" in output):
+                st.header("Energy Usage")
+                st.markdown("This is the amount of energy saved by running part of the computation locally. We estimate remote energy consumption based on the number of input/output tokens as well as assumptions about the remote model architecture.")
+
+                minion_local_energy = output["minion_local_energy"]
+                minion_remote_energy = output["minion_remote_energy"]
+                minion_energy = minion_local_energy + minion_remote_energy
+
+                remote_only_energy = output["remote_only_energy"]
+
+                energy_savings = remote_only_energy - minion_energy
+
+                c1, c2, c3 = st.columns(3)
+                c1.metric(
+                    f"Minion(s) Energy Consumption",
+                    f"{minion_energy:.2f} J",
+                    None
+                )
+                c2.metric(
+                    f"Remote-Only Energy Consumption",
+                    f"{remote_only_energy:.2f} J",
+                    None
+                )
+                c3.metric(
+                    f"Total Energy Savings!",
+                    f"{energy_savings:.2f} J",
+                    None
+                )
+                # Convert to long format DataFrame for explicit ordering
+                df = pd.DataFrame(
+                    {
+                        "Protocol": [
+                            f"Minion(s)",
+                            f"Minion(s)",
+                            f"Remote-Only",
+                        ],
+                        "Model Type": [
+                            "Remote",
+                            "Local",
+                            "Remote",
+                        ],
+                        "Energy": [
+                            minion_remote_energy,
+                            minion_local_energy,
+                            remote_only_energy,
+                        ],
+                    }
+                )
+                st.bar_chart(df, x="Protocol", y="Energy", color="Model Type")
 
             # Display meta information for minions protocol
             if "meta" in output:

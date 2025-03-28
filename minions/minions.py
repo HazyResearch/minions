@@ -9,6 +9,8 @@ import numpy as np
 import os
 
 from minions.usage import Usage
+from minions.utils.energy_tracking import PowerMonitor
+from minions.utils.energy_tracking import cloud_inference_energy_estimate
 
 from minions.prompts.minions import (
     WORKER_PROMPT_TEMPLATE,
@@ -260,6 +262,10 @@ class Minions:
         Returns:
             Dict containing final_answer and conversation histories
         """
+
+        # Setup and start power monitor
+        monitor = PowerMonitor(mode="auto", interval=1.0)
+        monitor.start()
 
         self.max_rounds = max_rounds or self.max_rounds
 
@@ -735,12 +741,39 @@ class Minions:
                 f"Exhausted all rounds without finding a final answer. Returning the last synthesized response."
             )
             final_answer = "No answer found."
+        
+        # Stop tracking power
+        monitor.stop()
+
+        # Local/remote input/output tokens
+        local_input_tokens = local_usage.prompt_tokens
+        local_output_tokens = local_usage.completion_tokens
+        remote_input_tokens = remote_usage.prompt_tokens
+        remote_output_tokens = remote_usage.completion_tokens
+
+        total_input_tokens = local_input_tokens + remote_input_tokens
+        total_output_tokens = local_output_tokens + remote_output_tokens
+
+        # Estimate remote-only energy consumption (remote processes all input/output tokens)
+        _, remote_only_energy, _ = cloud_inference_energy_estimate(
+            tokens=total_output_tokens
+        )
+
+        # Estimate minion energy consumption (including both remote and local energy consumption)
+        final_estimates = monitor.get_final_estimates()
+        minion_local_energy = float(final_estimates["Measured Energy"][:-2])
+        _, minion_remote_energy, _ = cloud_inference_energy_estimate(
+            tokens=remote_output_tokens,
+        )
 
         result = {
             "final_answer": final_answer,
             "meta": meta,
             "local_usage": local_usage,
             "remote_usage": remote_usage,
+            "remote_only_energy": remote_only_energy,
+            "minion_local_energy": minion_local_energy,
+            "minion_remote_energy": minion_remote_energy
         }
 
         # Save logs if path is provided

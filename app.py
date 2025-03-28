@@ -86,6 +86,7 @@ PROVIDER_TO_ENV_VAR_KEY = {
     "Perplexity": "PERPLEXITY_API_KEY",
     "Groq": "GROQ_API_KEY",
     "DeepSeek": "DEEPSEEK_API_KEY",
+    "SambaNova": "SAMBANOVA_API_KEY",
 }
 
 
@@ -534,6 +535,13 @@ def initialize_clients(
             max_tokens=int(remote_max_tokens),
             api_key=api_key,
         )
+    elif provider == "SambaNova":
+        st.session_state.remote_client = SambanovaClient(
+            model_name=remote_model_name,
+            temperature=remote_temperature,
+            max_tokens=int(remote_max_tokens),
+            api_key=api_key,
+        )
     else:  # OpenAI
         st.session_state.remote_client = OpenAIClient(
             model_name=remote_model_name,
@@ -794,6 +802,21 @@ def validate_azure_openai_key(api_key):
     return True, "API key format is valid"
 
 
+def validate_sambanova_key(api_key):
+    try:
+        client = SambanovaClient(
+            model_name="Meta-Llama-3.1-8B-Instruct",
+            api_key=api_key,
+            temperature=0.0,
+            max_tokens=1,
+        )
+        messages = [{"role": "user", "content": "Say yes"}]
+        client.chat(messages)
+        return True, ""
+    except Exception as e:
+        return False, str(e)
+
+
 # validate
 
 
@@ -816,6 +839,7 @@ with st.sidebar:
             "Anthropic",
             "Groq",
             "DeepSeek",
+            "SambaNova",
         ]
         selected_provider = st.selectbox(
             "Select Remote Provider",
@@ -853,6 +877,8 @@ with st.sidebar:
             is_valid, msg = validate_groq_key(api_key)
         elif selected_provider == "DeepSeek":
             is_valid, msg = validate_deepseek_key(api_key)
+        elif selected_provider == "SambaNova":
+            is_valid, msg = validate_sambanova_key(api_key)
         else:
             raise ValueError(f"Invalid provider: {selected_provider}")
 
@@ -916,6 +942,7 @@ with st.sidebar:
         "Together",
         "OpenRouter",
         "DeepSeek",
+        "SambaNova",
     ]:  # Added AzureOpenAI to the list
         protocol_options = ["Minion", "Minions", "Minions-MCP"]
         protocol = st.segmented_control(
@@ -1132,6 +1159,30 @@ with st.sidebar:
                 "deepseek-reasoner": "deepseek-reasoner",
             }
             default_model_index = 0
+        elif selected_provider == "SambaNova":
+            model_mapping = {
+                "Meta-Llama-3.1-8B-Instruct (Recommended)": "Meta-Llama-3.1-8B-Instruct",
+                "DeepSeek-V3-0324": "DeepSeek-V3-0324",
+                "Meta-Llama-3.3-70B-Instruct": "Meta-Llama-3.3-70B-Instruct",
+                "Meta-Llama-3.1-405B-Instruct": "Meta-Llama-3.1-405B-Instruct",
+                "Meta-Llama-3.1-70B-Instruct": "Meta-Llama-3.1-70B-Instruct",
+                "Meta-Llama-3.2-3B-Instruct": "Meta-Llama-3.2-3B-Instruct",
+                "Meta-Llama-3.2-1B-Instruct": "Meta-Llama-3.2-1B-Instruct",
+                "Llama-3.2-90B-Vision-Instruct": "Llama-3.2-90B-Vision-Instruct",
+                "Llama-3.2-11B-Vision-Instruct": "Llama-3.2-11B-Vision-Instruct",
+                "Meta-Llama-Guard-3-8B": "Meta-Llama-Guard-3-8B",
+                "Llama-3.1-Tulu-3-405B": "Llama-3.1-Tulu-3-405B",
+                "Llama-3.1-Swallow-8B-Instruct-v0.3": "Llama-3.1-Swallow-8B-Instruct-v0.3",
+                "Llama-3.1-Swallow-70B-Instruct-v0.3": "Llama-3.1-Swallow-70B-Instruct-v0.3",
+                "DeepSeek-R1": "DeepSeek-R1",
+                "DeepSeek-R1-Distill-Llama-70B": "DeepSeek-R1-Distill-Llama-70B",
+                "E5-Mistral-7B-Instruct": "E5-Mistral-7B-Instruct",
+                "Qwen2.5-72B-Instruct": "Qwen2.5-72B-Instruct",
+                "Qwen2.5-Coder-32B-Instruct": "Qwen2.5-Coder-32B-Instruct",
+                "QwQ-32B": "QwQ-32B",
+                "Qwen2-Audio-7B-Instruct": "Qwen2-Audio-7B-Instruct",
+            }
+            default_model_index = 0
         else:
             model_mapping = {}
             default_model_index = 0
@@ -1303,18 +1354,7 @@ if uploaded_files:
                 if st.session_state.current_local_model == "granite3.2-vision":
                     current_content = "file is an image"
                 else:
-                    try:
-                        from minions.utils.doc_processing import (
-                            img_to_markdown_smoldocling,
-                        )
-
-                        current_content = img_to_markdown_smoldocling(
-                            image_base64,
-                            prompt="Convert this page to docling.",
-                            model_path="ds4sd/SmolDocling-256M-preview-mlx-bf16",
-                        )
-                    except:
-                        current_content = extract_text_from_image(image_base64) or ""
+                    current_content = extract_text_from_image(image_base64) or ""
             else:
                 current_content = uploaded_file.getvalue().decode()
 

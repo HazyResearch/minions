@@ -2,7 +2,7 @@ import os
 import tempfile
 from io import BytesIO
 from pathlib import Path
-from typing import List, Optional, Union
+from typing import List, Optional, Union, Tuple, Any
 from urllib.parse import urlparse
 
 import requests
@@ -10,9 +10,26 @@ from PIL import Image
 from pdf2image import convert_from_path, convert_from_bytes
 from docling_core.types.doc import ImageRefMode
 from docling_core.types.doc.document import DocTagsDocument, DoclingDocument
-from mlx_vlm import load, generate
-from mlx_vlm.prompt_utils import apply_chat_template
-from mlx_vlm.utils import load_config, stream_generate
+
+# Try to import MLX VLM, but make it optional
+try:
+    import mlx_vlm
+    from mlx_vlm import load, generate
+    from mlx_vlm.prompt_utils import apply_chat_template
+    from mlx_vlm.utils import load_config, stream_generate
+
+    HAS_MLX = True
+except ImportError:
+    HAS_MLX = False
+
+# Try to import transformers for the non-MLX path
+try:
+    import torch
+    from transformers import AutoProcessor, AutoModelForVision2Seq
+
+    HAS_TRANSFORMERS = True
+except ImportError:
+    HAS_TRANSFORMERS = False
 
 
 def pdf_to_images(
@@ -44,6 +61,7 @@ def img_to_markdown_smoldocling(
     max_tokens: int = 4096,
     model_and_processor=None,
     config=None,
+    use_mlx: bool = None,
 ) -> str:
     """
     Convert an image or PDF to markdown using SmolDocling.
@@ -57,18 +75,49 @@ def img_to_markdown_smoldocling(
         max_tokens: Maximum number of tokens to generate
         model_and_processor: Optional tuple of (model, processor) to avoid reloading
         config: Optional model config to avoid reloading
+        use_mlx: Whether to use MLX implementation. If None, will use MLX if available.
 
     Returns:
         Markdown representation of the document
     """
-    # Load the model if not provided
-    if model_and_processor is None or config is None:
-        model, processor = load(model_path)
-        config = load_config(model_path)
-    else:
-        model, processor = model_and_processor
+    # Determine whether to use MLX or transformers
+    if use_mlx is None:
+        use_mlx = HAS_MLX
 
-    # Handle different input types
+    if use_mlx and not HAS_MLX:
+        raise ImportError(
+            "MLX VLM is not installed but was requested. Install with 'pip install mlx-vlm' OR use transformers implementation by setting use_mlx=False"
+        )
+
+    if not use_mlx and not HAS_TRANSFORMERS:
+        raise ImportError(
+            "Transformers is not installed but was requested. Install with 'pip install transformers torch' OR use MLX implementation by setting use_mlx=True"
+        )
+
+    # Handle different input types to get a PIL image
+    pil_image = _process_image_input(image_data)
+
+    # Generate markdown using either MLX or transformers
+    if use_mlx:
+        return _generate_markdown_with_mlx(
+            pil_image,
+            prompt,
+            model_path,
+            verbose,
+            max_tokens,
+            model_and_processor,
+            config,
+        )
+    else:
+        return _generate_markdown_with_transformers(
+            pil_image, prompt, model_path, verbose, max_tokens, model_and_processor
+        )
+
+
+def _process_image_input(
+    image_data: Union[str, Path, Image.Image, bytes],
+) -> Image.Image:
+    """Process various image input types and return a PIL Image."""
     if isinstance(image_data, (str, Path)):
         # Check if it's a base64 encoded string
         if (
@@ -134,6 +183,31 @@ def img_to_markdown_smoldocling(
             "image_data must be a string path, Path object, PIL Image, bytes, or base64-encoded string"
         )
 
+    return pil_image
+
+
+def _generate_markdown_with_mlx(
+    pil_image: Image.Image,
+    prompt: str,
+    model_path: str,
+    verbose: bool,
+    max_tokens: int,
+    model_and_processor=None,
+    config=None,
+) -> str:
+    """Generate markdown using MLX implementation."""
+    if not HAS_MLX:
+        raise ImportError(
+            "MLX VLM is not installed. Install with 'pip install mlx-vlm'"
+        )
+
+    # Load the model if not provided
+    if model_and_processor is None or config is None:
+        model, processor = mlx_vlm.load(model_path)
+        config = mlx_vlm.utils.load_config(model_path)
+    else:
+        model, processor = model_and_processor
+
     # Apply chat template
     formatted_prompt = apply_chat_template(processor, config, prompt, num_images=1)
 
@@ -162,6 +236,76 @@ def img_to_markdown_smoldocling(
     return doc.export_to_markdown()
 
 
+def _generate_markdown_with_transformers(
+    pil_image: Image.Image,
+    prompt: str,
+    model_path: str,
+    verbose: bool,
+    max_tokens: int,
+    model_and_processor=None,
+) -> str:
+    """Generate markdown using Transformers implementation."""
+    if not HAS_TRANSFORMERS:
+        raise ImportError(
+            "Transformers is not installed. Install with 'pip install transformers torch'"
+        )
+
+    # Adjust model path for transformers if needed
+    if "mlx" in model_path:
+        model_path = "ds4sd/SmolDocling-256M-preview"
+
+    # Load the model if not provided
+    if model_and_processor is None:
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        processor = AutoProcessor.from_pretrained(model_path)
+        model = AutoModelForVision2Seq.from_pretrained(
+            model_path,
+            torch_dtype=torch.bfloat16,
+            _attn_implementation="flash_attention_2" if device == "cuda" else "eager",
+        ).to(device)
+    else:
+        model, processor = model_and_processor
+        device = model.device
+
+    # Create input messages
+    messages = [
+        {
+            "role": "user",
+            "content": [{"type": "image"}, {"type": "text", "text": prompt}],
+        },
+    ]
+
+    # Prepare inputs
+    formatted_prompt = processor.apply_chat_template(
+        messages, add_generation_prompt=True
+    )
+    inputs = processor(text=formatted_prompt, images=[pil_image], return_tensors="pt")
+    inputs = inputs.to(device)
+
+    # Generate outputs
+    if verbose:
+        print("Generating with transformers...")
+
+    generated_ids = model.generate(**inputs, max_new_tokens=max_tokens)
+    prompt_length = inputs.input_ids.shape[1]
+    trimmed_generated_ids = generated_ids[:, prompt_length:]
+    doctags = processor.batch_decode(
+        trimmed_generated_ids,
+        skip_special_tokens=False,
+    )[0].lstrip()
+
+    if verbose:
+        print(doctags)
+
+    # Populate document
+    doctags_doc = DocTagsDocument.from_doctags_and_image_pairs([doctags], [pil_image])
+    doc = DoclingDocument(name="Document")
+    doc.load_from_doctags(doctags_doc)
+
+    # Export as markdown
+    return doc.export_to_markdown()
+
+
 def process_pdf_to_markdown(
     pdf_data: Union[str, Path, bytes],
     prompt: str = "Convert this page to docling.",
@@ -169,7 +313,8 @@ def process_pdf_to_markdown(
     verbose: bool = False,
     max_tokens: int = 4096,
     return_type: str = "string",
-) -> List[str]:
+    use_mlx: bool = None,
+) -> Union[str, List[str]]:
     """
     Process all pages of a PDF and convert each to markdown.
 
@@ -180,15 +325,41 @@ def process_pdf_to_markdown(
         verbose: Whether to print progress
         max_tokens: Maximum number of tokens to generate
         return_type: Whether to return a concatenated string or a list of strings
+        use_mlx: Whether to use MLX implementation. If None, will use MLX if available.
     Returns:
-        List of markdown strings, one per page
+        List of markdown strings, one per page or a single concatenated string
     """
     images = pdf_to_images(pdf_data)
     markdown_pages = []
 
+    # Determine whether to use MLX or transformers
+    if use_mlx is None:
+        use_mlx = HAS_MLX
+
     # Load model once for all pages
-    model, processor = load(model_path)
-    config = load_config(model_path)
+    if use_mlx and HAS_MLX:
+        model, processor = mlx_vlm.load(model_path)
+        config = mlx_vlm.utils.load_config(model_path)
+        model_and_processor = (model, processor)
+    elif not use_mlx and HAS_TRANSFORMERS:
+        # Adjust model path for transformers if needed
+        if "mlx" in model_path:
+            transformers_model_path = "ds4sd/SmolDocling-256M-preview"
+        else:
+            transformers_model_path = model_path
+
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        processor = AutoProcessor.from_pretrained(transformers_model_path)
+        model = AutoModelForVision2Seq.from_pretrained(
+            transformers_model_path,
+            torch_dtype=torch.bfloat16,
+            _attn_implementation="flash_attention_2" if device == "cuda" else "eager",
+        ).to(device)
+        model_and_processor = (model, processor)
+        config = None
+    else:
+        model_and_processor = None
+        config = None
 
     for i, img in enumerate(images):
         if verbose:
@@ -199,8 +370,9 @@ def process_pdf_to_markdown(
             model_path,
             verbose,
             max_tokens,
-            model_and_processor=(model, processor),
+            model_and_processor=model_and_processor,
             config=config,
+            use_mlx=use_mlx,
         )
         markdown_pages.append(markdown)
 

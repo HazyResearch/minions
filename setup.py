@@ -20,6 +20,14 @@ setup(
         "rank_bm25",  # for smart retrieval
         "PyMuPDF",  # for PDF handling
         "firecrawl-py",  # for scraping urls
+        "torch", # for auto-training
+        "transformers", # for auto-training
+        "datasets", # for auto-training
+        "peft", # for auto-training
+        "accelerate", # for auto-training
+        "bitsandbytes", # for auto-training
+        "psutil", # for auto-training
+        "tensorboard", # for auto-training
     ],
     extras_require={
         "mlx": ["mlx-lm"],

@@ -1,0 +1,5 @@
+fastapi==0.109.2
+uvicorn==0.27.1
+python-dotenv==1.0.1
+pydantic==2.6.1
+minions @ file:///Users/jsluo/Downloads/minions 

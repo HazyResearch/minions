@@ -510,6 +510,7 @@ class Minions:
                 self.callback("worker", None, is_final=False)
 
             print(f"Sending {len(worker_chats)} worker chats to the worker client")
+            print(f"Worker chats: {worker_chats}")
             worker_response, usage, done_reasons = self.local_client.chat(
                 worker_chats,
             )
@@ -550,8 +551,8 @@ class Minions:
 
             try:
                 # Model generated Filter + Aggregation code
-                for job in jobs:
-                    print(job.output.answer)
+                for i, job in enumerate(jobs):
+                    print(f"Job {i} output: {job.output.answer}")
 
                 aggregated_str, code_block = self._execute_code(
                     code_block,

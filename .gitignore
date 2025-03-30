@@ -23,6 +23,8 @@ wheels/
 .installed.cfg
 *.egg
 
+test.py
+
 # Virtual Environment
 venv/
 env/
@@ -45,3 +47,4 @@ data/
 .coverage
 htmlcov/
 .pytest_cache/ 
+minions_logs/

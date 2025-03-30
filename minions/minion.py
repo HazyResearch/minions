@@ -4,7 +4,7 @@ import re
 import os
 from datetime import datetime
 
-from minions.clients import OpenAIClient, TogetherClient
+from minions.clients import OpenAIClient, TogetherClient, GeminiClient
 
 from minions.prompts.minion import (
     SUPERVISOR_CONVERSATION_PROMPT,
@@ -101,11 +101,18 @@ class Minion:
             Dict containing final_answer, conversation histories, and usage statistics
         """
 
+        print("\n========== MINION TASK STARTED ==========")
+        print(f"Task: {task}")
+        print(f"Max rounds: {max_rounds or self.max_rounds}")
+        print(f"Privacy enabled: {is_privacy}")
+        print(f"Images provided: {True if images else False}")
+
         if max_rounds is None:
             max_rounds = self.max_rounds
 
         # Join context sections
         context = "\n\n".join(context)
+        print(f"Context length: {len(context)} characters")
 
         # Initialize the log structure
         conversation_log = {
@@ -113,6 +120,10 @@ class Minion:
             "context": context,
             "conversation": [],
             "generated_final_answer": "",
+            "usage": {
+                "remote": {},
+                "local": {},
+            },
         }
 
         # Initialize message histories and usage tracking
@@ -212,6 +223,23 @@ class Minion:
             supervisor_response, supervisor_usage = self.remote_client.chat(
                 messages=supervisor_messages, response_format={"type": "json_object"}
             )
+        elif isinstance(self.remote_client, GeminiClient):
+            from pydantic import BaseModel
+
+            class output(BaseModel):
+                decision: str
+                message: str
+                answer: str
+
+            # how to make message and answer optional
+
+            supervisor_response, supervisor_usage = self.remote_client.chat(
+                messages=supervisor_messages,
+                config={
+                    "response_mime_type": "application/json",
+                    "response_schema": output,
+                },
+            )
         else:
             supervisor_response, supervisor_usage = self.remote_client.chat(
                 messages=supervisor_messages
@@ -229,12 +257,15 @@ class Minion:
             self.callback("supervisor", supervisor_messages[-1])
 
         # Extract first question for worker
-        if isinstance(self.remote_client, (OpenAIClient, TogetherClient)):
+        if isinstance(self.remote_client, (OpenAIClient, TogetherClient, GeminiClient)):
             try:
                 supervisor_json = json.loads(supervisor_response[0])
 
             except:
-                supervisor_json = _extract_json(supervisor_response[0])
+                try:
+                    supervisor_json = _extract_json(supervisor_response[0])
+                except:
+                    supervisor_json = supervisor_response[0]
         else:
             supervisor_json = _extract_json(supervisor_response[0])
 
@@ -254,6 +285,9 @@ class Minion:
             worker_response, worker_usage, done_reason = self.local_client.chat(
                 messages=worker_messages
             )
+
+            print(f"Worker response: {worker_response}")
+            print(f"Worker usage: {worker_usage}")
 
             local_usage += worker_usage
 
@@ -355,8 +389,19 @@ class Minion:
                     response_format={"type": "json_object"},
                 )
             else:
+                from pydantic import BaseModel
+
+                class remote_output(BaseModel):
+                    decision: str
+                    message: str
+                    answer: str
+
                 supervisor_response, supervisor_usage = self.remote_client.chat(
-                    messages=supervisor_messages
+                    messages=supervisor_messages,
+                    config={
+                        "response_mime_type": "application/json",
+                        "response_schema": remote_output,
+                    },
                 )
 
             remote_usage += supervisor_usage
@@ -394,6 +439,10 @@ class Minion:
             final_answer = "No answer found."
             conversation_log["generated_final_answer"] = final_answer
 
+        # Add usage statistics to the log
+        conversation_log["usage"]["remote"] = remote_usage.to_dict()
+        conversation_log["usage"]["local"] = local_usage.to_dict()
+
         # Log the final result
         if logging_id:
             # use provided logging_id
@@ -405,8 +454,11 @@ class Minion:
             log_filename = f"{timestamp}_{safe_task}.json"
         log_path = os.path.join(self.log_dir, log_filename)
 
+        print(f"\n=== SAVING LOG TO {log_path} ===")
         with open(log_path, "w", encoding="utf-8") as f:
             json.dump(conversation_log, f, indent=2, ensure_ascii=False)
+
+        print("\n=== MINION TASK COMPLETED ===")
 
         return {
             "final_answer": final_answer,
@@ -415,4 +467,5 @@ class Minion:
             "remote_usage": remote_usage,
             "local_usage": local_usage,
             "log_file": log_path,
+            "conversation_log": conversation_log,
         }

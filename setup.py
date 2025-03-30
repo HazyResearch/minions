@@ -20,6 +20,7 @@ setup(
         "rank_bm25",  # for smart retrieval
         "PyMuPDF",  # for PDF handling
         "firecrawl-py",  # for scraping urls
+        "google-genai",  # for Gemini client
     ],
     extras_require={
         "mlx": ["mlx-lm"],

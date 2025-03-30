@@ -17,6 +17,7 @@ class OpenAIClient:
         base_url: Optional[str] = None,
         use_responses_api: bool = False,
         tools: List[Dict[str, Any]] = None,
+        reasoning_effort: str = "low",
     ):
         """
         Initialize the OpenAI client.
@@ -40,8 +41,12 @@ class OpenAIClient:
 
         # Initialize the client
         self.client = openai.OpenAI(api_key=self.api_key, base_url=self.base_url)
-        self.use_responses_api = use_responses_api
+        if "o1-pro" in self.model_name:
+            self.use_responses_api = True
+        else:
+            self.use_responses_api = use_responses_api
         self.tools = tools
+        self.reasoning_effort = reasoning_effort
 
     def responses(
         self, messages: List[Dict[str, Any]], **kwargs
@@ -70,6 +75,10 @@ class OpenAIClient:
                 "tools": self.tools,
                 **kwargs,
             }
+            if "o1" in self.model_name or "o3" in self.model_name:
+                params["reasoning"] = {"effort": self.reasoning_effort}
+                # delete "tools" from params
+                del params["tools"]
 
             response = self.client.responses.create(
                 **params,
@@ -125,6 +134,8 @@ class OpenAIClient:
                 # Only add temperature if NOT using the reasoning models (e.g., o3-mini model)
                 if "o1" not in self.model_name and "o3" not in self.model_name:
                     params["temperature"] = self.temperature
+                if "o1" in self.model_name or "o3" in self.model_name:
+                    params["reasoning_effort"] = self.reasoning_effort
 
                 response = self.client.chat.completions.create(**params)
             except Exception as e:

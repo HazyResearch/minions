@@ -1387,9 +1387,7 @@ if uploaded_files:
                         process_pdf_to_markdown(uploaded_file.read()) or ""
                     )
                 except:
-                    current_content = (
-                        process_pdf_to_markdown(uploaded_file.read()) or ""
-                    )
+                    current_content = extract_text_from_pdf(uploaded_file.read()) or ""
 
             elif file_type in ["png", "jpg", "jpeg"]:
                 image_bytes = uploaded_file.read()

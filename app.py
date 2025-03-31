@@ -678,6 +678,35 @@ def run_protocol(
         st.write("Solving task...")
         execution_start_time = time.time()
 
+        # Add timing wrappers to the clients to track time spent in each
+        # Create timing wrappers for the clients
+        local_time_spent = 0
+        remote_time_spent = 0
+
+        # Store original chat methods
+        original_local_chat = st.session_state.local_client.chat
+        original_remote_chat = st.session_state.remote_client.chat
+
+        # Create timing wrapper for local client
+        def timed_local_chat(*args, **kwargs):
+            nonlocal local_time_spent
+            start_time = time.time()
+            result = original_local_chat(*args, **kwargs)
+            local_time_spent += time.time() - start_time
+            return result
+
+        # Create timing wrapper for remote client
+        def timed_remote_chat(*args, **kwargs):
+            nonlocal remote_time_spent
+            start_time = time.time()
+            result = original_remote_chat(*args, **kwargs)
+            remote_time_spent += time.time() - start_time
+            return result
+
+        # Replace the chat methods with the timed versions
+        st.session_state.local_client.chat = timed_local_chat
+        st.session_state.remote_client.chat = timed_remote_chat
+
         # Pass is_privacy parameter when using Minion protocol
         if protocol == "Minion":
             output = st.session_state.method(
@@ -706,6 +735,15 @@ def run_protocol(
             )
 
         execution_time = time.time() - execution_start_time
+
+        # Restore original chat methods
+        st.session_state.local_client.chat = original_local_chat
+        st.session_state.remote_client.chat = original_remote_chat
+
+        # Add timing information to output
+        output["local_time"] = local_time_spent
+        output["remote_time"] = remote_time_spent
+        output["other_time"] = execution_time - (local_time_spent + remote_time_spent)
 
     return output, setup_time, execution_time
 
@@ -1558,7 +1596,50 @@ if user_query:
             st.header("Runtime")
             total_time = setup_time + execution_time
             # st.metric("Setup Time", f"{setup_time:.2f}s", f"{(setup_time/total_time*100):.1f}% of total")
-            st.metric("Execution Time", f"{execution_time:.2f}s")
+
+            # Create columns for timing metrics
+            timing_cols = st.columns(4)
+
+            # Display execution time metrics
+            timing_cols[0].metric("Total Execution", f"{execution_time:.2f}s")
+
+            # Display remote and local time metrics if available
+            if "remote_time" in output and "local_time" in output:
+                remote_time = output["remote_time"]
+                local_time = output["local_time"]
+                other_time = output["other_time"]
+
+                # Calculate percentages
+                remote_pct = (remote_time / execution_time) * 100
+                local_pct = (local_time / execution_time) * 100
+                other_pct = (other_time / execution_time) * 100
+
+                timing_cols[1].metric(
+                    "Remote Model Time",
+                    f"{remote_time:.2f}s",
+                    f"{remote_pct:.1f}% of total",
+                )
+
+                timing_cols[2].metric(
+                    "Local Model Time",
+                    f"{local_time:.2f}s",
+                    f"{local_pct:.1f}% of total",
+                )
+
+                timing_cols[3].metric(
+                    "Overhead Time", f"{other_time:.2f}s", f"{other_pct:.1f}% of total"
+                )
+
+                # Add a bar chart for timing visualization
+                timing_df = pd.DataFrame(
+                    {
+                        "Component": ["Remote Model", "Local Model", "Overhead"],
+                        "Time (seconds)": [remote_time, local_time, other_time],
+                    }
+                )
+                st.bar_chart(timing_df, x="Component", y="Time (seconds)")
+            else:
+                timing_cols[1].metric("Execution Time", f"{execution_time:.2f}s")
 
             # Token usage for both protocols
             if "local_usage" in output and "remote_usage" in output:

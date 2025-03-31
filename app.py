@@ -30,11 +30,14 @@ load_dotenv()
 # Check if MLXLMClient, CartesiaMLXClient, and CSM-MLX are available
 mlx_available = "MLXLMClient" in globals()
 cartesia_available = "CartesiaMLXClient" in globals()
+# Add check for Gemini client
+gemini_available = "GeminiClient" in globals()
 
 
 # Log availability for debugging
 print(f"MLXLMClient available: {mlx_available}")
 print(f"CartesiaMLXClient available: {cartesia_available}")
+print(f"GeminiClient available: {gemini_available}")
 print(
     f"Voice generation available: {voice_generation_available if voice_generation_available is not None else 'Not checked yet'}"
 )
@@ -75,6 +78,13 @@ API_PRICES = {
         "deepseek-chat": {"input": 0.27, "cached_input": 0.07, "output": 1.10},
         "deepseek-reasoner": {"input": 0.27, "cached_input": 0.07, "output": 1.10},
     },
+    # Gemini model pricing per 1M tokens
+    "Gemini": {
+        "gemini-2.0-flash": {"input": 0.35, "cached_input": 0.175, "output": 1.05},
+        "gemini-2.0-pro": {"input": 3.50, "cached_input": 1.75, "output": 10.50},
+        "gemini-1.5-pro": {"input": 3.50, "cached_input": 1.75, "output": 10.50},
+        "gemini-1.5-flash": {"input": 0.35, "cached_input": 0.175, "output": 1.05},
+    },
 }
 
 PROVIDER_TO_ENV_VAR_KEY = {
@@ -87,6 +97,7 @@ PROVIDER_TO_ENV_VAR_KEY = {
     "Groq": "GROQ_API_KEY",
     "DeepSeek": "DEEPSEEK_API_KEY",
     "SambaNova": "SAMBANOVA_API_KEY",
+    "Gemini": "GOOGLE_API_KEY",
 }
 
 
@@ -542,6 +553,13 @@ def initialize_clients(
             max_tokens=int(remote_max_tokens),
             api_key=api_key,
         )
+    elif provider == "Gemini":
+        st.session_state.remote_client = GeminiClient(
+            model_name=remote_model_name,
+            temperature=remote_temperature,
+            max_tokens=int(remote_max_tokens),
+            api_key=api_key,
+        )
     else:  # OpenAI
         st.session_state.remote_client = OpenAIClient(
             model_name=remote_model_name,
@@ -817,6 +835,21 @@ def validate_sambanova_key(api_key):
         return False, str(e)
 
 
+def validate_gemini_key(api_key):
+    try:
+        client = GeminiClient(
+            model_name="gemini-2.0-flash",
+            api_key=api_key,
+            temperature=0.0,
+            max_tokens=1,
+        )
+        messages = [{"role": "user", "content": "Say yes"}]
+        client.chat(messages)
+        return True, ""
+    except Exception as e:
+        return False, str(e)
+
+
 # validate
 
 
@@ -840,6 +873,7 @@ with st.sidebar:
             "Groq",
             "DeepSeek",
             "SambaNova",
+            "Gemini",
         ]
         selected_provider = st.selectbox(
             "Select Remote Provider",
@@ -879,6 +913,8 @@ with st.sidebar:
             is_valid, msg = validate_deepseek_key(api_key)
         elif selected_provider == "SambaNova":
             is_valid, msg = validate_sambanova_key(api_key)
+        elif selected_provider == "Gemini":
+            is_valid, msg = validate_gemini_key(api_key)
         else:
             raise ValueError(f"Invalid provider: {selected_provider}")
 
@@ -943,7 +979,7 @@ with st.sidebar:
         "OpenRouter",
         "DeepSeek",
         "SambaNova",
-    ]:  # Added AzureOpenAI to the list
+    ]:  # Added Gemini to the list
         protocol_options = ["Minion", "Minions", "Minions-MCP"]
         protocol = st.segmented_control(
             "Communication protocol", options=protocol_options, default="Minion"
@@ -1181,6 +1217,14 @@ with st.sidebar:
                 "Qwen2.5-Coder-32B-Instruct": "Qwen2.5-Coder-32B-Instruct",
                 "QwQ-32B": "QwQ-32B",
                 "Qwen2-Audio-7B-Instruct": "Qwen2-Audio-7B-Instruct",
+            }
+            default_model_index = 0
+        elif selected_provider == "Gemini":
+            model_mapping = {
+                "gemini-2.0-pro (Recommended)": "gemini-2.5-pro-exp-03-25",
+                "gemini-2.0-flash": "gemini-2.0-flash",
+                "gemini-1.5-pro": "gemini-1.5-pro",
+                "gemini-1.5-flash": "gemini-1.5-flash",
             }
             default_model_index = 0
         else:

@@ -1,0 +1,5 @@
+{
+  "devDependencies": {
+    "wait-on": "^8.0.3"
+  }
+}

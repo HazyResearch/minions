@@ -35,7 +35,7 @@ You are the Supervisor (big language model). Your task is to answer the followin
 A Worker (small language model) can access those documents and will answer simple, single-step questions.
 
 Question:
-{query}
+{task}
 
 Ask the Worker only one small, specific question at a time. Use multiple steps if needed (max {max_rounds} steps), then integrate the responses to answer the original question.
 

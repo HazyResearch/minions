@@ -130,7 +130,9 @@ class Minion:
         supervisor_messages = [
             {
                 "role": "user",
-                "content": SUPERVISOR_INITIAL_PROMPT.format(task=task),
+                "content": SUPERVISOR_INITIAL_PROMPT.format(
+                    task=task, max_rounds=max_rounds
+                ),
             }
         ]
 
@@ -138,7 +140,9 @@ class Minion:
         conversation_log["conversation"].append(
             {
                 "user": "remote",
-                "prompt": SUPERVISOR_INITIAL_PROMPT.format(task=task),
+                "prompt": SUPERVISOR_INITIAL_PROMPT.format(
+                    task=task, max_rounds=max_rounds
+                ),
                 "output": None,
             }
         )
@@ -187,7 +191,8 @@ class Minion:
                 {
                     "role": "user",
                     "content": SUPERVISOR_INITIAL_PROMPT.format(
-                        task=pii_reformatted_task
+                        task=pii_reformatted_task,
+                        max_rounds=max_rounds,
                     ),
                 }
             ]
@@ -201,7 +206,9 @@ class Minion:
             supervisor_messages = [
                 {
                     "role": "user",
-                    "content": SUPERVISOR_INITIAL_PROMPT.format(task=task),
+                    "content": SUPERVISOR_INITIAL_PROMPT.format(
+                        task=task, max_rounds=max_rounds
+                    ),
                 }
             ]
             worker_messages = [

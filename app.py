@@ -4,6 +4,11 @@ from minions.minions import Minions
 from minions.minions_mcp import SyncMinionsMCP, MCPConfigManager
 from minions.utils.firecrawl_util import scrape_url
 
+# Instead of trying to import at startup, set voice_generation_available to None
+# and only attempt import when voice generation is requested
+voice_generation_available = None
+voice_generator = None
+
 from minions.clients import *
 
 import os
@@ -22,13 +27,20 @@ import base64
 # Load environment variables from .env file
 load_dotenv()
 
-# Check if MLXLMClient and CartesiaMLXClient are in the clients module
+# Check if MLXLMClient, CartesiaMLXClient, and CSM-MLX are available
 mlx_available = "MLXLMClient" in globals()
 cartesia_available = "CartesiaMLXClient" in globals()
+# Add check for Gemini client
+gemini_available = "GeminiClient" in globals()
+
 
 # Log availability for debugging
 print(f"MLXLMClient available: {mlx_available}")
 print(f"CartesiaMLXClient available: {cartesia_available}")
+print(f"GeminiClient available: {gemini_available}")
+print(
+    f"Voice generation available: {voice_generation_available if voice_generation_available is not None else 'Not checked yet'}"
+)
 
 
 class StructuredLocalOutput(BaseModel):
@@ -57,13 +69,21 @@ API_PRICES = {
         "gpt-4o-mini": {"input": 0.15, "cached_input": 0.075, "output": 0.60},
         "gpt-4.5-preview": {"input": 75.00, "cached_input": 37.50, "output": 150.00},
         "o3-mini": {"input": 1.10, "cached_input": 0.55, "output": 4.40},
-        "o1-pro": {"input": 15.00, "cached_input": 7.50, "output": 60.00},
+        "o1": {"input": 15.00, "cached_input": 7.50, "output": 60.00},
+        "o1-pro": {"input": 150.00, "cached_input": 7.50, "output": 600.00},
     },
     # DeepSeek model pricing per 1M tokens
     "DeepSeek": {
         # Let's assume 1 dollar = 7.25 RMB and
         "deepseek-chat": {"input": 0.27, "cached_input": 0.07, "output": 1.10},
         "deepseek-reasoner": {"input": 0.27, "cached_input": 0.07, "output": 1.10},
+    },
+    # Gemini model pricing per 1M tokens
+    "Gemini": {
+        "gemini-2.0-flash": {"input": 0.35, "cached_input": 0.175, "output": 1.05},
+        "gemini-2.0-pro": {"input": 3.50, "cached_input": 1.75, "output": 10.50},
+        "gemini-1.5-pro": {"input": 3.50, "cached_input": 1.75, "output": 10.50},
+        "gemini-1.5-flash": {"input": 0.35, "cached_input": 0.175, "output": 1.05},
     },
 }
 
@@ -76,6 +96,8 @@ PROVIDER_TO_ENV_VAR_KEY = {
     "Perplexity": "PERPLEXITY_API_KEY",
     "Groq": "GROQ_API_KEY",
     "DeepSeek": "DEEPSEEK_API_KEY",
+    "SambaNova": "SAMBANOVA_API_KEY",
+    "Gemini": "GOOGLE_API_KEY",
 }
 
 
@@ -241,7 +263,6 @@ def message_callback(role, message, is_final=True):
                         height: 0;
                         overflow: hidden;
                         max-width: 100%;
-                        background: #000;
                     }}
                     .video-container iframe {{
                         position: absolute;
@@ -266,6 +287,46 @@ def message_callback(role, message, is_final=True):
             placeholder_messages[role].empty()
             del placeholder_messages[role]
         with st.chat_message(chat_role, avatar=path):
+            # Generate voice if enabled and it's a worker/local message
+            if (
+                st.session_state.get("voice_generation_enabled", False)
+                and role == "worker"
+                and "voice_generator" in st.session_state
+            ):
+                # For text messages, generate audio
+                if isinstance(message, str):
+                    # Limit text length for voice generation
+                    voice_text = (
+                        message[:500] + "..." if len(message) > 500 else message
+                    )
+                    audio_base64 = st.session_state.voice_generator.generate_audio(
+                        voice_text
+                    )
+                    if audio_base64:
+                        st.markdown(
+                            st.session_state.voice_generator.get_audio_html(
+                                audio_base64
+                            ),
+                            unsafe_allow_html=True,
+                        )
+                elif isinstance(message, dict):
+                    if "content" in message and isinstance(message["content"], str):
+                        voice_text = (
+                            message["content"][:500] + "..."
+                            if len(message["content"]) > 500
+                            else message["content"]
+                        )
+                        audio_base64 = st.session_state.voice_generator.generate_audio(
+                            voice_text
+                        )
+                        if audio_base64:
+                            st.markdown(
+                                st.session_state.voice_generator.get_audio_html(
+                                    audio_base64
+                                ),
+                                unsafe_allow_html=True,
+                            )
+
             if role == "worker" and isinstance(message, list):
                 # For Minions protocol, messages are a list of jobs
                 st.markdown("#### Here are the outputs from all the minions!")
@@ -310,6 +371,7 @@ def message_callback(role, message, is_final=True):
                             else json.loads(message["content"])
                         )
                         st.json(content)
+
                     except json.JSONDecodeError:
                         st.write(message["content"])
                 else:
@@ -332,6 +394,7 @@ def initialize_clients(
     api_key,
     num_ctx=4096,
     mcp_server_name=None,
+    reasoning_effort="medium",
 ):
     """Initialize the local and remote clients outside of the run_protocol function."""
     # Store model parameters in session state for potential reinitialization
@@ -414,6 +477,7 @@ def initialize_clients(
             api_key=api_key,
             use_responses_api=use_responses_api,
             tools=tools,
+            reasoning_effort=reasoning_effort,
         )
     elif provider == "AzureOpenAI":
         # Get Azure-specific parameters from environment variables
@@ -482,6 +546,20 @@ def initialize_clients(
             max_tokens=int(remote_max_tokens),
             api_key=api_key,
         )
+    elif provider == "SambaNova":
+        st.session_state.remote_client = SambanovaClient(
+            model_name=remote_model_name,
+            temperature=remote_temperature,
+            max_tokens=int(remote_max_tokens),
+            api_key=api_key,
+        )
+    elif provider == "Gemini":
+        st.session_state.remote_client = GeminiClient(
+            model_name=remote_model_name,
+            temperature=remote_temperature,
+            max_tokens=int(remote_max_tokens),
+            api_key=api_key,
+        )
     else:  # OpenAI
         st.session_state.remote_client = OpenAIClient(
             model_name=remote_model_name,
@@ -509,6 +587,22 @@ def initialize_clients(
             st.session_state.remote_client,
             callback=message_callback,
         )
+
+    # Get reasoning_effort from the widget value directly
+    if "reasoning_effort" in st.session_state:
+        reasoning_effort = st.session_state.reasoning_effort
+    else:
+        reasoning_effort = "medium"  # Default if not set
+
+    (
+        st.session_state.local_client,
+        st.session_state.remote_client,
+        st.session_state.method,
+    ) = (
+        st.session_state.local_client,
+        st.session_state.remote_client,
+        st.session_state.method,
+    )
 
     return (
         st.session_state.local_client,
@@ -584,6 +678,35 @@ def run_protocol(
         st.write("Solving task...")
         execution_start_time = time.time()
 
+        # Add timing wrappers to the clients to track time spent in each
+        # Create timing wrappers for the clients
+        local_time_spent = 0
+        remote_time_spent = 0
+
+        # Store original chat methods
+        original_local_chat = st.session_state.local_client.chat
+        original_remote_chat = st.session_state.remote_client.chat
+
+        # Create timing wrapper for local client
+        def timed_local_chat(*args, **kwargs):
+            nonlocal local_time_spent
+            start_time = time.time()
+            result = original_local_chat(*args, **kwargs)
+            local_time_spent += time.time() - start_time
+            return result
+
+        # Create timing wrapper for remote client
+        def timed_remote_chat(*args, **kwargs):
+            nonlocal remote_time_spent
+            start_time = time.time()
+            result = original_remote_chat(*args, **kwargs)
+            remote_time_spent += time.time() - start_time
+            return result
+
+        # Replace the chat methods with the timed versions
+        st.session_state.local_client.chat = timed_local_chat
+        st.session_state.remote_client.chat = timed_remote_chat
+
         # Pass is_privacy parameter when using Minion protocol
         if protocol == "Minion":
             output = st.session_state.method(
@@ -612,6 +735,15 @@ def run_protocol(
             )
 
         execution_time = time.time() - execution_start_time
+
+        # Restore original chat methods
+        st.session_state.local_client.chat = original_local_chat
+        st.session_state.remote_client.chat = original_remote_chat
+
+        # Add timing information to output
+        output["local_time"] = local_time_spent
+        output["remote_time"] = remote_time_spent
+        output["other_time"] = execution_time - (local_time_spent + remote_time_spent)
 
     return output, setup_time, execution_time
 
@@ -726,6 +858,36 @@ def validate_azure_openai_key(api_key):
     return True, "API key format is valid"
 
 
+def validate_sambanova_key(api_key):
+    try:
+        client = SambanovaClient(
+            model_name="Meta-Llama-3.1-8B-Instruct",
+            api_key=api_key,
+            temperature=0.0,
+            max_tokens=1,
+        )
+        messages = [{"role": "user", "content": "Say yes"}]
+        client.chat(messages)
+        return True, ""
+    except Exception as e:
+        return False, str(e)
+
+
+def validate_gemini_key(api_key):
+    try:
+        client = GeminiClient(
+            model_name="gemini-2.0-flash",
+            api_key=api_key,
+            temperature=0.0,
+            max_tokens=1,
+        )
+        messages = [{"role": "user", "content": "Say yes"}]
+        client.chat(messages)
+        return True, ""
+    except Exception as e:
+        return False, str(e)
+
+
 # validate
 
 
@@ -748,6 +910,8 @@ with st.sidebar:
             "Anthropic",
             "Groq",
             "DeepSeek",
+            "SambaNova",
+            "Gemini",
         ]
         selected_provider = st.selectbox(
             "Select Remote Provider",
@@ -785,6 +949,10 @@ with st.sidebar:
             is_valid, msg = validate_groq_key(api_key)
         elif selected_provider == "DeepSeek":
             is_valid, msg = validate_deepseek_key(api_key)
+        elif selected_provider == "SambaNova":
+            is_valid, msg = validate_sambanova_key(api_key)
+        elif selected_provider == "Gemini":
+            is_valid, msg = validate_gemini_key(api_key)
         else:
             raise ValueError(f"Invalid provider: {selected_provider}")
 
@@ -848,7 +1016,8 @@ with st.sidebar:
         "Together",
         "OpenRouter",
         "DeepSeek",
-    ]:  # Added AzureOpenAI to the list
+        "SambaNova",
+    ]:  # Added Gemini to the list
         protocol_options = ["Minion", "Minions", "Minions-MCP"]
         protocol = st.segmented_control(
             "Communication protocol", options=protocol_options, default="Minion"
@@ -932,12 +1101,7 @@ with st.sidebar:
             available_ollama_models = OllamaClient.get_available_models()
 
             # Default recommended models list
-            recommended_models = [
-                "llama3.2",
-                "llama3.1:8b",
-                "qwen2.5:3b",
-                "qwen2.5:7b"
-            ]
+            recommended_models = ["llama3.2", "llama3.1:8b", "qwen2.5:3b", "qwen2.5:7b"]
 
             # Initialize with default model options
             local_model_options = {
@@ -1008,6 +1172,7 @@ with st.sidebar:
                 "gpt-4o-mini": "gpt-4o-mini",
                 "o3-mini": "o3-mini",
                 "o1": "o1",
+                "o1-pro": "o1-pro",
             }
             default_model_index = 0
         elif selected_provider == "AzureOpenAI":
@@ -1068,6 +1233,38 @@ with st.sidebar:
                 "deepseek-reasoner": "deepseek-reasoner",
             }
             default_model_index = 0
+        elif selected_provider == "SambaNova":
+            model_mapping = {
+                "Meta-Llama-3.1-8B-Instruct (Recommended)": "Meta-Llama-3.1-8B-Instruct",
+                "DeepSeek-V3-0324": "DeepSeek-V3-0324",
+                "Meta-Llama-3.3-70B-Instruct": "Meta-Llama-3.3-70B-Instruct",
+                "Meta-Llama-3.1-405B-Instruct": "Meta-Llama-3.1-405B-Instruct",
+                "Meta-Llama-3.1-70B-Instruct": "Meta-Llama-3.1-70B-Instruct",
+                "Meta-Llama-3.2-3B-Instruct": "Meta-Llama-3.2-3B-Instruct",
+                "Meta-Llama-3.2-1B-Instruct": "Meta-Llama-3.2-1B-Instruct",
+                "Llama-3.2-90B-Vision-Instruct": "Llama-3.2-90B-Vision-Instruct",
+                "Llama-3.2-11B-Vision-Instruct": "Llama-3.2-11B-Vision-Instruct",
+                "Meta-Llama-Guard-3-8B": "Meta-Llama-Guard-3-8B",
+                "Llama-3.1-Tulu-3-405B": "Llama-3.1-Tulu-3-405B",
+                "Llama-3.1-Swallow-8B-Instruct-v0.3": "Llama-3.1-Swallow-8B-Instruct-v0.3",
+                "Llama-3.1-Swallow-70B-Instruct-v0.3": "Llama-3.1-Swallow-70B-Instruct-v0.3",
+                "DeepSeek-R1": "DeepSeek-R1",
+                "DeepSeek-R1-Distill-Llama-70B": "DeepSeek-R1-Distill-Llama-70B",
+                "E5-Mistral-7B-Instruct": "E5-Mistral-7B-Instruct",
+                "Qwen2.5-72B-Instruct": "Qwen2.5-72B-Instruct",
+                "Qwen2.5-Coder-32B-Instruct": "Qwen2.5-Coder-32B-Instruct",
+                "QwQ-32B": "QwQ-32B",
+                "Qwen2-Audio-7B-Instruct": "Qwen2-Audio-7B-Instruct",
+            }
+            default_model_index = 0
+        elif selected_provider == "Gemini":
+            model_mapping = {
+                "gemini-2.0-pro (Recommended)": "gemini-2.5-pro-exp-03-25",
+                "gemini-2.0-flash": "gemini-2.0-flash",
+                "gemini-1.5-pro": "gemini-1.5-pro",
+                "gemini-1.5-flash": "gemini-1.5-flash",
+            }
+            default_model_index = 0
         else:
             model_mapping = {}
             default_model_index = 0
@@ -1096,9 +1293,62 @@ with st.sidebar:
             except ValueError:
                 st.error("Remote Max Tokens must be an integer.")
                 st.stop()
+
+            # Replace slider with select box for reasoning effort
+            reasoning_effort = st.selectbox(
+                "Reasoning Effort",
+                options=["low", "medium", "high"],
+                index=1,  # Default to "medium"
+                help="Controls how much effort the model puts into reasoning",
+                key="reasoning_effort",
+            )
         else:
             remote_temperature = 0.0
             remote_max_tokens = 4096
+            reasoning_effort = "medium"  # Default reasoning effort
+
+    # Add voice generation toggle if available - MOVED HERE from the top
+    st.subheader("Voice Generation")
+    voice_generation_enabled = st.toggle(
+        "Enable Minion Voice",
+        value=False,
+        help="When enabled, minion responses will be spoken using CSM-MLX voice synthesis",
+    )
+
+    # Only try to import and initialize the voice generator if user enables it
+    if voice_generation_enabled and voice_generation_available is None:
+        try:
+            from minions.utils.voice_generator import VoiceGenerator
+
+            st.session_state.voice_generator = VoiceGenerator()
+            voice_generation_available = st.session_state.voice_generator.csm_available
+
+            if voice_generation_available:
+                st.success("🔊 Minion voice generation is enabled!")
+                st.info(
+                    "Minions will speak their responses (limited to 500 characters)"
+                )
+            else:
+                st.error("Voice generation could not be initialized")
+                st.info("Make sure CSM-MLX is properly installed")
+                voice_generation_enabled = False
+        except ImportError:
+            st.error(
+                "Voice generation requires CSM-MLX. Install with: `pip install -e '.[csm-mlx]'`"
+            )
+            voice_generation_available = False
+            voice_generation_enabled = False
+    elif voice_generation_enabled and voice_generation_available is False:
+        st.error("Voice generation is not available")
+        st.info(
+            "Make sure CSM-MLX is properly installed with: `pip install -e '.[csm-mlx]'`"
+        )
+        voice_generation_enabled = False
+    elif voice_generation_enabled and voice_generation_available:
+        st.success("🔊 Minion voice generation is enabled!")
+        st.info("Minions will speak their responses (limited to 500 characters)")
+
+    st.session_state.voice_generation_enabled = voice_generation_enabled
 
 
 # -------------------------
@@ -1113,6 +1363,7 @@ st.subheader("Context")
 text_input = st.text_area("Optionally paste text here", value="", height=150)
 
 
+st.markdown("Or upload context from a webpage")
 # Check if FIRECRAWL_API_KEY is set in environment or provided by user
 firecrawl_api_key_env = os.getenv("FIRECRAWL_API_KEY", "")
 
@@ -1165,7 +1416,16 @@ if uploaded_files:
             file_names.append(uploaded_file.name)
 
             if file_type == "pdf":
-                current_content = extract_text_from_pdf(uploaded_file.read()) or ""
+                # check if docling is installed
+                try:
+                    import docling_core
+                    from minions.utils.doc_processing import process_pdf_to_markdown
+
+                    current_content = (
+                        process_pdf_to_markdown(uploaded_file.read()) or ""
+                    )
+                except:
+                    current_content = extract_text_from_pdf(uploaded_file.read()) or ""
 
             elif file_type in ["png", "jpg", "jpeg"]:
                 image_bytes = uploaded_file.read()
@@ -1277,6 +1537,12 @@ if user_query:
                     if local_temperature < 0.01:
                         local_temperature = 0.00001
 
+                # Get reasoning_effort from the widget value directly
+                if "reasoning_effort" in st.session_state:
+                    reasoning_effort = st.session_state.reasoning_effort
+                else:
+                    reasoning_effort = "medium"  # Default if not set
+
                 (
                     st.session_state.local_client,
                     st.session_state.remote_client,
@@ -1294,6 +1560,7 @@ if user_query:
                     provider_key,
                     num_ctx,
                     mcp_server_name=mcp_server_name,
+                    reasoning_effort=reasoning_effort,
                 )
                 # Store the current protocol and local provider in session state
                 st.session_state.current_protocol = protocol
@@ -1329,7 +1596,50 @@ if user_query:
             st.header("Runtime")
             total_time = setup_time + execution_time
             # st.metric("Setup Time", f"{setup_time:.2f}s", f"{(setup_time/total_time*100):.1f}% of total")
-            st.metric("Execution Time", f"{execution_time:.2f}s")
+
+            # Create columns for timing metrics
+            timing_cols = st.columns(4)
+
+            # Display execution time metrics
+            timing_cols[0].metric("Total Execution", f"{execution_time:.2f}s")
+
+            # Display remote and local time metrics if available
+            if "remote_time" in output and "local_time" in output:
+                remote_time = output["remote_time"]
+                local_time = output["local_time"]
+                other_time = output["other_time"]
+
+                # Calculate percentages
+                remote_pct = (remote_time / execution_time) * 100
+                local_pct = (local_time / execution_time) * 100
+                other_pct = (other_time / execution_time) * 100
+
+                timing_cols[1].metric(
+                    "Remote Model Time",
+                    f"{remote_time:.2f}s",
+                    f"{remote_pct:.1f}% of total",
+                )
+
+                timing_cols[2].metric(
+                    "Local Model Time",
+                    f"{local_time:.2f}s",
+                    f"{local_pct:.1f}% of total",
+                )
+
+                timing_cols[3].metric(
+                    "Overhead Time", f"{other_time:.2f}s", f"{other_pct:.1f}% of total"
+                )
+
+                # Add a bar chart for timing visualization
+                timing_df = pd.DataFrame(
+                    {
+                        "Component": ["Remote Model", "Local Model", "Overhead"],
+                        "Time (seconds)": [remote_time, local_time, other_time],
+                    }
+                )
+                st.bar_chart(timing_df, x="Component", y="Time (seconds)")
+            else:
+                timing_cols[1].metric("Execution Time", f"{execution_time:.2f}s")
 
             # Token usage for both protocols
             if "local_usage" in output and "remote_usage" in output:

@@ -1,22 +1,3 @@
-SUPERVISOR_INITIAL_PROMPT_OLD = """\
-We need to perform the following task.
-
-### Task
-{task}
-
-### Instructions
-You will not have direct access to the context, but can chat with a small language model which has read the entire thing.
-
-Feel free to think step-by-step, but eventually you must provide an output in the format below:
-
-<think step by step here>
-```json
-{{
-    "message": "<your message to the small language model. If you are asking model to do a task, make sure it is a single task!>"
-}}
-```
-"""
-
 WORKER_PRIVACY_SHIELD_PROMPT = """\
 You are a helpful assistant that is very mindful of user privacy. You are communicating with a powerful large language model that you are sharing information with. Revise the following text to preserve user privacy. We have already extracted the PII from the original document. Remove any PII from the text. Provide your output without any preamble. 
 
@@ -39,134 +20,77 @@ You are a helpful assistant that is very mindful of user privacy. You are commun
 
 ### Query without PII (remove the PII from the query, and rephrase the query if necessary):"""
 
-SUPERVISOR_CONVERSATION_PROMPT_OLD = """
-Here is the response from the small language model:
-
-### Response
-{response}
-
-
-### Instructions
-Analyze the response and think-step-by-step to determine if you have enough information to answer the question.
-
-If you have enough information or if the task is complete provide a final answer in the format below.
-
-<think step by step here>
-```json
-{{
-    "decision": "provide_final_answer", 
-    "answer": "<your answer>"
-}}
-```
-
-Otherwise, if the task is not complete, request the small language model to do additional work, by outputting the following:
-
-<think step by step here>
-```json
-{{
-    "decision": "request_additional_info",
-    "message": "<your message to the small language model>"
-}}
-```
-"""
-
-SUPERVISOR_FINAL_PROMPT_OLD = """\
-Here is the response from the small language model:
-
-### Response
-{response}
-
-
-### Instructions
-This is the final round, you cannot request additional information.
-Analyze the response and think-step-by-step and answer the question.
-
-<think step by step here>
-```json
-{{
-    "decision": "provide_final_answer",
-    "answer": "<your answer>"
-}}
-```
-DO NOT request additional information. Simply provide a final answer.
-"""
 
 WORKER_SYSTEM_PROMPT = """\
-You will help a user perform the following task.
 
-Read the context below and prepare to answer questions from an expert user. 
-### Context
+You are the Worker (a small model). You have access to the following context: 
+
 {context}
 
-### Question
-{task}
+Answer the Supervisor's questions concisely, providing enough detail for the Supervisor to confidently understand your response.
 """
 
 SUPERVISOR_INITIAL_PROMPT = """\
-We need to perform the following task.
+You are the Supervisor (big language model). Your task is to answer the following question using documents you cannot see directly. 
+A Worker (small language model) can access those documents and will answer simple, single-step questions.
 
-### Task
+Question:
 {task}
 
-### Instructions
-You will not have direct access to the context, but can chat with a small language model which has read the entire thing.
+Ask the Worker only one small, specific question at a time. Use multiple steps if needed (max {max_rounds} steps), then integrate the responses to answer the original question.
 
-Feel free to think step-by-step, but eventually you must provide an output in the format below:
-
+Format for your question:
+<think briefly about the information needed to answer the question>
 ```json
 {{
-    "message": "<your message to the small language model. If you are asking model to do a task, make sure it is a single task!>"
+    "message": "<one simple question for the Worker>"
 }}
 ```
 """
+
 
 SUPERVISOR_CONVERSATION_PROMPT = """
-Here is the response from the small language model:
+The Worker replied with:
 
-### Response
 {response}
 
+Decide if you have enough information to answer the original question.
 
-### Instructions
-Analyze the response and think-step-by-step to determine if you have enough information to answer the question.
-
-If you have enough information or if the task is complete provide a final answer in the format below.
-
-```json
-{{
-    "decision": "provide_final_answer", 
-    "answer": "<your answer>"
-}}
-```
-
-Otherwise, if the task is not complete, request the small language model to do additional work, by outputting the following:
-
-```json
-{{
-    "decision": "request_additional_info",
-    "message": "<your message to the small language model>"
-}}
-```
-"""
-
-SUPERVISOR_FINAL_PROMPT = """\
-Here is the response from the small language model:
-
-### Response
-{response}
-
-
-### Instructions
-This is the final round, you cannot request additional information.
-Analyze the response and think-step-by-step and answer the question.
-
+If yes, provide the final answer in JSON, like this:
+<briefly think about the information you have and the question you need to answer>
 ```json
 {{
     "decision": "provide_final_answer",
-    "answer": "<your answer>"
+    "answer": "<your final answer>"
 }}
 ```
-DO NOT request additional information. Simply provide a final answer.
+
+If not, ask another single-step question in JSON, like this:
+<briefly think about the information you have and the question you need to answer>
+```json
+{{
+    "decision": "request_additional_info",
+    "message": "<your single-step question>"
+}}
+```
+"""
+
+
+SUPERVISOR_FINAL_PROMPT = """\
+The Worker replied with:
+
+{response}
+
+This is your final round. You must provide a final answer in JSON. No further questions are allowed.
+
+Please respond in the following format:
+<briefly think about the information you have and the question you need to answer>
+```json
+{{
+    "decision": "provide_final_answer",
+    "answer": "<your final answer>"
+}}
+```
 """
 
 REMOTE_SYNTHESIS_COT = """
@@ -187,6 +111,7 @@ Think about:
 
 """
 
+
 REMOTE_SYNTHESIS_FINAL = """\
 Here is the response after step-by-step thinking.
 
@@ -204,6 +129,7 @@ If you have enough information or if the task is complete, write a final answer 
 ```
 
 Otherwise, if the task is not complete, request the small language model to do additional work, by outputting the following:
+
 
 ```json
 {{

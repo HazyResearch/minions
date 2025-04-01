@@ -78,7 +78,7 @@ pip install git+https://github.com/cartesia-ai/edge.git#subdirectory=cartesia-ml
 
 **Step 3:** Set your API key for at least one of the following cloud LLM providers.
 
-_If needed, create an [OpenAI API Key](https://platform.openai.com/docs/overview) or [TogetherAI API key](https://docs.together.ai/docs/quickstart) for the cloud model._
+_If needed, create an [OpenAI API Key](https://platform.openai.com/docs/overview) or [TogetherAI API key](https://docs.together.ai/docs/quickstart) or [DeepSeek API key](https://platform.deepseek.com/api_keys) for the cloud model._
 
 ```bash
 # OpenAI
@@ -98,6 +98,9 @@ export PERPLEXITY_BASE_URL=<your-perplexity-base-url>  # Optional: Use a differe
 
 # Tokasaurus
 export TOKASAURUS_BASE_URL=<your-tokasaurus-base-url>  # Optional: Use a different Tokasaurus API endpoint
+
+# DeepSeek
+export DEEPSEEK_API_KEY=<your-deepseek-api-key>
 ```
 
 ## Minions Demo Application

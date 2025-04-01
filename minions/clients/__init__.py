@@ -7,6 +7,8 @@ from minions.clients.perplexity import PerplexityAIClient
 from minions.clients.openrouter import OpenRouterClient
 from minions.clients.groq import GroqClient
 from minions.clients.deepseek import DeepSeekClient
+from minions.clients.sambanova import SambanovaClient
+from minions.clients.gemini import GeminiClient
 
 __all__ = [
     "OllamaClient",
@@ -18,6 +20,8 @@ __all__ = [
     "OpenRouterClient",
     "GroqClient",
     "DeepSeekClient",
+    "SambanovaClient",
+    "GeminiClient",
 ]
 
 try:
@@ -38,4 +42,35 @@ except ImportError:
     # If cartesia_mlx is not installed, skip it
     print(
         "Warning: cartesia_mlx is not installed. If you want to use cartesia_mlx, please follow the instructions in the README to install it."
+    )
+
+
+try:
+    from .mlx_omni import MLXOmniClient
+
+    __all__.append("MLXOmniClient")
+except ImportError:
+    # print warning that mlx_omni is not installed
+    print(
+        "Warning: mlx_omni is not installed. If you want to use mlx_omni, please install it with `pip install mlx-omni-server`"
+    )
+
+try:
+    from .huggingface import HuggingFaceClient
+
+    __all__.append("HuggingFaceClient")
+except ImportError:
+    # print warning that huggingface is not installed
+    print(
+        "Warning: huggingface inference client is not installed. If you want to use huggingface inference client, please install it with `pip install huggingface-hub`"
+    )
+
+try:
+    from .mlx_audio import MLXAudioClient
+
+    __all__.append("MLXAudioClient")
+except ImportError:
+    # print warning that mlx_audio is not installed
+    print(
+        "Warning: mlx_audio is not installed. If you want to use mlx_audio, please install it with `pip install mlx-audio`"
     )

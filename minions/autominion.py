@@ -1,4 +1,4 @@
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Union
 import json
 import re
 import os
@@ -17,9 +17,35 @@ from minions.prompts.minion import (
     REFORMAT_QUERY_PROMPT,
 )
 
-from minions.usage import Usage
+TOGETHER_CLIENT_INFO = {
+    "meta-llama/Llama-3.3-70B-Instruct-Turbo": {
+        "capabilities": "70B multilingual LLM optimized for dialogue, excelling in benchmarks and surpassing many chat models.",
+        "input_token_price_per_1M": 0.88,
+        "output_token_price_per_1M": 0.88
+    },
+    "deepseek-ai/DeepSeek-R1": {
+        "capabilities": "Open-source reasoning model rivaling OpenAI-o1, excelling in math, code, reasoning, and cost efficiency.",
+        "input_token_price_per_1M": 3.00,
+        "output_token_price_per_1M": 7.00
+    },
+    "Qwen/Qwen2.5-72B-Instruct-Turbo": {
+        "capabilities": "Decoder-only language model for advanced language tasks.",
+        "input_token_price_per_1M": 1.95,
+        "output_token_price_per_1M": 8.00
+    },
+    "meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo": {
+        "capabilities": "Multilingual LLM with 405B parameters, pre-trained and instruction-tuned for advanced language tasks.",
+        "input_token_price_per_1M": 0.18,
+        "output_token_price_per_1M": 0.18
+    },
+    "deepseek-ai/DeepSeek-V3": {
+        "capabilities": "DeepSeek's latest open Mixture-of-Experts model challenging top AI models at much lower cost.",
+        "input_token_price_per_1M": 1.25,
+        "output_token_price_per_1M": 1.25
+    },
+}
 
-# Override the supervisor initial prompt to encourage task decomposition.
+
 SUPERVISOR_INITIAL_PROMPT = """\
 We need to perform the following task.
 
@@ -27,64 +53,26 @@ We need to perform the following task.
 {task}
 
 ### Instructions
-You will not have direct access to the context, but you can chat with a small language model that has read the entire content.
+You will not have direct access to the context, but can spin up an assistant language model that will have access to the context and will correspond with you to solve the task.
 
-Let's use an incremental, step-by-step approach to ensure we fully decompose the task before proceeding. Please follow these steps:
+First, you must select the most cost-effective and performant language model to answer the task.
 
-1. Decompose the Task:
-   Break down the overall task into its key components or sub-tasks. Identify what needs to be done and list these sub-tasks.
+Here are the language models you have access to:
 
-2. Explain Each Component:
-   For each sub-task, briefly explain why it is important and what you expect it to achieve. This helps clarify the reasoning behind your breakdown.
+{local_clients}
 
-3. Formulate a Focused Message:
-   Based on your breakdown, craft a single, clear message to send to the small language model. This message should represent one focused sub-task derived from your decomposition.
-
-4. Conclude with a Final Answer:  
-   After your reasoning, please provide a **concise final answer** that directly and conclusively addresses the original task. Make sure this final answer includes all the specific details requested in the task.
-
-Your output should be in the following JSON format:
+Feel free to think step-by-step, but eventually you must provide an output in the format below:
 
 ```json
 {{
-    "reasoning": "<your detailed, step-by-step breakdown here>",
-    "message": "<your final, focused message to the small language model>"
-}}
-"""
-
-# Override the final response prompt to encourage a more informative final answer
-REMOTE_SYNTHESIS_FINAL = """\
-Here is the detailed response from the step-by-step reasoning phase.
-
-### Detailed Response
-{response}
-
-### Instructions
-Based on the detailed reasoning above, synthesize a clear and informative final answer that directly addresses the task with all the specific details required. In your final answer, please:
-
-1. Summarize the key findings and reasoning steps.
-2. Clearly state the conclusive answer, incorporating the important details.
-3. Ensure the final answer is self-contained and actionable.
-
-If you determine that you have gathered enough information to fully answer the task, output the following JSON with your final answer:
-
-```json
-{{
-    "decision": "provide_final_answer", 
-    "answer": "<your detailed, conclusive final answer here>"
+    "selected_client": "<the name of the language model you selected>",
+    "message": "<your first message to the language model. If you are asking the model to do a task, make sure it is a single task!>"
 }}
 ```
-
-Otherwise, if the task is not complete, request the small language model to do additional work, by outputting the following:
-
-```json
-{{
-    "decision": "request_additional_info",
-    "message": "<your message to the small language model>"
-}}
-```
-
 """
+
+from minions.usage import Usage
+
 
 def _escape_newlines_in_strings(json_str: str) -> str:
     # This regex naively matches any content inside double quotes (including escaped quotes)
@@ -119,12 +107,10 @@ def _extract_json(text: str) -> Dict[str, Any]:
         print(f"Failed to parse JSON: {json_str}")
         raise
 
-
 class Minion:
     def __init__(
         self,
-        local_client=None,
-        remote_client=None,
+        remote_client: Union[OpenAIClient, TogetherClient, GeminiClient],
         max_rounds=3,
         callback=None,
         log_dir="minion_logs",
@@ -137,7 +123,13 @@ class Minion:
             max_rounds: Maximum number of conversation rounds
             callback: Optional callback function to receive message updates
         """
-        self.local_client = local_client
+        self.local_client_info = "\n".join(
+            f"Client Name: {name}\n"
+            f"  Capabilities: {client['capabilities']}\n"
+            f"  Input Token Price per 1M: {client.get('input_token_price_per_1M', 'N/A')}\n"
+            f"  Output Token Price per 1M: {client.get('output_token_price_per_1M', 'N/A')}\n"
+            for name, client in TOGETHER_CLIENT_INFO.items()
+        )
         self.remote_client = remote_client
         self.max_rounds = max_rounds
         self.callback = callback
@@ -194,12 +186,12 @@ class Minion:
         }
 
         # Initialize message histories and usage tracking
+        supervisor_initial_prompt = SUPERVISOR_INITIAL_PROMPT.format(task=task, local_clients=self.local_client_info)
+        
         supervisor_messages = [
             {
                 "role": "user",
-                "content": SUPERVISOR_INITIAL_PROMPT.format(
-                    task=task, max_rounds=max_rounds
-                ),
+                "content": supervisor_initial_prompt,
             }
         ]
 
@@ -207,9 +199,7 @@ class Minion:
         conversation_log["conversation"].append(
             {
                 "user": "remote",
-                "prompt": SUPERVISOR_INITIAL_PROMPT.format(
-                    task=task, max_rounds=max_rounds
-                ),
+                "prompt": supervisor_initial_prompt,
                 "output": None,
             }
         )
@@ -220,71 +210,13 @@ class Minion:
         remote_usage = Usage()
         local_usage = Usage()
 
-        worker_messages = []
-        supervisor_messages = []
-
-        # if privacy import from minions.utils.pii_extraction
-        if is_privacy:
-            from minions.utils.pii_extraction import PIIExtractor
-
-            # Extract PII from context
-            pii_extractor = PIIExtractor()
-            str_context = "\n\n".join(context)
-            pii_extracted = pii_extractor.extract_pii(str_context)
-
-            # Extract PII from query
-            query_pii_extracted = pii_extractor.extract_pii(task)
-            reformat_query_task = REFORMAT_QUERY_PROMPT.format(
-                query=task, pii_extracted=str(query_pii_extracted)
-            )
-
-            # Clean PII from query
-            reformatted_task, usage, done_reason = self.local_client.chat(
-                messages=[{"role": "user", "content": reformat_query_task}]
-            )
-            local_usage += usage
-            pii_reformatted_task = reformatted_task[0]
-
-            # Log the reformatted task
-            output = f"""**PII Reformated Task:**
-            {pii_reformatted_task}
-            """
-
-            if self.callback:
-                self.callback("worker", output)
-
-            # Initialize message histories
-            supervisor_messages = [
-                {
-                    "role": "user",
-                    "content": SUPERVISOR_INITIAL_PROMPT.format(
-                        task=pii_reformatted_task,
-                        max_rounds=max_rounds,
-                    ),
-                }
-            ]
-            worker_messages = [
-                {
-                    "role": "system",
-                    "content": WORKER_SYSTEM_PROMPT.format(context=context, task=task),
-                }
-            ]
-        else:
-            supervisor_messages = [
-                {
-                    "role": "user",
-                    "content": SUPERVISOR_INITIAL_PROMPT.format(
-                        task=task, max_rounds=max_rounds
-                    ),
-                }
-            ]
-            worker_messages = [
-                {
-                    "role": "system",
-                    "content": WORKER_SYSTEM_PROMPT.format(context=context, task=task),
-                    "images": images,
-                }
-            ]
+        worker_messages = [
+            {
+                "role": "system",
+                "content": WORKER_SYSTEM_PROMPT.format(context=context, task=task),
+                "images": images,
+            }
+        ]
 
         if max_rounds is None:
             max_rounds = self.max_rounds
@@ -333,6 +265,7 @@ class Minion:
         # Extract first question for worker
         if isinstance(self.remote_client, (OpenAIClient, TogetherClient, GeminiClient)):
             try:
+                # should have fields selected_client and message
                 supervisor_json = json.loads(supervisor_response[0])
 
             except:
@@ -343,6 +276,15 @@ class Minion:
         else:
             supervisor_json = _extract_json(supervisor_response[0])
 
+        selected_client_name = supervisor_json["selected_client"]
+
+        self.local_client = TogetherClient(
+            model_name=selected_client_name,
+            temperature=0.0,
+            max_tokens=len(context) // 4,
+        )
+
+        print(f"Selected client: {selected_client_name}")
         worker_messages.append({"role": "user", "content": supervisor_json["message"]})
 
         # Add worker prompt to conversation log

@@ -89,7 +89,13 @@ class OpenAIClient:
             self.logger.error(f"Error during OpenAI API call: {e}")
             raise
 
-        outputs = [output_text[1].content[0].text]
+        # extract the text from the output_text
+        outputs = []
+        for output in output_text:
+            # filter out the ResponseFunctionWebSearch object
+            if hasattr(output, "content"):
+                for content in output.content:
+                    outputs.append(content.text)
 
         usage = response.usage.input_tokens
 

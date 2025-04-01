@@ -4,9 +4,6 @@ import re
 import json
 from pydantic import BaseModel, field_validator, Field
 from inspect import getsource
-from rank_bm25 import BM25Plus
-import numpy as np
-import os
 
 from minions.usage import Usage
 
@@ -29,7 +26,11 @@ from minions.prompts.minions import (
     REMOTE_SYNTHESIS_COT,
     REMOTE_SYNTHESIS_JSON,
     REMOTE_SYNTHESIS_FINAL,
+    BM25_INSTRUCTIONS,
+    EMBEDDING_INSTRUCTIONS
 )
+
+from minions.utils.retrievers import *
 
 
 def chunk_by_section(
@@ -42,33 +43,6 @@ def chunk_by_section(
         sections.append(doc[start:end])
         start += max_chunk_size - overlap
     return sections
-
-
-def retrieve_top_k_chunks(
-    keywords: List[str], chunks: List[str], weights: Dict[str, float], k: int = 10
-) -> List[str]:
-    """
-    Returns the k most relevant chunks based on weighted BM25+ ranking.
-
-    Example:
-        Task: "What was Mrs. Anderson's tumor marker levels in 2021"
-        queries = {"Mrs. Anderson": 5.0, "tumor marker": 3.0, "2021": 1.5, "Anderson": 1.0}
-        relevant_chunks = retrieve_top_k_chunks(queries.keys(), chunks, k=10, weights=queries)
-    """
-    weights = {keyword: weights.get(keyword, 1.0) for keyword in keywords}
-    bm25_retriever = BM25Plus(chunks)
-
-    final_scores = np.zeros(len(chunks))
-    for keyword, weight in weights.items():
-        scores = bm25_retriever.get_scores(keyword)
-        final_scores += weight * scores
-
-    top_k_indices = sorted(
-        range(len(final_scores)), key=lambda i: final_scores[i], reverse=True
-    )[:k]
-    top_k_indices = sorted(top_k_indices)
-    relevant_chunks = [chunks[i] for i in top_k_indices]
-    return relevant_chunks
 
 
 class JobManifest(BaseModel):
@@ -245,7 +219,7 @@ class Minions:
         num_tasks_per_round=3,
         num_samples_per_task=1,
         mcp_tools_info=None,
-        use_bm25=True,
+        use_retrieval=None,
         log_path=None,
     ):
         """Run the minions protocol to answer a task using local and remote models.
@@ -255,6 +229,10 @@ class Minions:
             doc_metadata: Type of document being analyzed
             context: List of context strings
             max_rounds: Override default max_rounds if provided
+            retrieval: Retrieval strategy to use. Options:
+                - None: Don't use retrieval
+                - "bm25": Use BM25 keyword-based retrieval
+                - "embedding": Use embedding-based retrieval
             log_path: Optional path to save conversation logs
 
         Returns:
@@ -262,6 +240,14 @@ class Minions:
         """
 
         self.max_rounds = max_rounds or self.max_rounds
+
+        retriever = None
+
+        if use_retrieval:
+            if use_retrieval == "bm25":
+                retriever = bm25_retrieve_top_k_chunks
+            elif use_retrieval == "embedding":
+                retriever = embedding_retrieve_top_k_chunks
 
         # Initialize usage tracking
         remote_usage = Usage()
@@ -309,6 +295,20 @@ class Minions:
                 # compute characters in context
                 total_chars = sum(len(doc) for doc in context)
 
+            retrieval_source = ""
+            retrieval_instructions = ""
+
+            if use_retrieval:
+                retrieval_source = getsource(retriever).split(
+                    "    weights = "
+                )[0]
+                
+                retrieval_instructions = (
+                    BM25_INSTRUCTIONS if use_retrieval == "bm25" 
+                    else EMBEDDING_INSTRUCTIONS if use_retrieval == "embedding"
+                    else ""
+                )
+
             decompose_message_kwargs = dict(
                 num_samples=self.num_samples,
                 ADVANCED_STEPS_INSTRUCTIONS="",
@@ -320,9 +320,8 @@ class Minions:
                 chunking_source="\n\n".join(
                     [getsource(chunk_by_section).split("    sections = ")[0]]
                 ),
-                retrieval_source=getsource(retrieve_top_k_chunks).split(
-                    "    weights = "
-                )[0],
+                retrieval_source=retrieval_source,
+                retrieval_instructions=retrieval_instructions,
                 num_tasks_per_round=num_tasks_per_round,
                 num_samples_per_task=num_samples_per_task,
                 total_chars=total_chars,
@@ -330,7 +329,7 @@ class Minions:
 
             decompose_prompt = (
                 self.decompose_task_prompt
-                if not use_bm25
+                if not use_retrieval
                 else self.decompose_retrieval_task_prompt
             )
             # create the decompose prompt -- if in later rounds, use a shorter version
@@ -348,7 +347,7 @@ class Minions:
             else:
                 decompose_prompt_abbrev = (
                     self.decompose_task_prompt_abbreviated
-                    if not use_bm25
+                    if not use_retrieval
                     else self.decompose_retrieval_task_prompt_abbreviated
                 )
                 if feedback is not None:
@@ -406,11 +405,13 @@ class Minions:
                 starting_globals = {
                     **USEFUL_IMPORTS,
                     "chunk_by_section": chunk_by_section,
-                    "retrieve_top_k_chunks": retrieve_top_k_chunks,
                     "JobManifest": JobManifest,
                     "JobOutput": JobOutput,
                     "Job": Job,
                 }
+
+                if use_retrieval:
+                    starting_globals[f"{use_retrieval}_retrieve_top_k_chunks"] = retriever
 
                 fn_kwargs = {
                     "context": context,

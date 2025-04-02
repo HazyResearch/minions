@@ -2,9 +2,10 @@ from typing import List, Dict, Any
 import json
 import re
 import os
+import time
 from datetime import datetime
 
-from minions.clients import OpenAIClient, TogetherClient, GeminiClient
+from minions.clients import OpenAIClient, TogetherClient, GeminiClient, SambanovaClient
 
 from minions.prompts.minion import (
     SUPERVISOR_CONVERSATION_PROMPT,
@@ -107,6 +108,16 @@ class Minion:
         print(f"Privacy enabled: {is_privacy}")
         print(f"Images provided: {True if images else False}")
 
+        # Initialize timing metrics
+        start_time = time.time()
+        timing = {
+            "local_call_time": 0.0,
+            "remote_call_time": 0.0,
+            "total_time": 0.0,
+        }
+
+        last_checkpoint = start_time
+
         if max_rounds is None:
             max_rounds = self.max_rounds
 
@@ -124,6 +135,7 @@ class Minion:
                 "remote": {},
                 "local": {},
             },
+            "timing": timing,  # Add timing to the log structure
         }
 
         # Initialize message histories and usage tracking
@@ -226,6 +238,7 @@ class Minion:
         if self.callback:
             self.callback("supervisor", None, is_final=False)
 
+        remote_start_time = time.time()
         if isinstance(self.remote_client, (OpenAIClient, TogetherClient)):
             supervisor_response, supervisor_usage = self.remote_client.chat(
                 messages=supervisor_messages, response_format={"type": "json_object"}
@@ -251,6 +264,9 @@ class Minion:
             supervisor_response, supervisor_usage = self.remote_client.chat(
                 messages=supervisor_messages
             )
+        current_time = time.time()
+
+        timing["remote_call_time"] += current_time - remote_start_time
 
         remote_usage += supervisor_usage
         supervisor_messages.append(
@@ -289,9 +305,13 @@ class Minion:
             if self.callback:
                 self.callback("worker", None, is_final=False)
 
+            # Track local call time
+            local_start_time = time.time()
             worker_response, worker_usage, done_reason = self.local_client.chat(
                 messages=worker_messages
             )
+            current_time = time.time()
+            timing["local_call_time"] += current_time - local_start_time
 
             print(f"Worker response: {worker_response}")
             print(f"Worker usage: {worker_usage}")
@@ -359,9 +379,13 @@ class Minion:
 
                 supervisor_messages.append({"role": "user", "content": cot_prompt})
 
+                # Track remote call time for step-by-step thinking
+                remote_start_time = time.time()
                 step_by_step_response, usage = self.remote_client.chat(
                     supervisor_messages
                 )
+                current_time = time.time()
+                timing["remote_call_time"] += current_time - remote_start_time
 
                 remote_usage += usage
 
@@ -389,13 +413,14 @@ class Minion:
             if self.callback:
                 self.callback("supervisor", None, is_final=False)
 
-            # Get supervisor's response
+            # Track remote call time
+            remote_start_time = time.time()
             if isinstance(self.remote_client, (OpenAIClient, TogetherClient)):
                 supervisor_response, supervisor_usage = self.remote_client.chat(
                     messages=supervisor_messages,
                     response_format={"type": "json_object"},
                 )
-            else:
+            elif isinstance(self.remote_client, GeminiClient):
                 from pydantic import BaseModel
 
                 class remote_output(BaseModel):
@@ -410,6 +435,13 @@ class Minion:
                         "response_schema": remote_output,
                     },
                 )
+            else:
+                supervisor_response, supervisor_usage = self.remote_client.chat(
+                    messages=supervisor_messages
+                )
+            current_time = time.time()
+
+            timing["remote_call_time"] += current_time - remote_start_time
 
             remote_usage += supervisor_usage
             supervisor_messages.append(
@@ -446,6 +478,13 @@ class Minion:
             final_answer = "No answer found."
             conversation_log["generated_final_answer"] = final_answer
 
+        # Calculate total time and overhead at the end
+        end_time = time.time()
+        timing["total_time"] = end_time - start_time
+        timing["overhead_time"] = timing["total_time"] - (
+            timing["local_call_time"] + timing["remote_call_time"]
+        )
+
         # Add usage statistics to the log
         conversation_log["usage"]["remote"] = remote_usage.to_dict()
         conversation_log["usage"]["local"] = local_usage.to_dict()
@@ -475,4 +514,5 @@ class Minion:
             "local_usage": local_usage,
             "log_file": log_path,
             "conversation_log": conversation_log,
+            "timing": timing,
         }

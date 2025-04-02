@@ -1,8 +1,16 @@
 import logging
 from typing import Any, Dict, List, Tuple
 
-from mlx_parallm.utils import load, generate
+# wrap mlx_parallm import in a try catch
+try:
+    from mlx_parallm.utils import load, generate
+except ImportError:
+    raise ImportError(
+        "mlx_parallm is not installed. Please install it using 'pip install git+https://github.com/akhileshvb/mlx_parallm.git'."
+    )
+
 from minions.usage import Usage
+
 
 class MLXParallmClient:
     def __init__(
@@ -33,7 +41,9 @@ class MLXParallmClient:
         self.model, self.tokenizer = load(model_name)
         self.logger.info(f"Model {model_name} loaded successfully")
 
-    def chat(self, messages: List[Dict[str, Any]], **kwargs) -> Tuple[List[str], Usage, str]:
+    def chat(
+        self, messages: List[Dict[str, Any]], **kwargs
+    ) -> Tuple[List[str], Usage, str]:
         """
         Generate a response for a chat conversation using the MLX PARALLM model.
 
@@ -47,11 +57,11 @@ class MLXParallmClient:
               - Usage object with prompt and completion token counts.
         """
         assert len(messages) > 0, "Messages cannot be empty."
-        
+
         prompt = self.tokenizer.apply_chat_template(
             conversation=messages, add_generation_prompt=True, temp=self.temperature
         )
-        
+
         params = {
             "model": self.model,
             "tokenizer": self.tokenizer,
@@ -61,7 +71,7 @@ class MLXParallmClient:
             "temp": self.temperature,
             **kwargs,
         }
-        
+
         response = generate(**params)
 
         # messages are structured as list of lists in run.py
@@ -74,7 +84,7 @@ class MLXParallmClient:
         except Exception as e:
             self.logger.error(f"Error during token encoding: {e}")
             completion_tokens = len(response)
-        
+
         usage = Usage(prompt_tokens=prompt_tokens, completion_tokens=completion_tokens)
-        
-        return [response], usage
+
+        return [response], usage, "END_OF_TEXT"

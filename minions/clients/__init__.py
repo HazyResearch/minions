@@ -74,3 +74,11 @@ except ImportError:
     print(
         "Warning: mlx_audio is not installed. If you want to use mlx_audio, please install it with `pip install mlx-audio`"
     )
+
+try:
+    from .mlx_parallm_model import MLXParallmClient
+except ImportError:
+    # This allows the package to be imported even if mlx_parallm is not installed
+    print(
+        "Warning: mlx_parallm is not installed. If you want to use mlx_parallm, please install it with `pip install mlx-parallm`"
+    )

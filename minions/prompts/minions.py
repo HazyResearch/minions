@@ -486,6 +486,21 @@ def transform_outputs(
 ```
 """
 
+BM25_INSTRUCTIONS = """\
+- For each subtask you create, create keywords for retrieving relevant chunks. Extract precise keyword search queries that are **directly derived** from the user's question and the subtask—avoid overly broad or generic terms.
+- Assign high weights to the most essential terms that uniquely apply to the query and subtask (e.g. terms, dates, numerical values) to maximize retrieval accuracy. Choose a higher value for `k` (15) if you are unconfident about your keywords.
+"""
+
+
+EMBEDDING_INSTRUCTIONS = """\
+- Generate multiple **highly similar, semantically dense** queries per subtask to maximize similarity-based retrieval.
+- Ensure all queries **contain the same key concepts and phrasing structure**, varying only slightly to increase robustness.
+- Use **phrases that are likely to appear in the target text**, emphasizing domain-specific terminology.
+- Avoid unnecessary rewording that significantly alters the structure of the query—focus on **minor variations that preserve core meaning**.
+- Keep queries **concise and information-dense**, reducing ambiguity for the embedding model.
+- Avoid abstract, question-style phrasings since embedding models are not generative; they work by matching vectors in high-dimensional space.
+"""
+
 
 DECOMPOSE_RETRIEVAL_TASK_PROMPT_AGGREGATION_FUNC = """\
 # Decomposition Round #{step_number}
@@ -500,8 +515,8 @@ Goal: this function should return a list of atomic jobs to be performed on chunk
 Follow the steps below:
 - Break the document(s) into chunks, adjusting size based on task specificity (broader tasks: ~3000 chars, specific tasks: ~1500 chars).
 - Even if there are multiple documents as context, they will all be joined together under `context[0]`.
-- For each subtask you create, create keywords for retrieving relevant chunks. Extract precise keyword search queries that are **directly derived** from the user's question and the subtask—avoid overly broad or generic terms.
-- Assign high weights to the most essential terms that uniquely apply to the query and subtask (e.g. terms, dates, numerical values) to maximize retrieval accuracy. Choose a higher value for `k` (15) if you are unconfident about your keywords.
+{retrieval_instructions}
+- If retrieval results are insufficient, increase `k` (15) and refine query specificity.
 - Assign **atomic** jobs to the retrieved chunks, ensuring each task relies only on its assigned chunk.
 - **Re-use** `task_id` for repeated tasks across chunks.
 - Do **not** assign tasks requiring sequential processing in this round—save them for later rounds.
@@ -570,8 +585,7 @@ Function #1 (prepare_jobs): will output formatted tasks for a small language mod
 -> The same `task_id` should be applied to multiple chunks. DO NOT instantiate a new `task_id` for each combination of task and chunk.
 -> Use the conversational history to inform what chunking strategy has already been applied.
 -> If the previous job was unsuccessful, try a different `chunk_size`: 2000 if task is factual and specific; 5000 if task is general. Try a larger retrieval value of `k` like 20 for retrieval.
--> Create keywords for retrieving relevant chunks. Extract precise keyword search queries that are **directly derived** from the user's question—avoid overly broad or generic terms. 
--> Assign high weights to the most essential terms from the query (e.g., proper nouns, dates, numerical values) to maximize retrieval accuracy. Feed your queries to the provided *retrieval function*.
+{retrieval_instructions}
 -> You are provided access to the outputs of the previous jobs (see prev_job_outputs). 
 -> If its helpful, you can reason over the prev_job_outputs vs. the original context.
 -> If tasks should be done sequentially, do not run them all in this round. Wait for the next round to run sequential tasks.

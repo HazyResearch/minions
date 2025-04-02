@@ -4,7 +4,9 @@ from io import BytesIO
 from pathlib import Path
 from typing import List, Optional, Union, Tuple, Any
 from urllib.parse import urlparse
-
+from pathlib import Path
+import sys
+import os
 import requests
 from PIL import Image
 from pdf2image import convert_from_path, convert_from_bytes
@@ -45,13 +47,47 @@ def pdf_to_images(
     Returns:
         List of PIL Image objects, one per page
     """
-    if isinstance(pdf_data, (str, Path)):
-        return convert_from_path(pdf_data, dpi=dpi)
-    elif isinstance(pdf_data, bytes):
-        return convert_from_bytes(pdf_data, dpi=dpi)
-    else:
-        raise TypeError("pdf_data must be a string path, Path object, or bytes")
-
+    # Windows-specific file handling
+    pdf_path = None
+    if isinstance(pdf_data, (str, Path)) and sys.platform.startswith('win'):
+        # Windows path normalization and validation
+        if isinstance(pdf_data, (str, Path)) and sys.platform.startswith('win'):
+            pdf_path = Path(pdf_data).expanduser().resolve().as_posix().replace('/', '\\')
+            
+            # Unified exception handling
+            try:
+                with open(pdf_path, 'a'):
+                    if not os.path.getsize(pdf_path):
+                        raise ValueError(f"Empty PDF file: {pdf_path}")
+            except (PermissionError, FileNotFoundError) as e:
+                raise type(e)(f"PDF access failed: {pdf_path}") from e
+    
+        try:
+            # Unified input type handling
+            input_source = pdf_path if sys.platform.startswith('win') else pdf_data
+            print(f"Processing PDF: {getattr(input_source, 'name', input_source)}")
+            
+            return (convert_from_path(input_source, dpi=dpi) if isinstance(input_source, (str, Path)) 
+                    else convert_from_bytes(pdf_data, dpi=dpi))
+    
+        except Exception as e:
+            # Enhance error diagnostics
+            error_msg = f"PDF processing failed: {str(e)}"
+            if sys.platform.startswith('win'):
+                error_msg += "\nWindows-specific troubleshooting:\n"
+                error_msg += f"- Path encoding: {sys.getfilesystemencoding()}\n"
+                error_msg += f"- Absolute path: {os.path.abspath(pdf_path) if pdf_path else 'N/A'}\n"
+                error_msg += "- Try using short path name: " + subprocess.getoutput(f'powershell "(Get-Item -LiteralPath '{pdf_path}').FullName"') if pdf_path else ""
+                
+            # Check underlying dependencies
+            try:
+                from pdf2image.exceptions import PDFInfoNotInstalledError
+                if isinstance(e, PDFInfoNotInstalledError):
+                    error_msg += "\nMissing dependency: Install poppler-utils (Windows) or poppler (Mac/Linux)"
+            except ImportError:
+                pass
+                
+            raise RuntimeError(error_msg) from e
 
 def img_to_markdown_smoldocling(
     image_data: Union[str, Path, Image.Image, bytes],

@@ -27,7 +27,7 @@ from minions.prompts.minions import (
     REMOTE_SYNTHESIS_JSON,
     REMOTE_SYNTHESIS_FINAL,
     BM25_INSTRUCTIONS,
-    EMBEDDING_INSTRUCTIONS
+    EMBEDDING_INSTRUCTIONS,
 )
 
 from minions.utils.retrievers import *
@@ -221,6 +221,7 @@ class Minions:
         mcp_tools_info=None,
         use_retrieval=None,
         log_path=None,
+        retrieval_model=None,
     ):
         """Run the minions protocol to answer a task using local and remote models.
 
@@ -299,14 +300,12 @@ class Minions:
             retrieval_instructions = ""
 
             if use_retrieval:
-                retrieval_source = getsource(retriever).split(
-                    "    weights = "
-                )[0]
-                
+                retrieval_source = getsource(retriever).split("    weights = ")[0]
+
                 retrieval_instructions = (
-                    BM25_INSTRUCTIONS if use_retrieval == "bm25" 
-                    else EMBEDDING_INSTRUCTIONS if use_retrieval == "embedding"
-                    else ""
+                    BM25_INSTRUCTIONS
+                    if use_retrieval == "bm25"
+                    else EMBEDDING_INSTRUCTIONS if use_retrieval == "embedding" else ""
                 )
 
             decompose_message_kwargs = dict(
@@ -411,7 +410,9 @@ class Minions:
                 }
 
                 if use_retrieval:
-                    starting_globals[f"{use_retrieval}_retrieve_top_k_chunks"] = retriever
+                    starting_globals[f"{use_retrieval}_retrieve_top_k_chunks"] = (
+                        retriever
+                    )
 
                 fn_kwargs = {
                     "context": context,
@@ -747,7 +748,7 @@ class Minions:
         # Save logs if path is provided
         if log_path:
             os.makedirs(os.path.dirname(log_path), exist_ok=True)
-            with open(log_path, 'w') as f:
+            with open(log_path, "w") as f:
                 json.dump(result, f, indent=2)
 
         return result

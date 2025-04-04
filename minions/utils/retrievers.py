@@ -3,8 +3,18 @@ from typing import List, Dict
 from rank_bm25 import BM25Plus
 from abc import ABC, abstractmethod
 import numpy as np
-from sentence_transformers import SentenceTransformer
-import faiss
+
+try:
+    from sentence_transformers import SentenceTransformer
+except ImportError:
+    SentenceTransformer = None
+    print("SentenceTransformer not installed")
+
+try:
+    import faiss
+except ImportError:
+    faiss = None
+    print("faiss not installed")
 
 
 def bm25_retrieve_top_k_chunks(

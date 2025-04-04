@@ -56,7 +56,7 @@ except ImportError:
     )
 
 try:
-    from .huggingface import HuggingFaceClient
+    from minions.clients.huggingface_client import HuggingFaceClient
 
     __all__.append("HuggingFaceClient")
 except ImportError:

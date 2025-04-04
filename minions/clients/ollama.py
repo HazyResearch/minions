@@ -8,13 +8,14 @@ from minions.usage import Usage
 
 class OllamaClient:
     def __init__(
-            self,
-            model_name: str = "llama-3.2",
-            temperature: float = 0.0,
-            max_tokens: int = 2048,
-            num_ctx: int = 4096,
-            structured_output_schema: Optional[BaseModel] = None,
-            use_async: bool = False,
+        self,
+        model_name: str = "llama-3.2",
+        temperature: float = 0.0,
+        max_tokens: int = 2048,
+        num_ctx: int = 4096,
+        structured_output_schema: Optional[BaseModel] = None,
+        use_async: bool = False,
+        tool_calling: bool = False,
     ):
         """Initialize Ollama Client."""
         self.model_name = model_name
@@ -30,6 +31,7 @@ class OllamaClient:
             self.max_tokens = 131072
 
         self.use_async = use_async
+        self.return_tools = tool_calling
 
         # If we want structured schema output:
         self.format_structured_output = None
@@ -54,10 +56,11 @@ class OllamaClient:
         """
         try:
             import ollama
+
             models = ollama.list()
 
             # Extract model names from the list
-            model_names = [model.model for model in models['models']]
+            model_names = [model.model for model in models["models"]]
             return model_names
         except Exception as e:
             logging.error(f"Failed to get Ollama model list: {e}")
@@ -96,9 +99,9 @@ class OllamaClient:
     #  ASYNC
     #
     def achat(
-            self,
-            messages: Union[List[Dict[str, Any]], Dict[str, Any]],
-            **kwargs,
+        self,
+        messages: Union[List[Dict[str, Any]], Dict[str, Any]],
+        **kwargs,
     ) -> Tuple[List[str], List[Usage], List[str]]:
         """
         Wrapper for async chat. Runs `asyncio.run()` internally to simplify usage.
@@ -124,9 +127,9 @@ class OllamaClient:
             raise
 
     async def _achat_internal(
-            self,
-            messages: Union[List[Dict[str, Any]], Dict[str, Any]],
-            **kwargs,
+        self,
+        messages: Union[List[Dict[str, Any]], Dict[str, Any]],
+        **kwargs,
     ) -> Tuple[List[str], Usage, List[str]]:
         """
         Handle async chat with multiple messages in parallel.
@@ -164,9 +167,9 @@ class OllamaClient:
         return texts, usage_total, done_reasons
 
     def schat(
-            self,
-            messages: Union[List[Dict[str, Any]], Dict[str, Any]],
-            **kwargs,
+        self,
+        messages: Union[List[Dict[str, Any]], Dict[str, Any]],
+        **kwargs,
     ) -> Tuple[List[str], Usage, List[str]]:
         """
         Handle synchronous chat completions. If you pass a list of message dicts,
@@ -185,6 +188,7 @@ class OllamaClient:
         responses = []
         usage_total = Usage()
         done_reasons = []
+        tools = []
 
         try:
             # We do one single call if you pass the entire conversation:
@@ -200,6 +204,10 @@ class OllamaClient:
                 **kwargs,
             )
             responses.append(response["message"]["content"])
+
+            if "tool_calls" in response["message"]:
+                tools.append(response["message"]["tool_calls"])
+
             usage_total += Usage(
                 prompt_tokens=response["prompt_eval_count"],
                 completion_tokens=response["eval_count"],
@@ -210,12 +218,15 @@ class OllamaClient:
             self.logger.error(f"Error during Ollama API call: {e}")
             raise
 
-        return responses, usage_total, done_reasons
+        if self.return_tools:
+            return responses, usage_total, done_reasons, tools
+        else:
+            return responses, usage_total, done_reasons
 
     def chat(
-            self,
-            messages: Union[List[Dict[str, Any]], Dict[str, Any]],
-            **kwargs,
+        self,
+        messages: Union[List[Dict[str, Any]], Dict[str, Any]],
+        **kwargs,
     ) -> Tuple[List[str], Usage, List[str]]:
         """
         Handle synchronous chat completions. If you pass a list of message dicts,

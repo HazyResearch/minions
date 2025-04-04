@@ -1,8 +1,14 @@
-import streamlit as st
+
 from minions.minion import Minion
 from minions.minions import Minions
 from minions.minions_mcp import SyncMinionsMCP, MCPConfigManager
 from minions.utils.firecrawl_util import scrape_url
+
+
+import streamlit as st
+import time
+from minions.minion_cua import MinionCUA, KEYSTROKE_ALLOWED_APPS, SAFE_WEBSITE_DOMAINS
+
 
 # Instead of trying to import at startup, set voice_generation_available to None
 # and only attempt import when voice generation is requested
@@ -581,12 +587,147 @@ def initialize_clients(
             mcp_server_name=mcp_server_name,
             callback=message_callback,
         )
+    elif protocol == "Minion-CUA":
+        print("Initializing Minion-CUA protocol...")
+        
+        # Import the custom CUA initial prompt
+        from minions.prompts.minion_cua import SUPERVISOR_CUA_INITIAL_PROMPT
+        
+        # Create a custom initialization message to pass to remote models
+        init_message = {
+            "role": "system", 
+            "content": "This assistant has direct control over the user's computer. It can perform real physical automation on macOS, including opening applications, typing text, clicking elements, using keyboard shortcuts, and opening URLs."
+        }
+        
+        # Initialize with the specialized CUA class
+        st.session_state.method = MinionCUA(
+            st.session_state.local_client,
+            st.session_state.remote_client,
+            callback=message_callback,
+        )
+        
+        # Test if the class is correctly initialized
+        print(f"Method type: {type(st.session_state.method).__name__}")
+        
+        # Add a warning about accessibility permissions
+        st.sidebar.warning("""
+        ⚠️ **Accessibility Permissions Required**
+        
+        To control your Mac, this app needs accessibility permissions.
+        
+        Go to: System Settings → Privacy & Security → Accessibility
+        Then add Terminal or the app running this code.
+        """)
+        
+        # Display information about automation capabilities
+        st.sidebar.success("""
+        🤖 **Computer Automation Enabled**
+        
+        This mode allows the AI to physically control your Mac to:
+        - Open any application 
+        - Type text
+        - Click UI elements
+        - Use keyboard shortcuts
+        - Open websites
+        
+        Each action will be announced before execution.
+        """)
     else:  # Minion protocol
         st.session_state.method = Minion(
             st.session_state.local_client,
             st.session_state.remote_client,
             callback=message_callback,
         )
+
+    # Test button
+    if protocol == "Minion-CUA":
+        st.sidebar.markdown("""
+        ### 🤖 Computer Automation Mode
+        
+        In this mode, the AI assistant will actually control your computer to perform actions like:
+        - Opening applications
+        - Typing text
+        - Clicking elements
+        - Using keyboard shortcuts
+        - Opening URLs
+        
+        This requires accessibility permissions to be granted to your terminal or application running this code.
+        """)
+        
+        test_col1, test_col2 = st.sidebar.columns(2)
+        
+        with test_col1:
+            if st.button("🧮 Open Calculator", key="test_calculator"):
+                with st.status("Testing Calculator...", expanded=True) as status:
+                    st.session_state.method(
+                        task="Please open the Calculator application so I can perform some calculations.",
+                        context=["User needs to do some math calculations."],
+                        max_rounds=2,
+                        is_privacy=False,
+                    )
+                    status.update(label="Test completed!", state="complete")
+            
+            if st.button("📝 Open TextEdit", key="test_textedit"):
+                with st.status("Testing TextEdit...", expanded=True) as status:
+                    st.session_state.method(
+                        task="Please open TextEdit so I can write a note.",
+                        context=["User needs to write something."],
+                        max_rounds=2,
+                        is_privacy=False,
+                    )
+                    status.update(label="Test completed!", state="complete")
+        
+        with test_col2:
+            if st.button("🌐 Open Browser", key="test_browser"):
+                with st.status("Testing Browser...", expanded=True) as status:
+                    st.session_state.method(
+                        task="Please open Safari browser.",
+                        context=["User needs to browse the web."],
+                        max_rounds=2,
+                        is_privacy=False,
+                    )
+                    status.update(label="Test completed!", state="complete")
+            
+            if st.button("🧠 Run Full Test", key="test_workflow"):
+                with st.status("Running full CUA test workflow...", expanded=True) as status:
+                    st.session_state.method(
+                        task="Please open Calculator, type 123+456=, and then open TextEdit.",
+                        context=["User wants to test the automation capabilities."],
+                        max_rounds=5,
+                        is_privacy=False,
+                    )
+                    status.update(label="Test workflow completed!", state="complete")
+        
+        # Add CUA documentation and examples
+        with st.sidebar.expander("ℹ️ CUA Automation Help", expanded=False):
+            st.markdown("""
+            ### Computer User Automation
+            
+            This Minion can help automate GUI tasks on your Mac. Here are some examples:
+            
+            **Basic Tasks:**
+            - "Open Calculator and perform a calculation"
+            - "Open TextEdit and type a short note"
+            - "Open Safari and go to google.com"
+            
+            **Multi-step Tasks:**
+            - "Please open Safari, navigate to gmail.com, and help me log in"
+            - "Open Calculator, solve 5432 × 789, then paste the result in TextEdit"
+            
+            **Supported Actions:**
+            - Opening applications
+            - Typing text
+            - Clicking UI elements
+            - Keyboard shortcuts
+            - Opening URLs
+            
+            **Allowed Applications:**
+            """)
+            
+            # Display allowed applications
+            st.markdown("- " + "\n- ".join(KEYSTROKE_ALLOWED_APPS))
+            
+            st.markdown("**Note:** For security, some actions are restricted. The Minion will break complex tasks into small steps for confirmation.")
 
     # Get reasoning_effort from the widget value directly
     if "reasoning_effort" in st.session_state:
@@ -629,7 +770,6 @@ def run_protocol(
             and protocol == "Minion"
             and st.session_state.current_protocol == "Minion"
         ):
-
             padding = 8000
             estimated_tokens = int(len(context) / 4 + padding) if context else 4096
             num_ctx_values = [2048, 4096, 8192, 16384, 32768, 65536, 131072]
@@ -649,7 +789,6 @@ def run_protocol(
                     and "local_max_tokens" in st.session_state
                     and "api_key" in st.session_state
                 ):
-
                     # Reinitialize the local client with the new num_ctx
                     if local_provider == "Ollama":
                         st.session_state.local_client = OllamaClient(
@@ -677,6 +816,11 @@ def run_protocol(
         setup_time = time.time() - setup_start_time
         st.write("Solving task...")
         execution_start_time = time.time()
+
+
+        # Call the appropriate protocol with the correct parameters
+        output = None  # Initialize output to avoid reference errors
+        
 
         # Add timing wrappers to the clients to track time spent in each
         # Create timing wrappers for the clients
@@ -708,6 +852,7 @@ def run_protocol(
         st.session_state.remote_client.chat = timed_remote_chat
 
         # Pass is_privacy parameter when using Minion protocol
+
         if protocol == "Minion":
             output = st.session_state.method(
                 task=task,
@@ -723,15 +868,24 @@ def run_protocol(
                 doc_metadata=doc_metadata,
                 context=[context],
                 max_rounds=5,
-                use_bm25=use_bm25,
+                use_bm25=use_bm25,  # Only pass use_bm25 here
             )
-        else:
+        elif protocol == "Minion-CUA":
+            # For CUA, let's be clear about automation capabilities
+            st.info("💡 Using Computer User Automation to physically control your Mac")
             output = st.session_state.method(
                 task=task,
                 doc_metadata=doc_metadata,
                 context=[context],
                 max_rounds=5,
-                use_bm25=False,
+                images=images,
+            )
+        else:  # For Minions-MCP or other protocols
+            output = st.session_state.method(
+                task=task,
+                doc_metadata=doc_metadata,
+                context=[context],
+                max_rounds=5,
             )
 
         execution_time = time.time() - execution_start_time
@@ -1016,9 +1170,10 @@ with st.sidebar:
         "Together",
         "OpenRouter",
         "DeepSeek",
-        "SambaNova",
-    ]:  # Added Gemini to the list
-        protocol_options = ["Minion", "Minions", "Minions-MCP"]
+        "SambaNova"
+    ]:  # Added AzureOpenAI to the list
+        protocol_options = ["Minion", "Minions", "Minions-MCP", "Minion-CUA"]
+
         protocol = st.segmented_control(
             "Communication protocol", options=protocol_options, default="Minion"
         )
@@ -1583,6 +1738,78 @@ if user_query:
             status.update(
                 label=f"{protocol} protocol execution complete!", state="complete"
             )
+            if protocol == "Minion-CUA" and "action_history" in output and output["action_history"]:
+                st.header("Automation Actions")
+    
+                # Create a DataFrame for better display
+                actions_data = []
+                for action in output["action_history"]:
+                    action_type = action.get("action", "unknown")
+                    app_name = action.get("app_name", "N/A")
+                    
+                    # Format parameters based on action type
+                    params = ""
+                    if action_type == "type_keystrokes":
+                        params = f"Keys: '{action.get('keys', '')}'"
+                    elif action_type == "click_element":
+                        element = action.get("element_desc", "")
+                        coords = action.get("coordinates", [])
+                        params = element if element else f"Coords: {coords}"
+                    elif action_type == "key_combo":
+                        params = "+".join(action.get("combo", []))
+                    elif action_type == "open_url":
+                        params = action.get("url", "")
+                    
+                    explanation = action.get("explanation", "")
+                    result = action.get("result", "")
+                    
+                    actions_data.append({
+                        "Type": action_type.replace("_", " ").title(),
+                        "Application": app_name,
+                        "Parameters": params,
+                        "Explanation": explanation,
+                        "Result": result
+                    })
+                
+                if actions_data:
+                    actions_df = pd.DataFrame(actions_data)
+                    st.dataframe(actions_df, use_container_width=True)
+
+                    # Create a visual timeline of actions
+                    st.subheader("Action Timeline")
+                    for i, action in enumerate(actions_data):
+                        step = f"**Step {i+1}: {action['Type']} - {action['Application']}**"
+                        st.markdown(step)
+                        col1, col2, col3 = st.columns(3)
+                        with col1:
+                            st.markdown("**Parameters:**")
+                            st.write(action['Parameters'])
+                        with col2:
+                            st.markdown("**Purpose:**")
+                            st.write(action['Explanation'])
+                        with col3:
+                            st.markdown("**Result:**")
+                            st.write(action['Result'])
+                        st.markdown("---")  # Add a separator line
+                            
+                    # Add a button to try an advanced workflow
+                    if st.button("Try Gmail Login Workflow"):
+                        with st.status("Starting Gmail login workflow...", expanded=True) as status:
+                            workflow_task = """
+                            Please help me log into Gmail. Here's what you need to do step by step:
+                            1. Open Safari browser
+                            2. Navigate to gmail.com
+                            3. Wait for me to confirm when the login page is loaded
+                            4. I'll provide my username and password separately for security
+                            """
+                            
+                            st.session_state.method(
+                                task=workflow_task,
+                                context=["User needs to check their Gmail account."],
+                                max_rounds=10,
+                                is_privacy=True,
+                            )
+                            status.update(label="Gmail workflow completed!", state="complete")
 
             # Display final answer at the bottom with enhanced styling
             st.markdown("---")  # Add a visual separator

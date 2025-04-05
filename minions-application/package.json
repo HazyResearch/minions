@@ -1,0 +1,56 @@
+{
+  "name": "minions-application",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "main": "electron/main.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "lint": "eslint .",
+    "preview": "vite preview",
+    "electron:dev": "cross-env NODE_ENV=development electron .",
+    "electron:build": "tsc -b && vite build && electron-builder",
+    "electron:preview": "cross-env NODE_ENV=production electron ."
+  },
+  "dependencies": {
+    "@headlessui/react": "^2.2.0",
+    "@heroicons/react": "^2.2.0",
+    "@tailwindcss/vite": "^4.0.15",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "tailwindcss": "^4.0.15"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.21.0",
+    "@types/react": "^19.0.10",
+    "@types/react-dom": "^19.0.4",
+    "@vitejs/plugin-react-swc": "^3.8.0",
+    "cross-env": "^7.0.3",
+    "electron": "^28.1.0",
+    "electron-builder": "^24.9.1",
+    "eslint": "^9.21.0",
+    "eslint-plugin-react-hooks": "^5.1.0",
+    "eslint-plugin-react-refresh": "^0.4.19",
+    "globals": "^15.15.0",
+    "typescript": "~5.7.2",
+    "typescript-eslint": "^8.24.1",
+    "vite": "^6.2.0"
+  },
+  "build": {
+    "appId": "com.minions.app",
+    "productName": "Minions",
+    "mac": {
+      "category": "public.app-category.productivity",
+      "target": ["dmg", "zip"]
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "server.py"
+    ],
+    "directories": {
+      "output": "release"
+    }
+  }
+}

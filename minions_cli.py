@@ -114,7 +114,7 @@ def extract_text_from_folder(folder_path):
 
 def load_default_medical_context():
     try:
-        with open("data/test_medical.txt", "r") as f:
+        with open("data/test_medical.txt", "r", encoding="utf-8") as f:
             return f.read()
     except FileNotFoundError:
         print("Default medical context file not found!")

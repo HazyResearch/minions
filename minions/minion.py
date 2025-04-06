@@ -2,9 +2,10 @@ from typing import List, Dict, Any, Optional
 import json
 import re
 import os
+import time
 from datetime import datetime
 
-from minions.clients import OpenAIClient, TogetherClient
+from minions.clients import OpenAIClient, TogetherClient, GeminiClient, SambanovaClient
 
 from minions.prompts.minion import (
     SUPERVISOR_CONVERSATION_PROMPT,
@@ -16,6 +17,7 @@ from minions.prompts.minion import (
     WORKER_PRIVACY_SHIELD_PROMPT,
     REFORMAT_QUERY_PROMPT,
 )
+
 from minions.prompts.multi_turn import (
     MULTI_TURN_WORKER_SYSTEM_PROMPT,
     MULTI_TURN_SUPERVISOR_INITIAL_PROMPT,
@@ -23,9 +25,76 @@ from minions.prompts.multi_turn import (
     MULTI_TURN_SUPERVISOR_FINAL_PROMPT,
     MULTI_TURN_CONVERSATION_HISTORY_FORMAT,
 )
+
 from minions.usage import Usage
 from minions.utils.conversation_history import ConversationHistory, ConversationTurn
 
+# Override the supervisor initial prompt to encourage task decomposition.
+SUPERVISOR_INITIAL_PROMPT = """\
+We need to perform the following task.
+
+### Task
+{task}
+
+### Instructions
+You will not have direct access to the context, but you can chat with a small language model that has read the entire content.
+
+Let's use an incremental, step-by-step approach to ensure we fully decompose the task before proceeding. Please follow these steps:
+
+1. Decompose the Task:
+   Break down the overall task into its key components or sub-tasks. Identify what needs to be done and list these sub-tasks.
+
+2. Explain Each Component:
+   For each sub-task, briefly explain why it is important and what you expect it to achieve. This helps clarify the reasoning behind your breakdown.
+
+3. Formulate a Focused Message:
+   Based on your breakdown, craft a single, clear message to send to the small language model. This message should represent one focused sub-task derived from your decomposition.
+
+4. Conclude with a Final Answer:  
+   After your reasoning, please provide a **concise final answer** that directly and conclusively addresses the original task. Make sure this final answer includes all the specific details requested in the task.
+
+Your output should be in the following JSON format:
+
+```json
+{{
+    "reasoning": "<your detailed, step-by-step breakdown here>",
+    "message": "<your final, focused message to the small language model>"
+}}
+"""
+
+# Override the final response prompt to encourage a more informative final answer
+REMOTE_SYNTHESIS_FINAL = """\
+Here is the detailed response from the step-by-step reasoning phase.
+
+### Detailed Response
+{response}
+
+### Instructions
+Based on the detailed reasoning above, synthesize a clear and informative final answer that directly addresses the task with all the specific details required. In your final answer, please:
+
+1. Summarize the key findings and reasoning steps.
+2. Clearly state the conclusive answer, incorporating the important details.
+3. Ensure the final answer is self-contained and actionable.
+
+If you determine that you have gathered enough information to fully answer the task, output the following JSON with your final answer:
+
+```json
+{{
+    "decision": "provide_final_answer", 
+    "answer": "<your detailed, conclusive final answer here>"
+}}
+```
+
+Otherwise, if the task is not complete, request the small language model to do additional work, by outputting the following:
+
+```json
+{{
+    "decision": "request_additional_info",
+    "message": "<your message to the small language model>"
+}}
+```
+
+"""
 
 def _escape_newlines_in_strings(json_str: str) -> str:
     # This regex naively matches any content inside double quotes (including escaped quotes)
@@ -120,11 +189,28 @@ class Minion:
             Dict containing final_answer, conversation histories, and usage statistics
         """
 
+        print("\n========== MINION TASK STARTED ==========")
+        print(f"Task: {task}")
+        print(f"Max rounds: {max_rounds or self.max_rounds}")
+        print(f"Privacy enabled: {is_privacy}")
+        print(f"Images provided: {True if images else False}")
+
+        # Initialize timing metrics
+        start_time = time.time()
+        timing = {
+            "local_call_time": 0.0,
+            "remote_call_time": 0.0,
+            "total_time": 0.0,
+        }
+
+        last_checkpoint = start_time
+
         if max_rounds is None:
             max_rounds = self.max_rounds
 
         # Join context sections
         context = "\n\n".join(context)
+        print(f"Context length: {len(context)} characters")
 
         # Initialize the log structure
         conversation_log = {
@@ -132,9 +218,15 @@ class Minion:
             "context": context,
             "conversation": [],
             "generated_final_answer": "",
+            "usage": {
+                "remote": {},
+                "local": {},
+            },
+            "timing": timing,  # Add timing to the log structure
         }
 
         # Initialize message histories and usage tracking
+
         supervisor_messages = []
         worker_messages = []
         remote_usage = Usage()
@@ -144,6 +236,26 @@ class Minion:
         formatted_history = ""
         if self.is_multi_turn and len(self.conversation_history.turns) > 0:
             formatted_history = self._format_conversation_history()
+
+        supervisor_messages = [
+            {
+                "role": "user",
+                "content": SUPERVISOR_INITIAL_PROMPT.format(
+                    task=task, max_rounds=max_rounds
+                ),
+            }
+        ]
+
+        # Add initial supervisor prompt to conversation log
+        conversation_log["conversation"].append(
+            {
+                "user": "remote",
+                "prompt": SUPERVISOR_INITIAL_PROMPT.format(
+                    task=task, max_rounds=max_rounds
+                ),
+                "output": None,
+            }
+        )
 
         # print whether privacy is enabled
         print("Privacy is enabled: ", is_privacy)
@@ -177,6 +289,7 @@ class Minion:
 
             if self.callback:
                 self.callback("worker", output)
+
 
             # Initialize message histories based on conversation mode
             if self.is_multi_turn:
@@ -252,6 +365,40 @@ class Minion:
                     }
                 ]
 
+            # Initialize message histories
+            supervisor_messages = [
+                {
+                    "role": "user",
+                    "content": SUPERVISOR_INITIAL_PROMPT.format(
+                        task=pii_reformatted_task,
+                        max_rounds=max_rounds,
+                    ),
+                }
+            ]
+            worker_messages = [
+                {
+                    "role": "system",
+                    "content": WORKER_SYSTEM_PROMPT.format(context=context, task=task),
+                }
+            ]
+        else:
+            supervisor_messages = [
+                {
+                    "role": "user",
+                    "content": SUPERVISOR_INITIAL_PROMPT.format(
+                        task=task, max_rounds=max_rounds
+                    ),
+                }
+            ]
+            worker_messages = [
+                {
+                    "role": "system",
+                    "content": WORKER_SYSTEM_PROMPT.format(context=context, task=task),
+                    "images": images,
+                }
+            ]
+
+
         # Add initial supervisor prompt to conversation log
         conversation_log["conversation"].append(
             {
@@ -265,14 +412,35 @@ class Minion:
         if self.callback:
             self.callback("supervisor", None, is_final=False)
 
+        remote_start_time = time.time()
         if isinstance(self.remote_client, (OpenAIClient, TogetherClient)):
             supervisor_response, supervisor_usage = self.remote_client.chat(
                 messages=supervisor_messages, response_format={"type": "json_object"}
+            )
+        elif isinstance(self.remote_client, GeminiClient):
+            from pydantic import BaseModel
+
+            class output(BaseModel):
+                decision: str
+                message: str
+                answer: str
+
+            # how to make message and answer optional
+
+            supervisor_response, supervisor_usage = self.remote_client.chat(
+                messages=supervisor_messages,
+                config={
+                    "response_mime_type": "application/json",
+                    "response_schema": output,
+                },
             )
         else:
             supervisor_response, supervisor_usage = self.remote_client.chat(
                 messages=supervisor_messages
             )
+        current_time = time.time()
+
+        timing["remote_call_time"] += current_time - remote_start_time
 
         remote_usage += supervisor_usage
         supervisor_messages.append(
@@ -286,12 +454,15 @@ class Minion:
             self.callback("supervisor", supervisor_messages[-1])
 
         # Extract first question for worker
-        if isinstance(self.remote_client, (OpenAIClient, TogetherClient)):
+        if isinstance(self.remote_client, (OpenAIClient, TogetherClient, GeminiClient)):
             try:
                 supervisor_json = json.loads(supervisor_response[0])
 
             except:
-                supervisor_json = _extract_json(supervisor_response[0])
+                try:
+                    supervisor_json = _extract_json(supervisor_response[0])
+                except:
+                    supervisor_json = supervisor_response[0]
         else:
             supervisor_json = _extract_json(supervisor_response[0])
 
@@ -310,9 +481,16 @@ class Minion:
             if self.callback:
                 self.callback("worker", None, is_final=False)
 
+            # Track local call time
+            local_start_time = time.time()
             worker_response, worker_usage, done_reason = self.local_client.chat(
                 messages=worker_messages
             )
+            current_time = time.time()
+            timing["local_call_time"] += current_time - local_start_time
+
+            print(f"Worker response: {worker_response}")
+            print(f"Worker usage: {worker_usage}")
 
             local_usage += worker_usage
 
@@ -393,9 +571,13 @@ class Minion:
 
                 supervisor_messages.append({"role": "user", "content": cot_prompt})
 
+                # Track remote call time for step-by-step thinking
+                remote_start_time = time.time()
                 step_by_step_response, usage = self.remote_client.chat(
                     supervisor_messages
                 )
+                current_time = time.time()
+                timing["remote_call_time"] += current_time - remote_start_time
 
                 remote_usage += usage
 
@@ -428,16 +610,35 @@ class Minion:
             if self.callback:
                 self.callback("supervisor", None, is_final=False)
 
-            # Get supervisor's response
+            # Track remote call time
+            remote_start_time = time.time()
             if isinstance(self.remote_client, (OpenAIClient, TogetherClient)):
                 supervisor_response, supervisor_usage = self.remote_client.chat(
                     messages=supervisor_messages,
                     response_format={"type": "json_object"},
                 )
+            elif isinstance(self.remote_client, GeminiClient):
+                from pydantic import BaseModel
+
+                class remote_output(BaseModel):
+                    decision: str
+                    message: str
+                    answer: str
+
+                supervisor_response, supervisor_usage = self.remote_client.chat(
+                    messages=supervisor_messages,
+                    config={
+                        "response_mime_type": "application/json",
+                        "response_schema": remote_output,
+                    },
+                )
             else:
                 supervisor_response, supervisor_usage = self.remote_client.chat(
                     messages=supervisor_messages
                 )
+            current_time = time.time()
+
+            timing["remote_call_time"] += current_time - remote_start_time
 
             remote_usage += supervisor_usage
             supervisor_messages.append(
@@ -474,6 +675,7 @@ class Minion:
             final_answer = "No answer found."
             conversation_log["generated_final_answer"] = final_answer
 
+
         # Update conversation history if in multi-turn mode
         if self.is_multi_turn and final_answer:
             # Add this turn to conversation history
@@ -484,6 +686,18 @@ class Minion:
                 timestamp=datetime.now()
             )
             self.conversation_history.add_turn(turn, remote_client=self.remote_client)
+            
+        # Calculate total time and overhead at the end
+        end_time = time.time()
+        timing["total_time"] = end_time - start_time
+        timing["overhead_time"] = timing["total_time"] - (
+            timing["local_call_time"] + timing["remote_call_time"]
+        )
+
+        # Add usage statistics to the log
+        conversation_log["usage"]["remote"] = remote_usage.to_dict()
+        conversation_log["usage"]["local"] = local_usage.to_dict()
+
 
         # Log the final result
         if logging_id:
@@ -496,8 +710,11 @@ class Minion:
             log_filename = f"{timestamp}_{safe_task}.json"
         log_path = os.path.join(self.log_dir, log_filename)
 
+        print(f"\n=== SAVING LOG TO {log_path} ===")
         with open(log_path, "w", encoding="utf-8") as f:
             json.dump(conversation_log, f, indent=2, ensure_ascii=False)
+
+        print("\n=== MINION TASK COMPLETED ===")
 
         return {
             "final_answer": final_answer,
@@ -506,6 +723,8 @@ class Minion:
             "remote_usage": remote_usage,
             "local_usage": local_usage,
             "log_file": log_path,
+            "conversation_log": conversation_log,
+            "timing": timing,
         }
         
     def _format_conversation_history(self) -> str:

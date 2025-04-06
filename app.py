@@ -1,8 +1,14 @@
-import streamlit as st
+
 from minions.minion import Minion
 from minions.minions import Minions
 from minions.minions_mcp import SyncMinionsMCP, MCPConfigManager
 from minions.utils.firecrawl_util import scrape_url
+
+
+import streamlit as st
+import time
+from minions.minion_cua import MinionCUA, KEYSTROKE_ALLOWED_APPS, SAFE_WEBSITE_DOMAINS
+
 
 # Instead of trying to import at startup, set voice_generation_available to None
 # and only attempt import when voice generation is requested
@@ -30,11 +36,14 @@ load_dotenv()
 # Check if MLXLMClient, CartesiaMLXClient, and CSM-MLX are available
 mlx_available = "MLXLMClient" in globals()
 cartesia_available = "CartesiaMLXClient" in globals()
+# Add check for Gemini client
+gemini_available = "GeminiClient" in globals()
 
 
 # Log availability for debugging
 print(f"MLXLMClient available: {mlx_available}")
 print(f"CartesiaMLXClient available: {cartesia_available}")
+print(f"GeminiClient available: {gemini_available}")
 print(
     f"Voice generation available: {voice_generation_available if voice_generation_available is not None else 'Not checked yet'}"
 )
@@ -66,13 +75,21 @@ API_PRICES = {
         "gpt-4o-mini": {"input": 0.15, "cached_input": 0.075, "output": 0.60},
         "gpt-4.5-preview": {"input": 75.00, "cached_input": 37.50, "output": 150.00},
         "o3-mini": {"input": 1.10, "cached_input": 0.55, "output": 4.40},
-        "o1-pro": {"input": 15.00, "cached_input": 7.50, "output": 60.00},
+        "o1": {"input": 15.00, "cached_input": 7.50, "output": 60.00},
+        "o1-pro": {"input": 150.00, "cached_input": 7.50, "output": 600.00},
     },
     # DeepSeek model pricing per 1M tokens
     "DeepSeek": {
         # Let's assume 1 dollar = 7.25 RMB and
         "deepseek-chat": {"input": 0.27, "cached_input": 0.07, "output": 1.10},
         "deepseek-reasoner": {"input": 0.27, "cached_input": 0.07, "output": 1.10},
+    },
+    # Gemini model pricing per 1M tokens
+    "Gemini": {
+        "gemini-2.0-flash": {"input": 0.35, "cached_input": 0.175, "output": 1.05},
+        "gemini-2.0-pro": {"input": 3.50, "cached_input": 1.75, "output": 10.50},
+        "gemini-1.5-pro": {"input": 3.50, "cached_input": 1.75, "output": 10.50},
+        "gemini-1.5-flash": {"input": 0.35, "cached_input": 0.175, "output": 1.05},
     },
 }
 
@@ -85,6 +102,8 @@ PROVIDER_TO_ENV_VAR_KEY = {
     "Perplexity": "PERPLEXITY_API_KEY",
     "Groq": "GROQ_API_KEY",
     "DeepSeek": "DEEPSEEK_API_KEY",
+    "SambaNova": "SAMBANOVA_API_KEY",
+    "Gemini": "GOOGLE_API_KEY",
 }
 
 
@@ -533,6 +552,20 @@ def initialize_clients(
             max_tokens=int(remote_max_tokens),
             api_key=api_key,
         )
+    elif provider == "SambaNova":
+        st.session_state.remote_client = SambanovaClient(
+            model_name=remote_model_name,
+            temperature=remote_temperature,
+            max_tokens=int(remote_max_tokens),
+            api_key=api_key,
+        )
+    elif provider == "Gemini":
+        st.session_state.remote_client = GeminiClient(
+            model_name=remote_model_name,
+            temperature=remote_temperature,
+            max_tokens=int(remote_max_tokens),
+            api_key=api_key,
+        )
     else:  # OpenAI
         st.session_state.remote_client = OpenAIClient(
             model_name=remote_model_name,
@@ -554,12 +587,147 @@ def initialize_clients(
             mcp_server_name=mcp_server_name,
             callback=message_callback,
         )
+    elif protocol == "Minion-CUA":
+        print("Initializing Minion-CUA protocol...")
+        
+        # Import the custom CUA initial prompt
+        from minions.prompts.minion_cua import SUPERVISOR_CUA_INITIAL_PROMPT
+        
+        # Create a custom initialization message to pass to remote models
+        init_message = {
+            "role": "system", 
+            "content": "This assistant has direct control over the user's computer. It can perform real physical automation on macOS, including opening applications, typing text, clicking elements, using keyboard shortcuts, and opening URLs."
+        }
+        
+        # Initialize with the specialized CUA class
+        st.session_state.method = MinionCUA(
+            st.session_state.local_client,
+            st.session_state.remote_client,
+            callback=message_callback,
+        )
+        
+        # Test if the class is correctly initialized
+        print(f"Method type: {type(st.session_state.method).__name__}")
+        
+        # Add a warning about accessibility permissions
+        st.sidebar.warning("""
+        ⚠️ **Accessibility Permissions Required**
+        
+        To control your Mac, this app needs accessibility permissions.
+        
+        Go to: System Settings → Privacy & Security → Accessibility
+        Then add Terminal or the app running this code.
+        """)
+        
+        # Display information about automation capabilities
+        st.sidebar.success("""
+        🤖 **Computer Automation Enabled**
+        
+        This mode allows the AI to physically control your Mac to:
+        - Open any application 
+        - Type text
+        - Click UI elements
+        - Use keyboard shortcuts
+        - Open websites
+        
+        Each action will be announced before execution.
+        """)
     else:  # Minion protocol
         st.session_state.method = Minion(
             st.session_state.local_client,
             st.session_state.remote_client,
             callback=message_callback,
         )
+
+    # Test button
+    if protocol == "Minion-CUA":
+        st.sidebar.markdown("""
+        ### 🤖 Computer Automation Mode
+        
+        In this mode, the AI assistant will actually control your computer to perform actions like:
+        - Opening applications
+        - Typing text
+        - Clicking elements
+        - Using keyboard shortcuts
+        - Opening URLs
+        
+        This requires accessibility permissions to be granted to your terminal or application running this code.
+        """)
+        
+        test_col1, test_col2 = st.sidebar.columns(2)
+        
+        with test_col1:
+            if st.button("🧮 Open Calculator", key="test_calculator"):
+                with st.status("Testing Calculator...", expanded=True) as status:
+                    st.session_state.method(
+                        task="Please open the Calculator application so I can perform some calculations.",
+                        context=["User needs to do some math calculations."],
+                        max_rounds=2,
+                        is_privacy=False,
+                    )
+                    status.update(label="Test completed!", state="complete")
+            
+            if st.button("📝 Open TextEdit", key="test_textedit"):
+                with st.status("Testing TextEdit...", expanded=True) as status:
+                    st.session_state.method(
+                        task="Please open TextEdit so I can write a note.",
+                        context=["User needs to write something."],
+                        max_rounds=2,
+                        is_privacy=False,
+                    )
+                    status.update(label="Test completed!", state="complete")
+        
+        with test_col2:
+            if st.button("🌐 Open Browser", key="test_browser"):
+                with st.status("Testing Browser...", expanded=True) as status:
+                    st.session_state.method(
+                        task="Please open Safari browser.",
+                        context=["User needs to browse the web."],
+                        max_rounds=2,
+                        is_privacy=False,
+                    )
+                    status.update(label="Test completed!", state="complete")
+            
+            if st.button("🧠 Run Full Test", key="test_workflow"):
+                with st.status("Running full CUA test workflow...", expanded=True) as status:
+                    st.session_state.method(
+                        task="Please open Calculator, type 123+456=, and then open TextEdit.",
+                        context=["User wants to test the automation capabilities."],
+                        max_rounds=5,
+                        is_privacy=False,
+                    )
+                    status.update(label="Test workflow completed!", state="complete")
+        
+        # Add CUA documentation and examples
+        with st.sidebar.expander("ℹ️ CUA Automation Help", expanded=False):
+            st.markdown("""
+            ### Computer User Automation
+            
+            This Minion can help automate GUI tasks on your Mac. Here are some examples:
+            
+            **Basic Tasks:**
+            - "Open Calculator and perform a calculation"
+            - "Open TextEdit and type a short note"
+            - "Open Safari and go to google.com"
+            
+            **Multi-step Tasks:**
+            - "Please open Safari, navigate to gmail.com, and help me log in"
+            - "Open Calculator, solve 5432 × 789, then paste the result in TextEdit"
+            
+            **Supported Actions:**
+            - Opening applications
+            - Typing text
+            - Clicking UI elements
+            - Keyboard shortcuts
+            - Opening URLs
+            
+            **Allowed Applications:**
+            """)
+            
+            # Display allowed applications
+            st.markdown("- " + "\n- ".join(KEYSTROKE_ALLOWED_APPS))
+            
+            st.markdown("**Note:** For security, some actions are restricted. The Minion will break complex tasks into small steps for confirmation.")
 
     # Get reasoning_effort from the widget value directly
     if "reasoning_effort" in st.session_state:
@@ -602,7 +770,6 @@ def run_protocol(
             and protocol == "Minion"
             and st.session_state.current_protocol == "Minion"
         ):
-
             padding = 8000
             estimated_tokens = int(len(context) / 4 + padding) if context else 4096
             num_ctx_values = [2048, 4096, 8192, 16384, 32768, 65536, 131072]
@@ -622,7 +789,6 @@ def run_protocol(
                     and "local_max_tokens" in st.session_state
                     and "api_key" in st.session_state
                 ):
-
                     # Reinitialize the local client with the new num_ctx
                     if local_provider == "Ollama":
                         st.session_state.local_client = OllamaClient(
@@ -651,7 +817,42 @@ def run_protocol(
         st.write("Solving task...")
         execution_start_time = time.time()
 
+
+        # Call the appropriate protocol with the correct parameters
+        output = None  # Initialize output to avoid reference errors
+        
+
+        # Add timing wrappers to the clients to track time spent in each
+        # Create timing wrappers for the clients
+        local_time_spent = 0
+        remote_time_spent = 0
+
+        # Store original chat methods
+        original_local_chat = st.session_state.local_client.chat
+        original_remote_chat = st.session_state.remote_client.chat
+
+        # Create timing wrapper for local client
+        def timed_local_chat(*args, **kwargs):
+            nonlocal local_time_spent
+            start_time = time.time()
+            result = original_local_chat(*args, **kwargs)
+            local_time_spent += time.time() - start_time
+            return result
+
+        # Create timing wrapper for remote client
+        def timed_remote_chat(*args, **kwargs):
+            nonlocal remote_time_spent
+            start_time = time.time()
+            result = original_remote_chat(*args, **kwargs)
+            remote_time_spent += time.time() - start_time
+            return result
+
+        # Replace the chat methods with the timed versions
+        st.session_state.local_client.chat = timed_local_chat
+        st.session_state.remote_client.chat = timed_remote_chat
+
         # Pass is_privacy parameter when using Minion protocol
+
         if protocol == "Minion":
             output = st.session_state.method(
                 task=task,
@@ -667,18 +868,36 @@ def run_protocol(
                 doc_metadata=doc_metadata,
                 context=[context],
                 max_rounds=5,
-                use_bm25=use_bm25,
+                use_bm25=use_bm25,  # Only pass use_bm25 here
             )
-        else:
+        elif protocol == "Minion-CUA":
+            # For CUA, let's be clear about automation capabilities
+            st.info("💡 Using Computer User Automation to physically control your Mac")
             output = st.session_state.method(
                 task=task,
                 doc_metadata=doc_metadata,
                 context=[context],
                 max_rounds=5,
-                use_bm25=False,
+                images=images,
+            )
+        else:  # For Minions-MCP or other protocols
+            output = st.session_state.method(
+                task=task,
+                doc_metadata=doc_metadata,
+                context=[context],
+                max_rounds=5,
             )
 
         execution_time = time.time() - execution_start_time
+
+        # Restore original chat methods
+        st.session_state.local_client.chat = original_local_chat
+        st.session_state.remote_client.chat = original_remote_chat
+
+        # Add timing information to output
+        output["local_time"] = local_time_spent
+        output["remote_time"] = remote_time_spent
+        output["other_time"] = execution_time - (local_time_spent + remote_time_spent)
 
     return output, setup_time, execution_time
 
@@ -793,6 +1012,36 @@ def validate_azure_openai_key(api_key):
     return True, "API key format is valid"
 
 
+def validate_sambanova_key(api_key):
+    try:
+        client = SambanovaClient(
+            model_name="Meta-Llama-3.1-8B-Instruct",
+            api_key=api_key,
+            temperature=0.0,
+            max_tokens=1,
+        )
+        messages = [{"role": "user", "content": "Say yes"}]
+        client.chat(messages)
+        return True, ""
+    except Exception as e:
+        return False, str(e)
+
+
+def validate_gemini_key(api_key):
+    try:
+        client = GeminiClient(
+            model_name="gemini-2.0-flash",
+            api_key=api_key,
+            temperature=0.0,
+            max_tokens=1,
+        )
+        messages = [{"role": "user", "content": "Say yes"}]
+        client.chat(messages)
+        return True, ""
+    except Exception as e:
+        return False, str(e)
+
+
 # validate
 
 
@@ -815,6 +1064,8 @@ with st.sidebar:
             "Anthropic",
             "Groq",
             "DeepSeek",
+            "SambaNova",
+            "Gemini",
         ]
         selected_provider = st.selectbox(
             "Select Remote Provider",
@@ -852,6 +1103,10 @@ with st.sidebar:
             is_valid, msg = validate_groq_key(api_key)
         elif selected_provider == "DeepSeek":
             is_valid, msg = validate_deepseek_key(api_key)
+        elif selected_provider == "SambaNova":
+            is_valid, msg = validate_sambanova_key(api_key)
+        elif selected_provider == "Gemini":
+            is_valid, msg = validate_gemini_key(api_key)
         else:
             raise ValueError(f"Invalid provider: {selected_provider}")
 
@@ -915,8 +1170,10 @@ with st.sidebar:
         "Together",
         "OpenRouter",
         "DeepSeek",
+        "SambaNova"
     ]:  # Added AzureOpenAI to the list
-        protocol_options = ["Minion", "Minions", "Minions-MCP"]
+        protocol_options = ["Minion", "Minions", "Minions-MCP", "Minion-CUA"]
+
         protocol = st.segmented_control(
             "Communication protocol", options=protocol_options, default="Minion"
         )
@@ -1131,6 +1388,38 @@ with st.sidebar:
                 "deepseek-reasoner": "deepseek-reasoner",
             }
             default_model_index = 0
+        elif selected_provider == "SambaNova":
+            model_mapping = {
+                "Meta-Llama-3.1-8B-Instruct (Recommended)": "Meta-Llama-3.1-8B-Instruct",
+                "DeepSeek-V3-0324": "DeepSeek-V3-0324",
+                "Meta-Llama-3.3-70B-Instruct": "Meta-Llama-3.3-70B-Instruct",
+                "Meta-Llama-3.1-405B-Instruct": "Meta-Llama-3.1-405B-Instruct",
+                "Meta-Llama-3.1-70B-Instruct": "Meta-Llama-3.1-70B-Instruct",
+                "Meta-Llama-3.2-3B-Instruct": "Meta-Llama-3.2-3B-Instruct",
+                "Meta-Llama-3.2-1B-Instruct": "Meta-Llama-3.2-1B-Instruct",
+                "Llama-3.2-90B-Vision-Instruct": "Llama-3.2-90B-Vision-Instruct",
+                "Llama-3.2-11B-Vision-Instruct": "Llama-3.2-11B-Vision-Instruct",
+                "Meta-Llama-Guard-3-8B": "Meta-Llama-Guard-3-8B",
+                "Llama-3.1-Tulu-3-405B": "Llama-3.1-Tulu-3-405B",
+                "Llama-3.1-Swallow-8B-Instruct-v0.3": "Llama-3.1-Swallow-8B-Instruct-v0.3",
+                "Llama-3.1-Swallow-70B-Instruct-v0.3": "Llama-3.1-Swallow-70B-Instruct-v0.3",
+                "DeepSeek-R1": "DeepSeek-R1",
+                "DeepSeek-R1-Distill-Llama-70B": "DeepSeek-R1-Distill-Llama-70B",
+                "E5-Mistral-7B-Instruct": "E5-Mistral-7B-Instruct",
+                "Qwen2.5-72B-Instruct": "Qwen2.5-72B-Instruct",
+                "Qwen2.5-Coder-32B-Instruct": "Qwen2.5-Coder-32B-Instruct",
+                "QwQ-32B": "QwQ-32B",
+                "Qwen2-Audio-7B-Instruct": "Qwen2-Audio-7B-Instruct",
+            }
+            default_model_index = 0
+        elif selected_provider == "Gemini":
+            model_mapping = {
+                "gemini-2.0-pro (Recommended)": "gemini-2.5-pro-exp-03-25",
+                "gemini-2.0-flash": "gemini-2.0-flash",
+                "gemini-1.5-pro": "gemini-1.5-pro",
+                "gemini-1.5-flash": "gemini-1.5-flash",
+            }
+            default_model_index = 0
         else:
             model_mapping = {}
             default_model_index = 0
@@ -1282,7 +1571,16 @@ if uploaded_files:
             file_names.append(uploaded_file.name)
 
             if file_type == "pdf":
-                current_content = extract_text_from_pdf(uploaded_file.read()) or ""
+                # check if docling is installed
+                try:
+                    import docling_core
+                    from minions.utils.doc_processing import process_pdf_to_markdown
+
+                    current_content = (
+                        process_pdf_to_markdown(uploaded_file.read()) or ""
+                    )
+                except:
+                    current_content = extract_text_from_pdf(uploaded_file.read()) or ""
 
             elif file_type in ["png", "jpg", "jpeg"]:
                 image_bytes = uploaded_file.read()
@@ -1440,6 +1738,78 @@ if user_query:
             status.update(
                 label=f"{protocol} protocol execution complete!", state="complete"
             )
+            if protocol == "Minion-CUA" and "action_history" in output and output["action_history"]:
+                st.header("Automation Actions")
+    
+                # Create a DataFrame for better display
+                actions_data = []
+                for action in output["action_history"]:
+                    action_type = action.get("action", "unknown")
+                    app_name = action.get("app_name", "N/A")
+                    
+                    # Format parameters based on action type
+                    params = ""
+                    if action_type == "type_keystrokes":
+                        params = f"Keys: '{action.get('keys', '')}'"
+                    elif action_type == "click_element":
+                        element = action.get("element_desc", "")
+                        coords = action.get("coordinates", [])
+                        params = element if element else f"Coords: {coords}"
+                    elif action_type == "key_combo":
+                        params = "+".join(action.get("combo", []))
+                    elif action_type == "open_url":
+                        params = action.get("url", "")
+                    
+                    explanation = action.get("explanation", "")
+                    result = action.get("result", "")
+                    
+                    actions_data.append({
+                        "Type": action_type.replace("_", " ").title(),
+                        "Application": app_name,
+                        "Parameters": params,
+                        "Explanation": explanation,
+                        "Result": result
+                    })
+                
+                if actions_data:
+                    actions_df = pd.DataFrame(actions_data)
+                    st.dataframe(actions_df, use_container_width=True)
+
+                    # Create a visual timeline of actions
+                    st.subheader("Action Timeline")
+                    for i, action in enumerate(actions_data):
+                        step = f"**Step {i+1}: {action['Type']} - {action['Application']}**"
+                        st.markdown(step)
+                        col1, col2, col3 = st.columns(3)
+                        with col1:
+                            st.markdown("**Parameters:**")
+                            st.write(action['Parameters'])
+                        with col2:
+                            st.markdown("**Purpose:**")
+                            st.write(action['Explanation'])
+                        with col3:
+                            st.markdown("**Result:**")
+                            st.write(action['Result'])
+                        st.markdown("---")  # Add a separator line
+                            
+                    # Add a button to try an advanced workflow
+                    if st.button("Try Gmail Login Workflow"):
+                        with st.status("Starting Gmail login workflow...", expanded=True) as status:
+                            workflow_task = """
+                            Please help me log into Gmail. Here's what you need to do step by step:
+                            1. Open Safari browser
+                            2. Navigate to gmail.com
+                            3. Wait for me to confirm when the login page is loaded
+                            4. I'll provide my username and password separately for security
+                            """
+                            
+                            st.session_state.method(
+                                task=workflow_task,
+                                context=["User needs to check their Gmail account."],
+                                max_rounds=10,
+                                is_privacy=True,
+                            )
+                            status.update(label="Gmail workflow completed!", state="complete")
 
             # Display final answer at the bottom with enhanced styling
             st.markdown("---")  # Add a visual separator
@@ -1453,7 +1823,50 @@ if user_query:
             st.header("Runtime")
             total_time = setup_time + execution_time
             # st.metric("Setup Time", f"{setup_time:.2f}s", f"{(setup_time/total_time*100):.1f}% of total")
-            st.metric("Execution Time", f"{execution_time:.2f}s")
+
+            # Create columns for timing metrics
+            timing_cols = st.columns(4)
+
+            # Display execution time metrics
+            timing_cols[0].metric("Total Execution", f"{execution_time:.2f}s")
+
+            # Display remote and local time metrics if available
+            if "remote_time" in output and "local_time" in output:
+                remote_time = output["remote_time"]
+                local_time = output["local_time"]
+                other_time = output["other_time"]
+
+                # Calculate percentages
+                remote_pct = (remote_time / execution_time) * 100
+                local_pct = (local_time / execution_time) * 100
+                other_pct = (other_time / execution_time) * 100
+
+                timing_cols[1].metric(
+                    "Remote Model Time",
+                    f"{remote_time:.2f}s",
+                    f"{remote_pct:.1f}% of total",
+                )
+
+                timing_cols[2].metric(
+                    "Local Model Time",
+                    f"{local_time:.2f}s",
+                    f"{local_pct:.1f}% of total",
+                )
+
+                timing_cols[3].metric(
+                    "Overhead Time", f"{other_time:.2f}s", f"{other_pct:.1f}% of total"
+                )
+
+                # Add a bar chart for timing visualization
+                timing_df = pd.DataFrame(
+                    {
+                        "Component": ["Remote Model", "Local Model", "Overhead"],
+                        "Time (seconds)": [remote_time, local_time, other_time],
+                    }
+                )
+                st.bar_chart(timing_df, x="Component", y="Time (seconds)")
+            else:
+                timing_cols[1].metric("Execution Time", f"{execution_time:.2f}s")
 
             # Token usage for both protocols
             if "local_usage" in output and "remote_usage" in output:

@@ -31,7 +31,7 @@ class TogetherClient:
         self.max_tokens = max_tokens
         self.client = Together(api_key=self.api_key)
 
-    def chat(self, messages: List[Dict[str, Any]], **kwargs) -> Tuple[List[str], Usage]:
+    def chat(self, messages: List[Dict[str, Any]], **kwargs) -> Tuple[List[str], Usage, List[str]]:
         """
         Handle chat completions using the Together API.
 
@@ -40,7 +40,7 @@ class TogetherClient:
             **kwargs: Additional arguments to pass to client.chat.completions.create
 
         Returns:
-            Tuple of (List[str], Usage) containing response strings and token usage
+            Tuple of (List[str], Usage, List[str]) containing response strings, token usage, and done reasons
         """
         assert len(messages) > 0, "Messages cannot be empty."
 
@@ -63,5 +63,8 @@ class TogetherClient:
             prompt_tokens=response.usage.prompt_tokens,
             completion_tokens=response.usage.completion_tokens
         )
+        
+        # Extract done reasons (finish_reason in OpenAI-compatible APIs)
+        done_reasons = [choice.finish_reason for choice in response.choices]
 
-        return [choice.message.content for choice in response.choices], usage 
+        return [choice.message.content for choice in response.choices], usage, done_reasons 

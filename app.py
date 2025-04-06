@@ -1,4 +1,3 @@
-
 from minions.minion import Minion
 from minions.minions import Minions
 from minions.minions_mcp import SyncMinionsMCP, MCPConfigManager
@@ -401,6 +400,8 @@ def initialize_clients(
     num_ctx=4096,
     mcp_server_name=None,
     reasoning_effort="medium",
+    multi_turn_mode=False,
+    max_history_turns=0,
 ):
     """Initialize the local and remote clients outside of the run_protocol function."""
     # Store model parameters in session state for potential reinitialization
@@ -414,6 +415,8 @@ def initialize_clients(
     st.session_state.local_provider = local_provider
     st.session_state.api_key = api_key
     st.session_state.mcp_server_name = mcp_server_name
+    st.session_state.multi_turn_mode = multi_turn_mode
+    st.session_state.max_history_turns = max_history_turns
 
     # For Minions we want asynchronous local chunk processing:
     if protocol in ["Minions", "Minions-MCP"]:
@@ -589,38 +592,41 @@ def initialize_clients(
         )
     elif protocol == "Minion-CUA":
         print("Initializing Minion-CUA protocol...")
-        
+
         # Import the custom CUA initial prompt
         from minions.prompts.minion_cua import SUPERVISOR_CUA_INITIAL_PROMPT
-        
+
         # Create a custom initialization message to pass to remote models
         init_message = {
-            "role": "system", 
-            "content": "This assistant has direct control over the user's computer. It can perform real physical automation on macOS, including opening applications, typing text, clicking elements, using keyboard shortcuts, and opening URLs."
+            "role": "system",
+            "content": "This assistant has direct control over the user's computer. It can perform real physical automation on macOS, including opening applications, typing text, clicking elements, using keyboard shortcuts, and opening URLs.",
         }
-        
+
         # Initialize with the specialized CUA class
         st.session_state.method = MinionCUA(
             st.session_state.local_client,
             st.session_state.remote_client,
             callback=message_callback,
         )
-        
+
         # Test if the class is correctly initialized
         print(f"Method type: {type(st.session_state.method).__name__}")
-        
+
         # Add a warning about accessibility permissions
-        st.sidebar.warning("""
+        st.sidebar.warning(
+            """
         ⚠️ **Accessibility Permissions Required**
         
         To control your Mac, this app needs accessibility permissions.
         
         Go to: System Settings → Privacy & Security → Accessibility
         Then add Terminal or the app running this code.
-        """)
-        
+        """
+        )
+
         # Display information about automation capabilities
-        st.sidebar.success("""
+        st.sidebar.success(
+            """
         🤖 **Computer Automation Enabled**
         
         This mode allows the AI to physically control your Mac to:
@@ -631,17 +637,21 @@ def initialize_clients(
         - Open websites
         
         Each action will be announced before execution.
-        """)
+        """
+        )
     else:  # Minion protocol
         st.session_state.method = Minion(
             st.session_state.local_client,
             st.session_state.remote_client,
             callback=message_callback,
+            is_multi_turn=multi_turn_mode,
+            max_history_turns=max_history_turns,
         )
 
     # Test button
     if protocol == "Minion-CUA":
-        st.sidebar.markdown("""
+        st.sidebar.markdown(
+            """
         ### 🤖 Computer Automation Mode
         
         In this mode, the AI assistant will actually control your computer to perform actions like:
@@ -652,10 +662,11 @@ def initialize_clients(
         - Opening URLs
         
         This requires accessibility permissions to be granted to your terminal or application running this code.
-        """)
-        
+        """
+        )
+
         test_col1, test_col2 = st.sidebar.columns(2)
-        
+
         with test_col1:
             if st.button("🧮 Open Calculator", key="test_calculator"):
                 with st.status("Testing Calculator...", expanded=True) as status:
@@ -666,7 +677,7 @@ def initialize_clients(
                         is_privacy=False,
                     )
                     status.update(label="Test completed!", state="complete")
-            
+
             if st.button("📝 Open TextEdit", key="test_textedit"):
                 with st.status("Testing TextEdit...", expanded=True) as status:
                     st.session_state.method(
@@ -676,7 +687,7 @@ def initialize_clients(
                         is_privacy=False,
                     )
                     status.update(label="Test completed!", state="complete")
-        
+
         with test_col2:
             if st.button("🌐 Open Browser", key="test_browser"):
                 with st.status("Testing Browser...", expanded=True) as status:
@@ -687,9 +698,11 @@ def initialize_clients(
                         is_privacy=False,
                     )
                     status.update(label="Test completed!", state="complete")
-            
+
             if st.button("🧠 Run Full Test", key="test_workflow"):
-                with st.status("Running full CUA test workflow...", expanded=True) as status:
+                with st.status(
+                    "Running full CUA test workflow...", expanded=True
+                ) as status:
                     st.session_state.method(
                         task="Please open Calculator, type 123+456=, and then open TextEdit.",
                         context=["User wants to test the automation capabilities."],
@@ -697,10 +710,11 @@ def initialize_clients(
                         is_privacy=False,
                     )
                     status.update(label="Test workflow completed!", state="complete")
-        
+
         # Add CUA documentation and examples
         with st.sidebar.expander("ℹ️ CUA Automation Help", expanded=False):
-            st.markdown("""
+            st.markdown(
+                """
             ### Computer User Automation
             
             This Minion can help automate GUI tasks on your Mac. Here are some examples:
@@ -722,12 +736,15 @@ def initialize_clients(
             - Opening URLs
             
             **Allowed Applications:**
-            """)
-            
+            """
+            )
+
             # Display allowed applications
             st.markdown("- " + "\n- ".join(KEYSTROKE_ALLOWED_APPS))
-            
-            st.markdown("**Note:** For security, some actions are restricted. The Minion will break complex tasks into small steps for confirmation.")
+
+            st.markdown(
+                "**Note:** For security, some actions are restricted. The Minion will break complex tasks into small steps for confirmation."
+            )
 
     # Get reasoning_effort from the widget value directly
     if "reasoning_effort" in st.session_state:
@@ -817,10 +834,8 @@ def run_protocol(
         st.write("Solving task...")
         execution_start_time = time.time()
 
-
         # Call the appropriate protocol with the correct parameters
         output = None  # Initialize output to avoid reference errors
-        
 
         # Add timing wrappers to the clients to track time spent in each
         # Create timing wrappers for the clients
@@ -852,7 +867,6 @@ def run_protocol(
         st.session_state.remote_client.chat = timed_remote_chat
 
         # Pass is_privacy parameter when using Minion protocol
-
         if protocol == "Minion":
             output = st.session_state.method(
                 task=task,
@@ -1170,7 +1184,7 @@ with st.sidebar:
         "Together",
         "OpenRouter",
         "DeepSeek",
-        "SambaNova"
+        "SambaNova",
     ]:  # Added AzureOpenAI to the list
         protocol_options = ["Minion", "Minions", "Minions-MCP", "Minion-CUA"]
 
@@ -1183,13 +1197,34 @@ with st.sidebar:
 
     # Add privacy mode toggle when Minion protocol is selected
     if protocol == "Minion":
-        privacy_mode = st.toggle(
-            "Privacy Mode",
+        # privacy_mode = st.toggle(
+        #     "Privacy Mode",
+        #     value=False,
+        #     help="When enabled, worker responses will be filtered to remove potentially sensitive information",
+        # )
+        privacy_mode = False
+
+        # Add multi-turn mode toggle for Minion protocol
+        multi_turn_mode = st.toggle(
+            "Multi-Turn Mode",
             value=False,
-            help="When enabled, worker responses will be filtered to remove potentially sensitive information",
+            help="When enabled, the assistant will remember previous interactions in the conversation",
         )
+
+        if multi_turn_mode:
+            max_history_turns = st.slider(
+                "Max History Turns",
+                min_value=1,
+                max_value=10,
+                value=5,
+                help="Maximum number of conversation turns to remember",
+            )
+        else:
+            max_history_turns = 0
     else:
         privacy_mode = False
+        multi_turn_mode = False
+        max_history_turns = 0
 
     if protocol == "Minions":
         use_bm25 = st.toggle(
@@ -1463,12 +1498,13 @@ with st.sidebar:
             reasoning_effort = "medium"  # Default reasoning effort
 
     # Add voice generation toggle if available - MOVED HERE from the top
-    st.subheader("Voice Generation")
-    voice_generation_enabled = st.toggle(
-        "Enable Minion Voice",
-        value=False,
-        help="When enabled, minion responses will be spoken using CSM-MLX voice synthesis",
-    )
+    # st.subheader("Voice Generation")
+    # voice_generation_enabled = st.toggle(
+    #     "Enable Minion Voice",
+    #     value=False,
+    #     help="When enabled, minion responses will be spoken using CSM-MLX voice synthesis",
+    # )
+    voice_generation_enabled = False
 
     # Only try to import and initialize the voice generator if user enables it
     if voice_generation_enabled and voice_generation_available is None:
@@ -1677,6 +1713,11 @@ if user_query:
                 or st.session_state.current_remote_provider != selected_provider
                 or st.session_state.current_remote_model != remote_model_name
                 or st.session_state.current_local_model != local_model_name
+                or st.session_state.get("multi_turn_mode") != multi_turn_mode
+                or (
+                    multi_turn_mode
+                    and st.session_state.get("max_history_turns") != max_history_turns
+                )
             ):
 
                 st.write(f"Initializing clients for {protocol} protocol...")
@@ -1716,6 +1757,8 @@ if user_query:
                     num_ctx,
                     mcp_server_name=mcp_server_name,
                     reasoning_effort=reasoning_effort,
+                    multi_turn_mode=multi_turn_mode,
+                    max_history_turns=max_history_turns,
                 )
                 # Store the current protocol and local provider in session state
                 st.session_state.current_protocol = protocol
@@ -1738,15 +1781,19 @@ if user_query:
             status.update(
                 label=f"{protocol} protocol execution complete!", state="complete"
             )
-            if protocol == "Minion-CUA" and "action_history" in output and output["action_history"]:
+            if (
+                protocol == "Minion-CUA"
+                and "action_history" in output
+                and output["action_history"]
+            ):
                 st.header("Automation Actions")
-    
+
                 # Create a DataFrame for better display
                 actions_data = []
                 for action in output["action_history"]:
                     action_type = action.get("action", "unknown")
                     app_name = action.get("app_name", "N/A")
-                    
+
                     # Format parameters based on action type
                     params = ""
                     if action_type == "type_keystrokes":
@@ -1759,18 +1806,20 @@ if user_query:
                         params = "+".join(action.get("combo", []))
                     elif action_type == "open_url":
                         params = action.get("url", "")
-                    
+
                     explanation = action.get("explanation", "")
                     result = action.get("result", "")
-                    
-                    actions_data.append({
-                        "Type": action_type.replace("_", " ").title(),
-                        "Application": app_name,
-                        "Parameters": params,
-                        "Explanation": explanation,
-                        "Result": result
-                    })
-                
+
+                    actions_data.append(
+                        {
+                            "Type": action_type.replace("_", " ").title(),
+                            "Application": app_name,
+                            "Parameters": params,
+                            "Explanation": explanation,
+                            "Result": result,
+                        }
+                    )
+
                 if actions_data:
                     actions_df = pd.DataFrame(actions_data)
                     st.dataframe(actions_df, use_container_width=True)
@@ -1783,18 +1832,20 @@ if user_query:
                         col1, col2, col3 = st.columns(3)
                         with col1:
                             st.markdown("**Parameters:**")
-                            st.write(action['Parameters'])
+                            st.write(action["Parameters"])
                         with col2:
                             st.markdown("**Purpose:**")
-                            st.write(action['Explanation'])
+                            st.write(action["Explanation"])
                         with col3:
                             st.markdown("**Result:**")
-                            st.write(action['Result'])
+                            st.write(action["Result"])
                         st.markdown("---")  # Add a separator line
-                            
+
                     # Add a button to try an advanced workflow
                     if st.button("Try Gmail Login Workflow"):
-                        with st.status("Starting Gmail login workflow...", expanded=True) as status:
+                        with st.status(
+                            "Starting Gmail login workflow...", expanded=True
+                        ) as status:
                             workflow_task = """
                             Please help me log into Gmail. Here's what you need to do step by step:
                             1. Open Safari browser
@@ -1802,14 +1853,16 @@ if user_query:
                             3. Wait for me to confirm when the login page is loaded
                             4. I'll provide my username and password separately for security
                             """
-                            
+
                             st.session_state.method(
                                 task=workflow_task,
                                 context=["User needs to check their Gmail account."],
                                 max_rounds=10,
                                 is_privacy=True,
                             )
-                            status.update(label="Gmail workflow completed!", state="complete")
+                            status.update(
+                                label="Gmail workflow completed!", state="complete"
+                            )
 
             # Display final answer at the bottom with enhanced styling
             st.markdown("---")  # Add a visual separator
@@ -1960,6 +2013,45 @@ if user_query:
                         st.write(
                             f"Remote messages: {len(round_meta['remote']['messages'])}"
                         )
+
+            # After displaying the final answer, show conversation history if multi-turn mode is enabled
+            if (
+                protocol == "Minion"
+                and multi_turn_mode
+                and hasattr(st.session_state.method, "conversation_history")
+            ):
+                st.header("Conversation History")
+
+                if (
+                    hasattr(st.session_state.method.conversation_history, "turns")
+                    and st.session_state.method.conversation_history.turns
+                ):
+                    # Add a button to clear history
+                    if st.button("Clear Conversation History"):
+                        st.session_state.method.conversation_history.clear()
+                        st.success("Conversation history cleared!")
+                        st.rerun()
+
+                    # Display conversation turns
+                    for i, turn in enumerate(
+                        st.session_state.method.conversation_history.turns
+                    ):
+                        st.markdown(f"### Turn {i+1}")
+                        st.markdown(f"**User:** {turn.query}")
+                        st.markdown(f"**Assistant:** {turn.remote_output}")
+                        st.markdown("---")
+
+                    # Show summary if available
+                    if (
+                        hasattr(st.session_state.method.conversation_history, "summary")
+                        and st.session_state.method.conversation_history.summary
+                    ):
+                        with st.expander("Conversation Summary", expanded=False):
+                            st.markdown(
+                                st.session_state.method.conversation_history.summary
+                            )
+                else:
+                    st.info("No conversation history yet.")
 
         except Exception as e:
             st.error(f"An error occurred: {str(e)}")

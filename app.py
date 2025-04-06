@@ -1580,8 +1580,12 @@ with c1:
         url_input = ""
 
 uploaded_files = st.file_uploader(
-    "Or upload PDF / TXT / Images (Not more than a 100 pages total!)",
-    type=["txt", "pdf", "png", "jpg", "jpeg"],
+    "Or upload PDF / TXT / Source code / Images (Not more than a 100 pages total!)",
+    type=[
+        "txt", "pdf", "png", "jpg", "jpeg",
+        "c", "cpp", "h", "hpp", "hxx", "cc", "cxx", "java", "js", "jsx", "ts", "tsx",
+        "py", "rb", "go", "swift", "vb", "cs", "php", "pl", "pm", "perl", "sh", "bash"
+    ],
     accept_multiple_files=True,
 )
 

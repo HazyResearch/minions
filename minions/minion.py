@@ -96,6 +96,7 @@ Otherwise, if the task is not complete, request the small language model to do a
 
 """
 
+
 def _escape_newlines_in_strings(json_str: str) -> str:
     # This regex naively matches any content inside double quotes (including escaped quotes)
     # and replaces any literal newline characters within those quotes.
@@ -158,12 +159,14 @@ class Minion:
         self.callback = callback
         self.log_dir = log_dir
         self.is_multi_turn = is_multi_turn
-        
+
         # Create log directory if it doesn't exist
         os.makedirs(log_dir, exist_ok=True)
-        
+
         # Initialize conversation history for multi-turn support
-        self.conversation_history = ConversationHistory(max_turns=max_history_turns) if is_multi_turn else None
+        self.conversation_history = (
+            ConversationHistory(max_turns=max_history_turns) if is_multi_turn else None
+        )
 
     def __call__(
         self,
@@ -290,7 +293,6 @@ class Minion:
             if self.callback:
                 self.callback("worker", output)
 
-
             # Initialize message histories based on conversation mode
             if self.is_multi_turn:
                 supervisor_messages = [
@@ -298,7 +300,7 @@ class Minion:
                         "role": "user",
                         "content": MULTI_TURN_SUPERVISOR_INITIAL_PROMPT.format(
                             task=pii_reformatted_task,
-                            conversation_history=formatted_history
+                            conversation_history=formatted_history,
                         ),
                     }
                 ]
@@ -306,9 +308,9 @@ class Minion:
                     {
                         "role": "system",
                         "content": MULTI_TURN_WORKER_SYSTEM_PROMPT.format(
-                            context=context, 
+                            context=context,
                             task=task,
-                            conversation_history=formatted_history
+                            conversation_history=formatted_history,
                         ),
                     }
                 ]
@@ -324,7 +326,9 @@ class Minion:
                 worker_messages = [
                     {
                         "role": "system",
-                        "content": WORKER_SYSTEM_PROMPT.format(context=context, task=task),
+                        "content": WORKER_SYSTEM_PROMPT.format(
+                            context=context, task=task
+                        ),
                     }
                 ]
         else:
@@ -334,8 +338,7 @@ class Minion:
                     {
                         "role": "user",
                         "content": MULTI_TURN_SUPERVISOR_INITIAL_PROMPT.format(
-                            task=task,
-                            conversation_history=formatted_history
+                            task=task, conversation_history=formatted_history
                         ),
                     }
                 ]
@@ -343,9 +346,9 @@ class Minion:
                     {
                         "role": "system",
                         "content": MULTI_TURN_WORKER_SYSTEM_PROMPT.format(
-                            context=context, 
+                            context=context,
                             task=task,
-                            conversation_history=formatted_history
+                            conversation_history=formatted_history,
                         ),
                         "images": images,
                     }
@@ -360,44 +363,12 @@ class Minion:
                 worker_messages = [
                     {
                         "role": "system",
-                        "content": WORKER_SYSTEM_PROMPT.format(context=context, task=task),
+                        "content": WORKER_SYSTEM_PROMPT.format(
+                            context=context, task=task
+                        ),
                         "images": images,
                     }
                 ]
-
-            # Initialize message histories
-            supervisor_messages = [
-                {
-                    "role": "user",
-                    "content": SUPERVISOR_INITIAL_PROMPT.format(
-                        task=pii_reformatted_task,
-                        max_rounds=max_rounds,
-                    ),
-                }
-            ]
-            worker_messages = [
-                {
-                    "role": "system",
-                    "content": WORKER_SYSTEM_PROMPT.format(context=context, task=task),
-                }
-            ]
-        else:
-            supervisor_messages = [
-                {
-                    "role": "user",
-                    "content": SUPERVISOR_INITIAL_PROMPT.format(
-                        task=task, max_rounds=max_rounds
-                    ),
-                }
-            ]
-            worker_messages = [
-                {
-                    "role": "system",
-                    "content": WORKER_SYSTEM_PROMPT.format(context=context, task=task),
-                    "images": images,
-                }
-            ]
-
 
         # Add initial supervisor prompt to conversation log
         conversation_log["conversation"].append(
@@ -475,7 +446,7 @@ class Minion:
 
         final_answer = None
         local_output = None
-        
+
         for round in range(max_rounds):
             # Get worker's response
             if self.callback:
@@ -540,10 +511,13 @@ class Minion:
             # Format prompt based on whether this is the final round
             if round == max_rounds - 1:
                 if self.is_multi_turn:
-                    supervisor_prompt = MULTI_TURN_SUPERVISOR_FINAL_PROMPT.format(
-                        response=worker_response[0],
-                        conversation_history=formatted_history
-                    ) + "\n\nIMPORTANT: Provide a direct answer to the user's question. DO NOT describe what the answer should contain."
+                    supervisor_prompt = (
+                        MULTI_TURN_SUPERVISOR_FINAL_PROMPT.format(
+                            response=worker_response[0],
+                            conversation_history=formatted_history,
+                        )
+                        + "\n\nIMPORTANT: Provide a direct answer to the user's question. DO NOT describe what the answer should contain."
+                    )
                 else:
                     supervisor_prompt = SUPERVISOR_FINAL_PROMPT.format(
                         response=worker_response[0]
@@ -592,9 +566,10 @@ class Minion:
 
                 # Second step: Get structured output
                 if self.is_multi_turn:
-                    supervisor_prompt = REMOTE_SYNTHESIS_FINAL.format(
-                        response=step_by_step_response[0]
-                    ) + "\n\nIMPORTANT: Provide a direct answer to the user's question. DO NOT describe what the answer should contain."
+                    supervisor_prompt = (
+                        REMOTE_SYNTHESIS_FINAL.format(response=step_by_step_response[0])
+                        + "\n\nIMPORTANT: Provide a direct answer to the user's question. DO NOT describe what the answer should contain."
+                    )
                 else:
                     supervisor_prompt = REMOTE_SYNTHESIS_FINAL.format(
                         response=step_by_step_response[0]
@@ -675,7 +650,6 @@ class Minion:
             final_answer = "No answer found."
             conversation_log["generated_final_answer"] = final_answer
 
-
         # Update conversation history if in multi-turn mode
         if self.is_multi_turn and final_answer:
             # Add this turn to conversation history
@@ -683,10 +657,10 @@ class Minion:
                 query=task,
                 local_output=local_output,
                 remote_output=final_answer,
-                timestamp=datetime.now()
+                timestamp=datetime.now(),
             )
             self.conversation_history.add_turn(turn, remote_client=self.remote_client)
-            
+
         # Calculate total time and overhead at the end
         end_time = time.time()
         timing["total_time"] = end_time - start_time
@@ -697,7 +671,6 @@ class Minion:
         # Add usage statistics to the log
         conversation_log["usage"]["remote"] = remote_usage.to_dict()
         conversation_log["usage"]["local"] = local_usage.to_dict()
-
 
         # Log the final result
         if logging_id:
@@ -726,24 +699,25 @@ class Minion:
             "conversation_log": conversation_log,
             "timing": timing,
         }
-        
+
     def _format_conversation_history(self) -> str:
         """Format the conversation history for inclusion in prompts."""
         if not self.conversation_history or not self.conversation_history.turns:
             return "No previous conversation."
-            
+
         formatted_history = ""
-        
+
         # Include summary if it exists (from older conversation turns)
-        if hasattr(self.conversation_history, 'summary') and self.conversation_history.summary:
+        if (
+            hasattr(self.conversation_history, "summary")
+            and self.conversation_history.summary
+        ):
             formatted_history += f"### Summary of Earlier Conversation\n{self.conversation_history.summary}\n\n### Recent Conversation\n"
-        
+
         # Add recent conversation turns
         for i, turn in enumerate(self.conversation_history.turns):
             formatted_history += MULTI_TURN_CONVERSATION_HISTORY_FORMAT.format(
-                query_index=i+1,
-                query=turn.query,
-                response=turn.remote_output
+                query_index=i + 1, query=turn.query, response=turn.remote_output
             )
-        
+
         return formatted_history

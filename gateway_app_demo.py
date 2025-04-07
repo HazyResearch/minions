@@ -571,7 +571,7 @@ if uploaded_files:
             if file_type == "pdf":
                 current_content = extract_text_from_pdf(uploaded_file.read()) or ""
             else:
-                current_content = uploaded_file.getvalue().decode()
+                current_content = uploaded_file.getvalue().decode("utf-8")
 
             if current_content:
                 all_file_contents.append("\n--------------------")

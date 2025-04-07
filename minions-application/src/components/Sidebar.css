@@ -1,0 +1,92 @@
+.sidebar {
+  width: 300px;
+  background-color: white;
+  padding: 1.5rem;
+  border-right: 1px solid #eee;
+  overflow-y: auto;
+  height: 100vh;
+}
+
+.sidebar h2 {
+  margin-bottom: 1.5rem;
+  color: #333;
+  font-size: 1.5rem;
+}
+
+.setting-group {
+  margin-bottom: 1.5rem;
+}
+
+.setting-group h3 {
+  margin-bottom: 0.75rem;
+  color: #444;
+  font-size: 1rem;
+}
+
+.setting-group select,
+.setting-group input[type="text"],
+.setting-group input[type="password"],
+.setting-group input[type="number"] {
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  margin-bottom: 0.5rem;
+  font-size: 0.875rem;
+}
+
+.parameter-group {
+  display: flex;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.parameter-group label {
+  flex: 1;
+  font-size: 0.875rem;
+  color: #666;
+}
+
+.parameter-group input {
+  width: 80px;
+  margin-left: 0.5rem;
+}
+
+.checkbox-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.checkbox-group label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: #666;
+  cursor: pointer;
+}
+
+.checkbox-group input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+}
+
+/* Scrollbar styles */
+.sidebar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.sidebar::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+.sidebar::-webkit-scrollbar-thumb {
+  background: #888;
+  border-radius: 4px;
+}
+
+.sidebar::-webkit-scrollbar-thumb:hover {
+  background: #555;
+} 

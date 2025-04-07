@@ -1392,12 +1392,12 @@ with st.sidebar:
             default_model_index = 0
         elif selected_provider == "Together":
             model_mapping = {
-                "DeepSeek-V3 (Recommended)": "deepseek-ai/DeepSeek-V3",
-                "Qwen 2.5 72B (Recommended)": "Qwen/Qwen2.5-72B-Instruct-Turbo",
-                "Meta Llama 3.1 405B (Recommended)": "meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo",
+                "DeepSeek-V3": "deepseek-ai/DeepSeek-V3",
                 "DeepSeek-R1": "deepseek-ai/DeepSeek-R1",
-                "Llama 3.3 70B": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
-                "QWQ-32B": "Qwen/QwQ-32B-Preview",
+                "Qwen2.5-72B": "Qwen/Qwen2.5-72B-Instruct-Turbo",
+                "Meta-Llama-3.1-405B": "meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo",
+                "Llama-3.3-70B": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+                "QWQ-32B": "Qwen/QwQ-32B-Preview"
             }
             default_model_index = 0
         elif selected_provider == "Perplexity":
@@ -1631,7 +1631,7 @@ if uploaded_files:
                 else:
                     current_content = extract_text_from_image(image_base64) or ""
             else:
-                current_content = uploaded_file.getvalue().decode()
+                current_content = uploaded_file.getvalue().decode("utf-8")
 
             if current_content:
                 all_file_contents.append("\n--------------------")

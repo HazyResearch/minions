@@ -130,6 +130,7 @@ class PowerMonitor:
                     )
                     # Split the output into lines. Each line is expected to be a number.
                     lines = result.strip().splitlines()
+                    print(lines)
                     gpu_values = []
                     for line in lines:
                         try:
@@ -268,6 +269,119 @@ def cloud_inference_energy_estimate(
     energy_watt_hours = energy_watt_seconds / 3600
 
     return (effective_power, energy_watt_seconds, energy_watt_hours)
+
+
+def cloud_inference_energy_estimate_w_model_attributes(
+    input_tokens=0,
+    output_tokens=500,
+    model_attr=None,
+    gpu_attr=None,
+    inference_wall_time_sec=None,
+):
+    """
+    Estimate energy consumption of a GPU inference task based on approximations from Epoch AI
+    (Taking into account difference in impact of input and output tokens)
+    https://epoch.ai/gradient-updates/how-much-energy-does-chatgpt-use#appendix
+    """
+    if model_attr is None:
+        # approximation for GPT-4o from scaling up Mixtral 8x22b model (open-source model with known architecture)
+        # should change if better approximations exist
+        model_attr = {
+            "num_active_params": 100e9,  # number of active parameters in the model (used during inference)
+            "hidden_dim": 8448.42,  # model dimension (size of hidden state = embedding size)
+            "attn_head_dim": 150.1,  # attention heads dimension
+            "num_attn_heads": 57.0,  # number of attention heads
+            "num_layers": 77.0,  # number of transformer blocks in model
+            "flops_per_tkn_factor": 2,
+            "flops_per_tkn_factor_attn": 4,
+        }
+
+    if gpu_attr is None:
+        """
+        GPU utilization higher during prefill stage because of parallel processing of inputs
+        during decoding stage, new output tokens are generated sequentially with the auto-regressive function
+        (https://arxiv.org/pdf/2410.18038v1)
+        power utilization is very high during prefill stage (compute-heavy)
+        differs from less compute-intense decoding stage
+        (https://www.microsoft.com/en-us/research/uploads/prod/2024/03/GPU_Power_ASPLOS_24.pdf)
+        """
+
+        # estimates for H100 GPU
+        gpu_attr = {
+            "peak_flops": 9.89e14,
+            "gpu_prefill_util": 0.5,
+            "gpu_decoding_util": 0.1,
+            "power_rating": 1500,
+            "power_prefill_util": 1.0,
+            "power_decoding_util": 0.75,
+        }
+
+    # peak GPU Joules per FLOP
+    peak_gpu_joules_per_flop = gpu_attr["power_rating"] / gpu_attr["peak_flops"]
+
+    # prefill stage calculations
+    prefill_flops = (
+        input_tokens
+        * model_attr["flops_per_tkn_factor"]
+        * model_attr["num_active_params"]
+    )
+    prefill_flops += (
+        (input_tokens**2)
+        * model_attr["flops_per_tkn_factor_attn"]
+        * model_attr["num_attn_heads"]
+        * model_attr["attn_head_dim"]
+        * model_attr["num_layers"]
+    )
+    prefill_energy_joules = (
+        prefill_flops
+        * (gpu_attr["power_prefill_util"] * peak_gpu_joules_per_flop)
+        / gpu_attr["gpu_prefill_util"]
+    )
+
+    # decoding stage calculations
+    decoding_mean_tokens = (input_tokens + (input_tokens + output_tokens - 1)) / 2
+    decoding_flops = (
+        output_tokens
+        * model_attr["flops_per_tkn_factor"]
+        * model_attr["num_active_params"]
+    )
+    decoding_flops += (
+        (decoding_mean_tokens * output_tokens)
+        * model_attr["flops_per_tkn_factor_attn"]
+        * model_attr["num_attn_heads"]
+        * model_attr["attn_head_dim"]
+        * model_attr["num_layers"]
+    )
+
+    decoding_energy_joules = (
+        decoding_flops
+        * (gpu_attr["power_decoding_util"] * peak_gpu_joules_per_flop)
+        / gpu_attr["gpu_decoding_util"]
+    )
+
+    if inference_wall_time_sec is not None:
+        total_flops = prefill_flops + decoding_flops
+        empirical_util = total_flops / (
+            inference_wall_time_sec * gpu_attr["peak_flops"]
+        )
+        empirical_energy_joules = inference_wall_time_sec * gpu_attr["power_rating"]
+
+        return {
+            "inference_wall_time_sec": inference_wall_time_sec,
+            "empirical_utilization": empirical_util,
+            "total_energy_joules": empirical_energy_joules,
+            "total_energy_wh": empirical_energy_joules / 3600,
+            "prefill_energy_joules": prefill_energy_joules,
+            "decoding_energy_joules": decoding_energy_joules,
+        }
+
+    else:
+
+        return {
+            "prefill_energy_joules": prefill_energy_joules,
+            "decoding_energy_joules": decoding_energy_joules,
+            "total_energy_joules": prefill_energy_joules + decoding_energy_joules,
+        }
 
 
 class PowerMonitorContext:

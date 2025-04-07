@@ -4,6 +4,8 @@ import re
 import os
 import time
 from datetime import datetime
+
+from minions.usage import Usage
 import mcp
 
 from minions.minions_mcp import SyncMCPClient
@@ -191,6 +193,8 @@ class Minion:
             ConversationHistory(max_turns=max_history_turns) if is_multi_turn else None
         )
 
+        print(self.mcp_client)
+
     def __call__(
         self,
         task: str,
@@ -263,11 +267,13 @@ class Minion:
         if self.is_multi_turn and len(self.conversation_history.turns) > 0:
             formatted_history = self._format_conversation_history()
 
+        print(self.supervisor_initial_prompt)
+
         supervisor_messages = [
             {
                 "role": "user",
-                "content": SUPERVISOR_INITIAL_PROMPT.format(
-                    task=task, max_rounds=max_rounds
+                "content": self.supervisor_initial_prompt.format(
+                    task=task, max_rounds=max_rounds, mcp_tools_info=self.mcp_tools_info
                 ),
             }
         ]
@@ -277,10 +283,7 @@ class Minion:
             {
                 "user": "remote",
                 "prompt": self.supervisor_initial_prompt.format(
-                    task=task, mcp_tools_info=self.mcp_tools_info
-                ),
-                "prompt": SUPERVISOR_INITIAL_PROMPT.format(
-                    task=task, max_rounds=max_rounds
+                    task=task, max_rounds=max_rounds, mcp_tools_info=self.mcp_tools_info
                 ),
                 "output": None,
             }
@@ -417,6 +420,7 @@ class Minion:
             supervisor_response, supervisor_usage = self.remote_client.chat(
                 messages=supervisor_messages, response_format={"type": "json_object"}
             )
+            print(supervisor_response)
         elif isinstance(self.remote_client, GeminiClient):
             from pydantic import BaseModel
 
@@ -507,11 +511,11 @@ class Minion:
                     print(
                         f"About to call MCP tool '{tool_name}' with params {tool_params}"
                     )
-                    if input("OK? (Type 'y' for yes or  'n' to skip): ").lower() != "y":
-                        conversation_log["conversation"][-1]["mcp_tool_outputs"].append(
-                            "<skipped>"
-                        )
-                        continue
+                    # if input("OK? (Type 'y' for yes or  'n' to skip): ").lower() != "y":
+                    #     conversation_log["conversation"][-1]["mcp_tool_outputs"].append(
+                    #         "<skipped>"
+                    #     )
+                    #     continue
 
                     try:
                         mcp_output = self.mcp_client.execute_tool(
@@ -817,6 +821,7 @@ class Minion:
 }}
 ```
 """
+        return mcp_tools_info
 
     def _format_conversation_history(self) -> str:
         """Format the conversation history for inclusion in prompts."""

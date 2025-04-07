@@ -183,7 +183,9 @@ class Minion:
             self.remote_synthesis_final = REMOTE_SYNTHESIS_FINAL_MCP
             self.worker_system_prompt = WORKER_SYSTEM_PROMPT_MCP
 
-        self.mcp_tools_info = None if self.mcp_client is None else self._generate_mcp_tools_info()
+        self.mcp_tools_info = (
+            None if self.mcp_client is None else self._generate_mcp_tools_info()
+        )
         # Initialize conversation history for multi-turn support
         self.conversation_history = (
             ConversationHistory(max_turns=max_history_turns) if is_multi_turn else None
@@ -274,7 +276,9 @@ class Minion:
         conversation_log["conversation"].append(
             {
                 "user": "remote",
-                "prompt": self.supervisor_initial_prompt.format(task=task, mcp_tools_info=self.mcp_tools_info),
+                "prompt": self.supervisor_initial_prompt.format(
+                    task=task, mcp_tools_info=self.mcp_tools_info
+                ),
                 "prompt": SUPERVISOR_INITIAL_PROMPT.format(
                     task=task, max_rounds=max_rounds
                 ),
@@ -340,7 +344,7 @@ class Minion:
                 supervisor_messages = [
                     {
                         "role": "user",
-                        "content":self.supervisor_initial_prompt.format(
+                        "content": self.supervisor_initial_prompt.format(
                             task=pii_reformatted_task,
                             mcp_tools_info=self.mcp_tools_info,
                         ),
@@ -380,7 +384,9 @@ class Minion:
                 supervisor_messages = [
                     {
                         "role": "user",
-                        "content": self.supervisor_initial_prompt.format(task=task, mcp_tools_info=self.mcp_tools_info),
+                        "content": self.supervisor_initial_prompt.format(
+                            task=task, mcp_tools_info=self.mcp_tools_info
+                        ),
                     }
                 ]
                 worker_messages = [
@@ -392,7 +398,6 @@ class Minion:
                         "images": images,
                     }
                 ]
-
 
         # Add initial supervisor prompt to conversation log
         conversation_log["conversation"].append(
@@ -463,10 +468,19 @@ class Minion:
 
         worker_messages.append({"role": "user", "content": supervisor_json["message"]})
 
+        if self.mcp_client is not None:
+            tool_calls = supervisor_json["mcp_tool_calls"]
+        else:
+            tool_calls = []
         # Add worker prompt to conversation log
         conversation_log["conversation"].append(
-            {"user": "local", "prompt": supervisor_json["message"], "output": None,
-             "mcp_tool_calls": supervisor_json["mcp_tool_calls"], "mcp_tool_outputs": []}
+            {
+                "user": "local",
+                "prompt": supervisor_json["message"],
+                "output": None,
+                "mcp_tool_calls": tool_calls,
+                "mcp_tool_outputs": [],
+            }
         )
 
         final_answer = None
@@ -477,25 +491,37 @@ class Minion:
             if self.callback:
                 self.callback("worker", None, is_final=False)
 
-
             # If the supervisor has specified MCP tools to be called, then we call them
-            if self.mcp_client is not None and len(supervisor_json["mcp_tool_calls"]) > 0:
+            if (
+                self.mcp_client is not None
+                and len(supervisor_json["mcp_tool_calls"]) > 0
+            ):
                 context_to_prepend = f"**New context from MCP tool calls:\n**"
-                for i, tool_call in enumerate(supervisor_json["mcp_tool_calls"], start=1):
+                for i, tool_call in enumerate(
+                    supervisor_json["mcp_tool_calls"], start=1
+                ):
                     # Here, we assume the supervisor has stuck to the format in self._generate_mcp_tools_info()
                     tool_name = tool_call["tool_name"]
                     tool_params = tool_call["parameters"]
 
-                    print(f"About to call MCP tool '{tool_name}' with params {tool_params}")
+                    print(
+                        f"About to call MCP tool '{tool_name}' with params {tool_params}"
+                    )
                     if input("OK? (Type 'y' for yes or  'n' to skip): ").lower() != "y":
-                        conversation_log["conversation"][-1]["mcp_tool_outputs"].append("<skipped>")
+                        conversation_log["conversation"][-1]["mcp_tool_outputs"].append(
+                            "<skipped>"
+                        )
                         continue
 
                     try:
-                        mcp_output = self.mcp_client.execute_tool(tool_name=tool_name, **tool_params)
+                        mcp_output = self.mcp_client.execute_tool(
+                            tool_name=tool_name, **tool_params
+                        )
                     except mcp.McpError as e:
                         mcp_output = f"MCP Error: {e}"
-                    conversation_log["conversation"][-1]["mcp_tool_outputs"].append(str(mcp_output))
+                    conversation_log["conversation"][-1]["mcp_tool_outputs"].append(
+                        str(mcp_output)
+                    )
 
                     # Provide MCP output to local client
                     context_to_prepend += f"_MCP tool call {i}:_\n"
@@ -503,11 +529,16 @@ class Minion:
                     context_to_prepend += f"Tool params: {tool_params}\n"
                     context_to_prepend += f"Tool output:\n{mcp_output}\n"
 
-                context_to_prepend += "Please use the output above to help me with the following. "
+                context_to_prepend += (
+                    "Please use the output above to help me with the following. "
+                )
                 context_to_prepend += "Remember, I can't see the output above.\n"
-                worker_messages[-1]["content"] = context_to_prepend + worker_messages[-1]["content"]
-                conversation_log["conversation"][-1]["prompt"] = worker_messages[-1]["content"]
-
+                worker_messages[-1]["content"] = (
+                    context_to_prepend + worker_messages[-1]["content"]
+                )
+                conversation_log["conversation"][-1]["prompt"] = worker_messages[-1][
+                    "content"
+                ]
 
             # Track local call time
             local_start_time = time.time()
@@ -630,10 +661,9 @@ class Minion:
                         + "\n\nIMPORTANT: Provide a direct answer to the user's question. DO NOT describe what the answer should contain."
                     )
                 else:
-                    supervisor_prompt = self.remote_synthesis_final.format((
+                    supervisor_prompt = self.remote_synthesis_final.format(
                         response=step_by_step_response[0]
                     )
-
 
                 # Add supervisor synthesis prompt to conversation log
                 conversation_log["conversation"].append(
@@ -703,8 +733,13 @@ class Minion:
 
                 # Add next worker prompt to conversation log
                 conversation_log["conversation"].append(
-                    {"user": "local", "prompt": next_question, "output": None,
-                     "mcp_tool_calls": supervisor_json["mcp_tool_calls"], "mcp_tool_outputs": []}
+                    {
+                        "user": "local",
+                        "prompt": next_question,
+                        "output": None,
+                        "mcp_tool_calls": supervisor_json["mcp_tool_calls"],
+                        "mcp_tool_outputs": [],
+                    }
                 )
 
         if final_answer is None:
@@ -761,7 +796,6 @@ class Minion:
             "timing": timing,
         }
 
-
     def _generate_mcp_tools_info(self):
         """Generate explanation of available MCP tools for supervisor."""
         mcp_tools_info = "### Available MCP Tools\n\n"
@@ -805,4 +839,3 @@ class Minion:
             )
 
         return formatted_history
-

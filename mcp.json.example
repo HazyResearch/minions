@@ -5,8 +5,8 @@
             "args": [
                 "-y",
                 "@modelcontextprotocol/server-filesystem",
-                "/Users/viviencheng/"
+                "/path/to/your/workspace"
             ]
         }
     }
-}
+} 

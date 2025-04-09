@@ -21,6 +21,8 @@ setup(
         "PyMuPDF",  # for PDF handling
         "firecrawl-py",  # for scraping urls
         "google-genai",  # for Gemini client
+        "serpapi",  # for web search
+        "google_search_results",  # for web search
     ],
     extras_require={
         "mlx": ["mlx-lm"],

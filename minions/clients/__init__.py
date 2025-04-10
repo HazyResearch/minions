@@ -9,6 +9,7 @@ from minions.clients.groq import GroqClient
 from minions.clients.deepseek import DeepSeekClient
 from minions.clients.sambanova import SambanovaClient
 from minions.clients.gemini import GeminiClient
+from minions.clients.grok import GrokClient
 
 __all__ = [
     "OllamaClient",
@@ -22,6 +23,7 @@ __all__ = [
     "DeepSeekClient",
     "SambanovaClient",
     "GeminiClient",
+    "GrokClient",
 ]
 
 try:
@@ -56,7 +58,7 @@ except ImportError:
     )
 
 try:
-    from minions.clients.huggingface_client import HuggingFaceClient
+    from .huggingface_client import HuggingFaceClient
 
     __all__.append("HuggingFaceClient")
 except ImportError:

@@ -23,6 +23,7 @@ setup(
         "google-genai",  # for Gemini client
         "serpapi",  # for web search
         "google_search_results",  # for web search
+        "torch",  # for utils.retriever.py
     ],
     extras_require={
         "mlx": ["mlx-lm"],

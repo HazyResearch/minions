@@ -280,7 +280,6 @@ def cloud_inference_energy_estimate_w_model_attributes(
 ):
     """
     Estimate energy consumption of a GPU inference task based on approximations from Epoch AI
-    (Taking into account difference in impact of input and output tokens)
     https://epoch.ai/gradient-updates/how-much-energy-does-chatgpt-use#appendix
     """
     if model_attr is None:
@@ -292,8 +291,8 @@ def cloud_inference_energy_estimate_w_model_attributes(
             "attn_head_dim": 150.1,  # attention heads dimension
             "num_attn_heads": 57.0,  # number of attention heads
             "num_layers": 77.0,  # number of transformer blocks in model
-            "flops_per_tkn_factor": 2,
-            "flops_per_tkn_factor_attn": 4,
+            "flops_per_tkn_factor": 2,  # FLOPs per token for the model
+            "flops_per_tkn_factor_attn": 4,  # FLOPs per token for the attention layer
         }
 
     if gpu_attr is None:

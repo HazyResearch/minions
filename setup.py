@@ -23,6 +23,7 @@ setup(
         "google-genai",  # for Gemini client
         "serpapi",  # for web search
         "google_search_results",  # for web search
+        "torch",  # for running embedding models on CUDA
     ],
     extras_require={
         "mlx": ["mlx-lm"],

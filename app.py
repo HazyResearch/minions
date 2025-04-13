@@ -3,7 +3,7 @@ from minions.minion import Minion
 from minions.minions import Minions
 from minions.minions_mcp import SyncMinionsMCP, MCPConfigManager
 from minions.minions_deep_research import DeepResearchMinions
-from deep_research_ui import render_deep_research_ui
+from minions.utils.app_utils import render_deep_research_ui
 from minions.utils.firecrawl_util import scrape_url
 
 # Instead of trying to import at startup, set voice_generation_available to None

@@ -265,7 +265,7 @@ def message_callback(role, message, is_final=True):
                     </style>
 
                     <div class="video-container">
-                        <iframe src="{MINION_VIDEO}" 
+                        <iframe src="{MINION_VIDEO}"
                         frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>
                     </div>
                 """

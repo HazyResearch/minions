@@ -1023,6 +1023,7 @@ with st.sidebar:
             local_model_options = {
                 "llama3.2 (Recommended)": "llama3.2",
                 "llama3.1:8b (Recommended)": "llama3.1:8b",
+                "deepcoder:1.5b": "deepcoder:1.5b",
                 "llama3.2:1b": "llama3.2:1b",
                 "gemma3:4b": "gemma3:4b",
                 "granite3.2-vision": "granite3.2-vision",

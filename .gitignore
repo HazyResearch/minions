@@ -44,4 +44,5 @@ data/
 .DS_Store
 .coverage
 htmlcov/
-.pytest_cache/ 
+.pytest_cache/ electron-app/release/
+electron-app/release/

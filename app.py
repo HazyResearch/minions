@@ -758,7 +758,7 @@ def validate_perplexity_key(api_key):
 def validate_openrouter_key(api_key):
     try:
         client = OpenRouterClient(
-            model_name="anthropic/claude-3-5-sonnet",  # Use a common model for testing
+            model_name="anthropic/claude-3.5-sonnet",  # Use a common model for testing
             api_key=api_key,
             temperature=0.0,
             max_tokens=1,
@@ -1102,7 +1102,7 @@ with st.sidebar:
             default_model_index = 0
         elif selected_provider == "OpenRouter":
             model_mapping = {
-                "Claude 3.5 Sonnet (Recommended)": "anthropic/claude-3-5-sonnet",
+                "Claude 3.5 Sonnet (Recommended)": "anthropic/claude-3.5-sonnet",
                 "Claude 3 Opus": "anthropic/claude-3-opus",
                 "GPT-4o": "openai/gpt-4o",
                 "Mistral Large": "mistralai/mistral-large",

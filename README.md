@@ -213,6 +213,18 @@ output = minion(
 
 To run Minion/Minions in a notebook, checkout `minions.ipynb`.
 
+## Docker support
+### Build the Docker Image
+```bash
+docker build -t minions .
+```
+### Run the container
+```bash
+#without GPU support
+docker run -p 8501:8501 --env OPENAI_API_KEY=<your-openai-api-key> --env DEEPSEEK_API_KEY=<your-deepseek-api-key> minions
+#with GPU support
+docker run --gpus all -p 8501:8501 --env OPENAI_API_KEY=<your-openai-api-key> --env DEEPSEEK_API_KEY=<your-deepseek-api-key> minions
+```
 ## CLI
 
 To run Minion/Minions in a CLI, checkout `minions_cli.py`.

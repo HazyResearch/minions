@@ -6,6 +6,8 @@ from minions.minions_deep_research import DeepResearchMinions
 from minions.utils.app_utils import render_deep_research_ui
 from minions.utils.firecrawl_util import scrape_url
 
+from minions.utils.inference_estimate import InferenceEstimator
+
 # Instead of trying to import at startup, set voice_generation_available to None
 # and only attempt import when voice generation is requested
 voice_generation_available = None
@@ -454,6 +456,9 @@ def initialize_clients(
                 structured_output_schema=None,
                 use_async=use_async,
             )
+        
+        # Set inference estimator
+        st.session_state.inference_estimator = InferenceEstimator(st.session_state.local_client)
 
     if provider == "OpenAI":
         # Add web search tool if responses API is enabled
@@ -662,6 +667,15 @@ def run_protocol(
         setup_time = time.time() - setup_start_time
         st.write("Solving task...")
         execution_start_time = time.time()
+
+        # Display estimated tok/sec and ETA
+        if "inference_estimator" in st.session_state:
+            try:
+                tokens_per_second, eta = st.session_state.inference_estimator.estimate(estimated_tokens)
+                if eta > 0:
+                    st.write(f"Estimated completion time: {eta:.2f} seconds ({tokens_per_second:.1f} tokens/sec)")
+            except Exception as e:
+                st.write(f"Could not estimate completion time: {str(e)}")
 
         # Pass is_privacy parameter when using Minion protocol
         if protocol == "Minion":

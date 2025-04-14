@@ -5,6 +5,10 @@ import json
 from pydantic import BaseModel, field_validator, Field
 from inspect import getsource
 
+from minions.utils.multimodal_retrievers import (
+    retrieve_chunks_from_chroma,
+)
+
 from minions.usage import Usage
 
 from minions.prompts.minions import (
@@ -249,6 +253,8 @@ class Minions:
                 retriever = bm25_retrieve_top_k_chunks
             elif use_retrieval == "embedding":
                 retriever = embedding_retrieve_top_k_chunks
+            elif use_retrieval == "multimodal-embedding":
+                retriever = retrieve_chunks_from_chroma
 
         # Initialize usage tracking
         remote_usage = Usage()

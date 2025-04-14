@@ -237,3 +237,14 @@ class OllamaClient:
             return self.achat(messages, **kwargs)
         else:
             return self.schat(messages, **kwargs)
+
+    def embed(
+        self,
+        content,
+        **kwargs,
+    ):
+        """Embed content using model (must support embeddings)."""
+        import ollama
+
+        response = ollama.embed(model=self.model_name, input=content, **kwargs)
+        return response["embeddings"]

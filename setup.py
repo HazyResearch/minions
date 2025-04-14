@@ -29,10 +29,11 @@ setup(
         "mlx": ["mlx-lm"],
         "csm-mlx": ["csm-mlx @ git+https://github.com/senstella/csm-mlx.git"],
         "embeddings": [
-          "faiss-cpu", # for embedding search
-          "sentence-transformers", # for pretrained embedding models
-          "torch" # for running embedding models on CUDA
-        ]
+            "faiss-cpu",  # for embedding search
+            "sentence-transformers",  # for pretrained embedding models
+            "torch",  # for running embedding models on CUDA
+            "chromadb",  # for vector database
+        ],
     },
     author="Sabri, Avanika, and Dan",
     description="A package for running minion protocols with local and remote LLMs",

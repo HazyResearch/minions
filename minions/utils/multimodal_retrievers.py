@@ -421,8 +421,10 @@ def embed_and_retrieve(chromadb: ChromaDBCollection, query_text: str, top_k: int
     return results
 
 
-def retrieve_chunks_from_chroma(chunks, keywords, k=10):
-    collection = ChromaDBCollection(embedding_model="granite3.2-vision")
+def retrieve_chunks_from_chroma(
+    chunks, keywords, embedding_model="granite3.2-vision", k=10
+):
+    collection = ChromaDBCollection(embedding_model=embedding_model)
 
     # TODO: batch operation
     for i, chunk in enumerate(chunks):

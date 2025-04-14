@@ -735,13 +735,18 @@ class Minion:
                 next_question = supervisor_json["message"]
                 worker_messages.append({"role": "user", "content": next_question})
 
+                if self.mcp_client is not None:
+                    tool_calls = supervisor_json["mcp_tool_calls"]
+                else:
+                    tool_calls = []
+
                 # Add next worker prompt to conversation log
                 conversation_log["conversation"].append(
                     {
                         "user": "local",
                         "prompt": next_question,
                         "output": None,
-                        "mcp_tool_calls": supervisor_json["mcp_tool_calls"],
+                        "mcp_tool_calls": tool_calls,
                         "mcp_tool_outputs": [],
                     }
                 )

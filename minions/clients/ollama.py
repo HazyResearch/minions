@@ -12,7 +12,7 @@ class OllamaClient:
         model_name: str = "llama-3.2",
         temperature: float = 0.0,
         max_tokens: int = 2048,
-        num_ctx: int = 4096,
+        num_ctx: int = 48000,
         structured_output_schema: Optional[BaseModel] = None,
         use_async: bool = False,
         tool_calling: bool = False,
@@ -237,3 +237,14 @@ class OllamaClient:
             return self.achat(messages, **kwargs)
         else:
             return self.schat(messages, **kwargs)
+
+    def embed(
+        self,
+        content,
+        **kwargs,
+    ):
+        """Embed content using model (must support embeddings)."""
+        import ollama
+
+        response = ollama.embed(model=self.model_name, input=content, **kwargs)
+        return response["embeddings"]

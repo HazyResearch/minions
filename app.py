@@ -674,12 +674,18 @@ def run_protocol(
                 images=images,
             )
         elif protocol == "Minions":
+            use_retrieval = None
+            if use_bm25:
+                use_retrieval = "bm25"
+            elif use_retrieval == "embedding":
+                use_retrieval = "multimodal-embedding"
+
             output = st.session_state.method(
                 task=task,
                 doc_metadata=doc_metadata,
                 context=[context],
                 max_rounds=5,
-                use_bm25=use_bm25,
+                use_retrieval=use_retrieval,
             )
         elif protocol == "DeepResearch":
             output = st.session_state.method(
@@ -955,7 +961,7 @@ with st.sidebar:
     if protocol == "Minions":
         use_bm25 = st.toggle(
             "Smart Retrieval",
-            value=True,
+            value=False,
             help="When enabled, only the most relevant chunks of context will be examined by minions, speeding up execution",
         )
     else:

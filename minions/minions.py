@@ -220,6 +220,7 @@ class Minions:
         doc_metadata: str,
         context: List[str],
         max_rounds=None,
+        max_jobs_per_round=None,
         num_tasks_per_round=3,
         num_samples_per_task=1,
         mcp_tools_info=None,
@@ -234,6 +235,7 @@ class Minions:
             doc_metadata: Type of document being analyzed
             context: List of context strings
             max_rounds: Override default max_rounds if provided
+            max_jobs_per_round: Override default max_jobs_per_round if provided
             retrieval: Retrieval strategy to use. Options:
                 - None: Don't use retrieval
                 - "bm25": Use BM25 keyword-based retrieval
@@ -245,6 +247,7 @@ class Minions:
         """
 
         self.max_rounds = max_rounds or self.max_rounds
+        self.max_jobs_per_round = max_jobs_per_round or self.max_jobs_per_round
 
         retriever = None
 

@@ -780,6 +780,7 @@ def run_protocol(
                 doc_metadata=doc_metadata,
                 context=[context],
                 max_rounds=5,
+                max_jobs_per_round=max_jobs_per_round,
                 use_retrieval=use_retrieval,
             )
         elif protocol == "DeepResearch":
@@ -1142,8 +1143,17 @@ with st.sidebar:
             value=False,
             help="When enabled, only the most relevant chunks of context will be examined by minions, speeding up execution",
         )
+        max_jobs_per_round = st.number_input(
+            "Max Jobs/Round",
+            min_value=1,
+            max_value=2048,
+            value=2048,
+            step=1,
+            help="Maximum number of jobs to run per round for Minions protocol",
+        )
     else:
         use_bm25 = False
+        max_jobs_per_round = 2048
 
     # Add MCP server selection when Minions-MCP is selected
     if protocol == "Minions-MCP":

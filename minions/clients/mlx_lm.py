@@ -123,7 +123,7 @@ class MLXLMClient:
                 completion_tokens=completion_tokens,
             )
 
-            return [response], usage, ["END_OF_TEXT"]
+            return [response], usage, ["stop"]
 
         except Exception as e:
             self.logger.error(f"Error during MLX LM generation: {e}")
@@ -151,20 +151,49 @@ class MLXLMClient:
                 "This client is not in async mode. Set `use_async=True`."
             )
 
+        # Check if we're already in an event loop
         try:
-            return asyncio.run(self._achat_internal(messages, **kwargs))
-        except RuntimeError as e:
-            if "Event loop is closed" in str(e):
-                # Create a new event loop and set it as the current one
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
-                try:
-                    return loop.run_until_complete(
-                        self._achat_internal(messages, **kwargs)
-                    )
-                finally:
-                    loop.close()
-            raise
+            print("Checking if we're already in an event loop")
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                print("We're in a running event loop")
+                # We're in a running event loop (e.g., in Streamlit)
+                # Create a new loop in a separate thread to avoid conflicts
+                import threading
+                import concurrent.futures
+
+                # Use a thread to run our async code
+                with concurrent.futures.ThreadPoolExecutor() as executor:
+                    future = executor.submit(self._run_in_new_loop, messages, **kwargs)
+                    return future.result()
+            else:
+                # We have a loop but it's not running
+                return loop.run_until_complete(self._achat_internal(messages, **kwargs))
+        except RuntimeError:
+            # No event loop exists, create one (the normal case)
+            try:
+                return asyncio.run(self._achat_internal(messages, **kwargs))
+            except RuntimeError as e:
+                if "Event loop is closed" in str(e):
+                    # Create a new event loop and set it as the current one
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                    try:
+                        return loop.run_until_complete(
+                            self._achat_internal(messages, **kwargs)
+                        )
+                    finally:
+                        loop.close()
+                raise
+
+    def _run_in_new_loop(self, messages, **kwargs):
+        """Run the async chat in a new event loop in a separate thread"""
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            return loop.run_until_complete(self._achat_internal(messages, **kwargs))
+        finally:
+            loop.close()
 
     async def _achat_internal(
         self,
@@ -196,6 +225,7 @@ class MLXLMClient:
 
             loop = asyncio.get_event_loop()
             response = await loop.run_in_executor(None, lambda: generate(**params))
+            print(response)
 
             prompt_tokens = len(prompt)
             completion_tokens = len(self.tokenizer.encode(response))
@@ -217,6 +247,6 @@ class MLXLMClient:
                 prompt_tokens=prompt_tokens,
                 completion_tokens=completion_tokens,
             )
-            done_reasons.append("END_OF_TEXT")
+            done_reasons.append("stop")
 
         return texts, usage_total, done_reasons

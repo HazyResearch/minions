@@ -78,6 +78,8 @@ API_PRICES = {
         "gpt-4.1": {"input": 2.00, "cached_input": 0.50, "output": 8.00},
         "gpt-4.1-mini": {"input": 0.40, "cached_input": 0.10, "output": 1.60},
         "gpt-4.1-nano": {"input": 0.10, "cached_input": 0.025, "output": 0.40},
+        "o3": {"input": 10.0, "cached_input": 2.50, "output": 40.00},
+        "o4-mini": {"input": 1.10, "cached_input": 0.275, "output": 4.40},
     },
     # DeepSeek model pricing per 1M tokens
     "DeepSeek": {
@@ -1267,8 +1269,12 @@ with st.sidebar:
         if selected_provider == "OpenAI":
             model_mapping = {
                 "gpt-4o (Recommended)": "gpt-4o",
-                "gpt-4.5-preview": "gpt-4.5-preview",
+                "gpt-4.1": "gpt-4.1",
+                "gpt-4.1-mini": "gpt-4.1-mini",
+                "gpt-4.1-nano": "gpt-4.1-nano",
                 "gpt-4o-mini": "gpt-4o-mini",
+                "o3": "o3",
+                "o4-mini": "o4-mini",
                 "o3-mini": "o3-mini",
                 "o1": "o1",
                 "o1-pro": "o1-pro",

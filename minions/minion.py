@@ -267,8 +267,6 @@ class Minion:
         if self.is_multi_turn and len(self.conversation_history.turns) > 0:
             formatted_history = self._format_conversation_history()
 
-        print(self.supervisor_initial_prompt)
-
         supervisor_messages = [
             {
                 "role": "user",

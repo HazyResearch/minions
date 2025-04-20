@@ -158,15 +158,35 @@ class ModelProfiler:
     }
 
     @classmethod
-    def profile(cls, name: str) -> "ModelProfiler":
+    def profile(
+        cls, name: str, is_quant: bool = None, quant_bits: int = None
+    ) -> "ModelProfiler":
+        """
+        Profile a model, with optional manual quantization parameters.
+
+        Args:
+            name: The model name from the model_to_params table
+            is_quant: Manually override quantization detection
+            quant_bits: Manually specify quantization bit-width (4, 8, etc.)
+
+        Returns:
+            ModelProfiler instance with the specified parameters
+        """
         if name not in cls.model_to_params:
             raise KeyError(f"unknown model '{name}'")
-        is_q, qbits = ("bit" in name), 32
-        if is_q:
+
+        # Auto-detect quantization from name if not manually specified
+        auto_is_quant, auto_qbits = ("bit" in name), 32
+        if auto_is_quant:
             for b in (4, 8):  # crude parse
                 if f"{b}bit" in name:
-                    qbits = b
-        return cls(name, cls.model_to_params[name], is_q, qbits)
+                    auto_qbits = b
+
+        # Use manually specified values if provided, otherwise use auto-detected
+        final_is_quant = is_quant if is_quant is not None else auto_is_quant
+        final_qbits = quant_bits if quant_bits is not None else auto_qbits
+
+        return cls(name, cls.model_to_params[name], final_is_quant, final_qbits)
 
     # ------------------------------------------------------------------ #
     #  compute & bandwidth requirement per *token*
@@ -190,10 +210,19 @@ class ModelProfiler:
 
 
 class InferenceEstimator:
-    def __init__(self, model_name: str):
+    def __init__(self, model_name: str, is_quant: bool = True, quant_bits: int = 4):
+        """
+        Initialize the inference estimator.
+
+        Args:
+            model_name: Name of the model from the model_to_params table
+            is_quant: Manually specify if the model is quantized
+            quant_bits: Manually specify the quantization bit-width
+        """
         self.hw = HardwareProfiler.profile()
-        self.model = ModelProfiler.profile(model_name)
+        self.model = ModelProfiler.profile(model_name, is_quant, quant_bits)
         self._calib = self._load_calib()
+        print(f"Calibration factor: {self._calib}")
 
     # ------------------------------ core math ------------------------- #
 
@@ -219,12 +248,14 @@ class InferenceEstimator:
         `model_client` must expose `.generate(prompt, max_tokens=...)`
         and return a string or list with *sample_tokens* new tokens.
         """
+        print("Calibrating inference estimator...")
         # warm‑up (GPU driver lazy init)
-        model_client.generate(prompt, max_tokens=4)
+        messages = [{"role": "user", "content": prompt}]
+        model_client.chat(messages)
 
         torch.cuda.synchronize() if self.hw.has_gpu else None
         t0 = time.time()
-        model_client.generate(prompt, max_tokens=sample_tokens)
+        model_client.chat(messages)
         torch.cuda.synchronize() if self.hw.has_gpu else None
         dt = time.time() - t0
         meas_tps = sample_tokens / dt
@@ -239,7 +270,8 @@ class InferenceEstimator:
 
     def _cache_key(self) -> str:
         hw_id = "gpu" if self.hw.has_gpu else "mps" if self.hw.has_mps else "cpu"
-        return f"{hw_id}:{self.model.model_name}"
+        quant_suffix = f":{self.model.quant_bits}bit" if self.model.is_quant else ""
+        return f"{hw_id}:{self.model.model_name}{quant_suffix}"
 
     def _load_calib(self) -> float:
         try:
@@ -261,11 +293,15 @@ class InferenceEstimator:
 
     def describe(self, n: int) -> str:
         tps, eta = self.estimate(n)
+        quant_status = (
+            f"{self.model.quant_bits}-bit" if self.model.is_quant else "unquantized"
+        )
         return (
             f"== Hardware =================================================\n"
             f" Peak compute : {self.hw.peak_tflops:7.1f} TFLOPs\n"
             f" Peak BW      : {self.hw.peak_mem_GBps:7.1f} GB/s\n"
             f"== Model (#tok={n}) =========================================\n"
+            f" Quantization : {quant_status}\n"
             f" Cost/token   : {self.model.flops_per_tok_T:7.3f} TFLOPs\n"
             f" Bytes/token  : {self.model.bytes_per_tok/1e6:7.1f} MB\n"
             f"== Throughput ===============================================\n"
@@ -286,9 +322,24 @@ if __name__ == "__main__":
     parser.add_argument("--model", help="name from param‑table")
     parser.add_argument("--tokens", type=int, help="# input tokens")
     parser.add_argument("--describe", action="store_true", help="pretty print")
+    parser.add_argument(
+        "--quantized",
+        action="store_true",
+        help="manually specify that model is quantized",
+    )
+    parser.add_argument(
+        "--quant-bits",
+        type=int,
+        choices=[4, 8, 16],
+        help="quantization bit-width (4, 8, or 16)",
+    )
     args = parser.parse_args()
 
-    est = InferenceEstimator(args.model)
+    # For a store_true action, it will be False if not specified
+    is_quant = True if args.quantized else None
+    quant_bits = args.quant_bits if args.quant_bits is not None else None
+
+    est = InferenceEstimator(args.model, is_quant, quant_bits)
     if args.describe:
         print(est.describe(args.tokens))
     else:

@@ -481,6 +481,14 @@ def initialize_clients(
             )
 
         st.session_state.inference_estimator = InferenceEstimator(local_model_name)
+        # Calibrate the inference estimator with the local client
+        try:
+            st.session_state.inference_estimator.calibrate(
+                st.session_state.local_client
+            )
+        except Exception as e:
+            # Log but don't crash if calibration fails
+            print(f"Calibration failed: {str(e)}")
 
     if provider == "OpenAI":
         # Add web search tool if responses API is enabled

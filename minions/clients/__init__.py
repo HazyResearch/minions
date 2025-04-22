@@ -10,6 +10,7 @@ from minions.clients.deepseek import DeepSeekClient
 from minions.clients.sambanova import SambanovaClient
 from minions.clients.gemini import GeminiClient
 from minions.clients.grok import GrokClient
+from minions.clients.transformers import TransformersClient
 
 __all__ = [
     "OllamaClient",
@@ -83,4 +84,15 @@ except ImportError:
     # This allows the package to be imported even if mlx_parallm is not installed
     print(
         "Warning: mlx_parallm is not installed. If you want to use mlx_parallm, please install it with `pip install mlx-parallm`"
+    )
+
+
+try:
+    from .transformers import TransformersClient
+
+    __all__.append("TransformersClient")
+except ImportError:
+    # print warning that transformers is not installed
+    print(
+        "WARNING: Transformers is not installed. Please install it with `pip install transformers`."
     )

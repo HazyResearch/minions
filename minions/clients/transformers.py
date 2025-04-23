@@ -1,10 +1,22 @@
 import logging
 import os
-import torch
-import torch.nn.functional as F
+
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-from transformers import AutoModelForCausalLM, AutoTokenizer, AutoModel
+try:
+    from transformers import AutoModelForCausalLM, AutoTokenizer, AutoModel
+except ImportError:
+    print(
+        "WARNING: Transformers is not installed. Please install it with `pip install transformers`."
+    )
+
+try:
+    import torch
+    import torch.nn.functional as F
+except ImportError:
+    print(
+        "WARNING: PyTorch is not installed. Please install it with `pip install torch`."
+    )
 
 try:
     from peft import PeftModel, PeftConfig
@@ -382,7 +394,7 @@ class TransformersClient:
                 # If we're left with nothing after removing prefixes, use the original text
                 completion_text = cleaned_text if cleaned_text else completion_text
 
-                # Parse tool calls if present in the completion
+                # Parse lo calls if present in the completion
                 if self.return_tools:
                     # Simple regex-based tool call extraction (this is a simplification)
                     # In a real implementation, you would use a more robust parser

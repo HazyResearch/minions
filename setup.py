@@ -23,6 +23,7 @@ setup(
         "google-genai",  # for Gemini client
         "serpapi",  # for web search
         "google_search_results",  # for web search
+        "psutil",
     ],
     extras_require={
         "mlx": ["mlx-lm"],

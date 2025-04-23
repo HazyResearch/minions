@@ -492,3 +492,113 @@ class TransformersClient:
         except Exception as e:
             self.logger.error(f"Error generating embeddings: {e}")
             raise
+
+    def get_sequence_probs(
+        self, sequence: Union[str, List[int]], **kwargs
+    ) -> Dict[str, Any]:
+        """
+        Compute log probabilities for each token in a sequence by performing
+        a single forward pass through the model.
+
+        Args:
+            sequence: A string or list of token IDs to compute probabilities for
+            **kwargs: Additional arguments to pass to the model
+
+        Returns:
+            Dict[str, Any]: Dictionary containing token IDs, tokens, and their log probabilities
+                {
+                    'tokens': List of decoded tokens,
+                    'token_ids': List of token IDs,
+                    'log_probs': List of log probabilities for each token,
+                    'top_tokens': (Optional) List of top token predictions for each position,
+                    'top_token_probs': (Optional) List of probabilities for top token predictions
+                }
+        """
+        try:
+            # Convert to token IDs if input is a string
+            if isinstance(sequence, str):
+                input_ids = self.tokenizer.encode(sequence, return_tensors="pt")
+            else:
+                input_ids = torch.tensor([sequence], dtype=torch.long)
+
+            # Move input tokens to the correct device
+            input_ids = input_ids.to(self.model.device)
+
+            # Get number of tokens to handle in results
+            seq_len = input_ids.shape[1]
+
+            # Get tokens corresponding to the IDs
+            tokens = [
+                self.tokenizer.decode(token_id.item()) for token_id in input_ids[0]
+            ]
+
+            # Get model outputs
+            with torch.no_grad():
+                # model = AutoModel.from_pretrained(
+                #     self.model_name,
+                #     torch_dtype=torch.bfloat16,
+                #     device_map="auto" if torch.cuda.is_available() else None,
+                #     token=self.hf_token,
+                # )
+                outputs = self.model(
+                    input_ids=input_ids,
+                    return_dict_in_generate=True,
+                    output_logits=True,
+                    echo=True,
+                    max_tokens=1,
+                    return_dict=True,
+                )
+
+                # Get the logits
+                logits = outputs.logits
+
+                # Apply softmax to get probabilities
+                probs = F.softmax(logits, dim=-1)
+
+                # Extract log probabilities for the selected tokens (excluding the last position)
+                log_probs = []
+
+                # For each position (excluding the last one), get probability of the next token
+                for i in range(seq_len - 1):
+                    next_token_id = input_ids[0, i + 1].item()
+                    next_token_prob = probs[0, i, next_token_id].item()
+                    next_token_log_prob = torch.log(probs[0, i, next_token_id]).item()
+                    log_probs.append(next_token_log_prob)
+
+                # Add None for the last position since we don't have the next token
+                log_probs.append(None)
+
+                # Collect results
+                result = {
+                    "tokens": tokens,
+                    "token_ids": input_ids[0].cpu().tolist(),
+                    "log_probs": log_probs,
+                }
+
+                # Optionally provide top predictions at each position
+                if kwargs.get("return_top_tokens", False):
+                    top_k = kwargs.get("top_k", 5)
+                    top_tokens = []
+                    top_token_probs = []
+
+                    for i in range(seq_len):
+                        # Get top-k token predictions at this position
+                        topk_values, topk_indices = torch.topk(probs[0, i], top_k)
+
+                        # Convert to tokens and probabilities
+                        position_top_tokens = [
+                            self.tokenizer.decode(idx.item()) for idx in topk_indices
+                        ]
+                        position_top_probs = topk_values.cpu().tolist()
+
+                        top_tokens.append(position_top_tokens)
+                        top_token_probs.append(position_top_probs)
+
+                    result["top_tokens"] = top_tokens
+                    result["top_token_probs"] = top_token_probs
+
+                return result
+
+        except Exception as e:
+            self.logger.error(f"Error computing sequence probabilities: {e}")
+            raise

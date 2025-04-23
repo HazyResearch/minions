@@ -10,7 +10,6 @@ from minions.clients.deepseek import DeepSeekClient
 from minions.clients.sambanova import SambanovaClient
 from minions.clients.gemini import GeminiClient
 from minions.clients.grok import GrokClient
-from minions.clients.transformers import TransformersClient
 
 __all__ = [
     "OllamaClient",
@@ -26,6 +25,16 @@ __all__ = [
     "GeminiClient",
     "GrokClient",
 ]
+
+try:
+    from minions.clients.transformers import TransformersClient
+
+    __all__.append("TransformersClient")
+except ImportError:
+    # print warning that transformers is not installed
+    print(
+        "WARNING: Transformers is not installed. Please install it with `pip install transformers`."
+    )
 
 try:
     from minions.clients.mlx_lm import MLXLMClient

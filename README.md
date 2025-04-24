@@ -17,7 +17,7 @@ _We have tested the following setup on Mac and Ubuntu with Python 3.10-3.11_ (No
 
 <details>
   <summary>Optional: Create a virtual environment with your favorite package manager (e.g. conda, venv, uv)</summary>
-        
+
   ```python
   conda create -n minions python=3.11
   ```
@@ -107,9 +107,11 @@ export DEEPSEEK_API_KEY=<your-deepseek-api-key>
 
 [![Watch the video](https://img.youtube.com/vi/70Kot0_DFNs/0.jpg)](https://www.youtube.com/watch?v=70Kot0_DFNs)
 
-To try the Minion or Minions protocol, run the following command:
+To try the Minion or Minions protocol, run the following commands:
 
 ```bash
+pip install torch transformers
+
 streamlit run app.py
 ```
 

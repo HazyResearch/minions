@@ -409,6 +409,7 @@ def initialize_clients(
     reasoning_effort="medium",
     multi_turn_mode=False,
     max_history_turns=0,
+    context_description=None,
 ):
     """Initialize the local and remote clients outside of the run_protocol function."""
     # Store model parameters in session state for potential reinitialization
@@ -424,6 +425,10 @@ def initialize_clients(
     st.session_state.mcp_server_name = mcp_server_name
     st.session_state.multi_turn_mode = multi_turn_mode
     st.session_state.max_history_turns = max_history_turns
+
+    # Store context description in session state
+    if context_description:
+        st.session_state.context_description = context_description
 
     # For Minions we want asynchronous local chunk processing:
     if protocol in ["Minions", "Minions-MCP"]:
@@ -670,10 +675,28 @@ def initialize_clients(
 
 
 def run_protocol(
-    task, context, doc_metadata, status, protocol, local_provider, images=None
+    task,
+    context,
+    doc_metadata,
+    status,
+    protocol,
+    local_provider,
+    images=None,
 ):
     """Run the protocol with pre-initialized clients."""
     setup_start_time = time.time()
+
+    # Add context_description to doc_metadata if it exists
+    if (
+        "context_description" in st.session_state
+        and st.session_state.context_description
+    ):
+        if doc_metadata:
+            doc_metadata = f"{doc_metadata} (Context Description: {st.session_state.context_description})"
+        else:
+            doc_metadata = (
+                f"Context Description: {st.session_state.context_description}"
+            )
 
     with status.container():
         messages_container = st.container()

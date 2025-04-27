@@ -18,9 +18,10 @@ _We have tested the following setup on Mac and Ubuntu with Python 3.10-3.11_ (No
 <details>
   <summary>Optional: Create a virtual environment with your favorite package manager (e.g. conda, venv, uv)</summary>
 
-  ```python
-  conda create -n minions python=3.11
-  ```
+```python
+conda create -n minions python=3.11
+```
+
 </details><br>
 
 **Step 1:** Clone the repository and install the Python package.
@@ -72,6 +73,71 @@ pip install git+https://github.com/cartesia-ai/edge.git#subdirectory=cartesia-me
 
 ```
 pip install git+https://github.com/cartesia-ai/edge.git#subdirectory=cartesia-mlx
+```
+
+</details><br>
+
+# add optional detals for llama-cpp-python
+
+<details>
+    <summary>Optional: Install llama-cpp-python</summary>
+
+# Installation
+
+First, install the llama-cpp-python package:
+
+```bash
+# CPU-only installation
+pip install llama-cpp-python
+
+# For Metal on Mac (Apple Silicon/Intel)
+CMAKE_ARGS="-DGGML_METAL=on" pip install llama-cpp-python
+
+# For CUDA on NVIDIA GPUs
+CMAKE_ARGS="-DGGML_CUDA=on" pip install llama-cpp-python
+
+# For OpenBLAS CPU optimizations
+CMAKE_ARGS="-DGGML_BLAS=ON -DGGML_BLAS_VENDOR=OpenBLAS" pip install llama-cpp-python
+```
+
+For more installation options, see the [llama-cpp-python documentation](https://llama-cpp-python.readthedocs.io/en/latest/).
+
+## Basic Usage
+
+The client follows the basic pattern from the llama-cpp-python library:
+
+```python
+from minions.clients import LlamaCppClient
+
+# Initialize the client with a local model
+client = LlamaCppClient(
+    model_path="/path/to/model.gguf",
+    chat_format="chatml",     # Most modern models use "chatml" format
+    n_gpu_layers=35           # Set to 0 for CPU-only inference
+)
+
+# Run a chat completion
+messages = [
+    {"role": "system", "content": "You are a helpful assistant."},
+    {"role": "user", "content": "What's the capital of France?"}
+]
+
+responses, usage, done_reasons = client.chat(messages)
+print(responses[0])  # The generated response
+```
+
+## Loading Models from Hugging Face
+
+You can easily load models directly from Hugging Face:
+
+```python
+client = LlamaCppClient(
+    model_path="dummy",  # Will be replaced by downloaded model
+    model_repo_id="TheBloke/Mistral-7B-Instruct-v0.2-GGUF",
+    model_file_pattern="*Q4_K_M.gguf",  # Optional - specify quantization
+    chat_format="chatml",
+    n_gpu_layers=35     # Offload 35 layers to GPU
+)
 ```
 
 </details><br>

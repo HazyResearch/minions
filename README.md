@@ -77,8 +77,6 @@ pip install git+https://github.com/cartesia-ai/edge.git#subdirectory=cartesia-ml
 
 </details><br>
 
-# add optional detals for llama-cpp-python
-
 <details>
     <summary>Optional: Install llama-cpp-python</summary>
 

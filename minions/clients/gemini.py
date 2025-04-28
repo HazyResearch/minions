@@ -18,8 +18,21 @@ class GeminiClient:
         use_async: bool = False,
         tool_calling: bool = False,
         system_instruction: Optional[str] = None,
+        use_openai_api: bool = False,
     ):
-        """Initialize Gemini Client."""
+        """Initialize Gemini Client.
+
+        Args:
+            model_name: The Gemini model to use.
+            temperature: The temperature to use for generation. Higher values make output more random.
+            max_tokens: The maximum number of tokens to generate.
+            api_key: The API key to use. If not provided, it will be read from the GOOGLE_API_KEY environment variable.
+            structured_output_schema: Optional Pydantic model for structured output.
+            use_async: Whether to use async API calls.
+            tool_calling: Whether to support tool calling.
+            system_instruction: Optional system instruction to use for all calls.
+            use_openai_api: Whether to use OpenAI-compatible API endpoint for Gemini models.
+        """
         self.model_name = model_name
         self.logger = logging.getLogger("GeminiClient")
         self.logger.setLevel(logging.INFO)
@@ -30,25 +43,43 @@ class GeminiClient:
         self.use_async = use_async
         self.return_tools = tool_calling
         self.system_instruction = system_instruction
+        self.use_openai_api = use_openai_api
 
         # If we want structured schema output:
         self.format_structured_output = None
         if structured_output_schema:
             self.format_structured_output = structured_output_schema.model_json_schema()
 
-        # Initialize the Google Generative AI client
-        try:
-            from google import genai
-            from google.genai import types
+        # Initialize the client based on the chosen API
+        if self.use_openai_api:
+            try:
+                from openai import OpenAI
 
-            self.client = genai.Client(api_key=self.api_key)
-            self.genai = genai
-            self.types = types
-        except ImportError:
-            self.logger.error(
-                "Failed to import google.genai. Please install it with 'pip install -q -U google-genai'"
-            )
-            raise
+                self.openai_client = OpenAI(
+                    api_key=self.api_key,
+                    base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+                )
+                self.logger.info("Initialized OpenAI-compatible client for Gemini API")
+            except ImportError:
+                self.logger.error(
+                    "Failed to import openai. Please install it with 'pip install openai'"
+                )
+                raise
+        else:
+            # Initialize the Google Generative AI client
+            try:
+                from google import genai
+                from google.genai import types
+
+                self.client = genai.Client(api_key=self.api_key)
+                self.genai = genai
+                self.types = types
+                self.logger.info("Initialized native Gemini API client")
+            except ImportError:
+                self.logger.error(
+                    "Failed to import google.genai. Please install it with 'pip install -q -U google-genai'"
+                )
+                raise
 
     @staticmethod
     def get_available_models():
@@ -113,6 +144,24 @@ class GeminiClient:
                 )
 
         return contents, system_instruction
+
+    def _format_openai_messages(self, messages: List[Dict[str, Any]]):
+        """Format messages for OpenAI API format."""
+        formatted_messages = []
+
+        for msg in messages:
+            role = msg["role"]
+            content = msg["content"]
+
+            # Map roles to OpenAI format (which is already similar)
+            if role == "assistant":
+                role = "assistant"
+            elif role == "model":
+                role = "assistant"
+
+            formatted_messages.append({"role": role, "content": content})
+
+        return formatted_messages
 
     #
     #  ASYNC
@@ -192,52 +241,90 @@ class GeminiClient:
             if isinstance(msg, dict):
                 msg = [msg]
 
-            contents, system_instruction = self._format_content(msg)
+            if self.use_openai_api:
+                # Format messages for OpenAI API
+                formatted_messages = self._format_openai_messages(msg)
 
-            # Use instance system_instruction as fallback
-            if not system_instruction:
-                system_instruction = self.system_instruction
+                # Create a new event loop for this async task
+                loop = asyncio.get_event_loop()
 
-            # Create a new event loop for this async task
-            loop = asyncio.get_event_loop()
-
-            # Prepare kwargs with generation config
-            call_kwargs = {**kwargs}
-            if generation_config:
-                call_kwargs["config"] = self.types.GenerationConfig(**generation_config)
-
-            # Add system instruction if present
-            if system_instruction:
-                call_kwargs["system_instruction"] = system_instruction
-
-            # Run the synchronous API call in a thread pool
-            response = await loop.run_in_executor(
-                None,
-                lambda: self.client.models.generate_content(
-                    model=self.model_name,
-                    contents=contents,
-                    config=types.GenerateContentConfig(
-                        temperature=0,
-                        max_output_tokens=self.max_tokens,
+                # Run the OpenAI API call in a thread pool
+                response = await loop.run_in_executor(
+                    None,
+                    lambda: self.openai_client.chat.completions.create(
+                        model=self.model_name,
+                        messages=formatted_messages,
+                        temperature=self.temperature,
+                        max_tokens=self.max_tokens,
+                        system_content=self.system_instruction,
                     ),
-                ),
-            )
+                )
 
-            # Extract usage information
-            usage = Usage(
-                prompt_tokens=getattr(response, "usage_metadata", {}).get(
-                    "prompt_token_count", 0
-                ),
-                completion_tokens=getattr(response, "usage_metadata", {}).get(
-                    "candidates_token_count", 0
-                ),
-            )
+                # Extract usage information
+                usage = Usage(
+                    prompt_tokens=getattr(response, "usage", {}).get(
+                        "prompt_tokens", 0
+                    ),
+                    completion_tokens=getattr(response, "usage", {}).get(
+                        "completion_tokens", 0
+                    ),
+                )
 
-            return {
-                "text": response.text,
-                "usage": usage,
-                "finish_reason": "stop",  # Gemini doesn't provide this directly
-            }
+                return {
+                    "text": response.choices[0].message.content,
+                    "usage": usage,
+                    "finish_reason": response.choices[0].finish_reason or "stop",
+                }
+            else:
+                # Use native Gemini API
+                contents, system_instruction = self._format_content(msg)
+
+                # Use instance system_instruction as fallback
+                if not system_instruction:
+                    system_instruction = self.system_instruction
+
+                # Create a new event loop for this async task
+                loop = asyncio.get_event_loop()
+
+                # Prepare kwargs with generation config
+                call_kwargs = {**kwargs}
+                if generation_config:
+                    call_kwargs["config"] = self.types.GenerationConfig(
+                        **generation_config
+                    )
+
+                # Add system instruction if present
+                if system_instruction:
+                    call_kwargs["system_instruction"] = system_instruction
+
+                # Run the synchronous API call in a thread pool
+                response = await loop.run_in_executor(
+                    None,
+                    lambda: self.client.models.generate_content(
+                        model=self.model_name,
+                        contents=contents,
+                        config=self.types.GenerateContentConfig(
+                            temperature=0,
+                            max_output_tokens=self.max_tokens,
+                        ),
+                    ),
+                )
+
+                # Extract usage information
+                usage = Usage(
+                    prompt_tokens=getattr(response, "usage_metadata", {}).get(
+                        "prompt_token_count", 0
+                    ),
+                    completion_tokens=getattr(response, "usage_metadata", {}).get(
+                        "candidates_token_count", 0
+                    ),
+                )
+
+                return {
+                    "text": response.text,
+                    "usage": usage,
+                    "finish_reason": "stop",  # Gemini doesn't provide this directly
+                }
 
         # Run them all in parallel
         results = await asyncio.gather(*(process_one(m) for m in messages))
@@ -274,45 +361,83 @@ class GeminiClient:
         tools = []
 
         try:
-            # Format messages for Gemini API
-            contents, system_instruction = self._format_content(messages)
+            if self.use_openai_api:
+                # Use OpenAI-compatible API endpoint
+                formatted_messages = self._format_openai_messages(messages)
 
-            # Use instance system_instruction as fallback
-            if not system_instruction:
-                system_instruction = self.system_instruction
+                # Add system instruction if present
+                system_content = self.system_instruction
+                if system_content:
+                    # Check if there's already a system message
+                    has_system = any(
+                        msg["role"] == "system" for msg in formatted_messages
+                    )
+                    if not has_system:
+                        # Add system message at the beginning
+                        formatted_messages.insert(
+                            0, {"role": "system", "content": system_content}
+                        )
 
-            # Prepare kwargs with generation config
-            call_kwargs = {**kwargs}
-            if generation_config:
-                call_kwargs["config"] = self.types.GenerationConfig(**generation_config)
+                # Make the API call
+                response = self.openai_client.chat.completions.create(
+                    model=self.model_name,
+                    messages=formatted_messages,
+                    temperature=self.temperature,
+                    max_tokens=self.max_tokens,
+                )
 
-            # Add system instruction if present
-            if system_instruction:
-                call_kwargs["system_instruction"] = system_instruction
+                # Extract text
+                responses.append(response.choices[0].message.content)
 
-            print(call_kwargs["config"])
+                # Add finish reason
+                done_reasons.append(response.choices[0].finish_reason or "stop")
 
-            # Make the API call
-            response = self.client.models.generate_content(
-                model=self.model_name,
-                contents=contents,
-                # **call_kwargs,
-            )
+                # Extract usage information
+                usage_total += Usage(
+                    prompt_tokens=getattr(response.usage, "prompt_tokens", 0),
+                    completion_tokens=getattr(response.usage, "completion_tokens", 0),
+                )
+            else:
+                # Use native Gemini API
+                # Format messages for Gemini API
+                contents, system_instruction = self._format_content(messages)
 
-            responses.append(response.text)
+                # Use instance system_instruction as fallback
+                if not system_instruction:
+                    system_instruction = self.system_instruction
 
-            # Extract usage information
-            usage_total += Usage(
-                prompt_tokens=response.usage_metadata.total_token_count
-                - response.usage_metadata.candidates_token_count,
-                completion_tokens=response.usage_metadata.candidates_token_count,
-            )
+                # Prepare kwargs with generation config
+                call_kwargs = {**kwargs}
+                if generation_config:
+                    call_kwargs["config"] = self.types.GenerationConfig(
+                        **generation_config
+                    )
+
+                # Add system instruction if present
+                if system_instruction:
+                    call_kwargs["system_instruction"] = system_instruction
+
+                # Make the API call
+                response = self.client.models.generate_content(
+                    model=self.model_name,
+                    contents=contents,
+                    # **call_kwargs,
+                )
+
+                responses.append(response.text)
+
+                # Extract usage information
+                usage_total += Usage(
+                    prompt_tokens=response.usage_metadata.total_token_count
+                    - response.usage_metadata.candidates_token_count,
+                    completion_tokens=response.usage_metadata.candidates_token_count,
+                )
 
         except Exception as e:
-            self.logger.error(f"Error during Gemini API call: {e}")
+            self.logger.error(f"Error during API call: {e}")
             raise
 
-        return responses, usage_total
+        return responses, usage_total, done_reasons
 
     def chat(
         self,

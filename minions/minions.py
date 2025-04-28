@@ -1,6 +1,7 @@
 from typing import List, Dict, Any, Optional, Union, Tuple
 import json
 import re
+import os
 import json
 from pydantic import BaseModel, field_validator, Field
 from inspect import getsource
@@ -750,8 +751,8 @@ class Minions:
         result = {
             "final_answer": final_answer,
             "meta": meta,
-            "local_usage": local_usage,
-            "remote_usage": remote_usage,
+            "local_usage": local_usage.to_dict(),
+            "remote_usage": remote_usage.to_dict(),
         }
 
         # Save logs if path is provided

@@ -2000,26 +2000,24 @@ else:
                 # Token usage for both protocols
                 if "local_usage" in output and "remote_usage" in output:
                     st.header("Token Usage")
-                    local_total = (
-                        output["local_usage"].prompt_tokens
-                        + output["local_usage"].completion_tokens
-                    )
-                    remote_total = (
-                        output["remote_usage"].prompt_tokens
-                        + output["remote_usage"].completion_tokens
-                    )
+                    local_total = output["local_usage"].get(
+                        "prompt_tokens", 0
+                    ) + output["local_usage"].get("completion_tokens", 0)
+                    remote_total = output["remote_usage"].get(
+                        "prompt_tokens", 0
+                    ) + output["remote_usage"].get("completion_tokens", 0)
                     c1, c2 = st.columns(2)
                     c1.metric(
                         f"{local_model_name} (Local) Total Tokens",
                         f"{local_total:,}",
-                        f"Prompt: {output['local_usage'].prompt_tokens:,}, "
-                        f"Completion: {output['local_usage'].completion_tokens:,}",
+                        f"Prompt: {output['local_usage'].get('prompt_tokens', 0):,}, "
+                        f"Completion: {output['local_usage'].get('completion_tokens', 0):,}",
                     )
                     c2.metric(
                         f"{remote_model_name} (Remote) Total Tokens",
                         f"{remote_total:,}",
-                        f"Prompt: {output['remote_usage'].prompt_tokens:,}, "
-                        f"Completion: {output['remote_usage'].completion_tokens:,}",
+                        f"Prompt: {output['remote_usage'].get('prompt_tokens', 0):,}, "
+                        f"Completion: {output['remote_usage'].get('completion_tokens', 0):,}",
                     )
                     # Convert to long format DataFrame for explicit ordering
                     df = pd.DataFrame(
@@ -2037,10 +2035,10 @@ else:
                                 "Completion Tokens",
                             ],
                             "Count": [
-                                output["local_usage"].prompt_tokens,
-                                output["local_usage"].completion_tokens,
-                                output["remote_usage"].prompt_tokens,
-                                output["remote_usage"].completion_tokens,
+                                output["local_usage"].get("prompt_tokens", 0),
+                                output["local_usage"].get("completion_tokens", 0),
+                                output["remote_usage"].get("prompt_tokens", 0),
+                                output["remote_usage"].get("completion_tokens", 0),
                             ],
                         }
                     )
@@ -2054,10 +2052,11 @@ else:
                         st.header("Remote Model Cost")
                         pricing = API_PRICES[selected_provider][remote_model_name]
                         prompt_cost = (
-                            output["remote_usage"].prompt_tokens / 1_000_000
+                            output["remote_usage"].get("prompt_tokens", 0) / 1_000_000
                         ) * pricing["input"]
                         completion_cost = (
-                            output["remote_usage"].completion_tokens / 1_000_000
+                            output["remote_usage"].get("completion_tokens", 0)
+                            / 1_000_000
                         ) * pricing["output"]
                         total_cost = prompt_cost + completion_cost
 
@@ -2065,12 +2064,12 @@ else:
                         col1.metric(
                             "Prompt Cost",
                             f"${prompt_cost:.4f}",
-                            f"{output['remote_usage'].prompt_tokens:,} tokens (at ${pricing['input']:.2f}/1M)",
+                            f"{output['remote_usage'].get('prompt_tokens', 0):,} tokens (at ${pricing['input']:.2f}/1M)",
                         )
                         col2.metric(
                             "Completion Cost",
                             f"${completion_cost:.4f}",
-                            f"{output['remote_usage'].completion_tokens:,} tokens (at ${pricing['output']:.2f}/1M)",
+                            f"{output['remote_usage'].get('completion_tokens', 0):,} tokens (at ${pricing['output']:.2f}/1M)",
                         )
                         col3.metric(
                             "Total Cost",

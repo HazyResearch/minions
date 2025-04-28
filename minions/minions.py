@@ -1,6 +1,7 @@
 from typing import List, Dict, Any, Optional, Union, Tuple
 import json
 import re
+import os
 import json
 import os
 import time
@@ -961,11 +962,11 @@ class Minions:
         result = {
             "final_answer": final_answer,
             "meta": meta,
-            "local_usage": local_usage,
-            "remote_usage": remote_usage,
             "log_file": log_path,
             "conversation_log": conversation_log,
             "timing": timing,
+            "local_usage": local_usage.to_dict(),
+            "remote_usage": remote_usage.to_dict(),
         }
 
         return result

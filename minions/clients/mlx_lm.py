@@ -14,6 +14,7 @@ class MLXLMClient:
         max_tokens: int = 1000,
         verbose: bool = False,
         use_async: bool = False,
+        enable_thinking: bool = False,
     ):
         """
         Initialize the MLX LM client.
@@ -32,7 +33,7 @@ class MLXLMClient:
         self.max_tokens = max_tokens
         self.verbose = verbose
         self.use_async = use_async
-
+        self.enable_thinking = enable_thinking
         # Load the model and tokenizer
         self.logger.info(f"Loading MLX LM model: {model_name}")
         self.model, self.tokenizer = load(path_or_hf_repo=model_name)
@@ -53,7 +54,10 @@ class MLXLMClient:
         """
         # Apply the chat template to the messages
         prompt = self.tokenizer.apply_chat_template(
-            conversation=messages, add_generation_prompt=True, temp=self.temperature
+            conversation=messages,
+            add_generation_prompt=True,
+            temp=self.temperature,
+            enable_thinking=self.enable_thinking,
         )
 
         # Generate response params

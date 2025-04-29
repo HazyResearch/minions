@@ -44,6 +44,7 @@ class TransformersClient:
         hf_token: Optional[str] = None,
         tool_calling: bool = False,
         embedding_model: Optional[str] = None,
+        enable_thinking: bool = False,  # for qwen models
     ):
         """
         Initialize the Transformers client for local HuggingFace models.
@@ -69,6 +70,7 @@ class TransformersClient:
         self.hf_token = hf_token or os.environ.get("HF_TOKEN")
         self.return_tools = tool_calling
         self.embedding_model_name = embedding_model
+        self.enable_thinking = enable_thinking
 
         # Authenticate with Hugging Face if token is provided
         self._authenticate_huggingface()
@@ -340,7 +342,10 @@ class TransformersClient:
         try:
             # Apply the model's chat template to format the conversation
             input_ids = self.tokenizer.apply_chat_template(
-                messages, tokenize=True, return_tensors="pt"
+                messages,
+                tokenize=True,
+                return_tensors="pt",
+                enable_thinking=self.enable_thinking,
             )
             prompt_token_count = input_ids.shape[1]
             usage.prompt_tokens += prompt_token_count

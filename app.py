@@ -1266,6 +1266,9 @@ with st.sidebar:
             local_model_options = {
                 "llama3.2 (Recommended)": "llama3.2",
                 "llama3.1:8b (Recommended)": "llama3.1:8b",
+                "Qwen/Qwen3-1.7B": "qwen3:1.7b",
+                "Qwen/Qwen3-0.6B": "qwen3:0.6b",
+                "Qwen/Qwen3-4B": "qwen3:4b",
                 "gemma3:4b-it-qat": "gemma3:4b-it-qat",
                 "gemma3:1b-it-qat": "gemma3:1b-it-qat",
                 "deepcoder:1.5b": "deepcoder:1.5b",

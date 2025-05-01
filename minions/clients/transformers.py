@@ -72,6 +72,10 @@ class TransformersClient:
         self.embedding_model_name = embedding_model
         self.enable_thinking = enable_thinking
 
+        # Check device availability
+        self.device, self.dtype = self._get_device_and_dtype()
+        self.logger.info(f"Using device: {self.device}, dtype: {self.dtype}")
+
         # Authenticate with Hugging Face if token is provided
         self._authenticate_huggingface()
 
@@ -85,6 +89,25 @@ class TransformersClient:
             self._load_embedding_model()
 
         self.logger.info(f"Loaded Hugging Face model: {self.model_name}")
+
+    def _get_device_and_dtype(self):
+        """
+        Determine the appropriate device and dtype to use.
+
+        Returns:
+            tuple: (device, dtype)
+        """
+        if torch.cuda.is_available():
+            self.logger.info("CUDA is available, using GPU")
+            return "cuda", torch.bfloat16
+        elif hasattr(torch, "mps") and torch.backends.mps.is_available():
+            self.logger.info("MPS is available, using Apple Silicon GPU")
+            # Note: bfloat16 may not be supported on all MPS devices,
+            # but float16 is generally available
+            return "mps", torch.float16
+        else:
+            self.logger.info("No GPU available, using CPU")
+            return "cpu", torch.float32
 
     def _authenticate_huggingface(self):
         """
@@ -114,9 +137,8 @@ class TransformersClient:
                 self.embedding_model_name, token=self.hf_token
             )
 
-            # Move to CUDA if available
-            if torch.cuda.is_available():
-                self.embedding_model.to("cuda")
+            # Move to appropriate device
+            self.embedding_model.to(self.device)
 
             self.embedding_model.eval()
             self.logger.info(
@@ -154,8 +176,8 @@ class TransformersClient:
             else (os.path.exists(adapter_config_path) if adapter_config_path else False)
         )
 
-        # Determine the dtype to use
-        dtype = torch.bfloat16 if torch.cuda.is_available() else torch.float32
+        # Determine if we should use device_map=auto for higher-level device management
+        use_device_map = self.device in ["cuda", "mps"] and not is_lora_adapter
 
         if is_lora_adapter:
             self.logger.info(f"Detected LoRA adapter at {ckpt_path}")
@@ -178,8 +200,8 @@ class TransformersClient:
                 # Load the base model with explicit device mapping
                 model = AutoModelForCausalLM.from_pretrained(
                     base_model_name,
-                    torch_dtype=dtype,
-                    device_map="auto" if torch.cuda.is_available() else None,
+                    torch_dtype=self.dtype,
+                    device_map="auto" if use_device_map else None,
                     token=self.hf_token,
                 )
 
@@ -201,6 +223,7 @@ class TransformersClient:
             self.logger.info(f"Loading full model: {ckpt_path}")
             # Original code path for loading a full model
             # First load the tokenizer
+
             tokenizer = AutoTokenizer.from_pretrained(ckpt_path, token=self.hf_token)
 
             # Add pad token if it doesn't exist
@@ -210,20 +233,20 @@ class TransformersClient:
             # Load the model
             model = AutoModelForCausalLM.from_pretrained(
                 ckpt_path,
-                torch_dtype=dtype,
-                device_map="auto" if torch.cuda.is_available() else None,
+                torch_dtype=self.dtype,
+                device_map="auto" if use_device_map else None,
                 token=self.hf_token,
             )
 
             # Resize token embeddings to match the tokenizer
             model.resize_token_embeddings(len(tokenizer))
 
-        # Move model to GPU if available and device_map wasn't used
-        if torch.cuda.is_available() and not isinstance(
+        # Move model to device if device_map wasn't used
+        if not use_device_map and not isinstance(
             getattr(model, "hf_device_map", None), dict
         ):
-            self.logger.info("Moving model to CUDA device")
-            model = model.cuda()
+            self.logger.info(f"Moving model to {self.device} device")
+            model = model.to(self.device)
 
         # Set model to eval mode
         model.eval()
@@ -231,6 +254,8 @@ class TransformersClient:
         # Log model device information
         self.logger.info(f"Model device map: {getattr(model, 'hf_device_map', None)}")
         self.logger.info(f"Is CUDA available: {torch.cuda.is_available()}")
+        if hasattr(torch, "mps"):
+            self.logger.info(f"Is MPS available: {torch.backends.mps.is_available()}")
         device_info = next(model.parameters()).device
         self.logger.info(f"Model is on device: {device_info}")
 
@@ -341,12 +366,25 @@ class TransformersClient:
 
         try:
             # Apply the model's chat template to format the conversation
-            input_ids = self.tokenizer.apply_chat_template(
-                messages,
-                tokenize=True,
-                return_tensors="pt",
-                enable_thinking=self.enable_thinking,
-            )
+
+            # check if apply_chat_template is available
+            if self.model_name != "kyutai/helium-1-2b":
+                input_ids = self.tokenizer.apply_chat_template(
+                    messages,
+                    tokenize=True,
+                    return_tensors="pt",
+                    enable_thinking=self.enable_thinking,
+                )
+            else:
+                messages_str = "\n".join(
+                    [f"{m['role']}: {m['content']}" for m in messages]
+                )
+
+                input_ids = self.tokenizer(
+                    messages_str,
+                    return_tensors="pt",
+                )["input_ids"]
+
             prompt_token_count = input_ids.shape[1]
             usage.prompt_tokens += prompt_token_count
 
@@ -399,7 +437,7 @@ class TransformersClient:
                 # If we're left with nothing after removing prefixes, use the original text
                 completion_text = cleaned_text if cleaned_text else completion_text
 
-                # Parse lo calls if present in the completion
+                # Parse tool calls if present in the completion
                 if self.return_tools:
                     # Simple regex-based tool call extraction (this is a simplification)
                     # In a real implementation, you would use a more robust parser
@@ -539,12 +577,6 @@ class TransformersClient:
 
             # Get model outputs
             with torch.no_grad():
-                # model = AutoModel.from_pretrained(
-                #     self.model_name,
-                #     torch_dtype=torch.bfloat16,
-                #     device_map="auto" if torch.cuda.is_available() else None,
-                #     token=self.hf_token,
-                # )
                 outputs = self.model(
                     input_ids=input_ids,
                     return_dict_in_generate=True,

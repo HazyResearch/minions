@@ -155,6 +155,7 @@ class ModelProfiler:
         "llama3.1:8b": 8_000_000_000,
         "llama3.2:1b": 1_000_000_000,
         "mistral7b": 7_000_000_000,
+        "kyutai/helium-1-2b": 2_000_000_000,
     }
 
     @classmethod

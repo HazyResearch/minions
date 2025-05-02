@@ -1,5 +1,5 @@
 {
-    "question": "Answer the following question.\n\nOn 01/09/2017, Mr. Williams received a CT scan of her whole body. What kind of contrast agent was used?\n\nOptions:\na) Omnipaque 320\nb) Imeron 400\nc) Optiray 320\nd)Omnipaque 240\ne)Ultravist 370",
+    "question": "Mr. Williams received a CT scan of his spine. What kind of contrast agent was used?",
     "answer": [
         "Omnipaque 240"
     ]

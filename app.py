@@ -34,15 +34,17 @@ import base64
 # Load environment variables from .env file
 load_dotenv()
 
-# Check if MLXLMClient, CartesiaMLXClient, and CSM-MLX are available
+# Check if MLXLMClient, CartesiaMLXClient, TransformersClient, and CSM-MLX are available
 mlx_available = "MLXLMClient" in globals()
 cartesia_available = "CartesiaMLXClient" in globals()
+transformers_available = "TransformersClient" in globals()
 gemini_available = "GeminiClient" in globals()
 
 
 # Log availability for debugging
 print(f"MLXLMClient available: {mlx_available}")
 print(f"CartesiaMLXClient available: {cartesia_available}")
+print(f"TransformersClient available: {transformers_available}")
 print(
     f"Voice generation available: {voice_generation_available if voice_generation_available is not None else 'Not checked yet'}"
 )
@@ -110,6 +112,7 @@ PROVIDER_TO_ENV_VAR_KEY = {
     "SERP": "SERPAPI_API_KEY",
     "SambaNova": "SAMBANOVA_API_KEY",
     "Gemini": "GOOGLE_API_KEY",
+    "HuggingFace": "HF_TOKEN",
 }
 
 
@@ -449,6 +452,7 @@ def initialize_clients(
                 temperature=local_temperature,
                 max_tokens=int(local_max_tokens),
             )
+
         else:  # Ollama
             st.session_state.local_client = OllamaClient(
                 model_name=local_model_name,
@@ -474,8 +478,16 @@ def initialize_clients(
                 temperature=local_temperature,
                 max_tokens=int(local_max_tokens),
             )
+        elif local_provider == "Transformers":
+            hf_token = os.getenv("HF_TOKEN")
+            st.session_state.local_client = TransformersClient(
+                model_name=local_model_name,
+                temperature=local_temperature,
+                max_tokens=int(local_max_tokens),
+                hf_token=hf_token,
+                do_sample=(local_temperature > 0),
+            )
         else:  # Ollama
-
             st.session_state.local_client = OllamaClient(
                 model_name=local_model_name,
                 temperature=local_temperature,
@@ -485,12 +497,12 @@ def initialize_clients(
                 use_async=use_async,
             )
 
-        st.session_state.inference_estimator = InferenceEstimator(local_model_name)
         # Calibrate the inference estimator with the local client
         try:
-            st.session_state.inference_estimator.calibrate(
-                st.session_state.local_client
-            )
+            st.session_state.inference_estimator = InferenceEstimator(local_model_name)
+            # st.session_state.inference_estimator.calibrate(
+            #     st.session_state.local_client
+            # )
         except Exception as e:
             # Log but don't crash if calibration fails
             print(f"Calibration failed: {str(e)}")
@@ -740,6 +752,15 @@ def run_protocol(
                             num_ctx=closest_value,
                             structured_output_schema=None,  # Minion protocol doesn't use structured output
                             use_async=False,  # Minion protocol doesn't use async
+                        )
+                    elif local_provider == "Transformers":
+                        hf_token = os.getenv("HF_TOKEN")
+                        st.session_state.local_client = TransformersClient(
+                            model_name=st.session_state.local_model_name,
+                            temperature=st.session_state.local_temperature,
+                            max_tokens=int(st.session_state.local_max_tokens),
+                            hf_token=hf_token,
+                            do_sample=(st.session_state.local_temperature > 0),
                         )
                     else:
                         st.session_state.local_client = MLXLMClient(
@@ -1010,6 +1031,20 @@ def validate_azure_openai_key(api_key):
     return True, "API key format is valid"
 
 
+def validate_huggingface_token(hf_token):
+    """Validate HuggingFace API token by checking if it's not empty."""
+    if not hf_token:
+        return False, "HuggingFace token is empty"
+
+    # HuggingFace tokens are typically at least 30 characters long
+    if len(hf_token) < 10:  # Simple length check
+        return False, "HuggingFace token is too short"
+
+    # We can't easily make a test call here without a specific model
+    # So we just do basic validation
+    return True, "HuggingFace token format is valid"
+
+
 # validate
 
 
@@ -1107,6 +1142,8 @@ with st.sidebar:
         local_provider_options.append("MLX")
     if cartesia_available:
         local_provider_options.append("Cartesia-MLX")
+    if transformers_available:
+        local_provider_options.append("Transformers")
 
     local_provider = st.radio(
         "Select Local Provider",
@@ -1125,6 +1162,35 @@ with st.sidebar:
         st.info(
             "⚠️ MLX requires additional installation. Please check the README (see Setup Section) for instructions on how to install the mlx-lm package."
         )
+
+    if local_provider == "Transformers":
+        st.info(
+            "⚠️ Transformers requires additional installation. Please install it with `pip install transformers torch`."
+        )
+
+        # Check if HF_TOKEN is set in environment or provide input field
+        hf_token_env = os.getenv("HF_TOKEN", "")
+        hf_token = st.text_input(
+            "HuggingFace Token (optional for public models)",
+            type="password",
+            help="Required for accessing gated models on HuggingFace",
+        )
+
+        # Validate the token if provided
+        if hf_token:
+            is_valid, msg = validate_huggingface_token(hf_token)
+            if is_valid:
+                st.success("**✓ Valid HuggingFace token format.**")
+                # Store the token in environment for this session
+                os.environ["HF_TOKEN"] = hf_token
+            else:
+                st.error(f"**✗ Invalid HuggingFace token.** {msg}")
+        elif hf_token_env:
+            st.success("**✓ Using HuggingFace token from environment variables.**")
+        else:
+            st.warning(
+                "No HuggingFace token provided. Gated models may not be accessible."
+            )
 
     # Protocol selection
     st.subheader("Protocol")
@@ -1255,6 +1321,12 @@ with st.sidebar:
                 "Llamba-8B-8bit (Recommended)": "cartesia-ai/Llamba-8B-8bit-mlx",
                 "Llamba-1B-4bit": "cartesia-ai/Llamba-1B-4bit-mlx",
                 "Llamba-3B-4bit": "cartesia-ai/Llamba-3B-4bit-mlx",
+            }
+        elif local_provider == "Transformers":
+            local_model_options = {
+                "Mistral 7B Instruct v0.2 (Recommended)": "mistralai/Mistral-7B-Instruct-v0.2",
+                "Llama 3 8B Instruct": "meta-llama/Llama-3.1-8B-Instruct",
+                "Helium-1-2b": "kyutai/helium-1-2b",
             }
         else:  # Ollama            # Get available Ollama models
             available_ollama_models = OllamaClient.get_available_models()

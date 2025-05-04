@@ -24,20 +24,38 @@ import sys
 
 # --- GPU catalogue (GiB) ---
 GPU_DB: Dict[str, int] = {
-    # Nvidia consumer
+    # NVIDIA ▸ consumer
     "rtx_3060_12gb": 12,
     "rtx_4090_24gb": 24,
-    # Nvidia datacenter
+    # NVIDIA ▸ datacenter
     "a6000_48gb": 48,
     "a100_40gb": 40,
     "h100_80gb": 80,
     "v100_32gb": 32,
-    # Apple Silicon (unified memory → treat like VRAM)
+    # Apple Silicon (unified memory)
     "m1_pro_16gb": 16,
     "m1_max_32gb": 32,
-    "m2_pro_16gb": 16,
-    "m2_max_32gb": 32,
+    "m2_pro_19gb": 19,
+    "m2_max_38gb": 38,
     "m2_ultra_64gb": 64,
+    # AMD Radeon RX 6000 (RDNA 2)
+    "radeon_rx6800_16gb": 16,
+    "radeon_rx6800xt_16gb": 16,
+    "radeon_rx6900xt_16gb": 16,
+    "radeon_rx6950xt_16gb": 16,
+    # AMD Radeon RX 7000 (RDNA 3)
+    "radeon_rx7900xt_20gb": 20,
+    "radeon_rx7900xtx_24gb": 24,
+    # AMD Radeon PRO (workstation)
+    "radeon_pro_w6800_32gb": 32,
+    "radeon_pro_w7800_32gb": 32,
+    "radeon_pro_w7900_48gb": 48,
+    # AMD Instinct accelerators
+    "instinct_mi250x_128gb": 128,
+    "instinct_mi300x_192gb": 192,
+    # AMD Ryzen integrated GPUs (unified memory; typical configs)
+    "ryzen_680m_16gb": 16,  # e.g. 680M iGPU, 16 GB system RAM
+    "ryzen_780m_16gb": 16,  # 780M iGPU, 16 GB system RAM
 }
 
 # --- Model metadata ---

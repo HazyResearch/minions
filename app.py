@@ -1327,6 +1327,7 @@ with st.sidebar:
                 "Mistral 7B Instruct v0.2 (Recommended)": "mistralai/Mistral-7B-Instruct-v0.2",
                 "Llama 3 8B Instruct": "meta-llama/Llama-3.1-8B-Instruct",
                 "Helium-1-2b": "kyutai/helium-1-2b",
+                "Foundation-Sec-8B": "fdtn-ai/Foundation-Sec-8B",
             }
         else:  # Ollama            # Get available Ollama models
             available_ollama_models = OllamaClient.get_available_models()

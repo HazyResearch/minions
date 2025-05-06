@@ -10,6 +10,7 @@ from minions.clients.deepseek import DeepSeekClient
 from minions.clients.sambanova import SambanovaClient
 from minions.clients.gemini import GeminiClient
 from minions.clients.grok import GrokClient
+from minions.clients.llama_api import LlamaApiClient
 
 __all__ = [
     "OllamaClient",
@@ -24,6 +25,7 @@ __all__ = [
     "SambanovaClient",
     "GeminiClient",
     "GrokClient",
+    "LlamaApiClient",
 ]
 
 try:

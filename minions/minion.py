@@ -772,8 +772,8 @@ class Minion:
         )
 
         # Add usage statistics to the log
-        conversation_log["usage"]["remote"] = remote_usage.to_dict()
-        conversation_log["usage"]["local"] = local_usage.to_dict()
+        conversation_log["usage"]["remote"] = remote_usage
+        conversation_log["usage"]["local"] = local_usage
 
         # Log the final result
         if logging_id:

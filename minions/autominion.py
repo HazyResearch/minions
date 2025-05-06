@@ -17,6 +17,22 @@ from minions.prompts.minion import (
     REFORMAT_QUERY_PROMPT,
 )
 
+DEEPSEEK_V3_CAPABILITIES = """
+DeepSeek-V3 is a Mixture-of-Experts (MoE) language model with 671 billion parameters, activating 37 billion per token. Trained on 14.8 trillion tokens from a multilingual corpus, it demonstrates varying performance across core Natural Language Processing (NLP) tasks:
+
+- **Natural Language Understanding (NLU):** DeepSeek-V3 shows strong NLU capabilities, achieving an 87.1% accuracy on the MMLU benchmark, surpassing models like Qwen2.5 (85.0%) and LLaMA 3 (84.4%). citeturn0search10
+
+- **Natural Language Generation (NLG):** The model excels in NLG tasks, delivering coherent and contextually relevant text, outperforming previous open-source models and closely competing with proprietary solutions. citeturn0search10
+
+- **Mathematical Reasoning:** DeepSeek-V3 demonstrates exceptional mathematical reasoning, scoring 90.2% on the MATH-500 test, surpassing other models, including closed-source competitors. citeturn0search17
+
+- **Coding and Programming:** In coding tasks, DeepSeek-V3 achieves a score of 82.6 on the HumanEval benchmark, outperforming GPT-4o and Claude 3.5 Sonnet. citeturn0search3
+
+- **Spatial Position Analysis and Surgical Action Understanding:** The model exhibits limitations in specialized domains, such as spatial position analysis and understanding surgical actions in robotic-assisted surgery contexts. citeturn0academia28
+
+In summary, DeepSeek-V3 is highly capable in general NLP tasks, particularly excelling in mathematical reasoning and coding. However, it may require domain-specific fine-tuning for specialized applications like spatial analysis in medical contexts. 
+"""
+
 TOGETHER_CLIENT_INFO = {
     "meta-llama/Llama-3.3-70B-Instruct-Turbo": {
         "capabilities": "70B multilingual LLM optimized for dialogue, excelling in benchmarks and surpassing many chat models.",
@@ -39,7 +55,7 @@ TOGETHER_CLIENT_INFO = {
         "output_token_price_per_1M": 0.18
     },
     "deepseek-ai/DeepSeek-V3": {
-        "capabilities": "DeepSeek's latest open Mixture-of-Experts model challenging top AI models at much lower cost.",
+        "capabilities": """",
         "input_token_price_per_1M": 1.25,
         "output_token_price_per_1M": 1.25
     },

@@ -1,12 +1,17 @@
 from typing import List, Dict, Any, Optional, Union, Tuple
 import json
 import re
+import os
 import json
+import os
+import time
+from datetime import datetime
 from pydantic import BaseModel, field_validator, Field
 from inspect import getsource
-from rank_bm25 import BM25Plus
-import numpy as np
-import os
+
+from minions.utils.multimodal_retrievers import (
+    retrieve_chunks_from_chroma,
+)
 
 from minions.usage import Usage
 
@@ -29,7 +34,11 @@ from minions.prompts.minions import (
     REMOTE_SYNTHESIS_COT,
     REMOTE_SYNTHESIS_JSON,
     REMOTE_SYNTHESIS_FINAL,
+    BM25_INSTRUCTIONS,
+    EMBEDDING_INSTRUCTIONS,
 )
+
+from minions.utils.retrievers import *
 
 
 def chunk_by_section(
@@ -42,33 +51,6 @@ def chunk_by_section(
         sections.append(doc[start:end])
         start += max_chunk_size - overlap
     return sections
-
-
-def retrieve_top_k_chunks(
-    keywords: List[str], chunks: List[str], weights: Dict[str, float], k: int = 10
-) -> List[str]:
-    """
-    Returns the k most relevant chunks based on weighted BM25+ ranking.
-
-    Example:
-        Task: "What was Mrs. Anderson's tumor marker levels in 2021"
-        queries = {"Mrs. Anderson": 5.0, "tumor marker": 3.0, "2021": 1.5, "Anderson": 1.0}
-        relevant_chunks = retrieve_top_k_chunks(queries.keys(), chunks, k=10, weights=queries)
-    """
-    weights = {keyword: weights.get(keyword, 1.0) for keyword in keywords}
-    bm25_retriever = BM25Plus(chunks)
-
-    final_scores = np.zeros(len(chunks))
-    for keyword, weight in weights.items():
-        scores = bm25_retriever.get_scores(keyword)
-        final_scores += weight * scores
-
-    top_k_indices = sorted(
-        range(len(final_scores)), key=lambda i: final_scores[i], reverse=True
-    )[:k]
-    top_k_indices = sorted(top_k_indices)
-    relevant_chunks = [chunks[i] for i in top_k_indices]
-    return relevant_chunks
 
 
 class JobManifest(BaseModel):
@@ -89,8 +71,8 @@ class JobManifest(BaseModel):
 
 class JobOutput(BaseModel):
     explanation: str
-    citation: str | None
-    answer: str | None
+    citation: Optional[str]
+    answer: Optional[str]
 
 
 def prepare_jobs(
@@ -162,6 +144,7 @@ class Minions:
         remote_client=None,
         max_rounds=5,
         callback=None,
+        log_dir="minions_logs",
         **kwargs,
     ):
         """Initialize the Minion with local and remote LLM clients.
@@ -171,12 +154,14 @@ class Minions:
             remote_client: Client for the remote model (e.g. OpenAIClient)
             max_rounds: Maximum number of conversation rounds
             callback: Optional callback function to receive message updates
+            log_dir: Directory for logging conversation history
         """
         self.local_client = local_client
         self.remote_client = remote_client
         self.max_rounds = max_rounds
         self.max_jobs_per_round = 2048
         self.callback = callback
+        self.log_dir = log_dir
         self.num_samples = 1 or kwargs.get("num_samples", None)
         self.worker_batch_size = 1 or kwargs.get("worker_batch_size", None)
         self.max_code_attempts = kwargs.get("max_code_attempts", 10)
@@ -216,6 +201,9 @@ class Minions:
             "synthesis_final_prompt", None
         )
 
+        # Create log directory if it doesn't exist
+        os.makedirs(log_dir, exist_ok=True)
+
     def _execute_code(
         self,
         code: str,
@@ -242,11 +230,14 @@ class Minions:
         doc_metadata: str,
         context: List[str],
         max_rounds=None,
+        max_jobs_per_round=None,
         num_tasks_per_round=3,
         num_samples_per_task=1,
         mcp_tools_info=None,
-        use_bm25=True,
+        use_retrieval=None,
         log_path=None,
+        logging_id=None,
+        retrieval_model=None,
     ):
         """Run the minions protocol to answer a task using local and remote models.
 
@@ -255,17 +246,59 @@ class Minions:
             doc_metadata: Type of document being analyzed
             context: List of context strings
             max_rounds: Override default max_rounds if provided
+            max_jobs_per_round: Override default max_jobs_per_round if provided
+            retrieval: Retrieval strategy to use. Options:
+                - None: Don't use retrieval
+                - "bm25": Use BM25 keyword-based retrieval
+                - "embedding": Use embedding-based retrieval
             log_path: Optional path to save conversation logs
 
         Returns:
             Dict containing final_answer and conversation histories
         """
 
+        # Initialize timing metrics
+        start_time = time.time()
+        timing = {
+            "local_call_time": 0.0,
+            "remote_call_time": 0.0,
+            "total_time": 0.0,
+        }
+
+        print("\n========== MINIONS TASK STARTED ==========")
+        print(f"Task: {task}")
+        print(f"Max rounds: {max_rounds or self.max_rounds}")
+        print(f"Retrieval: {use_retrieval}")
+
         self.max_rounds = max_rounds or self.max_rounds
+        self.max_jobs_per_round = max_jobs_per_round or self.max_jobs_per_round
+
+        # Initialize the log structure
+        conversation_log = {
+            "task": task,
+            "doc_metadata": doc_metadata,
+            "conversation": [],
+            "generated_final_answer": "",
+            "usage": {
+                "remote": {},
+                "local": {},
+            },
+            "timing": timing,
+        }
 
         # Initialize usage tracking
         remote_usage = Usage()
         local_usage = Usage()
+
+        retriever = None
+
+        if use_retrieval:
+            if use_retrieval == "bm25":
+                retriever = bm25_retrieve_top_k_chunks
+            elif use_retrieval == "embedding":
+                retriever = embedding_retrieve_top_k_chunks
+            elif use_retrieval == "multimodal-embedding":
+                retriever = retrieve_chunks_from_chroma
 
         # 1. [REMOTE] ADVICE --- Read the query with big model and provide advice
         # ---------- START ----------
@@ -276,17 +309,34 @@ class Minions:
             },
         ]
 
+        # Add initial supervisor prompt to conversation log
+        conversation_log["conversation"].append(
+            {
+                "user": "supervisor",
+                "prompt": self.advice_prompt.format(query=task, metadata=doc_metadata),
+                "output": None,
+            }
+        )
+
         if self.callback:
             self.callback("supervisor", None, is_final=False)
 
+        remote_start_time = time.time()
         advice_response, usage = self.remote_client.chat(
             supervisor_messages,
         )
+        current_time = time.time()
+        timing["remote_call_time"] += current_time - remote_start_time
+
         remote_usage += usage
 
         supervisor_messages.append(
             {"role": "assistant", "content": advice_response[0]},
         )
+
+        # Update conversation log with response
+        conversation_log["conversation"][-1]["output"] = advice_response[0]
+
         if self.callback:
             self.callback("supervisor", supervisor_messages[-1], is_final=True)
         # ---------- END ----------
@@ -309,6 +359,18 @@ class Minions:
                 # compute characters in context
                 total_chars = sum(len(doc) for doc in context)
 
+            retrieval_source = ""
+            retrieval_instructions = ""
+
+            if use_retrieval:
+                retrieval_source = getsource(retriever).split("    weights = ")[0]
+
+                retrieval_instructions = (
+                    BM25_INSTRUCTIONS
+                    if use_retrieval == "bm25"
+                    else EMBEDDING_INSTRUCTIONS if use_retrieval == "embedding" else ""
+                )
+
             decompose_message_kwargs = dict(
                 num_samples=self.num_samples,
                 ADVANCED_STEPS_INSTRUCTIONS="",
@@ -320,9 +382,8 @@ class Minions:
                 chunking_source="\n\n".join(
                     [getsource(chunk_by_section).split("    sections = ")[0]]
                 ),
-                retrieval_source=getsource(retrieve_top_k_chunks).split(
-                    "    weights = "
-                )[0],
+                retrieval_source=retrieval_source,
+                retrieval_instructions=retrieval_instructions,
                 num_tasks_per_round=num_tasks_per_round,
                 num_samples_per_task=num_samples_per_task,
                 total_chars=total_chars,
@@ -330,7 +391,7 @@ class Minions:
 
             decompose_prompt = (
                 self.decompose_task_prompt
-                if not use_bm25
+                if not use_retrieval
                 else self.decompose_retrieval_task_prompt
             )
             # create the decompose prompt -- if in later rounds, use a shorter version
@@ -348,7 +409,7 @@ class Minions:
             else:
                 decompose_prompt_abbrev = (
                     self.decompose_task_prompt_abbreviated
-                    if not use_bm25
+                    if not use_retrieval
                     else self.decompose_retrieval_task_prompt_abbreviated
                 )
                 if feedback is not None:
@@ -364,6 +425,15 @@ class Minions:
                     }
                 supervisor_messages = supervisor_messages[:2] + [decompose_message]
 
+            # Add decompose prompt to conversation log
+            conversation_log["conversation"].append(
+                {
+                    "user": "supervisor",
+                    "prompt": decompose_message["content"],
+                    "output": None,
+                }
+            )
+
             # 2. [REMOTE] PREPARE TASKS --- Prompt the supervisor to write code
             # ---------- START ----------
             for attempt_idx in range(self.max_code_attempts):
@@ -372,15 +442,23 @@ class Minions:
                 if self.callback:
                     self.callback("supervisor", None, is_final=False)
 
+                remote_start_time = time.time()
                 task_response, usage = self.remote_client.chat(
                     messages=supervisor_messages,
                 )
+                current_time = time.time()
+                timing["remote_call_time"] += current_time - remote_start_time
+
                 remote_usage += usage
 
                 task_response = task_response[0]
                 supervisor_messages.append(
                     {"role": "assistant", "content": task_response},
                 )
+
+                # Update conversation log with response
+                conversation_log["conversation"][-1]["output"] = task_response
+
                 if self.callback:
                     self.callback("supervisor", supervisor_messages[-1], is_final=True)
 
@@ -406,11 +484,15 @@ class Minions:
                 starting_globals = {
                     **USEFUL_IMPORTS,
                     "chunk_by_section": chunk_by_section,
-                    "retrieve_top_k_chunks": retrieve_top_k_chunks,
                     "JobManifest": JobManifest,
                     "JobOutput": JobOutput,
                     "Job": Job,
                 }
+
+                if use_retrieval:
+                    starting_globals[f"{use_retrieval}_retrieve_top_k_chunks"] = (
+                        retriever
+                    )
 
                 fn_kwargs = {
                     "context": context,
@@ -463,6 +545,16 @@ class Minions:
                                 "content": f"Your code is output {len(job_manifests)} jobs which exceeds the max jobs per round ({self.max_jobs_per_round}). Please try again.",
                             }
                         )
+
+                        # Log this error to conversation log
+                        conversation_log["conversation"].append(
+                            {
+                                "user": "supervisor",
+                                "prompt": f"Your code is output {len(job_manifests)} jobs which exceeds the max jobs per round ({self.max_jobs_per_round}). Please try again.",
+                                "output": None,
+                            }
+                        )
+
                         continue
                     print(
                         f"Created {len(job_manifests)} job manifests ({len(chunk_ids)} chunks, apriori requested {self.num_samples} samples per chunk, {len(task_ids)} tasks)"
@@ -473,10 +565,20 @@ class Minions:
                         f"Error executing code (attempt {attempt_idx} of {self.max_code_attempts} max attempts): {type(e).__name__}: {e}"
                     )
 
+                    error_message = f"Please try again. I got this error when executing the code: \n\n```{type(e).__name__}: {e}```"
                     supervisor_messages.append(
                         {
                             "role": "user",
-                            "content": f"Please try again. I got this error when executing the code: \n\n```{type(e).__name__}: {e}```",
+                            "content": error_message,
+                        }
+                    )
+
+                    # Log this error to conversation log
+                    conversation_log["conversation"].append(
+                        {
+                            "user": "supervisor",
+                            "prompt": error_message,
+                            "output": None,
                         }
                     )
             else:
@@ -510,9 +612,24 @@ class Minions:
                 self.callback("worker", None, is_final=False)
 
             print(f"Sending {len(worker_chats)} worker chats to the worker client")
+
+            # Add worker tasks to conversation log
+            conversation_log["conversation"].append(
+                {
+                    "user": "worker",
+                    "prompt": f"Sending {len(worker_chats)} worker chats",
+                    "output": None,
+                    "job_manifests": [job.model_dump() for job in job_manifests],
+                }
+            )
+
+            local_start_time = time.time()
             worker_response, usage, done_reasons = self.local_client.chat(
                 worker_chats,
             )
+            current_time = time.time()
+            timing["local_call_time"] += current_time - local_start_time
+
             local_usage += usage
 
             def extract_job_output(response: str) -> JobOutput:
@@ -548,6 +665,20 @@ class Minions:
             if self.callback:
                 self.callback("worker", jobs, is_final=True)
 
+            # Update conversation log with worker responses
+            conversation_log["conversation"][-1]["output"] = [
+                job.sample for job in jobs
+            ]
+            conversation_log["conversation"][-1]["job_outputs"] = [
+                {
+                    "job_id": job.manifest.job_id,
+                    "chunk_id": job.manifest.chunk_id,
+                    "task_id": job.manifest.task_id,
+                    "output": job.output.model_dump(),
+                }
+                for job in jobs
+            ]
+
             try:
                 # Model generated Filter + Aggregation code
                 for job in jobs:
@@ -561,6 +692,16 @@ class Minions:
                 )
 
             except Exception as e:
+                # Log exception
+                print(f"Error executing transformation code: {type(e).__name__}: {e}")
+                conversation_log["conversation"].append(
+                    {
+                        "user": "supervisor",
+                        "prompt": f"Error executing transformation code: {type(e).__name__}: {e}",
+                        "output": None,
+                    }
+                )
+
                 # 4. [EDGE] FILTER
                 # ---------- START ----------
                 def filter_fn(job: Job) -> bool:
@@ -625,36 +766,56 @@ class Minions:
 
             if round_idx == self.max_rounds - 1:
                 # Final round - use the final prompt directly
+                final_prompt = self.synthesis_final_prompt.format(
+                    extractions=aggregated_str,
+                    question=task,
+                    scratchpad=(scratchpad if scratchpad else "No previous progress."),
+                )
                 supervisor_messages.append(
                     {
                         "role": "user",
-                        "content": self.synthesis_final_prompt.format(
-                            extractions=aggregated_str,
-                            question=task,
-                            scratchpad=(
-                                scratchpad if scratchpad else "No previous progress."
-                            ),
-                        ),
+                        "content": final_prompt,
+                    }
+                )
+
+                # Add synthesis prompt to conversation log
+                conversation_log["conversation"].append(
+                    {
+                        "user": "supervisor",
+                        "prompt": final_prompt,
+                        "output": None,
                     }
                 )
             else:
                 # First step: Think through the synthesis
+                cot_prompt = self.synthesis_cot_prompt.format(
+                    extractions=aggregated_str,
+                    question=task,
+                    scratchpad=(scratchpad if scratchpad else "No previous progress."),
+                )
                 supervisor_messages.append(
                     {
                         "role": "user",
-                        "content": self.synthesis_cot_prompt.format(
-                            extractions=aggregated_str,
-                            question=task,
-                            scratchpad=(
-                                scratchpad if scratchpad else "No previous progress."
-                            ),
-                        ),
+                        "content": cot_prompt,
                     }
                 )
 
+                # Add COT prompt to conversation log
+                conversation_log["conversation"].append(
+                    {
+                        "user": "supervisor",
+                        "prompt": cot_prompt,
+                        "output": None,
+                    }
+                )
+
+                remote_start_time = time.time()
                 step_by_step_response, usage = self.remote_client.chat(
                     supervisor_messages,
                 )
+                current_time = time.time()
+                timing["remote_call_time"] += current_time - remote_start_time
+
                 remote_usage += usage
                 if self.callback:
                     self.callback("supervisor", step_by_step_response[0])
@@ -663,11 +824,26 @@ class Minions:
                     {"role": "assistant", "content": step_by_step_response[0]}
                 )
 
+                # Update conversation log with COT response
+                conversation_log["conversation"][-1]["output"] = step_by_step_response[
+                    0
+                ]
+
                 # Second step: Get structured output
+                json_prompt = self.synthesis_json_prompt
                 supervisor_messages.append(
                     {
                         "role": "user",
-                        "content": self.synthesis_json_prompt,
+                        "content": json_prompt,
+                    }
+                )
+
+                # Add JSON prompt to conversation log
+                conversation_log["conversation"].append(
+                    {
+                        "user": "supervisor",
+                        "prompt": json_prompt,
+                        "output": None,
                     }
                 )
 
@@ -678,9 +854,12 @@ class Minions:
                     if self.callback:
                         self.callback("supervisor", None, is_final=False)
                     # Request JSON response from remote client
+                    remote_start_time = time.time()
                     synthesized_response, usage = self.remote_client.chat(
                         supervisor_messages, response_format={"type": "json_object"}
                     )
+                    current_time = time.time()
+                    timing["remote_call_time"] += current_time - remote_start_time
 
                     # Parse and validate JSON response
                     response_text = synthesized_response[0]
@@ -705,6 +884,10 @@ class Minions:
             supervisor_messages.append(
                 {"role": "assistant", "content": synthesized_response[0]}
             )
+
+            # Update conversation log with synthesis response
+            conversation_log["conversation"][-1]["output"] = synthesized_response[0]
+
             if self.callback:
                 self.callback("supervisor", supervisor_messages[-1], is_final=True)
             # ---------- END ----------
@@ -725,6 +908,7 @@ class Minions:
 
             if obj["decision"] != "request_additional_info":
                 final_answer = obj.get("answer", None)
+                conversation_log["generated_final_answer"] = final_answer
                 break  # answer was found, so we are done!
             else:
                 feedback = obj.get("explanation", None)
@@ -735,18 +919,54 @@ class Minions:
                 f"Exhausted all rounds without finding a final answer. Returning the last synthesized response."
             )
             final_answer = "No answer found."
+            conversation_log["generated_final_answer"] = final_answer
+
+        # Calculate total time at the end
+        end_time = time.time()
+        timing["total_time"] = end_time - start_time
+        timing["overhead_time"] = timing["total_time"] - (
+            timing["local_call_time"] + timing["remote_call_time"]
+        )
+
+        # Add usage statistics to the conversation log
+        conversation_log["usage"]["remote"] = remote_usage.to_dict()
+        conversation_log["usage"]["local"] = local_usage.to_dict()
+
+        # Save the conversation log to a file
+        if log_path:
+            os.makedirs(os.path.dirname(log_path), exist_ok=True)
+            with open(log_path, "w", encoding="utf-8") as f:
+                json.dump(conversation_log, f, indent=2, ensure_ascii=False)
+        else:
+            # Create a log filename based on timestamp and task or provided logging_id
+            if logging_id:
+                log_filename = f"{logging_id}_minions.json"
+            else:
+                timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+                safe_task = re.sub(r"[^a-zA-Z0-9]", "_", task[:15])
+                log_filename = f"{timestamp}_{safe_task}_minions.json"
+
+            log_path = os.path.join(self.log_dir, log_filename)
+
+            # Create the directory if it doesn't exist
+            os.makedirs(os.path.dirname(log_path), exist_ok=True)
+
+            # Save the log file
+            with open(log_path, "w", encoding="utf-8") as f:
+                json.dump(conversation_log, f, indent=2, ensure_ascii=False)
+
+            print(f"\n=== SAVED LOG TO {log_path} ===")
+
+        print("\n=== MINIONS TASK COMPLETED ===")
 
         result = {
             "final_answer": final_answer,
             "meta": meta,
-            "local_usage": local_usage,
-            "remote_usage": remote_usage,
+            "log_file": log_path,
+            "conversation_log": conversation_log,
+            "timing": timing,
+            "local_usage": local_usage.to_dict(),
+            "remote_usage": remote_usage.to_dict(),
         }
-
-        # Save logs if path is provided
-        if log_path:
-            os.makedirs(os.path.dirname(log_path), exist_ok=True)
-            with open(log_path, 'w') as f:
-                json.dump(result, f, indent=2)
 
         return result

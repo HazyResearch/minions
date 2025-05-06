@@ -9,6 +9,8 @@ from minions.clients.groq import GroqClient
 from minions.clients.deepseek import DeepSeekClient
 from minions.clients.sambanova import SambanovaClient
 from minions.clients.gemini import GeminiClient
+from minions.clients.grok import GrokClient
+from minions.clients.llama_api import LlamaApiClient
 
 __all__ = [
     "OllamaClient",
@@ -22,7 +24,19 @@ __all__ = [
     "DeepSeekClient",
     "SambanovaClient",
     "GeminiClient",
+    "GrokClient",
+    "LlamaApiClient",
 ]
+
+try:
+    from minions.clients.transformers import TransformersClient
+
+    __all__.append("TransformersClient")
+except ImportError:
+    # print warning that transformers is not installed
+    print(
+        "WARNING: Transformers is not installed. Please install it with `pip install transformers`."
+    )
 
 try:
     from minions.clients.mlx_lm import MLXLMClient
@@ -56,7 +70,7 @@ except ImportError:
     )
 
 try:
-    from .huggingface import HuggingFaceClient
+    from .huggingface_client import HuggingFaceClient
 
     __all__.append("HuggingFaceClient")
 except ImportError:
@@ -73,4 +87,23 @@ except ImportError:
     # print warning that mlx_audio is not installed
     print(
         "Warning: mlx_audio is not installed. If you want to use mlx_audio, please install it with `pip install mlx-audio`"
+    )
+
+try:
+    from .mlx_parallm_model import MLXParallmClient
+except ImportError:
+    # This allows the package to be imported even if mlx_parallm is not installed
+    print(
+        "Warning: mlx_parallm is not installed. If you want to use mlx_parallm, please install it with `pip install mlx-parallm`"
+    )
+
+
+try:
+    from .transformers import TransformersClient
+
+    __all__.append("TransformersClient")
+except ImportError:
+    # print warning that transformers is not installed
+    print(
+        "WARNING: Transformers is not installed. Please install it with `pip install transformers`."
     )

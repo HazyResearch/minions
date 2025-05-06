@@ -17,10 +17,11 @@ _We have tested the following setup on Mac and Ubuntu with Python 3.10-3.11_ (No
 
 <details>
   <summary>Optional: Create a virtual environment with your favorite package manager (e.g. conda, venv, uv)</summary>
-        
-  ```python
-  conda create -n minions python=3.11
-  ```
+
+```python
+conda create -n minions python=3.11
+```
+
 </details><br>
 
 **Step 1:** Clone the repository and install the Python package.
@@ -76,6 +77,69 @@ pip install git+https://github.com/cartesia-ai/edge.git#subdirectory=cartesia-ml
 
 </details><br>
 
+<details>
+    <summary>Optional: Install llama-cpp-python</summary>
+
+# Installation
+
+First, install the llama-cpp-python package:
+
+```bash
+# CPU-only installation
+pip install llama-cpp-python
+
+# For Metal on Mac (Apple Silicon/Intel)
+CMAKE_ARGS="-DGGML_METAL=on" pip install llama-cpp-python
+
+# For CUDA on NVIDIA GPUs
+CMAKE_ARGS="-DGGML_CUDA=on" pip install llama-cpp-python
+
+# For OpenBLAS CPU optimizations
+CMAKE_ARGS="-DGGML_BLAS=ON -DGGML_BLAS_VENDOR=OpenBLAS" pip install llama-cpp-python
+```
+
+For more installation options, see the [llama-cpp-python documentation](https://llama-cpp-python.readthedocs.io/en/latest/).
+
+## Basic Usage
+
+The client follows the basic pattern from the llama-cpp-python library:
+
+```python
+from minions.clients import LlamaCppClient
+
+# Initialize the client with a local model
+client = LlamaCppClient(
+    model_path="/path/to/model.gguf",
+    chat_format="chatml",     # Most modern models use "chatml" format
+    n_gpu_layers=35           # Set to 0 for CPU-only inference
+)
+
+# Run a chat completion
+messages = [
+    {"role": "system", "content": "You are a helpful assistant."},
+    {"role": "user", "content": "What's the capital of France?"}
+]
+
+responses, usage, done_reasons = client.chat(messages)
+print(responses[0])  # The generated response
+```
+
+## Loading Models from Hugging Face
+
+You can easily load models directly from Hugging Face:
+
+```python
+client = LlamaCppClient(
+    model_path="dummy",  # Will be replaced by downloaded model
+    model_repo_id="TheBloke/Mistral-7B-Instruct-v0.2-GGUF",
+    model_file_pattern="*Q4_K_M.gguf",  # Optional - specify quantization
+    chat_format="chatml",
+    n_gpu_layers=35     # Offload 35 layers to GPU
+)
+```
+
+</details><br>
+
 **Step 3:** Set your API key for at least one of the following cloud LLM providers.
 
 _If needed, create an [OpenAI API Key](https://platform.openai.com/docs/overview) or [TogetherAI API key](https://docs.together.ai/docs/quickstart) or [DeepSeek API key](https://platform.deepseek.com/api_keys) for the cloud model._
@@ -107,9 +171,11 @@ export DEEPSEEK_API_KEY=<your-deepseek-api-key>
 
 [![Watch the video](https://img.youtube.com/vi/70Kot0_DFNs/0.jpg)](https://www.youtube.com/watch?v=70Kot0_DFNs)
 
-To try the Minion or Minions protocol, run the following command:
+To try the Minion or Minions protocol, run the following commands:
 
 ```bash
+pip install torch transformers
+
 streamlit run app.py
 ```
 
@@ -213,6 +279,23 @@ output = minion(
 
 To run Minion/Minions in a notebook, checkout `minions.ipynb`.
 
+## Docker support
+
+### Build the Docker Image
+
+```bash
+docker build -t minions .
+```
+
+### Run the container
+
+```bash
+#without GPU support
+docker run -p 8501:8501 --env OPENAI_API_KEY=<your-openai-api-key> --env DEEPSEEK_API_KEY=<your-deepseek-api-key> minions
+#with GPU support
+docker run --gpus all -p 8501:8501 --env OPENAI_API_KEY=<your-openai-api-key> --env DEEPSEEK_API_KEY=<your-deepseek-api-key> minions
+```
+
 ## CLI
 
 To run Minion/Minions in a CLI, checkout `minions_cli.py`.
@@ -232,11 +315,66 @@ minions --help
 minions --context <path_to_context> --protocol <minion|minions>
 ```
 
+## Inference Estimator
+
+Minions provides a utility to estimate LLM inference speed on your hardware. The inference estimator helps you:
+
+1. Analyze your hardware capabilities (GPU, MPS, or CPU)
+2. Calculate peak performance for your models
+3. Estimate tokens per second and completion time
+
+### Command Line Usage
+
+Run the estimator directly from the command line to check how fast a model will run:
+
+```bash
+python -m minions.utils.inference_estimator --model llama3.2 --tokens 1000 --describe
+```
+
+Arguments:
+
+- `--model`: Model name from the supported model list (e.g., llama3.2, mistral7b)
+- `--tokens`: Number of tokens to estimate generation time for
+- `--describe`: Show detailed hardware and model performance statistics
+- `--quantized`: Specify that the model is quantized
+- `--quant-bits`: Quantization bit-width (4, 8, or 16)
+
+### Python API Usage
+
+You can also use the inference estimator in your Python code:
+
+```python
+from minions.utils.inference_estimator import InferenceEstimator
+
+# Initialize the estimator for a specific model
+estimator = InferenceEstimator(
+    model_name="llama3.2",  # Model name
+    is_quant=True,          # Is model quantized?
+    quant_bits=4            # Quantization level (4, 8, 16)
+)
+
+# Estimate performance for 1000 tokens
+tokens_per_second, estimated_time = estimator.estimate(1000)
+print(f"Estimated speed: {tokens_per_second:.1f} tokens/sec")
+print(f"Estimated time: {estimated_time:.2f} seconds")
+
+# Get detailed stats
+detailed_info = estimator.describe(1000)
+print(detailed_info)
+
+# Calibrate with your actual model client for better accuracy
+# (requires a model client that implements a chat() method)
+estimator.calibrate(my_model_client, sample_tokens=32, prompt="Hello")
+```
+
+The estimator uses a roofline model that considers both compute and memory bandwidth limitations and applies empirical calibration to improve accuracy. The calibration data is cached at `~/.cache/ie_calib.json` for future use.
+
 ## Miscellaneous Setup
 
 ### Using Azure OpenAI with Minions
 
 #### Set Environment Variables
+
 ```bash
 export AZURE_OPENAI_API_KEY=your-api-key
 export AZURE_OPENAI_ENDPOINT=https://your-resource-name.openai.azure.com/
@@ -244,6 +382,7 @@ export AZURE_OPENAI_API_VERSION=2024-02-15-preview
 ```
 
 #### Example Code
+
 Here's an example of how to use Azure OpenAI with the Minions protocol in your own code:
 
 ```python

@@ -21,10 +21,19 @@ setup(
         "PyMuPDF",  # for PDF handling
         "firecrawl-py",  # for scraping urls
         "google-genai",  # for Gemini client
+        "serpapi",  # for web search
+        "google_search_results",  # for web search
+        "psutil",
     ],
     extras_require={
         "mlx": ["mlx-lm"],
         "csm-mlx": ["csm-mlx @ git+https://github.com/senstella/csm-mlx.git"],
+        "embeddings": [
+            "faiss-cpu",  # for embedding search
+            "sentence-transformers",  # for pretrained embedding models
+            "torch",  # for running embedding models on CUDA
+            "chromadb",  # for vector database
+        ],
     },
     author="Sabri, Avanika, and Dan",
     description="A package for running minion protocols with local and remote LLMs",

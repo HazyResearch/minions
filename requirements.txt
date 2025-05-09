@@ -1,0 +1,30 @@
+# --- Core UI & local execution ---
+ollama                    # local LLM runtime
+streamlit==1.42.2         # Streamlit UI (pinned)
+
+# --- Model provider SDKs ---
+openai                    # OpenAI client
+anthropic                 # Anthropic client
+together                  # Together AI client
+groq                      # Groq client
+google-genai              # Gemini client
+
+# --- Retrieval, search & scraping ---
+requests                  # generic HTTP
+serpapi                   # Google Search via SerpAPI
+google_search_results     # SerpAPI helper
+firecrawl-py              # URL scraping / crawling
+rank_bm25                 # BM25 ranking for retrieval
+
+# --- Data handling & utilities ---
+tiktoken                  # token counting
+PyMuPDF                   # PDF parsing
+orjson                    # fast JSON
+spacy                     # PII extraction / NLP
+cryptography              # crypto utilities
+st-theme                  # Streamlit theming
+mcp                       # Minions control plane (custom lib)
+
+# --- Backend / server ---
+flask                     # worker server
+twilio                    # SMS / WhatsApp integration

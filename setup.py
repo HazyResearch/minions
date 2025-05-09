@@ -24,6 +24,10 @@ setup(
         "serpapi",  # for web search
         "google_search_results",  # for web search
         "psutil",
+        "flask",  # for the worker server
+        "cryptography",  # for crypto utils
+        "orjson",
+        "twilio",
     ],
     extras_require={
         "mlx": ["mlx-lm"],

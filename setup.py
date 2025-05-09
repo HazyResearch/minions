@@ -34,6 +34,12 @@ setup(
             "torch",  # for running embedding models on CUDA
             "chromadb",  # for vector database
         ],
+        "secure": [        
+            "flask",  # for the worker server
+            "cryptography",  # for crypto utils
+            "orjson",
+            "twilio",
+        ],
     },
     author="Sabri, Avanika, and Dan",
     description="A package for running minion protocols with local and remote LLMs",

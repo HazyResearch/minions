@@ -49,3 +49,6 @@ htmlcov/
 
 # ChromaDB Persistance
 chroma/
+
+# Ignore worker keys file
+worker_keys.json

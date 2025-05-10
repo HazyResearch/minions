@@ -39,6 +39,11 @@ def do_rerun():
         st.experimental_rerun()
 
 
+def is_mobile():
+    """Check if we're in mobile mode (based on session state toggle)."""
+    return st.session_state.get("mobile_mode", False)
+
+
 def render_history(history):
     for msg in history:
         message_container = st.chat_message(msg["role"])
@@ -86,6 +91,49 @@ def stream_response(chat: SecureMinionChat, user_msg: str, image_path=None):
 # ── page config ────────────────────────────────────────────────────────────
 st.set_page_config(page_title="Secure Chat", page_icon="🔒")
 
+# Add custom CSS for centering elements
+st.markdown(
+    """
+<style>
+/* Center checkboxes and their labels */
+.stCheckbox {
+    display: flex;
+    justify-content: center;
+}
+.stCheckbox > label {
+    display: flex;
+    justify-content: center;
+    width: 100%;
+}
+
+/* Center button rows */
+div[data-testid="column"] {
+    display: flex;
+    justify-content: center;
+}
+
+/* Center text in buttons */
+.stButton button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Center title and subtitle */
+h1, .subtitle {
+    text-align: center;
+}
+
+/* Center the horizontal rule */
+hr {
+    margin-left: auto;
+    margin-right: auto;
+}
+</style>
+""",
+    unsafe_allow_html=True,
+)
+
 
 def is_dark_mode():
     theme = st_theme()
@@ -116,13 +164,22 @@ st.markdown("<hr style='width: 100%;'>", unsafe_allow_html=True)
 st.title("🔒 Secure Chat")
 # add a one line that says "secure encrypted chat running inside a trusted execution environment"
 st.markdown(
-    "<p style='font-size: 20px; color: #888;'>Secure encrypted chat running inside a trusted execution environment!</p>",
+    "<p class='subtitle' style='font-size: 20px; color: #888;'>Secure encrypted chat running inside a trusted execution environment!</p>",
     unsafe_allow_html=True,
 )
 
 
 # ── connection settings area (collapsed by default) ─────────────────────────────
 with st.expander("Connection Settings", expanded=True):
+
+    # Add mobile mode toggle
+    mobile_mode = st.checkbox(
+        "📱 Mobile mode",
+        value=st.session_state.get("mobile_mode", False),
+        help="Enable for better layout on small screens or mobile devices",
+    )
+    st.session_state.mobile_mode = mobile_mode
+
     # Use a checkbox to toggle visibility of advanced settings
     show_advanced = st.checkbox("Show Advanced Server Settings", value=False)
 
@@ -138,33 +195,85 @@ with st.expander("Connection Settings", expanded=True):
             "supervisor_url", "http://20.57.33.122:5056"
         )
 
-    system_prompt = st.text_area(
-        "System prompt",
-        value=st.session_state.get("system_prompt", SYSTEM_PROMPT),
-        height=68,
-    )
+    if is_mobile():
+        system_prompt = st.text_area(
+            "System prompt",
+            value=st.session_state.get("system_prompt", SYSTEM_PROMPT),
+            height=68,
+        )
 
-    cols = st.columns(3)
-    if cols[0].button("🔌 Connect / Re‑connect"):
-        try:
-            chat = SecureMinionChat(supervisor_url, system_prompt)
-            info = chat.initialize_secure_session()
-            st.session_state.chat = chat
-            st.session_state.supervisor_url = supervisor_url
-            st.session_state.system_prompt = system_prompt
-            st.session_state.stream = True
-            st.success(f"Connected – session ID: {info['session_id']}")
-        except Exception as exc:
-            st.error(f"Connection failed: {exc}")
+        # Center the buttons in mobile view
+        st.markdown(
+            "<div style='display: flex; justify-content: center;'>",
+            unsafe_allow_html=True,
+        )
+        button_cols = st.columns([1, 1, 1])
+        connect_btn = button_cols[0].button("🔌 Connect", use_container_width=True)
+        clear_btn = button_cols[1].button("🗑️ Clear", use_container_width=True)
+        end_btn = button_cols[2].button("❌ End", use_container_width=True)
+        st.markdown("</div>", unsafe_allow_html=True)
 
-    if cols[1].button("🗑️ Clear chat") and "chat" in st.session_state:
-        st.session_state.chat.clear_conversation()
-        do_rerun()
+        if connect_btn:
+            try:
+                chat = SecureMinionChat(supervisor_url, system_prompt)
+                info = chat.initialize_secure_session()
+                st.session_state.chat = chat
+                st.session_state.supervisor_url = supervisor_url
+                st.session_state.system_prompt = system_prompt
+                st.session_state.stream = True
+                st.success(f"Connected – session ID: {info['session_id']}")
+            except Exception as exc:
+                st.error(f"Connection failed: {exc}")
 
-    if cols[2].button("✂️ End session") and "chat" in st.session_state:
-        st.session_state.chat.end_session()
-        del st.session_state.chat
-        do_rerun()
+        if clear_btn and "chat" in st.session_state:
+            st.session_state.chat.clear_conversation()
+            do_rerun()
+
+        if end_btn and "chat" in st.session_state:
+            st.session_state.chat.end_session()
+            del st.session_state.chat
+            do_rerun()
+
+    else:
+        system_prompt = st.text_area(
+            "System prompt",
+            value=st.session_state.get("system_prompt", SYSTEM_PROMPT),
+            height=68,
+        )
+
+        # Center the buttons in desktop view
+        st.markdown(
+            "<div style='display: flex; justify-content: center;'>",
+            unsafe_allow_html=True,
+        )
+        button_cols = st.columns([1, 1, 1])
+        connect_btn = button_cols[0].button(
+            "🔌 Connect / Re‑connect", use_container_width=True
+        )
+        clear_btn = button_cols[1].button("🗑️ Clear chat", use_container_width=True)
+        end_btn = button_cols[2].button("✂️ End session", use_container_width=True)
+        st.markdown("</div>", unsafe_allow_html=True)
+
+        if connect_btn:
+            try:
+                chat = SecureMinionChat(supervisor_url, system_prompt)
+                info = chat.initialize_secure_session()
+                st.session_state.chat = chat
+                st.session_state.supervisor_url = supervisor_url
+                st.session_state.system_prompt = system_prompt
+                st.session_state.stream = True
+                st.success(f"Connected – session ID: {info['session_id']}")
+            except Exception as exc:
+                st.error(f"Connection failed: {exc}")
+
+        if clear_btn and "chat" in st.session_state:
+            st.session_state.chat.clear_conversation()
+            do_rerun()
+
+        if end_btn and "chat" in st.session_state:
+            st.session_state.chat.end_session()
+            del st.session_state.chat
+            do_rerun()
 
 
 # ── main chat area ─────────────────────────────────────────────────────────
@@ -261,7 +370,10 @@ with input_container:
             #     do_rerun()
 
     # Create a row with the chat input and attachment button
-    cols = st.columns([0.9, 0.1])
+    if is_mobile():
+        cols = st.columns([0.6, 0.4])
+    else:
+        cols = st.columns([0.9, 0.1])
 
     # Text input in the first (larger) column
     prompt = cols[0].chat_input("Type your message …")

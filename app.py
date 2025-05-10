@@ -97,6 +97,21 @@ API_PRICES = {
         "gemini-1.5-pro": {"input": 3.50, "cached_input": 1.75, "output": 10.50},
         "gemini-1.5-flash": {"input": 0.35, "cached_input": 0.175, "output": 1.05},
     },
+    # LlamaAPI pricing (approximate - please update with actual pricing)
+    "LlamaAPI": {
+        "Llama-4-Maverick-17B-128E-Instruct-FP8": {
+            "input": 0,
+            "cached_input": 0,
+            "output": 0,
+        },
+        "Llama-4-Scout-17B-16E-Instruct-FP8": {
+            "input": 0,
+            "cached_input": 0,
+            "output": 0,
+        },
+        "Llama-3.3-70B-Instruct": {"input": 0, "cached_input": 0, "output": 0},
+        "Llama-3.3-8B-Instruct": {"input": 0, "cached_input": 0, "output": 0},
+    },
 }
 
 PROVIDER_TO_ENV_VAR_KEY = {
@@ -113,6 +128,7 @@ PROVIDER_TO_ENV_VAR_KEY = {
     "SambaNova": "SAMBANOVA_API_KEY",
     "Gemini": "GOOGLE_API_KEY",
     "HuggingFace": "HF_TOKEN",
+    "LlamaAPI": "LLAMA_API_KEY",
 }
 
 
@@ -555,12 +571,23 @@ def initialize_clients(
             api_key=api_key,
         )
     elif provider == "Anthropic":
+        # Get web search settings directly from session state
+        use_web_search = st.session_state.get("use_web_search", False)
+        include_search_queries = st.session_state.get("include_search_queries", False)
+        max_web_search_uses = st.session_state.get("max_web_search_uses", 5)
+
         st.session_state.remote_client = AnthropicClient(
             model_name=remote_model_name,
             temperature=remote_temperature,
             max_tokens=int(remote_max_tokens),
             api_key=api_key,
+            use_web_search=use_web_search,
+            include_search_queries=include_search_queries,
         )
+
+        # Set max_web_search_uses if web search is enabled
+        if use_web_search:
+            st.session_state.remote_client.max_web_search_uses = max_web_search_uses
     elif provider == "Together":
         st.session_state.remote_client = TogetherClient(
             model_name=remote_model_name,
@@ -603,6 +630,13 @@ def initialize_clients(
             max_tokens=int(remote_max_tokens),
             api_key=api_key,
         )
+    elif provider == "LlamaAPI":
+        st.session_state.remote_client = LlamaApiClient(
+            model_name=remote_model_name,
+            temperature=remote_temperature,
+            max_tokens=int(remote_max_tokens),
+            api_key=api_key,
+        )
     else:  # OpenAI
         st.session_state.remote_client = OpenAIClient(
             model_name=remote_model_name,
@@ -617,6 +651,10 @@ def initialize_clients(
             st.session_state.remote_client,
             callback=message_callback,
         )
+
+        # Initialize chunking_fn if not already set
+        if "chunk_fn" not in st.session_state:
+            st.session_state.chunk_fn = "chunk_by_section"
     elif protocol == "Minions-MCP":
         st.session_state.method = SyncMinionsMCP(
             local_client=st.session_state.local_client,
@@ -843,6 +881,22 @@ def run_protocol(
             elif use_retrieval == "embedding":
                 use_retrieval = "multimodal-embedding"
 
+            # Show info about the selected chunking method
+            chunk_methods = {
+                "chunk_by_section": "Section",
+                "chunk_by_page": "Page",
+                "chunk_by_paragraph": "Paragraph",
+                "chunk_by_code": "Code",
+                "chunk_by_function_and_class": "Function and Class",
+            }
+            chunk_method_display = chunk_methods.get(
+                st.session_state.chunk_fn, "Custom"
+            )
+
+            st.info(
+                f"📄 Using '{chunk_method_display}' chunking method to process your document"
+            )
+
             output = st.session_state.method(
                 task=task,
                 doc_metadata=doc_metadata,
@@ -850,6 +904,7 @@ def run_protocol(
                 max_rounds=5,
                 max_jobs_per_round=max_jobs_per_round,
                 use_retrieval=use_retrieval,
+                chunk_fn=st.session_state.chunk_fn,  # Pass the selected chunking function
             )
         elif protocol == "DeepResearch":
             output = st.session_state.method(
@@ -1045,6 +1100,21 @@ def validate_huggingface_token(hf_token):
     return True, "HuggingFace token format is valid"
 
 
+def validate_llama_api_key(api_key):
+    try:
+        client = LlamaApiClient(
+            model_name="Llama-3.3-8B-Instruct",
+            api_key=api_key,
+            temperature=0.0,
+            max_tokens=1,
+        )
+        messages = [{"role": "user", "content": "Say yes"}]
+        client.chat(messages)
+        return True, ""
+    except Exception as e:
+        return False, str(e)
+
+
 # validate
 
 
@@ -1069,6 +1139,7 @@ with st.sidebar:
             "DeepSeek",
             "SambaNova",
             "Gemini",
+            "LlamaAPI",
         ]
         selected_provider = st.selectbox(
             "Select Remote Provider",
@@ -1110,6 +1181,8 @@ with st.sidebar:
             is_valid, msg = validate_sambanova_key(api_key)
         elif selected_provider == "Gemini":
             is_valid, msg = validate_gemini_key(api_key)
+        elif selected_provider == "LlamaAPI":
+            is_valid, msg = validate_llama_api_key(api_key)
         else:
             raise ValueError(f"Invalid provider: {selected_provider}")
 
@@ -1134,6 +1207,69 @@ with st.sidebar:
         )
     else:
         use_responses_api = False
+
+    # Add a toggle for Anthropic web search when Anthropic is selected
+    if selected_provider == "Anthropic":
+        use_web_search = st.toggle(
+            "Enable Web Search",
+            value=st.session_state.get("use_web_search", False),
+            key="use_web_search",
+            help="When enabled, allows Claude to search the web for up-to-date information. Only works with Anthropic provider.",
+        )
+
+        # Remove redundant assignment - the toggle widget already updates session state
+        # st.session_state.use_web_search = use_web_search
+
+        # Show informational text about web search requirements
+        if use_web_search:
+            current_model = st.session_state.get(
+                "remote_model", ""
+            ) or st.session_state.get("current_remote_model", "")
+
+            if "claude-3-7" not in str(current_model).lower():
+                st.info(
+                    "💡 Web search works best with Claude 3.7 Sonnet or newer models. "
+                    "Consider selecting 'claude-3-7-sonnet-latest' from the Model dropdown below. "
+                    "Responses will include citations to web sources."
+                )
+            else:
+                st.info(
+                    "💡 Web search is enabled. Claude will search the web for up-to-date information "
+                    "and include citations to sources in its responses."
+                )
+
+            # Option to include search queries in the response
+            include_search_queries = st.toggle(
+                "Show Search Queries",
+                value=st.session_state.get("include_search_queries", False),
+                key="include_search_queries",
+                help="When enabled, includes the search queries Claude used in the response.",
+            )
+
+            # Maximum web search uses
+            max_web_search_uses = st.slider(
+                "Max Web Searches",
+                min_value=1,
+                max_value=10,
+                value=st.session_state.get("max_web_search_uses", 5),
+                key="max_web_search_uses",
+                help="Maximum number of web searches Claude can perform in a single request.",
+            )
+
+            # Remove redundant assignments - the widgets already update session state
+            # st.session_state.include_search_queries = include_search_queries
+            # st.session_state.max_web_search_uses = max_web_search_uses
+        else:
+            # This can be kept as it's not tied to a widget
+            st.session_state.include_search_queries = False
+    else:
+        # Clear these session state variables when a different provider is selected
+        if "use_web_search" in st.session_state:
+            st.session_state.use_web_search = False
+        if "include_search_queries" in st.session_state:
+            st.session_state.include_search_queries = False
+        if "max_web_search_uses" in st.session_state:
+            st.session_state.max_web_search_uses = 5
 
     # Local model provider selection
     st.subheader("Local Model Provider")
@@ -1205,7 +1341,8 @@ with st.sidebar:
         "OpenRouter",
         "DeepSeek",
         "SambaNova",
-    ]:  # Added AzureOpenAI to the list
+        "LlamaAPI",
+    ]:  # Added LlamaAPI to the list
         protocol_options = [
             "Minion",
             "Minions",
@@ -1264,9 +1401,50 @@ with st.sidebar:
             step=1,
             help="Maximum number of jobs to run per round for Minions protocol",
         )
+
+        # Add chunking functions dropdown
+        chunking_functions = {
+            "Chunk by Section (Default)": "chunk_by_section",
+            "Chunk by Page": "chunk_by_page",
+            "Chunk by Paragraph": "chunk_by_paragraph",
+            "Chunk by Code": "chunk_by_code",
+            "Chunk by Function and Class": "chunk_by_function_and_class",
+        }
+
+        selected_chunking_function = st.selectbox(
+            "Chunking Method",
+            options=list(chunking_functions.keys()),
+            index=0,
+            help="Select how to split the context into chunks for processing",
+        )
+
+        # Store the selected chunking function in session state
+        chunk_fn = chunking_functions[selected_chunking_function]
+        st.session_state.chunk_fn = chunk_fn
+
+        # Add a help expander to explain chunking methods
+        with st.expander("ℹ️ About Chunking Methods", expanded=False):
+            st.markdown(
+                """
+            ### Chunking Methods
+            
+            **Chunk by Section:** Splits text by section headings (e.g., "## Section Title"). Best for well-structured documents with clear section markers.
+            
+            **Chunk by Page:** Divides text by page boundaries. Useful for PDFs or documents with clear page breaks.
+            
+            **Chunk by Paragraph:** Breaks text into paragraphs. Good for most general text documents.
+            
+            **Chunk by Code:** Splits code files by functions. Optimized for programming source code.
+            
+            **Chunk by Function and Class:** More advanced code splitting that preserves class context. Best for object-oriented code.
+            
+            Choose the method that best matches your document's structure for optimal processing.
+            """
+            )
     else:
         use_bm25 = False
         max_jobs_per_round = 2048
+        st.session_state.chunk_fn = "chunk_by_section"  # Default value
 
     # Add MCP server selection when Minions-MCP is selected
     if protocol == "Minions-MCP":
@@ -1461,6 +1639,7 @@ with st.sidebar:
         elif selected_provider == "OpenRouter":
             model_mapping = {
                 "Claude 3.5 Sonnet (Recommended)": "anthropic/claude-3.5-sonnet",
+                "claude 3.7 Sonnet Latest": "anthropic/claude-3-7-sonnet-latest",
                 "Claude 3 Opus": "anthropic/claude-3-opus",
                 "GPT-4o": "openai/gpt-4o",
                 "Mistral Large": "mistralai/mistral-large",
@@ -1470,7 +1649,8 @@ with st.sidebar:
             default_model_index = 0
         elif selected_provider == "Anthropic":
             model_mapping = {
-                "claude-3-5-sonnet-latest (Recommended)": "claude-3-5-sonnet-latest",
+                "claude-3-7-sonnet-latest (Recommended for web search)": "claude-3-7-sonnet-latest",
+                "claude-3-5-sonnet-latest": "claude-3-5-sonnet-latest",
                 "claude-3-5-haiku-latest": "claude-3-5-haiku-latest",
                 "claude-3-opus-latest": "claude-3-opus-latest",
             }
@@ -1508,6 +1688,14 @@ with st.sidebar:
                 "deepseek-reasoner": "deepseek-reasoner",
             }
             default_model_index = 0
+        elif selected_provider == "LlamaAPI":
+            model_mapping = {
+                "Llama-4-Maverick-17B-128E-Instruct-FP8 (Recommended)": "Llama-4-Maverick-17B-128E-Instruct-FP8",
+                "Llama-4-Scout-17B-16E-Instruct-FP8": "Llama-4-Scout-17B-16E-Instruct-FP8",
+                "Llama-3.3-70B-Instruct": "Llama-3.3-70B-Instruct",
+                "Llama-3.3-8B-Instruct": "Llama-3.3-8B-Instruct",
+            }
+            default_model_index = 0
         else:
             model_mapping = {}
             default_model_index = 0
@@ -1516,10 +1704,13 @@ with st.sidebar:
             "Model",
             options=list(model_mapping.keys()),
             index=default_model_index,
-            key="remote_model",
+            key="remote_model_display",  # Changed to a different key name
         )
         remote_model_name = model_mapping[remote_model_display]
         st.session_state.current_remote_model = remote_model_name
+        st.session_state.remote_model = (
+            remote_model_name  # Store the actual model name for reference
+        )
 
         show_remote_params = st.toggle(
             "Change defaults", value=False, key="remote_defaults_toggle"
@@ -2123,7 +2314,8 @@ else:
 
                     # Display cost information for OpenAI models
                     if (
-                        selected_provider in ["OpenAI", "AzureOpenAI", "DeepSeek"]
+                        selected_provider
+                        in ["OpenAI", "AzureOpenAI", "DeepSeek", "LlamaAPI"]
                         and remote_model_name in API_PRICES[selected_provider]
                     ):
                         st.header("Remote Model Cost")

@@ -58,10 +58,14 @@ os.environ["USE_SGLANG"] = "true"
 os.environ["SGLANG_ENDPOINT"] = args.sglang_endpoint
 if args.streaming:
     os.environ["SGLANG_STREAMING"] = "true"
-    logger.info(f"🧠 Using SGLang with streaming enabled at endpoint: {args.sglang_endpoint}")
+    logger.info(
+        f"🧠 Using SGLang with streaming enabled at endpoint: {args.sglang_endpoint}"
+    )
 else:
     os.environ["SGLANG_STREAMING"] = "false"
-    logger.info(f"🧠 Using SGLang (non-streaming) with endpoint: {args.sglang_endpoint}")
+    logger.info(
+        f"🧠 Using SGLang (non-streaming) with endpoint: {args.sglang_endpoint}"
+    )
 
 app = Flask(__name__)
 KEY_PATH = args.key_path
@@ -143,6 +147,7 @@ def attestation():
         }
     )
 
+
 @app.route("/message", methods=["POST"])
 def message():
     logger.info("📥 SECURITY: Received encrypted message")
@@ -175,9 +180,20 @@ def message():
     # Parse the JSON string to get the worker_messages list
     worker_messages = json.loads(plaintext)
 
-    # worker_messages should already be in the correct format with 'role' and 'content' keys
-    # Run local LLM with the full message history
-    logger.info("🧠 Processing message with LLM")
+    # Check if any messages contain image data
+    has_image = False
+    for msg in worker_messages:
+        if msg.get("role") == "user" and "image_url" in msg:
+            has_image = True
+            image_url = msg["image_url"]
+            # Log the first 50 characters of the image URL for debugging
+            logger.info(f"🖼️ Message contains image data: {image_url[:50]}...")
+
+    if has_image:
+        logger.info("🧠 Processing message with image using SGLang")
+    else:
+        logger.info("🧠 Processing message without image using SGLang")
+
     response_text = run_model(worker_messages)
 
     logger.info(
@@ -221,98 +237,44 @@ def message_stream():
     # Parse the JSON string to get the worker_messages list
     worker_messages = json.loads(plaintext)
 
+    # Check if any messages contain image data
+    for msg in worker_messages:
+        if msg.get("role") == "user" and "image_url" in msg:
+            logger.info("🖼️ Message contains image data for streaming")
+
     def generate():
         # Create a counter for the nonce that's local to this function
         nonce_counter = initial_nonce
-        
-        # Use SGLang for streaming if enabled
-        if os.environ.get("USE_SGLANG", "false").lower() == "true":
-            from minions.remote.remote_model import SGLangClient
-            
-            logger.info("🧠 Streaming response using SGLang")
-            
-            # Get the SGLang client
-            client = SGLangClient.get_instance()
-            
-            # Get the streaming state
-            state = client.stream_chat(worker_messages)
-            
-            # Stream the response
-            full_response = ""
-            for chunk in state.text_iter():
-                if "<|im_start|>assistant" in chunk and "<|im_end|>" not in chunk:
-                    # Skip the assistant tag
-                    continue
-                
-                if "<|im_start|>" in chunk or "<|im_end|>" in chunk:
-                    # Skip tags
-                    continue
-                
-                # Extract new content
-                if chunk and chunk not in full_response:
-                    new_text = chunk
-                    full_response += new_text
-                    
-                    # Encrypt each chunk with a new nonce
-                    encrypted_chunk = encrypt_and_sign(new_text, key, private_key, nonce_counter)
-                    nonce_counter += 1
-                    
-                    # Send the encrypted chunk
-                    yield json.dumps(encrypted_chunk) + "\n"
-            
-            # Send an end-of-stream marker
-            yield json.dumps({"eos": True}) + "\n"
-            
-        # Use vLLM for streaming if enabled
-        elif os.environ.get("USE_VLLM", "false").lower() == "true":
-            from minions.remote.remote_model import VLLMClient
-            client = VLLMClient.get_instance()
-            
-            # Set up sampling parameters for streaming
-            from vllm import SamplingParams
-            sampling_params = SamplingParams(
-                max_tokens=1024,
-                temperature=0.0,
-                top_p=1.0,
-            )
-            
-            # Stream tokens from vLLM
-            logger.info("🧠 Streaming response from vLLM")
-            full_response = ""
-            
-            # Get the streaming outputs
-            for output in client.model.chat(
-                messages=worker_messages,
-                sampling_params=sampling_params,
-                stream=True
-            ):
-                if len(output.outputs) > 0:
-                    # Get the new token(s)
-                    new_text = output.outputs[0].text[len(full_response):]
-                    full_response = output.outputs[0].text
-                    
-                    if new_text:
-                        # Encrypt each chunk with a new nonce
-                        encrypted_chunk = encrypt_and_sign(new_text, key, private_key, nonce_counter)
-                        nonce_counter += 1
-                        
-                        # Send the encrypted chunk
-                        yield json.dumps(encrypted_chunk) + "\n"
-                        
-            # Send an end-of-stream marker
-            yield json.dumps({"eos": True}) + "\n"
-        else:
-            # For OpenAI, we don't have streaming yet, so just send the full response
-            logger.info("🧠 Processing message with OpenAI (non-streaming)")
-            from minions.remote.remote_model import run_model
-            response_text = run_model(worker_messages)
-            
-            # Encrypt the full response
-            encrypted_response = encrypt_and_sign(response_text, key, private_key, nonce_counter)
-            yield json.dumps(encrypted_response) + "\n"
-            yield json.dumps({"eos": True}) + "\n"
 
-    return Response(stream_with_context(generate()), mimetype='text/event-stream')
+        # Use SGLang for streaming if enabled
+        from minions.remote.remote_model import SGLangClient
+
+        logger.info("🧠 Streaming response using SGLang")
+
+        # Get the SGLang client
+        client = SGLangClient.get_instance()
+
+        # Get the streaming state
+        state = client.stream_chat(worker_messages)
+        # log the state
+        logger.info(f"🧠 Streaming state: {state}")
+
+        # Stream the response
+        full_response = ""
+        for chunk in state:
+            new_text = chunk.choices[0].delta.content
+            if new_text:
+                full_response += new_text
+                encrypted_chunk = encrypt_and_sign(
+                    new_text, key, private_key, nonce_counter
+                )
+                nonce_counter += 1
+                yield json.dumps(encrypted_chunk) + "\n"
+
+        # Send an end-of-stream marker
+        yield json.dumps({"eos": True}) + "\n"
+
+    return Response(stream_with_context(generate()), mimetype="text/event-stream")
 
 
 if __name__ == "__main__":

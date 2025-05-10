@@ -13,6 +13,10 @@ running a new Streamlit (>v1.27) where the function was renamed to
 
 import streamlit as st
 from streamlit_theme import st_theme
+import os
+import tempfile
+import uuid
+from pathlib import Path
 
 from secure.minions_chat import SecureMinionChat
 
@@ -37,10 +41,36 @@ def do_rerun():
 
 def render_history(history):
     for msg in history:
-        st.chat_message(msg["role"]).markdown(msg["content"])
+        message_container = st.chat_message(msg["role"])
+
+        # If the message has an image, display it first
+        if "image_url" in msg:
+            # For now, we don't display images in history as we're not storing them
+            message_container.markdown("*[Image was shared with this message]*")
+
+        # Display the text content
+        message_container.markdown(msg["content"])
 
 
-def stream_response(chat: SecureMinionChat, user_msg: str):
+def save_uploaded_file(uploaded_file):
+    """Save uploaded file to a temporary directory and return the path."""
+    # Create a temporary directory if it doesn't exist
+    temp_dir = Path(tempfile.gettempdir()) / "secure_chat_uploads"
+    temp_dir.mkdir(exist_ok=True)
+
+    # Generate a unique filename
+    file_extension = os.path.splitext(uploaded_file.name)[1]
+    unique_filename = f"{uuid.uuid4()}{file_extension}"
+    file_path = temp_dir / unique_filename
+
+    # Save the file
+    with open(file_path, "wb") as f:
+        f.write(uploaded_file.getbuffer())
+
+    return str(file_path)
+
+
+def stream_response(chat: SecureMinionChat, user_msg: str, image_path=None):
     container = st.chat_message("assistant")
     placeholder = container.empty()
     buf = [""]
@@ -49,7 +79,7 @@ def stream_response(chat: SecureMinionChat, user_msg: str):
         buf[0] += chunk
         placeholder.markdown(buf[0])
 
-    chat.send_message_stream(user_msg, callback=_cb)
+    chat.send_message_stream(user_msg, image_path=image_path, callback=_cb)
 
 
 # ── page config ────────────────────────────────────────────────────────────
@@ -144,18 +174,59 @@ if chat is None:
 
 render_history(chat.get_conversation_history())
 
+# Add file uploader for images
+uploaded_file = st.file_uploader(
+    "Upload an image (optional)",
+    type=["png", "jpg", "jpeg", "gif"],
+    help="Upload an image to include with your next message",
+)
+
+# Initialize image_path as None
+image_path = None
+
+# If a file is uploaded, save it and update image_path
+if uploaded_file is not None:
+    with st.spinner("Processing image..."):
+        image_path = save_uploaded_file(uploaded_file)
+
+    # Preview the uploaded image
+    st.image(uploaded_file, caption="Uploaded image preview", use_column_width=True)
+    st.markdown("*This image will be sent with your next message*")
+
 if prompt := st.chat_input("Type your message …"):
-    st.chat_message("user").markdown(prompt)
+    # Display user message
+    user_message_container = st.chat_message("user")
+
+    # If there's an uploaded image, display it
+    if image_path:
+        # Also display the image preview in the user message
+        try:
+            user_message_container.image(image_path, caption="Uploaded image")
+        except Exception as e:
+            st.warning(f"Could not display image preview: {str(e)}")
+
+    # Display the text message
+    user_message_container.markdown(prompt)
 
     if st.session_state.get("stream"):
         try:
-            stream_response(chat, prompt)
+            stream_response(chat, prompt, image_path)
+            # Clear the file uploader after sending
+            uploaded_file = None
+            image_path = None
+            st.session_state.uploaded_file = None
+            do_rerun()
         except Exception as exc:
             st.error(f"Streaming failed: {exc}")
     else:
         with st.spinner("Thinking …"):
             try:
-                res = chat.send_message(prompt)
+                res = chat.send_message(prompt, image_path)
                 st.chat_message("assistant").markdown(res["response"])
+                # Clear the file uploader after sending
+                uploaded_file = None
+                image_path = None
+                st.session_state.uploaded_file = None
+                do_rerun()
             except Exception as exc:
                 st.error(f"Request failed: {exc}")

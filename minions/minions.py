@@ -15,6 +15,19 @@ from minions.utils.multimodal_retrievers import (
 
 from minions.usage import Usage
 
+from minions.utils.chunking import (
+    chunk_by_section,
+    chunk_by_page,
+    chunk_sentences,
+    chunk_by_paragraph,
+    extract_imports,
+    extract_function_header,
+    extract_function,
+    chunk_by_code,
+    chunk_by_function_and_class,
+)
+
+
 from minions.prompts.minions import (
     WORKER_PROMPT_TEMPLATE,
     WORKER_OUTPUT_TEMPLATE,
@@ -200,7 +213,17 @@ class Minions:
         self.synthesis_final_prompt = REMOTE_SYNTHESIS_FINAL or kwargs.get(
             "synthesis_final_prompt", None
         )
-
+        self.chunking_fns = {
+            "chunk_by_section": chunk_by_section,
+            "chunk_by_page": chunk_by_page,
+            "chunk_by_paragraph": chunk_by_paragraph,
+            "extract_imports": extract_imports,
+            "extract_function_header": extract_function_header,
+            "extract_function": extract_function,
+            "chunk_by_code": chunk_by_code,
+            "chunk_by_function_and_class": chunk_by_function_and_class,
+        }
+        self.chunking_fn = chunk_by_section
         # Create log directory if it doesn't exist
         os.makedirs(log_dir, exist_ok=True)
 
@@ -238,6 +261,7 @@ class Minions:
         log_path=None,
         logging_id=None,
         retrieval_model=None,
+        chunk_fn="chunk_by_section",
     ):
         """Run the minions protocol to answer a task using local and remote models.
 
@@ -256,6 +280,8 @@ class Minions:
         Returns:
             Dict containing final_answer and conversation histories
         """
+
+        self.chunking_fn = self.chunking_fns[chunk_fn]
 
         # Initialize timing metrics
         start_time = time.time()
@@ -371,6 +397,7 @@ class Minions:
                     else EMBEDDING_INSTRUCTIONS if use_retrieval == "embedding" else ""
                 )
 
+            print(getsource(self.chunking_fn))
             decompose_message_kwargs = dict(
                 num_samples=self.num_samples,
                 ADVANCED_STEPS_INSTRUCTIONS="",
@@ -380,7 +407,7 @@ class Minions:
                 transform_signature_source=getsource(transform_outputs),
                 # read_file_source=getsource(read_folder),
                 chunking_source="\n\n".join(
-                    [getsource(chunk_by_section).split("    sections = ")[0]]
+                    [getsource(self.chunking_fn).split("    sections = ")[0]]
                 ),
                 retrieval_source=retrieval_source,
                 retrieval_instructions=retrieval_instructions,
@@ -452,6 +479,7 @@ class Minions:
                 remote_usage += usage
 
                 task_response = task_response[0]
+                print(task_response)
                 supervisor_messages.append(
                     {"role": "assistant", "content": task_response},
                 )
@@ -484,6 +512,7 @@ class Minions:
                 starting_globals = {
                     **USEFUL_IMPORTS,
                     "chunk_by_section": chunk_by_section,
+                    f"{chunk_fn}": self.chunking_fn,
                     "JobManifest": JobManifest,
                     "JobOutput": JobOutput,
                     "Job": Job,

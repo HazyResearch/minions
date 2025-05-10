@@ -253,12 +253,6 @@ with input_container:
                 st.session_state.image_path = image_path
                 st.session_state.uploaded_file = uploaded_file
 
-            # # Preview the uploaded image
-            # st.image(
-            #     uploaded_file, caption="Uploaded image preview", use_column_width=True
-            # )
-            # st.markdown("*This image will be sent with your next message*")
-
             # # Add a button to remove the attachment
             # if st.button("❌ Remove image"):
             #     st.session_state.image_path = None

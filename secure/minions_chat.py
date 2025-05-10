@@ -3,7 +3,11 @@ import uuid
 import requests
 import logging
 import time
+import base64
+import os
 from typing import List, Dict, Any, Optional, Generator, Callable
+from urllib.parse import urlparse
+import mimetypes
 
 from secure.utils.crypto_utils import (
     generate_key_pair,
@@ -110,13 +114,23 @@ class SecureMinionChat:
             "key_exchange_time": key_exchange_time,
         }
 
-    def send_message(self, message: str) -> Dict[str, Any]:
+    def send_message(self, message: str, image_path: str = None) -> Dict[str, Any]:
         """Send a message to the supervisor and get a response"""
         if not self.is_initialized:
             self.initialize_secure_session()
 
+        # Create the message object
+        message_obj = {"role": "user", "content": message}
+
+        # Process image if provided
+        if image_path:
+            # Process and add the image to the message
+            image_data = self._process_image(image_path)
+            if image_data:
+                message_obj["image_url"] = image_data
+
         # Add user message to conversation history
-        self.conversation_history.append({"role": "user", "content": message})
+        self.conversation_history.append(message_obj)
 
         # Timing dictionary
         time_spent = {
@@ -202,14 +216,27 @@ class SecureMinionChat:
         }
 
     def send_message_stream(
-        self, message: str, callback: Callable[[str], None] = None
+        self,
+        message: str,
+        image_path: str = None,
+        callback: Callable[[str], None] = None,
     ) -> Dict[str, Any]:
         """Send a message to the supervisor and get a streaming response"""
         if not self.is_initialized:
             self.initialize_secure_session()
 
+        # Create the message object
+        message_obj = {"role": "user", "content": message}
+
+        # Process image if provided
+        if image_path:
+            # Process and add the image to the message
+            image_data = self._process_image(image_path)
+            if image_data:
+                message_obj["image_url"] = image_data
+
         # Add user message to conversation history
-        self.conversation_history.append({"role": "user", "content": message})
+        self.conversation_history.append(message_obj)
 
         # Timing dictionary
         time_spent = {
@@ -341,6 +368,29 @@ class SecureMinionChat:
         self.logger.info(f"🔒 Secure session {self.session_id} terminated")
         self.session_id = None
 
+    def _process_image(self, image_path: str) -> Optional[str]:
+        """Process an image file and return a data URL or None if processing fails"""
+        try:
+            if not os.path.exists(image_path):
+                self.logger.error(f"Image file not found: {image_path}")
+                return None
+
+            # Get the MIME type
+            mime_type, _ = mimetypes.guess_type(image_path)
+            if not mime_type:
+                mime_type = "application/octet-stream"  # Default MIME type
+
+            # Read and encode the image
+            with open(image_path, "rb") as img_file:
+                img_data = base64.b64encode(img_file.read()).decode("utf-8")
+
+            self.logger.info(f"✅ Image processed successfully: {image_path}")
+            return img_data
+
+        except Exception as e:
+            self.logger.error(f"❌ Error processing image: {str(e)}")
+            return None
+
 
 # Example usage
 if __name__ == "__main__":
@@ -379,6 +429,17 @@ if __name__ == "__main__":
                 print("Conversation cleared.")
                 continue
 
+            # Ask if user wants to include an image
+            image_path = None
+            include_image = input("Include an image? (y/n): ").lower() == "y"
+            if include_image:
+                image_path = input("Enter the path to the image file: ")
+                if not os.path.exists(image_path):
+                    print(f"Image file not found: {image_path}")
+                    image_path = None
+                else:
+                    print(f"Including image: {image_path}")
+
             # Ask if user wants to stream
             use_streaming = input("Use streaming? (y/n): ").lower() == "y"
 
@@ -388,14 +449,16 @@ if __name__ == "__main__":
                 def print_chunk(chunk):
                     print(chunk, end="", flush=True)
 
-                result = chat.send_message_stream(user_input, callback=print_chunk)
+                result = chat.send_message_stream(
+                    user_input, image_path, callback=print_chunk
+                )
                 print("\n")  # Add a newline after streaming completes
                 print(
                     f"Streaming time: {result['time_spent']['total_streaming_time']:.3f}s"
                 )
             else:
                 print("Sending message securely...")
-                result = chat.send_message(user_input)
+                result = chat.send_message(user_input, image_path)
                 print(f"\nAssistant: {result['response']}")
                 print(
                     f"Message round-trip time: {sum(result['time_spent'].values()):.3f}s"

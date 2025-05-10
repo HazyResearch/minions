@@ -71,6 +71,7 @@ def save_uploaded_file(uploaded_file):
 
 
 def stream_response(chat: SecureMinionChat, user_msg: str, image_path=None):
+    # Create a container for the assistant's message
     container = st.chat_message("assistant")
     placeholder = container.empty()
     buf = [""]
@@ -172,61 +173,111 @@ if chat is None:
     st.info("Click **Connect** to start your secure chat session.")
     st.stop()
 
-render_history(chat.get_conversation_history())
+# Initialize session state for attachment UI
+if "show_attachment" not in st.session_state:
+    st.session_state.show_attachment = False
+if "image_path" not in st.session_state:
+    st.session_state.image_path = None
+if "uploaded_file" not in st.session_state:
+    st.session_state.uploaded_file = None
 
-# Add file uploader for images
-uploaded_file = st.file_uploader(
-    "Upload an image (optional)",
-    type=["png", "jpg", "jpeg", "gif"],
-    help="Upload an image to include with your next message",
-)
+# Create a container for the chat history
+chat_container = st.container()
 
-# Initialize image_path as None
-image_path = None
+# Render the conversation history in the chat container
+with chat_container:
+    render_history(chat.get_conversation_history())
 
-# If a file is uploaded, save it and update image_path
-if uploaded_file is not None:
-    with st.spinner("Processing image..."):
-        image_path = save_uploaded_file(uploaded_file)
+    # Process user message and display response (if a message was submitted)
+    if "last_prompt" in st.session_state and st.session_state.last_prompt:
+        prompt = st.session_state.last_prompt
+        user_message_container = st.chat_message("user")
 
-    # Preview the uploaded image
-    st.image(uploaded_file, caption="Uploaded image preview", use_column_width=True)
-    st.markdown("*This image will be sent with your next message*")
-
-if prompt := st.chat_input("Type your message …"):
-    # Display user message
-    user_message_container = st.chat_message("user")
-
-    # If there's an uploaded image, display it
-    if image_path:
-        # Also display the image preview in the user message
-        try:
-            user_message_container.image(image_path, caption="Uploaded image")
-        except Exception as e:
-            st.warning(f"Could not display image preview: {str(e)}")
-
-    # Display the text message
-    user_message_container.markdown(prompt)
-
-    if st.session_state.get("stream"):
-        try:
-            stream_response(chat, prompt, image_path)
-            # Clear the file uploader after sending
-            uploaded_file = None
-            image_path = None
-            st.session_state.uploaded_file = None
-            do_rerun()
-        except Exception as exc:
-            st.error(f"Streaming failed: {exc}")
-    else:
-        with st.spinner("Thinking …"):
+        # If there's an uploaded image, display it
+        if st.session_state.image_path:
+            # Also display the image preview in the user message
             try:
-                res = chat.send_message(prompt, image_path)
-                st.chat_message("assistant").markdown(res["response"])
-                # Clear the file uploader after sending
-                uploaded_file = None
-                image_path = None
+                user_message_container.image(
+                    st.session_state.image_path, caption="Uploaded image"
+                )
+            except Exception as e:
+                st.warning(f"Could not display image preview: {str(e)}")
+
+        # Display the text message
+        user_message_container.markdown(prompt)
+
+        if st.session_state.get("stream"):
+            try:
+                stream_response(chat, prompt, st.session_state.image_path)
+                # Clear after sending
+                st.session_state.last_prompt = None
+                st.session_state.image_path = None
                 st.session_state.uploaded_file = None
-                do_rerun()
+                st.session_state.show_attachment = False
             except Exception as exc:
-                st.error(f"Request failed: {exc}")
+                st.error(f"Streaming failed: {exc}")
+        else:
+            with st.spinner("Thinking …"):
+                try:
+                    res = chat.send_message(prompt, st.session_state.image_path)
+                    assistant_container = st.chat_message("assistant")
+                    assistant_container.markdown(res["response"])
+
+                    # Clear after sending
+                    st.session_state.last_prompt = None
+                    st.session_state.image_path = None
+                    st.session_state.uploaded_file = None
+                    st.session_state.show_attachment = False
+                except Exception as exc:
+                    st.error(f"Request failed: {exc}")
+
+# Create a container at the bottom for the input area
+input_container = st.container()
+
+# Chat input and attachment UI
+with input_container:
+    # Create columns for the attachment button and file uploader
+    if st.session_state.show_attachment:
+        # Add file uploader for images
+        uploaded_file = st.file_uploader(
+            "Upload an image",
+            type=["png", "jpg", "jpeg", "gif"],
+            help="Upload an image to include with your next message",
+            key="attachment_uploader",
+        )
+
+        # If a file is uploaded, save it and update image_path
+        if uploaded_file is not None:
+            with st.spinner("Processing image..."):
+                image_path = save_uploaded_file(uploaded_file)
+                st.session_state.image_path = image_path
+                st.session_state.uploaded_file = uploaded_file
+
+            # # Preview the uploaded image
+            # st.image(
+            #     uploaded_file, caption="Uploaded image preview", use_column_width=True
+            # )
+            # st.markdown("*This image will be sent with your next message*")
+
+            # # Add a button to remove the attachment
+            # if st.button("❌ Remove image"):
+            #     st.session_state.image_path = None
+            #     st.session_state.uploaded_file = None
+            #     st.session_state.show_attachment = False
+            #     do_rerun()
+
+    # Create a row with the chat input and attachment button
+    cols = st.columns([0.9, 0.1])
+
+    # Text input in the first (larger) column
+    prompt = cols[0].chat_input("Type your message …")
+
+    # Attachment button in the second (smaller) column
+    if cols[1].button("📎", help="Attach an image"):
+        st.session_state.show_attachment = not st.session_state.show_attachment
+        do_rerun()
+
+    # Process the prompt
+    if prompt:
+        st.session_state.last_prompt = prompt
+        do_rerun()  # This will trigger a rerun, and the message will be processed above

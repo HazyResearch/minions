@@ -1,7 +1,7 @@
 # remote/worker_server.py
 from flask import Flask, request, jsonify, Response, stream_with_context
-from minions.utils.crypto_utils import *
-from minions.remote.remote_model import run_model, initialize_model
+from secure.utils.crypto_utils import *
+from secure.remote.remote_model import run_model, initialize_model
 import os
 import json
 import logging

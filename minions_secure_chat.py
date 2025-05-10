@@ -372,16 +372,20 @@ with input_container:
     # Create a row with the chat input and attachment button
     if is_mobile():
         cols = st.columns([0.6, 0.4])
+        if cols[1].button(
+            "📎 Attach a file/image", help="Attach an image", use_container_width=True
+        ):
+            st.session_state.show_attachment = not st.session_state.show_attachment
+            do_rerun()
     else:
         cols = st.columns([0.9, 0.1])
+        # Attachment button in the second (smaller) column
+        if cols[1].button("📎", help="Attach an image"):
+            st.session_state.show_attachment = not st.session_state.show_attachment
+            do_rerun()
 
     # Text input in the first (larger) column
     prompt = cols[0].chat_input("Type your message …")
-
-    # Attachment button in the second (smaller) column
-    if cols[1].button("📎", help="Attach an image"):
-        st.session_state.show_attachment = not st.session_state.show_attachment
-        do_rerun()
 
     # Process the prompt
     if prompt:

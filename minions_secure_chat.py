@@ -53,7 +53,7 @@ def stream_response(chat: SecureMinionChat, user_msg: str):
 
 
 # ── page config ────────────────────────────────────────────────────────────
-st.set_page_config(page_title="Secure Minion Chat", page_icon="🔒")
+st.set_page_config(page_title="Secure Chat", page_icon="🔒")
 
 
 def is_dark_mode():
@@ -82,15 +82,31 @@ st.image(image_path, use_container_width=True)
 # add a horizontal line that is width of image
 st.markdown("<hr style='width: 100%;'>", unsafe_allow_html=True)
 
-st.title("🔒 Secure Minion Chat")
+st.title("🔒 Secure Chat")
+# add a one line that says "secure encrypted chat running inside a trusted execution environment"
+st.markdown(
+    "<p style='font-size: 20px; color: #888;'>Secure encrypted chat running inside a trusted execution environment!</p>",
+    unsafe_allow_html=True,
+)
 
 
-# ── connection settings area (open by default) ─────────────────────────────
+# ── connection settings area (collapsed by default) ─────────────────────────────
 with st.expander("Connection Settings", expanded=True):
-    supervisor_url = st.text_input(
-        "Supervisor URL (if using hosted app, don't change this!)",
-        value=st.session_state.get("supervisor_url", "http://20.57.33.122:5056"),
-    )
+    # Use a checkbox to toggle visibility of advanced settings
+    show_advanced = st.checkbox("Show Advanced Server Settings", value=False)
+
+    # Show supervisor URL only if advanced settings checkbox is checked
+    if show_advanced:
+        supervisor_url = st.text_input(
+            "Supervisor URL (if using hosted app, don't change this!)",
+            value=st.session_state.get("supervisor_url", "http://20.57.33.122:5056"),
+        )
+    else:
+        # Keep the variable in memory but don't show the input
+        supervisor_url = st.session_state.get(
+            "supervisor_url", "http://20.57.33.122:5056"
+        )
+
     system_prompt = st.text_area(
         "System prompt",
         value=st.session_state.get("system_prompt", SYSTEM_PROMPT),

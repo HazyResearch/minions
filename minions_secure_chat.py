@@ -12,6 +12,8 @@ running a new Streamlit (>v1.27) where the function was renamed to
 """
 
 import streamlit as st
+from streamlit_theme import st_theme
+
 from secure.minions_chat import SecureMinionChat
 
 # SYSTEM_PROMPT = """
@@ -21,6 +23,7 @@ from secure.minions_chat import SecureMinionChat
 SYSTEM_PROMPT = """You are a helpful AI assistant. 
 """
 # ── helpers ────────────────────────────────────────────────────────────────
+
 
 def do_rerun():
     """Streamlit renamed `experimental_rerun` → `rerun` in v1.27.
@@ -48,26 +51,50 @@ def stream_response(chat: SecureMinionChat, user_msg: str):
 
     chat.send_message_stream(user_msg, callback=_cb)
 
+
 # ── page config ────────────────────────────────────────────────────────────
 st.set_page_config(page_title="Secure Minion Chat", page_icon="🔒")
+
+
+def is_dark_mode():
+    theme = st_theme()
+    if theme and "base" in theme:
+        if theme["base"] == "dark":
+            return True
+    return False
+
+
+# Check theme setting
+dark_mode = is_dark_mode()
+
+# Choose image based on theme
+if dark_mode:
+    image_path = (
+        "assets/minions_logo_no_background.png"  # Replace with your dark mode image
+    )
+else:
+    image_path = "assets/minions_logo_light.png"  # Replace with your light mode image
+
+
+# Display Minions logo at the top
+st.image(image_path, use_container_width=True)
+
+# add a horizontal line that is width of image
+st.markdown("<hr style='width: 100%;'>", unsafe_allow_html=True)
+
 st.title("🔒 Secure Minion Chat")
 
-# ── sidebar ────────────────────────────────────────────────────────────────
-with st.sidebar:
-    st.header("Connection settings")
+
+# ── connection settings area (open by default) ─────────────────────────────
+with st.expander("Connection Settings", expanded=True):
     supervisor_url = st.text_input(
-        "Supervisor URL",
+        "Supervisor URL (if using hosted app, don't change this!)",
         value=st.session_state.get("supervisor_url", "http://20.57.33.122:5056"),
     )
     system_prompt = st.text_area(
         "System prompt",
-        value=st.session_state.get(
-            "system_prompt", SYSTEM_PROMPT
-        ),
-        height=120,
-    )
-    stream_resp = st.checkbox(
-        "Stream responses", value=st.session_state.get("stream", False)
+        value=st.session_state.get("system_prompt", SYSTEM_PROMPT),
+        height=68,
     )
 
     cols = st.columns(3)
@@ -78,7 +105,7 @@ with st.sidebar:
             st.session_state.chat = chat
             st.session_state.supervisor_url = supervisor_url
             st.session_state.system_prompt = system_prompt
-            st.session_state.stream = stream_resp
+            st.session_state.stream = True
             st.success(f"Connected – session ID: {info['session_id']}")
         except Exception as exc:
             st.error(f"Connection failed: {exc}")
@@ -92,10 +119,11 @@ with st.sidebar:
         del st.session_state.chat
         do_rerun()
 
+
 # ── main chat area ─────────────────────────────────────────────────────────
 chat = st.session_state.get("chat")
 if chat is None:
-    st.info("Enter a supervisor URL and click **Connect** to begin.")
+    st.info("Click **Connect** to start your secure chat session.")
     st.stop()
 
 render_history(chat.get_conversation_history())

@@ -247,7 +247,7 @@ def message_stream():
         nonce_counter = initial_nonce
 
         # Use SGLang for streaming if enabled
-        from minions.remote.remote_model import SGLangClient
+        from secure.remote.remote_model import SGLangClient
 
         logger.info("🧠 Streaming response using SGLang")
 

@@ -22,7 +22,7 @@ from minions.usage import Usage
 class LlamaCppClient:
     def __init__(
         self,
-        model_path: str,
+        model_path: str = None,
         chat_format: str = "chatml",
         temperature: float = 0.0,
         max_tokens: int = 2048,
@@ -63,6 +63,10 @@ class LlamaCppClient:
         self.json_output = json_output
         self.return_tools = tool_calling
         self.hf_token = hf_token or os.environ.get("HF_TOKEN")
+
+        # Ensure either model_path or model_repo_id is provided
+        if model_path is None and model_repo_id is None:
+            raise ValueError("Either model_path or model_repo_id must be provided")
 
         # If model_repo_id is provided, download the model from Hugging Face
         if model_repo_id:

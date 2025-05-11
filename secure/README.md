@@ -114,7 +114,7 @@ export HF_TOKEN=<YOUR_HUGGINGFACE_TOKEN>
 
 ---
 
-### 8. Launch Secure Inference Server
+### 9. Launch Secure Inference Server
 
 Start the SGLang server with your preferred model (e.g., Gemma-4B):
 

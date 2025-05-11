@@ -21,7 +21,7 @@ class SGLangClient:
         return cls._instance
 
     def __init__(self, endpoint="http://localhost:5000"):
-        """Initialize a SGLang client with the specified endpoint. Use OpenAI endpoint for compatibility."""
+        """Initialize a SGLang client with the specified endpoint."""
         self.endpoint = endpoint
 
         # Import SGLang
@@ -29,16 +29,16 @@ class SGLangClient:
             from openai import OpenAI
 
             self.client = OpenAI(base_url=f"{endpoint}/v1", api_key="EMPTY")
-            logger.info(f"✅ SGLang client initialized with endpoint: {endpoint}/v1")
+            logger.info(f"✅ OpenAI client initialized with endpoint: {endpoint}/v1")
         except ImportError as e:
-            logger.error(f"❌ Failed to import SGLang: {str(e)}")
-            logger.error("Please install SGLang with: pip install sglang")
-            raise RuntimeError("SGLang not installed")
+            logger.error(f"❌ Failed to import OpenAI: {str(e)}")
+            logger.error("Please install OpenAI with: pip install openai")
+            raise RuntimeError("OpenAI not installed")
         except Exception as e:
-            logger.error(f"❌ Failed to initialize SGLang client: {str(e)}")
-            raise RuntimeError(f"SGLang client initialization failed: {str(e)}")
+            logger.error(f"❌ Failed to initialize OpenAI client: {str(e)}")
+            raise RuntimeError(f"OpenAI client initialization failed: {str(e)}")
 
-    def chat(self, messages, temperature=0.0, max_tokens=1024):
+    def chat(self, messages, temperature=0.0, max_tokens=4096):
         """Process chat messages using SGLang."""
         try:
             # Convert messages to OpenAI format

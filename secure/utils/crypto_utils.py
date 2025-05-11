@@ -11,6 +11,8 @@ from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.exceptions import InvalidSignature
+import subprocess
+import jwt  # requires pip install pyjwt
 
 # ------------------ Key Management ------------------
 
@@ -54,10 +56,34 @@ def derive_shared_key(private_key, peer_public_key):
     ).derive(shared_secret)
 
 
+# ----------------- Remote Attestation (Helper Functions) -----------------
+
+
+def run_gpu_attestation(nonce: bytes) -> str:
+    """
+    Call the NVIDIA Local GPU Verifier (nvtrust) and retrieve the JWT
+    Entity Attestation Token (EAT). Assumes the package
+        pip install nv-local-gpu-verifier
+    is installed.
+    """
+    out = subprocess.check_output(
+        ["python", "-m", "verifier.cc_admin", "--user_mode", "--nonce", nonce.hex()],
+        text=True,
+    )
+    tokens_str = out.split("Entity Attestation Token:", 1)[1].strip()
+    platform_token = json.loads(tokens_str)[0][-1]
+    gpu_token = json.loads(tokens_str)[1]
+    gpu_eat = {"platform_token": platform_token, "gpu_token": gpu_token}
+    return json.dumps(gpu_eat)
+
+
 # ------------------ Attestation ------------------
 
 
-def create_attestation_report(agent_name, public_key):
+def create_attestation_report(
+    agent_name: str, public_key, nonce: bytes
+) -> Tuple[dict, bytes, str]:
+    gpu_eat = run_gpu_attestation(nonce)
     public_key_bytes = public_key.public_bytes(
         encoding=serialization.Encoding.DER,
         format=serialization.PublicFormat.SubjectPublicKeyInfo,
@@ -65,14 +91,17 @@ def create_attestation_report(agent_name, public_key):
     public_key_hash = hashes.Hash(hashes.SHA256())
     public_key_hash.update(public_key_bytes)
     pubkey_digest = public_key_hash.finalize()
-
-    attestation_report = {
+    report = {
         "agent_name": agent_name,
-        "public_key_hash": base64.b64encode(pubkey_digest).decode(),
+        "pubkey_hash": base64.b64encode(pubkey_digest).decode(),
+        "gpu_eat_hash": base64.b64encode(
+            hashlib.sha256(gpu_eat.encode()).digest()
+        ).decode(),
+        "nonce": base64.b64encode(nonce).decode(),
         "timestamp": time.time(),
     }
-    attestation_json = json.dumps(attestation_report).encode()
-    return attestation_report, attestation_json
+    report_json = json.dumps(report, separators=(",", ":")).encode()
+    return report, report_json, gpu_eat
 
 
 def sign_attestation(attestation_json, private_key):
@@ -97,6 +126,62 @@ def verify_attestation(attestation_report, attestation_json, signature_b64, publ
     digest = base64.b64encode(pub_key_hash.finalize()).decode()
 
     return digest == attestation_report["public_key_hash"]
+
+
+def verify_attestation_full(
+    report_json: bytes,
+    signature_b64: str,
+    gpu_eat_json: str,
+    public_key,
+    expected_nonce: bytes,
+):
+    # 1) signature check
+    sig = base64.b64decode(signature_b64)
+    try:
+        public_key.verify(sig, report_json, ec.ECDSA(hashes.SHA256()))
+    except InvalidSignature as e:
+        raise ValueError("software‑level signature invalid") from e
+
+    report = json.loads(report_json)
+
+    pub_key_bytes = public_key.public_bytes(
+        encoding=serialization.Encoding.DER,
+        format=serialization.PublicFormat.SubjectPublicKeyInfo,
+    )
+    pub_key_hash = hashes.Hash(hashes.SHA256())
+    pub_key_hash.update(pub_key_bytes)
+    digest = base64.b64encode(pub_key_hash.finalize()).decode()
+
+    if report["pubkey_hash"] != digest:
+        raise ValueError("pubkey hash mismatch")
+    if (
+        report["gpu_eat_hash"]
+        != base64.b64encode(hashlib.sha256(gpu_eat_json.encode()).digest()).decode()
+    ):
+        raise ValueError("gpu_eat hash mismatch")
+    if report["nonce"] != base64.b64encode(expected_nonce).decode():
+        raise ValueError("nonce mismatch (replay?)")
+
+    # 2) GPU evidence check
+    platform_jwt, gpu_jwt = (
+        json.loads(gpu_eat_json)["platform_token"],
+        json.loads(gpu_eat_json)["gpu_token"],
+    )
+    plat_claims = jwt.decode(platform_jwt, options={"verify_signature": False})
+
+    if plat_claims["eat_nonce"] != expected_nonce.hex():
+        raise ValueError("platform nonce mismatch")
+
+    for gpu_idx, gpt_token in gpu_jwt.items():
+
+        gpu_claims = jwt.decode(gpt_token, options={"verify_signature": False})
+
+        if not gpu_claims.get("x-nvidia-gpu-attestation-report-signature-verified"):
+            raise ValueError(
+                f"GPU attestation signature check failed for GPU {gpu_idx}"
+            )
+
+    return True
 
 
 # ------------------ Secure Messaging ------------------
@@ -139,24 +224,21 @@ def decrypt_and_verify(payload, key, verifying_key):
 CHUNK_SIZE = 16 * 1024  # 16 KiB slices
 MAX_WORKERS = min(32, os.cpu_count() or 4)  # Limit max workers
 
-# Initialize ThreadPoolExecutor as a module-level singleton
-# _EXECUTOR = ThreadPoolExecutor(max_workers=MAX_WORKERS)
-
-# Pre-warm the thread pool
-# def _noop(x):
-#     return None
-# list(_EXECUTOR.map(_noop, range(MAX_WORKERS)))
 
 def _iv_from_nonce(nonce: int) -> bytes:
     return nonce.to_bytes(12, "big")[-12:]
 
-def _seal_slice(idx: int, block: bytes, shared_key: bytes, nonce: int) -> Tuple[int, dict]:
+
+def _seal_slice(
+    idx: int, block: bytes, shared_key: bytes, nonce: int
+) -> Tuple[int, dict]:
     """Encrypt and authenticate a single chunk of data."""
     iv = _iv_from_nonce(nonce)
     aesgcm = AESGCM(shared_key)
     ct = aesgcm.encrypt(iv, block, None)
     tag = hmac.new(shared_key, ct, hashlib.sha256).digest()[:16]
     return idx, {"nonce": nonce, "iv": iv, "ct": ct, "mac": tag}
+
 
 def _open_slice(idx: int, env: dict, shared_key: bytes) -> Tuple[int, bytes]:
     """Verify and decrypt a single chunk of data."""
@@ -169,6 +251,7 @@ def _open_slice(idx: int, env: dict, shared_key: bytes) -> Tuple[int, bytes]:
     pt_bytes = aesgcm.decrypt(iv, ct, None)
     return idx, pt_bytes
 
+
 def _mk_session_header(slices: List[dict]) -> bytes:
     """Create a session header by hashing all slice metadata."""
     h = hashlib.sha256()
@@ -179,44 +262,26 @@ def _mk_session_header(slices: List[dict]) -> bytes:
         h.update(env["mac"])
     return h.digest()
 
+
 def encrypt_and_sign_parallel(message: str, key: bytes, signing_key, nonce: int):
     """
     Encrypt and sign a message using sequential processing.
-    
+
     This function has the same API as encrypt_and_sign but processes large messages
     in chunks for better performance.
     """
     message_bytes = message.encode()
-    
-    
-    
-    # Parallel approach (commented out)
-    # # Create tasks for each chunk
-    # tasks = [
-    #     (idx, message_bytes[off: off + CHUNK_SIZE], key, nonce + idx)
-    #     for idx, off in enumerate(range(0, len(message_bytes), CHUNK_SIZE))
-    # ]
-    # 
-    # # Submit tasks to thread pool
-    # futures = [_EXECUTOR.submit(_seal_slice, *t) for t in tasks]
-    # slices = [None] * len(futures)
-    # 
-    # # Collect results
-    # for f in futures:
-    #     idx, env = f.result()
-    #     slices[idx] = env
-    
-    # Sequential approach (now active)
+
     slices = []
     for idx, off in enumerate(range(0, len(message_bytes), CHUNK_SIZE)):
-        block = message_bytes[off: off + CHUNK_SIZE]
+        block = message_bytes[off : off + CHUNK_SIZE]
         _, env = _seal_slice(idx, block, key, nonce + idx)
         slices.append(env)
-    
+
     # Create and sign header
     header = _mk_session_header(slices)
     signature = signing_key.sign(header, ec.ECDSA(hashes.SHA256()))
-    
+
     # Format result to match the original API
     return {
         "nonce": nonce,
@@ -233,24 +298,24 @@ def encrypt_and_sign_parallel(message: str, key: bytes, signing_key, nonce: int)
         "signature": base64.b64encode(signature).decode(),
     }
 
+
 def decrypt_and_verify_parallel(payload, key: bytes, verifying_key):
     """
     Decrypt and verify a message using sequential processing.
-    
+
     This function has the same API as decrypt_and_verify but processes large messages
     in chunks for better performance.
     """
-   
-    
+
     # Extract and verify header signature
     header = base64.b64decode(payload["header"])
     signature = base64.b64decode(payload["signature"])
-    
+
     try:
         verifying_key.verify(signature, header, ec.ECDSA(hashes.SHA256()))
     except InvalidSignature:
         return "Invalid Signature"
-    
+
     # Prepare slices for decryption
     slices = [
         {
@@ -261,32 +326,11 @@ def decrypt_and_verify_parallel(payload, key: bytes, verifying_key):
         }
         for s in payload["slices"]
     ]
-    
-    # Parallel approach (commented out)
-    # # If few slices, use sequential processing
-    # if len(slices) < 4:
-    #     parts = []
-    #     for idx, env in enumerate(slices):
-    #         _, pt = _open_slice((idx, env), key)
-    #         parts.append(pt)
-    #     return b"".join(parts).decode()
-    # 
-    # tasks = [(idx, env) for idx, env in enumerate(slices)]
-    # 
-    # # Submit tasks to thread pool
-    # futures = [_EXECUTOR.submit(_open_slice, t, key) for t in tasks]
-    # parts = [None] * len(futures)
-    # 
-    # # Collect results
-    # for f in futures:
-    #     idx, pt = f.result()
-    #     parts[idx] = pt
-    
-    # Sequential approach (now active)
+
     parts = [None] * len(slices)
     for idx, env in enumerate(slices):
         _, pt = _open_slice(idx, env, key)
         parts[idx] = pt
-    
+
     # Combine all decrypted parts
     return b"".join(parts).decode()

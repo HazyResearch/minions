@@ -1,7 +1,7 @@
 # remote/worker_server.py
 from flask import Flask, request, jsonify, Response, stream_with_context
-from secure.utils.crypto_utils import *
-from secure.remote.remote_model import run_model, initialize_model
+from minions.utils.crypto_utils import *
+from minions.remote.remote_model import run_model, initialize_model
 import os
 import json
 import logging
@@ -102,10 +102,12 @@ else:
 
 # Attestation
 logger.info("🔐 SECURITY: Creating attestation report for remote verification")
-attestation_report, attestation_json = create_attestation_report(
-    "remote-worker", public_key
+
+nonce = os.urandom(32)  # fresh each call
+report, report_json, gpu_eat = create_attestation_report(
+    "remote-worker", public_key, nonce
 )
-attestation_signature = sign_attestation(attestation_json, private_key)
+signature = sign_attestation(report_json, private_key)
 logger.info("✅ SECURITY: Attestation report created and signed")
 
 # Track sessions (by public key)
@@ -115,12 +117,7 @@ logger.info(
     "🔢 SECURITY: Initialized session tracking for key management and replay protection"
 )
 
-# # Initialize the model if using vLLM or SGLang
-# if os.environ.get("USE_VLLM", "false").lower() == "true":
-#     logger.info("🧠 Initializing vLLM model at server startup")
-#     initialize_model()
-#     logger.info("✅ vLLM model initialized successfully")
-# elif os.environ.get("USE_SGLANG", "false").lower() == "true":
+
 logger.info("🧠 Initializing SGLang server and client at startup")
 try:
     # Set the model path in environment
@@ -138,12 +135,15 @@ def attestation():
     logger.info(
         "📤 SECURITY: Sending attestation report to client for identity verification"
     )
+
     return jsonify(
         {
-            "report": attestation_report,
-            "report_json": attestation_json.decode(),
-            "signature": attestation_signature,
+            "report": report,
+            "report_json": report_json.decode(),
+            "signature": signature,
             "public_key": serialize_public_key(public_key),
+            "gpu_eat": gpu_eat,
+            "nonce_b64": base64.b64encode(nonce).decode(),
         }
     )
 

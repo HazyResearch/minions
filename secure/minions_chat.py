@@ -11,14 +11,12 @@ import mimetypes
 
 from secure.utils.crypto_utils import (
     generate_key_pair,
-    create_attestation_report,
-    sign_attestation,
-    verify_attestation,
     derive_shared_key,
     encrypt_and_sign,
     decrypt_and_verify,
     serialize_public_key,
     deserialize_public_key,
+    verify_attestation_full,
 )
 
 # Define logger
@@ -61,23 +59,22 @@ class SecureMinionChat:
         self.logger.info("🔐 SECURITY: Requesting attestation report from supervisor")
 
         start_time = time.time()
-        supervisor_att = requests.get(f"{self.supervisor_url}/attestation").json()
-        self.supervisor_pub = deserialize_public_key(supervisor_att["public_key"])
+        att = requests.get(f"{self.supervisor_url}/attestation").json()
 
-        self.logger.info(
-            "🔐 SECURITY: Verifying attestation report to ensure server identity and integrity"
-        )
+        self.supervisor_pub = deserialize_public_key(att["public_key"])
+        nonce = base64.b64decode(att["nonce_b64"])
 
-        if not verify_attestation(
-            supervisor_att["report"],
-            supervisor_att["report_json"].encode(),
-            supervisor_att["signature"],
-            self.supervisor_pub,
-        ):
-            self.logger.error(
-                "🚨 SECURITY BREACH: Supervisor attestation verification failed"
+        try:
+            verify_attestation_full(
+                report_json=att["report_json"].encode(),
+                signature_b64=att["signature"],
+                gpu_eat_json=att["gpu_eat"],
+                public_key=self.supervisor_pub,
+                expected_nonce=nonce,
             )
-            raise RuntimeError("Supervisor attestation failed")
+        except ValueError as e:
+            logger.error("🚨  supervisor attestation failed: %s", e)
+            raise RuntimeError("Supervisor attestation failed") from e
 
         attestation_time = time.time() - start_time
         self.logger.info("✅ SECURITY: Attestation verification successful")

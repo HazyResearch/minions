@@ -21,7 +21,7 @@ class SGLangClient:
         return cls._instance
 
     def __init__(self, endpoint="http://localhost:5000"):
-        """Initialize a SGLang client with the specified endpoint."""
+        """Initialize a SGLang client with the specified endpoint. Use OpenAI endpoint for compatibility."""
         self.endpoint = endpoint
 
         # Import SGLang
@@ -29,14 +29,14 @@ class SGLangClient:
             from openai import OpenAI
 
             self.client = OpenAI(base_url=f"{endpoint}/v1", api_key="EMPTY")
-            logger.info(f"✅ OpenAI client initialized with endpoint: {endpoint}/v1")
+            logger.info(f"✅ SGLang client initialized with endpoint: {endpoint}/v1")
         except ImportError as e:
-            logger.error(f"❌ Failed to import OpenAI: {str(e)}")
-            logger.error("Please install OpenAI with: pip install openai")
-            raise RuntimeError("OpenAI not installed")
+            logger.error(f"❌ Failed to import SGLang: {str(e)}")
+            logger.error("Please install SGLang with: pip install sglang")
+            raise RuntimeError("SGLang not installed")
         except Exception as e:
-            logger.error(f"❌ Failed to initialize OpenAI client: {str(e)}")
-            raise RuntimeError(f"OpenAI client initialization failed: {str(e)}")
+            logger.error(f"❌ Failed to initialize SGLang client: {str(e)}")
+            raise RuntimeError(f"SGLang client initialization failed: {str(e)}")
 
     def chat(self, messages, temperature=0.0, max_tokens=1024):
         """Process chat messages using SGLang."""
@@ -67,7 +67,7 @@ class SGLangClient:
 
             # Call the OpenAI API
             response = self.client.chat.completions.create(
-                model=os.environ.get("OPENAI_MODEL", "google/gemma-3-27b-it"),
+                model=os.environ.get("SGLANG_MODEL", "Qwen/Qwen2.5-7B-Instruct"),
                 messages=messages,
                 temperature=temperature,
                 max_tokens=max_tokens,

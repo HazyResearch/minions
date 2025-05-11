@@ -85,13 +85,26 @@ uv pip install "sglang[all]>=0.4.6.post2"
 
 ---
 
-### 6. Open Firewall Port for Server Access
+### 6. Install NVIDIA GPU Attestation Tool
+
+```
+git clone https://github.com/NVIDIA/nvtrust.git
+cd nvtrust/guest_tools/gpu_verifiers/local_gpu_verifier
+pip3 install .
+python3 -m verifier.cc_admin
+```
+
+Please see [NVIDIA GPU Attestation Tool](https://github.com/NVIDIA/nvtrust/tree/main/guest_tools/gpu_verifiers/local_gpu_verifier) for more details.
+
+---
+
+### 7. Open Firewall Port for Server Access
 
 In the Azure portal, go to **Networking** for your VM and add an inbound rule to allow **TCP port 5056**.
 
 ---
 
-### 7. Set HuggingFace Token
+### 8. Set HuggingFace Token
 
 Export your Hugging Face token to enable model loading:
 

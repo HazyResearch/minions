@@ -145,6 +145,17 @@ class LlamaCppClient:
         if isinstance(messages, dict):
             messages = [messages]
 
+        # for each messages in messages convert {"role": "", "content": "", "image": ""} to {"role": "", "content": [{"type": "text", "text": ""}, {"type": "image_url", "image_url": {"url": ""}}]}
+        for message in messages:
+            if "image" in message:
+                message["content"] = [
+                    {"type": "text", "text": message["content"]},
+                    {"type": "image_url", "image_url": {"url": message["image"]}},
+                ]
+                del message["image"]
+            else:
+                message["content"] = [{"type": "text", "text": message["content"]}]
+
         responses = []
         usage_total = Usage()
         done_reasons = []
@@ -165,6 +176,8 @@ class LlamaCppClient:
             # Add stop sequences if provided
             if "stop" in kwargs:
                 completion_kwargs["stop"] = kwargs["stop"]
+
+            print(messages)
 
             # Create the chat completion
             response = self.llm.create_chat_completion(**completion_kwargs)

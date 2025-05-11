@@ -28,6 +28,7 @@ setup(
         "cryptography",  # for crypto utils
         "orjson",
         "twilio",
+        "pyjwt",  # for JWT utilities
     ],
     extras_require={
         "mlx": ["mlx-lm"],
@@ -38,7 +39,7 @@ setup(
             "torch",  # for running embedding models on CUDA
             "chromadb",  # for vector database
         ],
-        "secure": [        
+        "secure": [
             "flask",  # for the worker server
             "cryptography",  # for crypto utils
             "orjson",

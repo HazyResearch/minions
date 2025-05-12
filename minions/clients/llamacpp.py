@@ -22,7 +22,7 @@ from minions.usage import Usage
 class LlamaCppClient:
     def __init__(
         self,
-        model_path: str,
+        model_path: str = None,
         chat_format: str = "chatml",
         temperature: float = 0.0,
         max_tokens: int = 2048,
@@ -63,6 +63,10 @@ class LlamaCppClient:
         self.json_output = json_output
         self.return_tools = tool_calling
         self.hf_token = hf_token or os.environ.get("HF_TOKEN")
+
+        # Ensure either model_path or model_repo_id is provided
+        if model_path is None and model_repo_id is None:
+            raise ValueError("Either model_path or model_repo_id must be provided")
 
         # If model_repo_id is provided, download the model from Hugging Face
         if model_repo_id:
@@ -141,6 +145,17 @@ class LlamaCppClient:
         if isinstance(messages, dict):
             messages = [messages]
 
+        # for each messages in messages convert {"role": "", "content": "", "image": ""} to {"role": "", "content": [{"type": "text", "text": ""}, {"type": "image_url", "image_url": {"url": ""}}]}
+        for message in messages:
+            if "image" in message:
+                message["content"] = [
+                    {"type": "text", "text": message["content"]},
+                    {"type": "image_url", "image_url": {"url": message["image"]}},
+                ]
+                del message["image"]
+            else:
+                message["content"] = [{"type": "text", "text": message["content"]}]
+
         responses = []
         usage_total = Usage()
         done_reasons = []
@@ -161,6 +176,8 @@ class LlamaCppClient:
             # Add stop sequences if provided
             if "stop" in kwargs:
                 completion_kwargs["stop"] = kwargs["stop"]
+
+            print(messages)
 
             # Create the chat completion
             response = self.llm.create_chat_completion(**completion_kwargs)

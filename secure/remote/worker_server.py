@@ -58,10 +58,14 @@ os.environ["USE_SGLANG"] = "true"
 os.environ["SGLANG_ENDPOINT"] = args.sglang_endpoint
 if args.streaming:
     os.environ["SGLANG_STREAMING"] = "true"
-    logger.info(f"🧠 Using SGLang with streaming enabled at endpoint: {args.sglang_endpoint}")
+    logger.info(
+        f"🧠 Using SGLang with streaming enabled at endpoint: {args.sglang_endpoint}"
+    )
 else:
     os.environ["SGLANG_STREAMING"] = "false"
-    logger.info(f"🧠 Using SGLang (non-streaming) with endpoint: {args.sglang_endpoint}")
+    logger.info(
+        f"🧠 Using SGLang (non-streaming) with endpoint: {args.sglang_endpoint}"
+    )
 
 app = Flask(__name__)
 KEY_PATH = args.key_path
@@ -98,10 +102,12 @@ else:
 
 # Attestation
 logger.info("🔐 SECURITY: Creating attestation report for remote verification")
-attestation_report, attestation_json = create_attestation_report(
-    "remote-worker", public_key
+
+nonce = os.urandom(32)  # fresh each call
+report, report_json, gpu_eat = create_attestation_report(
+    "remote-worker", public_key, nonce
 )
-attestation_signature = sign_attestation(attestation_json, private_key)
+signature = sign_attestation(report_json, private_key)
 logger.info("✅ SECURITY: Attestation report created and signed")
 
 # Track sessions (by public key)
@@ -111,12 +117,7 @@ logger.info(
     "🔢 SECURITY: Initialized session tracking for key management and replay protection"
 )
 
-# # Initialize the model if using vLLM or SGLang
-# if os.environ.get("USE_VLLM", "false").lower() == "true":
-#     logger.info("🧠 Initializing vLLM model at server startup")
-#     initialize_model()
-#     logger.info("✅ vLLM model initialized successfully")
-# elif os.environ.get("USE_SGLANG", "false").lower() == "true":
+
 logger.info("🧠 Initializing SGLang server and client at startup")
 try:
     # Set the model path in environment
@@ -134,14 +135,18 @@ def attestation():
     logger.info(
         "📤 SECURITY: Sending attestation report to client for identity verification"
     )
+
     return jsonify(
         {
-            "report": attestation_report,
-            "report_json": attestation_json.decode(),
-            "signature": attestation_signature,
+            "report": report,
+            "report_json": report_json.decode(),
+            "signature": signature,
             "public_key": serialize_public_key(public_key),
+            "gpu_eat": gpu_eat,
+            "nonce_b64": base64.b64encode(nonce).decode(),
         }
     )
+
 
 @app.route("/message", methods=["POST"])
 def message():
@@ -188,7 +193,6 @@ def message():
         logger.info("🧠 Processing message with image using SGLang")
     else:
         logger.info("🧠 Processing message without image using SGLang")
-    
     response_text = run_model(worker_messages)
 
     logger.info(
@@ -237,37 +241,43 @@ def message_stream():
         if msg.get("role") == "user" and "image_url" in msg:
             logger.info("🖼️ Message contains image data for streaming")
 
+    # Check if any messages contain image data
+    for msg in worker_messages:
+        if msg.get("role") == "user" and "image_url" in msg:
+            logger.info("🖼️ Message contains image data for streaming")
+
     def generate():
         # Create a counter for the nonce that's local to this function
         nonce_counter = initial_nonce
-        
+
         # Use SGLang for streaming if enabled
         from secure.remote.remote_model import SGLangClient
-        
+
         logger.info("🧠 Streaming response using SGLang")
-        
+
         # Get the SGLang client
         client = SGLangClient.get_instance()
-        
+
         # Get the streaming state
         state = client.stream_chat(worker_messages)
         # log the state
         logger.info(f"🧠 Streaming state: {state}")
-        
         # Stream the response
         full_response = ""
         for chunk in state:
             new_text = chunk.choices[0].delta.content
             if new_text:
                 full_response += new_text
-                encrypted_chunk = encrypt_and_sign(new_text, key, private_key, nonce_counter)
+                encrypted_chunk = encrypt_and_sign(
+                    new_text, key, private_key, nonce_counter
+                )
                 nonce_counter += 1
                 yield json.dumps(encrypted_chunk) + "\n"
-        
+
         # Send an end-of-stream marker
         yield json.dumps({"eos": True}) + "\n"
-            
-    return Response(stream_with_context(generate()), mimetype='text/event-stream')
+
+    return Response(stream_with_context(generate()), mimetype="text/event-stream")
 
 
 if __name__ == "__main__":

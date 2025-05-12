@@ -257,7 +257,6 @@ def message_stream():
 
         # Get the SGLang client
         client = SGLangClient.get_instance()
-
         # Get the streaming state
         state = client.stream_chat(worker_messages)
         # log the state

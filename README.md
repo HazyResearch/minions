@@ -11,6 +11,26 @@ Language Models](https://arxiv.org/pdf/2502.15964)
 
 Blogpost: https://hazyresearch.stanford.edu/blog/2025-02-24-minions
 
+## Table of Contents
+
+- [Setup](#setup)
+  - [Step 1: Clone and Install](#step-1-clone-the-repository-and-install-the-python-package)
+  - [Step 2: Install a Local Model Server](#step-2-install-a-server-for-running-the-local-model)
+  - [Step 3: Set Cloud LLM API Keys](#step-3-set-your-api-key-for-at-least-one-of-the-following-cloud-llm-providers)
+- [Minions Demo Application](#minions-demo-application)
+- [Example Code](#example-code-minion-singular)
+  - [Minion (Singular)](#example-code-minion-singular)
+  - [Minions (Plural)](#example-code-minions-plural)
+- [Python Notebook](#python-notebook)
+- [Docker Support](#docker-support)
+- [Command Line Interface](#cli)
+- [Inference Estimator](#inference-estimator)
+  - [Command Line Usage](#command-line-usage)
+  - [Python API Usage](#python-api-usage)
+- [Miscellaneous Setup](#miscellaneous-setup)
+  - [Using Azure OpenAI](#using-azure-openai-with-minions)
+- [Maintainers](#maintainers)
+
 ## Setup
 
 _We have tested the following setup on Mac and Ubuntu with Python 3.10-3.11_ (Note: Python 3.13 is not supported)
@@ -165,6 +185,9 @@ export TOKASAURUS_BASE_URL=<your-tokasaurus-base-url>  # Optional: Use a differe
 
 # DeepSeek
 export DEEPSEEK_API_KEY=<your-deepseek-api-key>
+
+# Anthropic
+export ANTHROPIC_API_KEY=<your-anthropic-api-key>
 ```
 
 ## Minions Demo Application

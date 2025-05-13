@@ -1,7 +1,7 @@
 # remote/worker_server.py
 from flask import Flask, request, jsonify, Response, stream_with_context
-from minions.utils.crypto_utils import *
-from minions.remote.remote_model import run_model, initialize_model
+from secure.utils.crypto_utils import *
+from secure.remote.remote_model import run_model, initialize_model
 import os
 import json
 import logging
@@ -193,7 +193,6 @@ def message():
         logger.info("🧠 Processing message with image using SGLang")
     else:
         logger.info("🧠 Processing message without image using SGLang")
-
     response_text = run_model(worker_messages)
 
     logger.info(
@@ -236,6 +235,11 @@ def message_stream():
 
     # Parse the JSON string to get the worker_messages list
     worker_messages = json.loads(plaintext)
+    
+    # Check if any messages contain image data
+    for msg in worker_messages:
+        if msg.get("role") == "user" and "image_url" in msg:
+            logger.info("🖼️ Message contains image data for streaming")
 
     # Check if any messages contain image data
     for msg in worker_messages:
@@ -253,12 +257,10 @@ def message_stream():
 
         # Get the SGLang client
         client = SGLangClient.get_instance()
-
         # Get the streaming state
         state = client.stream_chat(worker_messages)
         # log the state
         logger.info(f"🧠 Streaming state: {state}")
-
         # Stream the response
         full_response = ""
         for chunk in state:
@@ -281,3 +283,4 @@ if __name__ == "__main__":
     logger.info(f"🚀 Starting secure worker server on {args.host}:{args.port}")
     # Set debug=False for production environments
     app.run(host=args.host, port=args.port, debug=False)
+

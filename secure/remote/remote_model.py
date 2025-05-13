@@ -38,11 +38,11 @@ class SGLangClient:
             logger.error(f"❌ Failed to initialize OpenAI client: {str(e)}")
             raise RuntimeError(f"OpenAI client initialization failed: {str(e)}")
 
-    def chat(self, messages, temperature=0.0, max_tokens=4096):
+    def chat(self, messages, temperature=0.7, max_tokens=16384):
         """Process chat messages using SGLang."""
         try:
             # Convert messages to OpenAI format
-            messages = []
+            formatted_messages = []
             for msg in messages:
                 content = msg.get("content", "")
                 role = msg.get("role", "user")
@@ -61,14 +61,14 @@ class SGLangClient:
                         }
                     )
 
-                    messages.append({"role": role, "content": content_list})
+                    formatted_messages.append({"role": role, "content": content_list})
                 else:
-                    messages.append({"role": role, "content": content})
+                    formatted_messages.append({"role": role, "content": content})
 
             # Call the OpenAI API
             response = self.client.chat.completions.create(
-                model=os.environ.get("SGLANG_MODEL", "Qwen/Qwen2.5-7B-Instruct"),
-                messages=messages,
+                model=os.environ.get("SGLANG_MODEL", "google/gemma-3-27b-it"),
+                messages=formatted_messages,
                 temperature=temperature,
                 max_tokens=max_tokens,
             )
@@ -88,11 +88,11 @@ class SGLangClient:
             logger.error(f"❌ Error in SGLang chat: {str(e)}")
             raise RuntimeError(f"SGLang chat failed: {str(e)}")
 
-    def stream_chat(self, messages, temperature=0.0, max_tokens=1024):
+    def stream_chat(self, messages, temperature=0.7, max_tokens=16384):
         """Stream chat responses using SGLang."""
         try:
-            # Convert messages to OpenAI format
-            messages = []
+            # Convert messages to OpenAI format 
+            formatted_messages = []
             for msg in messages:
                 content = msg.get("content", "")
                 role = msg.get("role", "user")
@@ -111,14 +111,14 @@ class SGLangClient:
                         }
                     )
 
-                    messages.append({"role": role, "content": content_list})
+                    formatted_messages.append({"role": role, "content": content_list})
                 else:
-                    messages.append({"role": role, "content": content})
+                    formatted_messages.append({"role": role, "content": content})
 
             # Call the client with streaming enabled
             stream = self.client.chat.completions.create(
-                model=os.environ.get("SGLANG_MODEL", "Qwen/Qwen2.5-7B-Instruct"),
-                messages=messages,
+                model=os.environ.get("SGLANG_MODEL", "google/gemma-3-27b-it"),
+                messages=formatted_messages,
                 temperature=temperature,
                 max_tokens=max_tokens,
                 stream=True,
@@ -136,7 +136,7 @@ def run_model(context: List[Dict[str, Any]]):
     # Get the singleton instance of SGLangClient
     client = SGLangClient.get_instance()
 
-    response, usage = client.chat(messages=context, temperature=0.0)
+    response, usage = client.chat(messages=context, temperature=0.7)
 
     # The response is already processed in the chat method
     return response[0]
@@ -146,7 +146,7 @@ def run_model(context: List[Dict[str, Any]]):
 def initialize_model():
     """Initialize the model at server startup."""
     endpoint = os.environ.get("SGLANG_ENDPOINT", "http://localhost:5000")
-    model_path = os.environ.get("SGLANG_MODEL", "Qwen/Qwen2.5-7B-Instruct")
+    model_path = os.environ.get("SGLANG_MODEL", "google/gemma-3-27b-it")
     streaming = os.environ.get("SGLANG_STREAMING", "false").lower() == "true"
 
     # Launch the SGLang server if needed

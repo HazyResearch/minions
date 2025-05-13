@@ -9,7 +9,9 @@ _What is this?_ Minions is a communication protocol that enables small on-device
 Paper: [Minions: Cost-efficient Collaboration Between On-device and Cloud
 Language Models](https://arxiv.org/pdf/2502.15964)
 
-Blogpost: https://hazyresearch.stanford.edu/blog/2025-02-24-minions
+Minions Blogpost: https://hazyresearch.stanford.edu/blog/2025-02-24-minions
+
+Secure Minions Chat Blogpost: https://hazyresearch.stanford.edu/blog/2025-05-12-security
 
 ## Table of Contents
 
@@ -24,6 +26,7 @@ Blogpost: https://hazyresearch.stanford.edu/blog/2025-02-24-minions
 - [Python Notebook](#python-notebook)
 - [Docker Support](#docker-support)
 - [Command Line Interface](#cli)
+- [Secure Minions Chat](#secure-minions-chat)
 - [Inference Estimator](#inference-estimator)
   - [Command Line Usage](#command-line-usage)
   - [Python API Usage](#python-api-usage)
@@ -56,6 +59,12 @@ _note_: for optional MLX-LM install the package with the following command:
 
 ```bash
 pip install -e ".[mlx]"
+```
+
+_note_: for secure minions chat, install the package with the following command:
+
+```bash
+pip install -e ".[secure]"
 ```
 
 _note_: for optional Cartesia-MLX install, pip install the basic package and then follow the instructions below.
@@ -337,6 +346,16 @@ minions --help
 ```bash
 minions --context <path_to_context> --protocol <minion|minions>
 ```
+
+## Secure Minions Chat
+
+To install secure minions chat, install the package with the following command:
+
+```bash
+pip install -e ".[secure]"
+```
+
+See the [Secure Minions Chat README](secure/README.md) for additional details on how to setup clients and run the secure chat protocol.
 
 ## Inference Estimator
 

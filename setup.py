@@ -44,6 +44,7 @@ setup(
             "cryptography",  # for crypto utils
             "orjson",
             "twilio",
+            "pyjwt",  # for JWT utilities
         ],
     },
     author="Sabri, Avanika, and Dan",

@@ -72,7 +72,7 @@ python secure/minions_chat.py --supervisor_url "http://20.57.33.122:5056"
 
 ### 4. Launch the Streamlit Chat App (Web UI) -- if you want to use the web UI
 
-Run the visual chat interface via Streamlit:
+Run the visual chat interface via Streamlit (note this is in the top level directory):
 
 ```bash
 streamlit run minions_secure_chat.py
@@ -230,7 +230,7 @@ python secure/minions_chat.py --supervisor_url "http://<AZURE_IP_ADDRESS>:<PORT>
 
 #### 4. Launch the Streamlit Chat App (Web UI) -- if you want to use the web UI
 
-Run the visual chat interface via Streamlit:
+Run the visual chat interface via Streamlit (note this is in the top level directory):
 
 ```bash
 streamlit run minions_secure_chat.py

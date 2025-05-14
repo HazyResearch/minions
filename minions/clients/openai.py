@@ -17,6 +17,7 @@ class OpenAIClient(MinionsClient):
         max_tokens: int = 4096,
         base_url: Optional[str] = None,
         use_responses_api: bool = False,
+        local: bool = False,
         tools: List[Dict[str, Any]] = None,
         reasoning_effort: str = "low",
         **kwargs
@@ -33,6 +34,7 @@ class OpenAIClient(MinionsClient):
             use_responses_api: Whether to use responses API for o1-pro models (default: False)
             tools: List of tools for function calling (default: None)
             reasoning_effort: Reasoning effort level for o1 models (default: "low")
+            local: If this is communicating with a local client (default: False)
             **kwargs: Additional parameters passed to base class
         """
         super().__init__(
@@ -41,6 +43,7 @@ class OpenAIClient(MinionsClient):
             temperature=temperature,
             max_tokens=max_tokens,
             base_url=base_url,
+            local=local,
             **kwargs
         )
         
@@ -103,13 +106,14 @@ class OpenAIClient(MinionsClient):
 
         outputs = [output_text[1].content[0].text]
 
-        usage = response.usage.input_tokens
-
-        # Extract usage information
-        usage = Usage(
-            prompt_tokens=response.usage.input_tokens,
-            completion_tokens=response.usage.output_tokens,
-        )
+        # Extract usage information if it exists
+        if response.usage is None:
+            usage = Usage(prompt_tokens=0, completion_tokens=0)
+        else:
+            usage = Usage(
+                prompt_tokens=response.usage.input_tokens,
+                completion_tokens=response.usage.output_tokens,
+            )
 
         return outputs, usage
 
@@ -148,11 +152,17 @@ class OpenAIClient(MinionsClient):
                 self.logger.error(f"Error during OpenAI API call: {e}")
                 raise
 
-            # Extract usage information
-            usage = Usage(
-                prompt_tokens=response.usage.prompt_tokens,
-                completion_tokens=response.usage.completion_tokens,
-            )
+            # Extract usage information if it exists
+            if response.usage is None:
+                usage = Usage(prompt_tokens=0, completion_tokens=0)
+            else:
+                usage = Usage(
+                    prompt_tokens=response.usage.prompt_tokens,
+                    completion_tokens=response.usage.completion_tokens,
+                )
 
             # The content is now nested under message
-            return [choice.message.content for choice in response.choices], usage
+            if self.local:
+                return [choice.message.content for choice in response.choices], usage, [choice.finish_reason for choice in response.choices]
+            else:
+                return [choice.message.content for choice in response.choices], usage

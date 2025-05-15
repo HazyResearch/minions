@@ -5,7 +5,8 @@ import logging
 import time
 import base64
 import os
-from typing import List, Dict, Any, Optional, Generator, Callable
+import fitz  # PyMuPDF
+from typing import List, Dict, Any, Optional, Generator, Callable, Union
 from urllib.parse import urlparse
 import mimetypes
 
@@ -111,10 +112,55 @@ class SecureMinionChat:
             "key_exchange_time": key_exchange_time,
         }
 
-    def send_message(self, message: str, image_path: str = None) -> Dict[str, Any]:
+    def _extract_text_from_pdf(self, pdf_path: str) -> Optional[str]:
+        """Extract text content from a PDF file"""
+        try:
+            if not os.path.exists(pdf_path):
+                self.logger.error(f"PDF file not found: {pdf_path}")
+                return None
+
+            self.logger.info(f"📄 Extracting text from PDF: {pdf_path}")
+
+            pdf_content = ""
+            try:
+                # Open the PDF file
+                with fitz.open(pdf_path) as doc:
+                    # Iterate through each page
+                    for page_num in range(len(doc)):
+                        # Get the page
+                        page = doc[page_num]
+                        # Extract text from the page
+                        pdf_content += page.get_text()
+                        # Add a separator between pages
+                        if page_num < len(doc) - 1:
+                            pdf_content += "\n\n"
+            except Exception as e:
+                self.logger.error(f"Error extracting text from PDF: {str(e)}")
+                return None
+
+            self.logger.info(
+                f"✅ PDF text extraction successful: {len(pdf_content)} characters"
+            )
+            return pdf_content
+
+        except Exception as e:
+            self.logger.error(f"❌ Error processing PDF: {str(e)}")
+            return None
+
+    def send_message(
+        self, message: str, image_path: str = None, pdf_path: str = None
+    ) -> Dict[str, Any]:
         """Send a message to the supervisor and get a response"""
         if not self.is_initialized:
             self.initialize_secure_session()
+
+        # Process PDF if provided
+        pdf_content = None
+        if pdf_path:
+            pdf_content = self._extract_text_from_pdf(pdf_path)
+            if pdf_content:
+                # Format the message with PDF content as context
+                message = f"Context:\n\n{pdf_content}\n\nQuery:{message}"
 
         # Create the message object
         message_obj = {"role": "user", "content": message}
@@ -216,11 +262,20 @@ class SecureMinionChat:
         self,
         message: str,
         image_path: str = None,
+        pdf_path: str = None,
         callback: Callable[[str], None] = None,
     ) -> Dict[str, Any]:
         """Send a message to the supervisor and get a streaming response"""
         if not self.is_initialized:
             self.initialize_secure_session()
+
+        # Process PDF if provided
+        pdf_content = None
+        if pdf_path:
+            pdf_content = self._extract_text_from_pdf(pdf_path)
+            if pdf_content:
+                # Format the message with PDF content as context
+                message = f"Context:\n\n{pdf_content}\n\nQuery:{message}"
 
         # Create the message object
         message_obj = {"role": "user", "content": message}
@@ -426,10 +481,16 @@ if __name__ == "__main__":
                 print("Conversation cleared.")
                 continue
 
-            # Ask if user wants to include an image
+            # Ask if user wants to include an image or PDF
+            attachment_type = None
+            ask_for_attachment = (
+                input("Include an attachment? (image/pdf/none): ").lower().strip()
+            )
+
             image_path = None
-            include_image = input("Include an image? (y/n): ").lower() == "y"
-            if include_image:
+            pdf_path = None
+
+            if ask_for_attachment == "image":
                 image_path = input("Enter the path to the image file: ")
                 if not os.path.exists(image_path):
                     print(f"Image file not found: {image_path}")
@@ -437,8 +498,16 @@ if __name__ == "__main__":
                 else:
                     print(f"Including image: {image_path}")
 
+            elif ask_for_attachment == "pdf":
+                pdf_path = input("Enter the path to the PDF file: ")
+                if not os.path.exists(pdf_path):
+                    print(f"PDF file not found: {pdf_path}")
+                    pdf_path = None
+                else:
+                    print(f"Including PDF context: {pdf_path}")
+
             # Ask if user wants to stream
-            use_streaming = input("Use streaming? (y/n): ").lower() == "y"
+            use_streaming = True
 
             if use_streaming:
                 print("Streaming response...")
@@ -447,7 +516,10 @@ if __name__ == "__main__":
                     print(chunk, end="", flush=True)
 
                 result = chat.send_message_stream(
-                    user_input, image_path, callback=print_chunk
+                    user_input,
+                    image_path=image_path,
+                    pdf_path=pdf_path,
+                    callback=print_chunk,
                 )
                 print("\n")  # Add a newline after streaming completes
                 print(
@@ -455,7 +527,9 @@ if __name__ == "__main__":
                 )
             else:
                 print("Sending message securely...")
-                result = chat.send_message(user_input, image_path)
+                result = chat.send_message(
+                    user_input, image_path=image_path, pdf_path=pdf_path
+                )
                 print(f"\nAssistant: {result['response']}")
                 print(
                     f"Message round-trip time: {sum(result['time_spent'].values()):.3f}s"

@@ -17,6 +17,7 @@ import os
 import tempfile
 import uuid
 from pathlib import Path
+import fitz  # PyMuPDF for PDF processing
 
 from secure.minions_chat import SecureMinionChat
 
@@ -73,6 +74,41 @@ def save_uploaded_file(uploaded_file):
         f.write(uploaded_file.getbuffer())
 
     return str(file_path)
+
+
+def extract_text_from_pdf(pdf_path):
+    """Extract text content from a PDF file."""
+    try:
+        if not os.path.exists(pdf_path):
+            st.error(f"PDF file not found: {pdf_path}")
+            return None
+
+        pdf_content = ""
+        try:
+            # Open the PDF file
+            with fitz.open(pdf_path) as doc:
+                # Get the number of pages
+                num_pages = len(doc)
+                st.info(f"Processing PDF with {num_pages} pages...")
+
+                # Iterate through each page
+                for page_num in range(num_pages):
+                    # Get the page
+                    page = doc[page_num]
+                    # Extract text from the page
+                    pdf_content += page.get_text()
+                    # Add a separator between pages
+                    if page_num < num_pages - 1:
+                        pdf_content += "\n\n"
+        except Exception as e:
+            st.error(f"Error extracting text from PDF: {str(e)}")
+            return None
+
+        return pdf_content
+
+    except Exception as e:
+        st.error(f"Error processing PDF: {str(e)}")
+        return None
 
 
 def stream_response(chat: SecureMinionChat, user_msg: str, image_path=None):
@@ -287,8 +323,14 @@ if "show_attachment" not in st.session_state:
     st.session_state.show_attachment = False
 if "image_path" not in st.session_state:
     st.session_state.image_path = None
+if "pdf_path" not in st.session_state:
+    st.session_state.pdf_path = None
+if "pdf_content" not in st.session_state:
+    st.session_state.pdf_content = None
 if "uploaded_file" not in st.session_state:
     st.session_state.uploaded_file = None
+if "attachment_type" not in st.session_state:
+    st.session_state.attachment_type = None
 
 # Create a container for the chat history
 chat_container = st.container()
@@ -302,6 +344,15 @@ with chat_container:
         prompt = st.session_state.last_prompt
         user_message_container = st.chat_message("user")
 
+        # If there's PDF content, modify the prompt to include it
+        if st.session_state.pdf_content:
+            # Format the prompt to include PDF content and user's question
+            modified_prompt = f"Context from PDF:\n\n{st.session_state.pdf_content}\n\nQuery: {prompt}"
+            # Display a note that PDF was attached
+            user_message_container.markdown("*[PDF document was attached]*")
+            # Update the prompt with the modified version that includes PDF content
+            prompt = modified_prompt
+
         # If there's an uploaded image, display it
         if st.session_state.image_path:
             # Also display the image preview in the user message
@@ -313,7 +364,9 @@ with chat_container:
                 st.warning(f"Could not display image preview: {str(e)}")
 
         # Display the text message
-        user_message_container.markdown(prompt)
+        user_message_container.markdown(
+            st.session_state.last_prompt
+        )  # Show original prompt to user
 
         if st.session_state.get("stream"):
             try:
@@ -321,8 +374,11 @@ with chat_container:
                 # Clear after sending
                 st.session_state.last_prompt = None
                 st.session_state.image_path = None
+                st.session_state.pdf_path = None
+                st.session_state.pdf_content = None
                 st.session_state.uploaded_file = None
                 st.session_state.show_attachment = False
+                st.session_state.attachment_type = None
             except Exception as exc:
                 st.error(f"Streaming failed: {exc}")
         else:
@@ -335,8 +391,11 @@ with chat_container:
                     # Clear after sending
                     st.session_state.last_prompt = None
                     st.session_state.image_path = None
+                    st.session_state.pdf_path = None
+                    st.session_state.pdf_content = None
                     st.session_state.uploaded_file = None
                     st.session_state.show_attachment = False
+                    st.session_state.attachment_type = None
                 except Exception as exc:
                     st.error(f"Request failed: {exc}")
 
@@ -347,42 +406,83 @@ input_container = st.container()
 with input_container:
     # Create columns for the attachment button and file uploader
     if st.session_state.show_attachment:
-        # Add file uploader for images
-        uploaded_file = st.file_uploader(
-            "Upload an image",
-            type=["png", "jpg", "jpeg", "gif"],
-            help="Upload an image to include with your next message",
-            key="attachment_uploader",
+        # Add attachment type selection
+        attachment_type = st.radio(
+            "Select attachment type",
+            options=["Image", "PDF Document"],
+            horizontal=True,
+            key="attachment_type_radio",
         )
+        st.session_state.attachment_type = attachment_type.lower()
 
-        # If a file is uploaded, save it and update image_path
-        if uploaded_file is not None:
-            with st.spinner("Processing image..."):
-                image_path = save_uploaded_file(uploaded_file)
-                st.session_state.image_path = image_path
-                st.session_state.uploaded_file = uploaded_file
+        if st.session_state.attachment_type == "image":
+            # Add file uploader for images
+            uploaded_file = st.file_uploader(
+                "Upload an image",
+                type=["png", "jpg", "jpeg", "gif"],
+                help="Upload an image to include with your next message",
+                key="image_uploader",
+            )
 
-            # # Add a button to remove the attachment
-            # if st.button("❌ Remove image"):
-            #     st.session_state.image_path = None
-            #     st.session_state.uploaded_file = None
-            #     st.session_state.show_attachment = False
-            #     do_rerun()
+            # If a file is uploaded, save it and update image_path
+            if uploaded_file is not None:
+                with st.spinner("Processing image..."):
+                    image_path = save_uploaded_file(uploaded_file)
+                    st.session_state.image_path = image_path
+                    st.session_state.uploaded_file = uploaded_file
+                    st.session_state.pdf_path = None
+                    st.session_state.pdf_content = None
+
+        elif st.session_state.attachment_type == "pdf document":
+            # Add file uploader for PDFs
+            uploaded_file = st.file_uploader(
+                "Upload a PDF document",
+                type=["pdf"],
+                help="Upload a PDF document to include as context with your next message",
+                key="pdf_uploader",
+            )
+
+            # If a PDF is uploaded, save it and process the text
+            if uploaded_file is not None:
+                with st.spinner("Processing PDF document..."):
+                    pdf_path = save_uploaded_file(uploaded_file)
+                    st.session_state.pdf_path = pdf_path
+                    st.session_state.uploaded_file = uploaded_file
+                    st.session_state.image_path = None
+
+                    # Process the PDF to extract text
+                    pdf_content = extract_text_from_pdf(pdf_path)
+                    if pdf_content:
+                        # Store the PDF content in the session state
+                        st.session_state.pdf_content = pdf_content
+                        st.success(
+                            f"PDF processed successfully! ({len(pdf_content)} characters extracted)"
+                        )
+                    else:
+                        st.error(
+                            "Failed to extract text from the PDF. Please try another document."
+                        )
 
     # Create a row with the chat input and attachment button
     if is_mobile():
         cols = st.columns([0.6, 0.4])
         if cols[1].button(
-            "📎 Attach a file/image", help="Attach an image", use_container_width=True
+            "📎 Attach a file", help="Attach an image or PDF", use_container_width=True
         ):
             st.session_state.show_attachment = not st.session_state.show_attachment
             do_rerun()
     else:
         cols = st.columns([0.9, 0.1])
         # Attachment button in the second (smaller) column
-        if cols[1].button("📎", help="Attach an image"):
+        if cols[1].button("📎", help="Attach an image or PDF"):
             st.session_state.show_attachment = not st.session_state.show_attachment
             do_rerun()
+
+    # Display the current attachment if there is one
+    if st.session_state.image_path:
+        st.caption("✅ Image attached")
+    elif st.session_state.pdf_path:
+        st.caption(f"✅ PDF attached: {os.path.basename(st.session_state.pdf_path)}")
 
     # Text input in the first (larger) column
     prompt = cols[0].chat_input("Type your message …")

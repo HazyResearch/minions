@@ -15,6 +15,8 @@ Secure Minions Chat Blogpost: https://hazyresearch.stanford.edu/blog/2025-05-12-
 
 ## Table of Contents
 
+> **Looking for Secure Minions Chat?** If you're interested in our end-to-end encrypted and chat system, please see the [Secure Minions Chat README](secure/README.md) for detailed setup and usage instructions.
+
 - [Setup](#setup)
   - [Step 1: Clone and Install](#step-1-clone-the-repository-and-install-the-python-package)
   - [Step 2: Install a Local Model Server](#step-2-install-a-server-for-running-the-local-model)

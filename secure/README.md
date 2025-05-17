@@ -59,7 +59,7 @@ cd minions
 Install in editable mode:
 
 ```bash
-pip install -e .
+pip install -e ".[secure]"
 ```
 
 ### 3. Launch Secure Chat (Command Line)

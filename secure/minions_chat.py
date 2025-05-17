@@ -7,7 +7,7 @@ import base64
 import os
 import fitz  # PyMuPDF
 import glob
-from typing import List, Dict, Any, Optional, Generator, Callable, Union, Tuple
+from typing import List, Dict, Any, Optional, Callable, Tuple
 from urllib.parse import urlparse
 import mimetypes
 

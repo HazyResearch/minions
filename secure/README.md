@@ -56,7 +56,7 @@ cd minions
 
 ### 2. Install Minions Locally
 
-Install in editable mode:
+Install in editable mode. Make sure to run this from the top level directory:
 
 ```bash
 pip install -e ".[secure]"

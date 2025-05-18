@@ -35,12 +35,12 @@ class SGLangClient:
         except Exception as e:
             logger.error(f"❌ Failed to initialize OpenAI client: {str(e)}")
             raise RuntimeError(f"OpenAI client initialization failed: {str(e)}")
-    
-    def chat(self, messages, temperature=0.0, max_tokens=1024):
+
+    def chat(self, messages, temperature=0.7, max_tokens=16384):
         """Process chat messages using SGLang."""
         try:
             # Convert messages to OpenAI format
-            openai_messages = []
+            formatted_messages = []
             for msg in messages:
                 content = msg.get("content", "")
                 role = msg.get("role", "user")
@@ -52,25 +52,23 @@ class SGLangClient:
                     ]
                     
                     # Add image content
-                    content_list.append({
-                        "type": "image_url",
-                        "image_url": {"url": f"data:image/png;base64,{msg['image_url']}"}
-                    })
-                    
-                    openai_messages.append({
-                        "role": role,
-                        "content": content_list
-                    })
+                    content_list.append(
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/png;base64,{msg['image_url']}"
+                            },
+                        }
+                    )
+
+                    formatted_messages.append({"role": role, "content": content_list})
                 else:
-                    openai_messages.append({
-                        "role": role,
-                        "content": content
-                    })
-            
+                    formatted_messages.append({"role": role, "content": content})
+
             # Call the OpenAI API
             response = self.client.chat.completions.create(
-                model=os.environ.get("OPENAI_MODEL", "google/gemma-3-27b-it"),
-                messages=openai_messages,
+                model=os.environ.get("SGLANG_MODEL", "google/gemma-3-27b-it"),
+                messages=formatted_messages,
                 temperature=temperature,
                 max_tokens=max_tokens
             )
@@ -89,12 +87,12 @@ class SGLangClient:
         except Exception as e:
             logger.error(f"❌ Error in SGLang chat: {str(e)}")
             raise RuntimeError(f"SGLang chat failed: {str(e)}")
-    
-    def stream_chat(self, messages, temperature=0.0, max_tokens=1024):
+
+    def stream_chat(self, messages, temperature=0.7, max_tokens=16384):
         """Stream chat responses using SGLang."""
         try:
-            # Convert messages to OpenAI format
-            openai_messages = []
+            # Convert messages to OpenAI format 
+            formatted_messages = []
             for msg in messages:
                 content = msg.get("content", "")
                 role = msg.get("role", "user")
@@ -106,25 +104,23 @@ class SGLangClient:
                     ]
                     
                     # Add image content
-                    content_list.append({
-                        "type": "image_url",
-                        "image_url": {"url": f"data:image/png;base64,{msg['image_url']}"}
-                    })
-                    
-                    openai_messages.append({
-                        "role": role,
-                        "content": content_list
-                    })
+                    content_list.append(
+                        {
+                            "type": "image_url",
+                            "image_url": {
+                                "url": f"data:image/png;base64,{msg['image_url']}"
+                            },
+                        }
+                    )
+
+                    formatted_messages.append({"role": role, "content": content_list})
                 else:
-                    openai_messages.append({
-                        "role": role,
-                        "content": content
-                    })
-            
+                    formatted_messages.append({"role": role, "content": content})
+
             # Call the client with streaming enabled
             stream = self.client.chat.completions.create(
-                model=os.environ.get("OPENAI_MODEL", "google/gemma-3-27b-it"),
-                messages=openai_messages,
+                model=os.environ.get("SGLANG_MODEL", "google/gemma-3-27b-it"),
+                messages=formatted_messages,
                 temperature=temperature,
                 max_tokens=max_tokens,
                 stream=True
@@ -141,11 +137,9 @@ def run_model(context: List[Dict[str, Any]]):
     """Run the SGLang model with the given context."""
     # Get the singleton instance of SGLangClient
     client = SGLangClient.get_instance()
-    
-    response, usage = client.chat(
-        messages=context, temperature=0.0
-    )
-    
+
+    response, usage = client.chat(messages=context, temperature=0.7)
+
     # The response is already processed in the chat method
     return response[0]
 
@@ -153,7 +147,7 @@ def run_model(context: List[Dict[str, Any]]):
 def initialize_model():
     """Initialize the model at server startup."""
     endpoint = os.environ.get("SGLANG_ENDPOINT", "http://localhost:5000")
-    model_path = os.environ.get("SGLANG_MODEL", "Qwen/Qwen2.5-7B-Instruct")
+    model_path = os.environ.get("SGLANG_MODEL", "google/gemma-3-27b-it")
     streaming = os.environ.get("SGLANG_STREAMING", "false").lower() == "true"
     
     # Launch the SGLang server if needed

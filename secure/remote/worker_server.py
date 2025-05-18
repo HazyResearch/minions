@@ -190,7 +190,6 @@ def message():
         logger.info("🧠 Processing message with image using SGLang")
     else:
         logger.info("🧠 Processing message without image using SGLang")
-    
     response_text = run_model(worker_messages)
 
     logger.info(
@@ -239,6 +238,11 @@ def message_stream():
         if msg.get("role") == "user" and "image_url" in msg:
             logger.info("🖼️ Message contains image data for streaming")
 
+    # Check if any messages contain image data
+    for msg in worker_messages:
+        if msg.get("role") == "user" and "image_url" in msg:
+            logger.info("🖼️ Message contains image data for streaming")
+
     def generate():
         # Create a counter for the nonce that's local to this function
         nonce_counter = initial_nonce
@@ -250,12 +254,10 @@ def message_stream():
         
         # Get the SGLang client
         client = SGLangClient.get_instance()
-        
         # Get the streaming state
         state = client.stream_chat(worker_messages)
         # log the state
         logger.info(f"🧠 Streaming state: {state}")
-        
         # Stream the response
         full_response = ""
         for chunk in state:
@@ -276,3 +278,4 @@ if __name__ == "__main__":
     logger.info(f"🚀 Starting secure worker server on {args.host}:{args.port}")
     # Set debug=False for production environments
     app.run(host=args.host, port=args.port, debug=False)
+

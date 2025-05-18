@@ -9,7 +9,32 @@ _What is this?_ Minions is a communication protocol that enables small on-device
 Paper: [Minions: Cost-efficient Collaboration Between On-device and Cloud
 Language Models](https://arxiv.org/pdf/2502.15964)
 
-Blogpost: https://hazyresearch.stanford.edu/blog/2025-02-24-minions
+Minions Blogpost: https://hazyresearch.stanford.edu/blog/2025-02-24-minions
+
+Secure Minions Chat Blogpost: https://hazyresearch.stanford.edu/blog/2025-05-12-security
+
+## Table of Contents
+
+> **Looking for Secure Minions Chat?** If you're interested in our end-to-end encrypted and chat system, please see the [Secure Minions Chat README](secure/README.md) for detailed setup and usage instructions.
+
+- [Setup](#setup)
+  - [Step 1: Clone and Install](#step-1-clone-the-repository-and-install-the-python-package)
+  - [Step 2: Install a Local Model Server](#step-2-install-a-server-for-running-the-local-model)
+  - [Step 3: Set Cloud LLM API Keys](#step-3-set-your-api-key-for-at-least-one-of-the-following-cloud-llm-providers)
+- [Minions Demo Application](#minions-demo-application)
+- [Example Code](#example-code-minion-singular)
+  - [Minion (Singular)](#example-code-minion-singular)
+  - [Minions (Plural)](#example-code-minions-plural)
+- [Python Notebook](#python-notebook)
+- [Docker Support](#docker-support)
+- [Command Line Interface](#cli)
+- [Secure Minions Chat](#secure-minions-chat)
+- [Inference Estimator](#inference-estimator)
+  - [Command Line Usage](#command-line-usage)
+  - [Python API Usage](#python-api-usage)
+- [Miscellaneous Setup](#miscellaneous-setup)
+  - [Using Azure OpenAI](#using-azure-openai-with-minions)
+- [Maintainers](#maintainers)
 
 ## Setup
 
@@ -36,6 +61,12 @@ _note_: for optional MLX-LM install the package with the following command:
 
 ```bash
 pip install -e ".[mlx]"
+```
+
+_note_: for secure minions chat, install the package with the following command:
+
+```bash
+pip install -e ".[secure]"
 ```
 
 _note_: for optional Cartesia-MLX install, pip install the basic package and then follow the instructions below.
@@ -165,6 +196,9 @@ export TOKASAURUS_BASE_URL=<your-tokasaurus-base-url>  # Optional: Use a differe
 
 # DeepSeek
 export DEEPSEEK_API_KEY=<your-deepseek-api-key>
+
+# Anthropic
+export ANTHROPIC_API_KEY=<your-anthropic-api-key>
 ```
 
 ## Minions Demo Application
@@ -314,6 +348,16 @@ minions --help
 ```bash
 minions --context <path_to_context> --protocol <minion|minions>
 ```
+
+## Secure Minions Chat
+
+To install secure minions chat, install the package with the following command:
+
+```bash
+pip install -e ".[secure]"
+```
+
+See the [Secure Minions Chat README](secure/README.md) for additional details on how to setup clients and run the secure chat protocol.
 
 ## Inference Estimator
 

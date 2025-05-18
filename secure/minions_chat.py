@@ -5,11 +5,9 @@ import logging
 import time
 import base64
 import os
-import fitz  # PyMuPDF
-import glob
+import mimetypes
 from typing import List, Dict, Any, Optional, Callable, Tuple
 from urllib.parse import urlparse
-import mimetypes
 
 from secure.utils.crypto_utils import (
     generate_key_pair,
@@ -19,6 +17,12 @@ from secure.utils.crypto_utils import (
     serialize_public_key,
     deserialize_public_key,
     verify_attestation_full,
+)
+
+from secure.utils.processing_utils import (
+    extract_text_from_pdf,
+    extract_text_from_txt,
+    process_folder,
 )
 
 # Define logger
@@ -79,6 +83,8 @@ class SecureMinionChat:
             raise RuntimeError("Supervisor attestation failed") from e
 
         attestation_time = time.time() - start_time
+
+        self.logger.info(f"🔒 SECURITY: Attestation report took: {attestation_time}")
         self.logger.info("✅ SECURITY: Attestation verification successful")
 
         # Generate ephemeral keypair for the session
@@ -90,6 +96,8 @@ class SecureMinionChat:
         self.local_priv, self.local_pub = generate_key_pair()
         self.shared_key = derive_shared_key(self.local_priv, self.supervisor_pub)
         key_exchange_time = time.time() - start_time
+
+        self.logger.info(f"🔒 SECURITY: Key exchange took: {key_exchange_time}")
 
         self.logger.info(
             "✅ SECURITY: Established shared secret key using Diffie-Hellman key exchange"
@@ -115,70 +123,11 @@ class SecureMinionChat:
 
     def _extract_text_from_pdf(self, pdf_path: str) -> Optional[str]:
         """Extract text content from a PDF file"""
-        try:
-            if not os.path.exists(pdf_path):
-                self.logger.error(f"PDF file not found: {pdf_path}")
-                return None
-
-            self.logger.info(f"📄 Extracting text from PDF: {pdf_path}")
-
-            pdf_content = ""
-            try:
-                # Open the PDF file
-                with fitz.open(pdf_path) as doc:
-                    # Iterate through each page
-                    for page_num in range(len(doc)):
-                        # Get the page
-                        page = doc[page_num]
-                        # Extract text from the page
-                        pdf_content += page.get_text()
-                        # Add a separator between pages
-                        if page_num < len(doc) - 1:
-                            pdf_content += "\n\n"
-            except Exception as e:
-                self.logger.error(f"Error extracting text from PDF: {str(e)}")
-                return None
-
-            self.logger.info(
-                f"✅ PDF text extraction successful: {len(pdf_content)} characters"
-            )
-            return pdf_content
-
-        except Exception as e:
-            self.logger.error(f"❌ Error processing PDF: {str(e)}")
-            return None
+        return extract_text_from_pdf(pdf_path, custom_logger=self.logger)
 
     def _extract_text_from_txt(self, txt_path: str) -> Optional[str]:
         """Extract text content from a .txt file"""
-        try:
-            if not os.path.exists(txt_path):
-                self.logger.error(f"Text file not found: {txt_path}")
-                return None
-
-            self.logger.info(f"📝 Reading text from file: {txt_path}")
-
-            try:
-                with open(txt_path, "r", encoding="utf-8") as file:
-                    txt_content = file.read()
-            except UnicodeDecodeError:
-                # Try other encodings if UTF-8 fails
-                try:
-                    with open(txt_path, "r", encoding="latin-1") as file:
-                        txt_content = file.read()
-                except Exception as e:
-                    self.logger.error(
-                        f"Error reading text file with latin-1 encoding: {str(e)}"
-                    )
-                    return None
-
-            self.logger.info(
-                f"✅ Text file read successful: {len(txt_content)} characters"
-            )
-            return txt_content
-
-        except Exception as e:
-            self.logger.error(f"❌ Error processing text file: {str(e)}")
-            return None
+        return extract_text_from_txt(txt_path, custom_logger=self.logger)
 
     def _process_folder(self, folder_path: str) -> Tuple[str, Optional[str]]:
         """Process a folder containing text, PDF, and image files.
@@ -188,49 +137,7 @@ class SecureMinionChat:
             - Concatenated text content from all text and PDF files
             - Path to a selected image (or None if no images found)
         """
-        if not os.path.exists(folder_path) or not os.path.isdir(folder_path):
-            self.logger.error(f"Folder not found or not a directory: {folder_path}")
-            return "", None
-
-        self.logger.info(f"📂 Processing folder: {folder_path}")
-
-        # Find all text, PDF, and image files in the folder
-        txt_files = glob.glob(os.path.join(folder_path, "*.txt"))
-        pdf_files = glob.glob(os.path.join(folder_path, "*.pdf"))
-        image_files = []
-        for ext in ["*.jpg", "*.jpeg", "*.png", "*.gif", "*.bmp"]:
-            image_files.extend(glob.glob(os.path.join(folder_path, ext)))
-
-        # Process text files
-        all_text_content = []
-        for txt_file in txt_files:
-            txt_content = self._extract_text_from_txt(txt_file)
-            if txt_content:
-                all_text_content.append(
-                    f"--- Content from {os.path.basename(txt_file)} ---\n{txt_content}"
-                )
-
-        # Process PDF files
-        for pdf_file in pdf_files:
-            pdf_content = self._extract_text_from_pdf(pdf_file)
-            if pdf_content:
-                all_text_content.append(
-                    f"--- Content from {os.path.basename(pdf_file)} ---\n{pdf_content}"
-                )
-
-        # Select one image (if available)
-        selected_image = None
-        if image_files:
-            selected_image = image_files[0]  # Select the first image
-            self.logger.info(f"🖼️ Selected image: {selected_image}")
-
-        # Combine all text content
-        combined_text = "\n\n".join(all_text_content)
-
-        file_summary = f"Processed {len(txt_files)} text files, {len(pdf_files)} PDF files, and found {len(image_files)} images."
-        self.logger.info(f"✅ Folder processing complete. {file_summary}")
-
-        return combined_text, selected_image
+        return process_folder(folder_path, custom_logger=self.logger)
 
     def send_message(
         self,

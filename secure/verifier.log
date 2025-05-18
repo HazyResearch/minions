@@ -1,0 +1,827 @@
+05-13-2025 04:08:37:DEBUG: ----------STARTING----------
+05-13-2025 04:08:37:DEBUG: Initializing the nvml library
+05-13-2025 04:08:37:INFO: nvmlInit called.
+05-13-2025 04:08:37:INFO: nvmlSystemGetConfComputeState called.
+05-13-2025 04:08:37:INFO: nvmlSystemGetConfComputeSettings called.
+05-13-2025 04:08:37:INFO: nvmlSystemGetConfComputeState called.
+05-13-2025 04:08:37:INFO: nvmlDeviceGetCount called.
+05-13-2025 04:08:37:INFO: nvmlDeviceGetHandleByIndex called.
+05-13-2025 04:08:37:INFO: nvmlDeviceGetHandleByIndex called.
+05-13-2025 04:08:37:INFO: nvmlSystemGetDriverVersion called.
+05-13-2025 04:08:37:INFO: nvmlDeviceGetBoardId called.
+05-13-2025 04:08:37:INFO: nvmlDeviceGetUUID called.
+05-13-2025 04:08:37:INFO: nvmlDeviceGetArchitecture called.
+05-13-2025 04:08:37:INFO: nvmlDeviceGetVbiosVersion called.
+05-13-2025 04:08:37:INFO: nvmlDeviceGetConfComputeGpuCertificate called.
+05-13-2025 04:08:37:INFO: nvmlDeviceGetConfComputeGpuAttestationReport called.
+05-13-2025 04:08:37:DEBUG: mark_attestation_report_as_available called.
+05-13-2025 04:08:37:DEBUG: mark_attestation_report_as_available called.
+05-13-2025 04:08:37:DEBUG: VM region is eastus2
+05-13-2025 04:08:37:DEBUG: Arguments: {'verbose': False, 'test_no_gpu': False, 'driver_rim': None, 'vbios_rim': None, 'user_mode': True, 'allow_hold_cert': False, 'nonce': '4d7dcd4d28ee2566185b2b62c72d030c0f1cb2966bd07bf42b1e5b66a15ff921', 'rim_root_cert': None, 'rim_service_url': None, 'ocsp_service_url': None, 'ocsp_nonce_enabled': False, 'ocsp_validity_extension': None, 'ocsp_cert_revocation_extension_device': None, 'ocsp_cert_revocation_extension_driver_rim': None, 'ocsp_cert_revocation_extension_vbios_rim': None, 'ocsp_attestation_settings': 'default'}
+05-13-2025 04:08:37:DEBUG: BaseSettings: {'AZURE_VM_REGION': 'eastus2', 'AZURE_IMDS_URL': 'http://169.254.169.254/metadata/instance?api-version=2021-02-01', 'AZURE_THIM_ENDPOINT_DICT': {'eastus2': 'https://useast2.thim.azure.net', 'centraluseuap': 'https://uscentraleuap.thim.azure.net', 'westeurope': 'https://europewest.thim.azure.net', 'lab': ''}, 'SIZE_OF_NONCE_IN_BYTES': 32, 'SIZE_OF_NONCE_IN_HEX_STR': 64, 'gpu_availability': False, 'attestation_report_availability': True, 'TEST_NO_GPU_NUMBER_OF_GPUS': 1, 'NONCE': '4cff7f5380ead8fad8ec2c531c110aca4302a88f603792801a8ca29ee151af2e', 'MAX_RETRY_COUNT': 3, 'current_retry_count': 0, 'MAX_NVML_TIME_DELAY': 5, 'MAX_OCSP_REQUEST_TIME_DELAY': 10, 'MAX_RIM_REQUEST_TIME_DELAY': 10, 'OCSP_URL': 'https://useast2.thim.azure.net/nvidia/ocsp/', 'OCSP_URL_NVIDIA': 'https://ocsp.ndis.nvidia.com/', 'OCSP_NONCE_ENABLED': False, 'OCSP_RETRY_COUNT': 3, 'OCSP_RETRY_DELAY': 0.1, 'OCSP_VALIDITY_EXTENSION_HRS': 336, 'OCSP_CERT_REVOCATION_DEVICE_EXTENSION_HRS': 336, 'OCSP_CERT_REVOCATION_DRIVER_RIM_EXTENSION_HRS': 336, 'OCSP_CERT_REVOCATION_VBIOS_RIM_EXTENSION_HRS': 2160, 'RIM_SERVICE_BASE_URL': 'https://useast2.thim.azure.net/nvidia/v1/rim/', 'RIM_SERVICE_BASE_URL_NVIDIA': 'https://rim.attestation.nvidia.com/v1/rim/', 'RIM_SERVICE_RETRY_COUNT': 3, 'RIM_SERVICE_RETRY_DELAY': 0.1, 'INDEX_OF_IK_CERT': 1, 'SKU': 'PROD', 'claims': {}, 'allow_hold_cert': True, 'ROOT_CERT_DIR': '/home/azureuser/miniconda3/envs/minions/lib/python3.11/site-packages/verifier/certs', 'RIM_ROOT_CERT': '/home/azureuser/miniconda3/envs/minions/lib/python3.11/site-packages/verifier/certs/verifier_RIM_root.pem', 'DEVICE_ROOT_CERT': '/home/azureuser/miniconda3/envs/minions/lib/python3.11/site-packages/verifier/certs/verifier_device_root.pem', 'EXECUTION_SEQUENCE_INDEX': {'GPU_AVAILABILITY': 0, 'ATTESTATION_REPORT_AVAILABILITY': 1, 'GPU_INFO_FETCH': 2, 'CORRECT_GPU_ARCH': 3, 'ROOT_CERT_AVAILABILITY': 4, 'GPU_CERT_CHAIN_VERIFIED': 5, 'GPU_CERT_OCSP_CERT_CHAIN_VERIFICATION': 6, 'GPU_CERT_OCSP_SIGNATURE_VERIFICATION': 7, 'GPU_CERT_OCSP_NONCE_MATCH': 8, 'GPU_CERT_CHECK_COMPLETE': 9, 'ATTESTATION_REPORT_MSR_AVAILABILITY': 10, 'ATTESTATION_REPORT_PARSED': 11, 'NONCE_MATCH': 12, 'ATTESTATION_REPORT_DRV_VERSION_MATCH': 13, 'ATTESTATION_REPORT_VBIOS_VERSION_MATCH': 14, 'ATTESTATION_REPORT_VERIFICATION': 15, 'DRIVER_RIM_FETCH': 16, 'DRIVER_RIM_MEASUREMENT_AVAILABILITY': 17, 'DRIVER_RIM_SCHEMA_VALIDATION': 18, 'DRIVER_RIM_VERSION_MATCH': 19, 'DRIVER_RIM_CERT_EXTRACT': 20, 'DRIVER_RIM_SIGNATURE_VERIFICATION': 21, 'VBIOS_RIM_FETCH': 22, 'VBIOS_RIM_MEASUREMENT_AVAILABILITY': 23, 'VBIOS_RIM_SCHEMA_VALIDATION': 24, 'VBIOS_RIM_VERSION_MATCH': 25, 'VBIOS_RIM_CERT_EXTRACT': 26, 'VBIOS_RIM_SIGNATURE_VERIFICATION': 27, 'DRV_VBIOS_MSR_INDEX_CONFLICT': 28, 'MEASUREMENT_MATCH': 29}}
+05-13-2025 04:08:37:DEBUG: The architecture of the GPU with index 0 is HOPPER
+05-13-2025 04:08:37:DEBUG: GPU info fetched successfully.
+05-13-2025 04:08:37:DEBUG: 	GPU architecture is correct.
+05-13-2025 04:08:37:DEBUG: mark_gpu_arch_is_correct called.
+05-13-2025 04:08:37:DEBUG: mark_gpu_driver_version called.
+05-13-2025 04:08:37:DEBUG: mark_gpu_vbios_version called.
+05-13-2025 04:08:37:DEBUG: GPU info fetched : 
+		{'Index': 0, 'DriverVersion': '550.144.03', 'BoardId': 65536, 'UUID': 'GPU-bf4979d8-7641-a970-08ed-068f63b3b237', 'GPUArchitecture': 9, 'VbiosVersion': '96.00.9F.00.04', 'CertificateChains': <verifier.nvml.gpu_cert_chains.GpuCertificateChains object at 0x7901afe68750>, 'AttestationReport': b'\x11\xe0\x01\xffM}\xcdM(\xee%f\x18[+b\xc7-\x03\x0c\x0f\x1c\xb2\x96k\xd0{\xf4+\x1e[f\xa1_\xf9!\x00\x11`\x00\x00@\xc0\r\x00\x01\x013\x00\x010\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x013\x00\x010\x00\x80H\xdf\xd1\x8f\xe2)\xbf\x16\xeb\x9d0\xcc\xa0\xf1\x1a$\xda\xfen\xb71\xde\x14b\x98FE\xa0\xb1\x89\xb7|NN\x17\xderz^\x19\xe3\xd0}\xe5\x1d\xa38\x03\x013\x00\x010\x00>\xf2\xc0Hh\x8fs@\x18\xcb\x8aR\xef\x0eD]\t\xb2p]p~\x01\x83\xdeb\xff\xda\x1dL\xaf`\xbf\xee\x15\xc6fe\xc4^\xb4\x0es9}5:B\x04\x013\x00\x010\x00s\xbb\xf3X"T\x9e(\xba\x8f\xb2g\x1f\xb7\xb5\x8fFBJ\x00i [>\xcf\x1d\x0f\xa7b\xad\xef\x90\xb58\xcc\x9di.\xb5\xc0P\x14\x7f/\x1e\x82\x14\xab\x05\x013\x00\x010\x00V\x8b\x89)\x1a4\xce\xce\x03\xb1*\xaa5-\x9a\xfe\'6\x100u%\xb8D>\x90\xfa\xa7\x8d\x82\xec\xfa\x9cx\'\xd8\xf7\x91\\5\xb2\xfa\xb9r\xe1\x08f\x86\x06\x013\x00\x010\x00\xc9\xe4\xfef\x8e\x9d\xc2i\xa4eqF\xb5\xe2\x8a"4|\xde\x18\xa4\xb0\xe7\x9d\x81FS/\'\xeb\xc3\x86\xf3\x04@\x0e\xa5\xd4\xbfAY\xb5\xa6\x91m\xd4VN\x07\x013\x00\x010\x00hP\xb0\xa8.~w\xc0\xf5\x1e\x0eg2\x168f\x003\x90\xc4\xeb(m\x8d\xfb&\xa7/q\x1a\x9c\x8b\xcd\xf4\x02\xa1\xfdN]p\xb9w\x08\x10zx^\xfc\x08\x013\x00\x010\x00J^K=P\x1f\xe3\x1f\x91\xbd\x8bo)!\xb5\x847pJPM\xbe\xdb\xa9qD\x0e\x84\x0c\x93\x8c\x80V\x12h\x9a\xe3\xac\x04\xb1\x00\x95\x15\xa1y\x06=I\t\x013\x00\x010\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\n\x013\x00\x010\x00\x05\x9b2\xe7\x12\xa1S\xf4\x90\xdb\xfbyv\xa9\xe2u\xd7\x89\xe2\x8b\xd4\x80<5}\xef+a#2|C\x05&\xbf\xae\xcc \x0fImN\x14\x9f\xc5\xea\xde\x03\x0b\x013\x00\x010\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x0c\x013\x00\x010\x00\xb3\x05\x0e\x02\x1c\xae\xaej\x02K\n\xe3\x82|g-\x98\xb1zM[\xb6}\x9f\xa0\x86s\xc4\xba\xf1I?\xa48!Xj\x17\x809"\xf9\xb7\xe5\x15\x07\rI\r\x013\x00\x010\x00\xe9\xbe\xc0\xcc\xdd\xdea\xf5"\xf5\x1f\x04m\x850/M\xf5\xecH\x8e\x1d\xf2\x90\x99\x19+\x1dsa/o\x0fjn\x07\xb8\x996\x88\xfc\x13\x18&\xd3\xa6\xd3\xd7\x0e\x013\x00\x010\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x0f\x013\x00\x010\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x10\x013\x00\x010\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x11\x013\x00\x010\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x12\x013\x00\x010\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x13\x013\x00\x010\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x14\x013\x00\x010\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x15\x013\x00\x010\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x16\x013\x00\x010\x00hEMK\xb5TZt\xe4x\xe2\x88F\x9aeH\xbbMJ\xa8UjQ/\x9d\xddA\xb03z`+?\x05\nF\x95x\x13\x9cl\xea\x0e\x0f|\x98a\xc8\x17\x013\x00\x010\x00\x9f%\x9a\xb6\xa2\xc1\xcd\x93\x8bb!\x91\xa5\xed\xee\xe6@\xd4\r\xb0\xab\xc0\x8a\x16\xcau\x0c\xe6?\x13\x9e\xf5\xd1\x80_\x0fx\x88\xf6\x17\xdf9\xb6\xd5\x89\x85\x0fQ\x18\x013\x00\x010\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x19\x013\x00\x010\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x1a\x013\x00\x010\x00\xb7\x18\x94\x8c\x03P\x92\xeb\xd0\xc7\xd6\xf0i\x14\x1ek\xd0\xcd@\xd8\xdd\xd46\xaa\r\x1apZ\xfe\xdf\xe6|\x12\x89\x1d#\x9em\xdf0\xea\tw]\x10V\xac\x1a\x1b\x013\x00\x010\x00m\xbc\x7f\x8e#\xacoi\xc4\xbf<\xb4\xc6\x15f\xd7\x95\x7f\xce/\x0f\x16\xa4\x99\xac\x1frK\xac\xb0\x93^\xef\xa5\xbe\x16\xf5H\xbaQAD\x9fCU_$\x0c\x1c\x013\x00\x010\x00!\x91\xa0m\x9f\xad\x03\x0c\xb8\xa7\x079\x1f.Q\x83\x8d\x8c\xa1\xe1q\t2[\x15_wM\xdc\xb2\xbfpL\xa0#\xbaq\x1a(,\x93\xa1\xaf\xcdY\x0c\xe2\x0b\x1d\x013\x00\x010\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x1e\x013\x00\x010\x00\x1d\x04\x0f\xdc<\x8d\xe3\xd8\xaf\xbc\xeb\xb7\x9b\xf3\xa9\xec\t\xa2we\x1bz\xce\x16b\x7fb\x01\xc9\x04\x14\xd9\x91{W\xa7\xbdgH+\x19)\xc9\xec\x0b\xd1\xa1]\x1f\x013\x00\x010\x00\x1b\xd4\\\x8a4\xc3:\xc6\xa3\x16\x05\x0c\xb0u*\xa6H\xacLl\xd2j\xf1e\xce\xc4\x16Uth\xd2\x1fza\xb6\xc5\xc7\xc4\xeam\x13\x1b\xe9\'\x06Y99 \x013\x00\x010\x00\xd7p69\x87\xf5\x81\xaf\r\x97HK\x06\x99\xbd\x07I\xe6\xc5N#?\x92\x17\xfc\x93\x04\xad8`\xd0\x96\xa7\xab\x96\xf1\xf35^\xed9& \xc41u\xfa!!\x013\x00\x010\x00\x9f\x97n\x82\xfa0\xfc\xc6\xf8+\xce,\x94*\xd4p|=\xf6\xb7nb\x95\xceL\x95\xcf\x9b\xb6*\x089%q\xe9\xfbx\x7f\x19\xb3\x1b\xf0\xf3\xf0K\xa8\x87\xa6"\x013\x00\x010\x00\x19\x8b\x81\xd9\xc0\xce\xfe\x0b3\xade\xde?\xad#\x8aTa\xd8\xee2H{\xf7\x0f\xc1\x92`A@\x8c\xb1\x14bK\x8c\xa6\xb0\xd5\xfc\x97\x02\x8bX\xd9\xcd\xb7\x8d#\x013\x00\x010\x00\x07\xbb\xc5\x04\xd32|\xb7mLO;?\x1d\xaf\x87y\xe4\x0c\xc3\x1d`\x82l\xb1\x1d\xcc]\t\xdcY\xa8;\xf6\x93\xf0\xfb\x9b\x1f\x0b^X\xedL\xdc:X\x0f$\x013\x00\x010\x00&\x11H3|\xcf\x08\xedSQXJ\x95U{$S&\xcb\xc5\xefQ\x1c\xa5\xb2+\xc1b\xb9\x93%)\xfc\x11\x8f\x0f\xe6\x93\x9d\xd2\x14T\\\x93\x88\x15\x87\x81%\x013\x00\x010\x00\x10W\x0fd.\'L\xfc+\x9f\x1c\x95_\xab\n\xa5ka\x93\xd5\xc5\xea\'\x1at\xeb\x97d3HeiY!Em\xc1\xca8=~\xdf\x9egv\t7\xca&\x013\x00\x010\x00\xfc\xcdn\xfav&\x7f[C\xfcJvG\xce\x84:9\x12\xf0\x94J\x9b\xcc\x90tV@\x8c6\x8a\xd5\xe8[\xecE\x12\xd9\xd9\xae\xde\xba\xb3\x1c;\x80\x95\x06\'\'\x013\x00\x010\x00\xc7\xea\x13]\xca8\x99\x18x\x94T\x86\x1b\xb5\x93\t]\xc4O\x8a\xd3\x905f]\xaa\x81\xfa\x02\xcfo\xbd:\x18"{b$\xdc\xedp(\x8b\x9f\xd3\x16\x1c\xc0(\x013\x00\x010\x00\xb4#\xe1a\x9e\x93\xf2\xe3\x93a\xd4r)\x9a\xe9%\xdb\xcd\x9c\xac \xdbQ{\xda\x1bD\xd9\'/>)[f\xce=\xb4\x8e\xc2cyju\x8f\xf7.4\x7f)\x013\x00\x010\x00\xd2\xf9\xef\xe9%\xfe\xfc\x0c\xe3\xef\x99\xb4\xd4\xdaJ\xbe\x83\xb0\xb0\x9cy\xea\t\x99L9>\x0e\xe7G"\x1c\xa9\x8bB1\xae\r\x84\x81\x1aZ\x13\x93k\xda`\n*\x013\x00\x010\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00+\x013\x00\x010\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00,\x013\x00\x010\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00-\x013\x00\x010\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00.\x013\x00\x010\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00/\x013\x00\x010\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x000\x013\x00\x010\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x001\x013\x00\x010\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x002\x013\x00\x010\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x003\x013\x00\x010\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x004\x013\x00\x010\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x005\x013\x00\x010\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x006\x013\x00\x010\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x007\x013\x00\x010\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x008\x013\x00\x010\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x009\x013\x00\x010\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00:\x013\x00\x010\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00;\x013\x00\x010\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00<\x013\x00\x010\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00=\x013\x00\x010\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00>\x013\x00\x010\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00?\x013\x00\x010\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00@\x013\x00\x010\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x8d\x1f\xd5\x9fA\x8d}\xf2p\x7f\x89\xf4\xb0x\xe3\x1e\xbdi\xa2\xe2\xe1,\xfa\x8b\xb61r\xe4\xa4\xd9\x10K\xa7\x01\x06\x00\x08\x00\x00\x9f\x00\x96\x04\x00\x00\x00\x0e\x00\x04\x00\x08\x05\x00\x00\x0f\x00\t\x00886\x00\x00\x00\x00\x00\x00\x10\x00\x05\x000\x00\x00\x00\x00\x11\x00\x05\x001010\x00\x12\x00\x05\x000210\x00\x13\x00\x02\x00\x00\x00\x03\x00\x0b\x00550.144.03\x00\x04\x00\x08\x00\x80\x01\x00\x00\x00\x00\x00\x00\x0c\x00\x00\x01\x00\x00\x00\x00\x01\x00\x00\x00\x05\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x83\x00\x00\x00\x03\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x02\x00\x00\x00\x02\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x00\x02\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x00\x01\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\r\x00\x04\x00\x00\xc0\x01\x00\x0b\x00\x01\x00U\x14\x000\x00\x06\x86\xbf\xc4\xf1\'\xba\xd1\xe4xm\x89\xe3\xf9d\'\xa9Y\x06\x92\xe1\xa8\x10\x18H4\xd2i\xef\xf9\xf8\xb0\x00\xe2\x95\xd8C\xed\x9c\xf7\x87\xd1\x08\xc0\x14z\xe9/\x15\x00\x01\x00U\x1e2m\x98Y\xdb0\x87\xb9\xe4\xe6?\x8f#\x11\x8bV<\x00\xed\x0c\xe3\xf8\xb6{O*\xe2EJl\x0ch6IWWD\xee\xbd\x06\xc4j#M\xfe_\xfe\x13\xdc\x16\x7f|\x87\xd0\xc6\x81\xff\x0fv\xe8\xc6\xe7\xec\x8bG\xeb\x07\xc3N$\xe0\xa56\x89\xa2Pm\xb1\xc6N\xb7\xb5\'T.\xf7\xccfp\xb1=X\'\x99('}
+05-13-2025 04:08:37:DEBUG: mark_attestation_report_parsed called.
+05-13-2025 04:08:37:DEBUG: Root certificate is a available.
+05-13-2025 04:08:37:DEBUG: 		verifying attestation certificate chain.
+05-13-2025 04:08:37:DEBUG: verify_certificate_chain() called for CERT CHAIN VERIFICATION MODE.GPU_ATTESTATION
+05-13-2025 04:08:37:DEBUG: Number of certificates : 5
+05-13-2025 04:08:37:DEBUG: Building OCSP request for GH100 A01 GSP BROM:
+05-13-2025 04:08:37:DEBUG: 	Serial Number: 1200693246159343576464
+05-13-2025 04:08:37:DEBUG: 	Issuer Key Hash: lma89TzUbAOZkgOv7Nf80xXOg2mqXekr9vfxQ0l6br+pBDZaVdM2qW96kj8MKOdj
+05-13-2025 04:08:37:DEBUG: 	Issuer Name Hash: 3p5/xad5TrM4+CnLsNcpAaQp6sVNeo+CgNYWtPJKd8d0b5Z4x5FN0m4chd9CjPFt
+05-13-2025 04:08:37:INFO: send_ocsp_request called.
+05-13-2025 04:08:37:DEBUG: Successfully fetched the ocsp response from https://useast2.thim.azure.net/nvidia/ocsp/
+05-13-2025 04:08:37:DEBUG: Current time: 2025/05/13 04:08:37 UTC
+05-13-2025 04:08:37:DEBUG: OCSP this update: 2025/05/13 03:27:24 UTC
+05-13-2025 04:08:37:DEBUG: OCSP next update: 2025/05/14 03:27:24 UTC
+05-13-2025 04:08:37:DEBUG: OCSP next update extended: 2025/05/28 03:27:24 UTC
+05-13-2025 04:08:37:DEBUG: verify_certificate_chain() called for CERT CHAIN VERIFICATION MODE.OCSP_RESPONSE
+05-13-2025 04:08:37:DEBUG: Number of certificates : 5
+05-13-2025 04:08:37:DEBUG: Building OCSP request for NVIDIA GH100 Provisioner ICA 1:
+05-13-2025 04:08:37:DEBUG: 	Serial Number: 142219313402774704014259045195792739926
+05-13-2025 04:08:37:DEBUG: 	Issuer Key Hash: Yao2LFf3ZIuZRdHGEKHoItv4gu2bGIZH5inwqCEsL5Nk7ojEiuL1DsXGkDFVbqt9
+05-13-2025 04:08:37:DEBUG: 	Issuer Name Hash: RtXhILcYjER0PJOU2bf2Jgn5nX/RZT5l0e39QY3rEQkF16xIqGmaK1+D1/10Cq+p
+05-13-2025 04:08:37:INFO: send_ocsp_request called.
+05-13-2025 04:08:37:DEBUG: Successfully fetched the ocsp response from https://useast2.thim.azure.net/nvidia/ocsp/
+05-13-2025 04:08:37:DEBUG: Current time: 2025/05/13 04:08:37 UTC
+05-13-2025 04:08:37:DEBUG: OCSP this update: 2025/05/13 04:04:27 UTC
+05-13-2025 04:08:37:DEBUG: OCSP next update: 2025/05/14 04:04:27 UTC
+05-13-2025 04:08:37:DEBUG: OCSP next update extended: 2025/05/28 04:04:27 UTC
+05-13-2025 04:08:37:DEBUG: verify_certificate_chain() called for CERT CHAIN VERIFICATION MODE.OCSP_RESPONSE
+05-13-2025 04:08:37:DEBUG: Number of certificates : 4
+05-13-2025 04:08:37:DEBUG: Building OCSP request for NVIDIA GH100 Identity:
+05-13-2025 04:08:37:DEBUG: 	Serial Number: 101215366817085296786842087482911787402
+05-13-2025 04:08:37:DEBUG: 	Issuer Key Hash: yvKZXGCfDF9EMwjWybXKkBOMOt7g8McHbOw/7WXBtsLHt9yEJYQ+eZr3sH3LrrpS
+05-13-2025 04:08:37:DEBUG: 	Issuer Name Hash: QTbhZw1QzKnsRwl+eu2/nu6ghwudKCQWDhed3+DfqjLa524cwc7WcyAEJHFoXgHY
+05-13-2025 04:08:37:INFO: send_ocsp_request called.
+05-13-2025 04:08:37:DEBUG: Successfully fetched the ocsp response from https://useast2.thim.azure.net/nvidia/ocsp/
+05-13-2025 04:08:37:DEBUG: Current time: 2025/05/13 04:08:37 UTC
+05-13-2025 04:08:37:DEBUG: OCSP this update: 2025/05/13 03:27:23 UTC
+05-13-2025 04:08:37:DEBUG: OCSP next update: 2025/05/14 03:27:23 UTC
+05-13-2025 04:08:37:DEBUG: OCSP next update extended: 2025/05/28 03:27:23 UTC
+05-13-2025 04:08:37:DEBUG: verify_certificate_chain() called for CERT CHAIN VERIFICATION MODE.OCSP_RESPONSE
+05-13-2025 04:08:37:DEBUG: Number of certificates : 3
+05-13-2025 04:08:37:DEBUG: mark_gpu_attestation_report_cert_chain_validated called
+05-13-2025 04:08:37:DEBUG: mark_nonce_as_matching called.
+05-13-2025 04:08:37:DEBUG: Driver version in attestation report is matching.
+05-13-2025 04:08:37:DEBUG: mark_attestation_report_driver_version_as_matching called.
+05-13-2025 04:08:37:DEBUG: VBIOS version in attestation report is matching.
+05-13-2025 04:08:37:DEBUG: mark_attestation_report_vbios_version_as_matching called.
+05-13-2025 04:08:37:DEBUG: Extracting the public key from the certificate for the attestation report.
+05-13-2025 04:08:37:DEBUG: Extracted the public key from the certificate for the the attestation report.
+05-13-2025 04:08:37:DEBUG: Verifying the signature of the attestation report.
+05-13-2025 04:08:37:DEBUG: mark_attestation_report_signature_verified called
+05-13-2025 04:08:37:INFO: fetch_rim_file_from_url called.
+05-13-2025 04:08:38:DEBUG: Successfully fetched the RIM file from https://useast2.thim.azure.net/nvidia/v1/rim/NV_GPU_DRIVER_GH100_550.144.03
+05-13-2025 04:08:38:DEBUG: mark_driver_rim_fetched called
+05-13-2025 04:08:38:DEBUG: The driver version in the RIM file is 550.144.03
+05-13-2025 04:08:38:DEBUG: driver golden measurements are : 
+							
+05-13-2025 04:08:38:DEBUG: 
+							 index : 0
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 1
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 2
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 3
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 4
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 5
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 6
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 7
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 4a5e4b3d501fe31f91bd8b6f2921b58437704a504dbedba971440e840c938c805612689ae3ac04b1009515a179063d49
+05-13-2025 04:08:38:DEBUG: 
+							 index : 8
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 9
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 10
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 11
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 12
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 13
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 14
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 15
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 16
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 17
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 18
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 19
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 20
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 21
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 68454d4bb5545a74e478e288469a6548bb4d4aa8556a512f9ddd41b0337a602b3f050a469578139c6cea0e0f7c9861c8
+05-13-2025 04:08:38:DEBUG: 
+							 index : 22
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 9f259ab6a2c1cd938b622191a5edeee640d40db0abc08a16ca750ce63f139ef5d1805f0f7888f617df39b6d589850f51
+05-13-2025 04:08:38:DEBUG: 
+							 index : 23
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 2
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 5fe8d19d350ea7e7962db4efe906c0da5ca9260d637b78d834eb3401105727bbd1e9a8c2ec18b860690f710976085c7a
+05-13-2025 04:08:38:DEBUG: 								 value 2 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 24
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 2
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 4f8f00b112103af1fe2148a9cefe41852000d13c2370461b53cfa2846030277c1b0ac35cbd0bd592afb7a66cf445bf0d
+05-13-2025 04:08:38:DEBUG: 								 value 2 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 25
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : b718948c035092ebd0c7d6f069141e6bd0cd40d8ddd436aa0d1a705afedfe67c12891d239e6ddf30ea09775d1056ac1a
+05-13-2025 04:08:38:DEBUG: 
+							 index : 26
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 6dbc7f8e23ac6f69c4bf3cb4c61566d7957fce2f0f16a499ac1f724bacb0935eefa5be16f548ba5141449f43555f240c
+05-13-2025 04:08:38:DEBUG: 
+							 index : 27
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 2191a06d9fad030cb8a707391f2e51838d8ca1e17109325b155f774ddcb2bf704ca023ba711a282c93a1afcd590ce20b
+05-13-2025 04:08:38:DEBUG: 
+							 index : 28
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 29
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 1d040fdc3c8de3d8afbcebb79bf3a9ec09a277651b7ace16627f6201c90414d9917b57a7bd67482b1929c9ec0bd1a15d
+05-13-2025 04:08:38:DEBUG: 
+							 index : 30
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 1bd45c8a34c33ac6a316050cb0752aa648ac4c6cd26af165cec416557468d21f7a61b6c5c7c4ea6d131be92706593939
+05-13-2025 04:08:38:DEBUG: 
+							 index : 31
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : d770363987f581af0d97484b0699bd0749e6c54e233f9217fc9304ad3860d096a7ab96f1f3355eed392620c43175fa21
+05-13-2025 04:08:38:DEBUG: 
+							 index : 32
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 2
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 9f976e82fa30fcc6f82bce2c942ad4707c3df6b76e6295ce4c95cf9bb62a08392571e9fb787f19b31bf0f3f04ba887a6
+05-13-2025 04:08:38:DEBUG: 								 value 2 : ec056c2b9e3a568261d0092b8aa1dadb19377382174ba5503a3059cabd2dd1ea82bef1b905ab8a3769832092ddefd30d
+05-13-2025 04:08:38:DEBUG: 
+							 index : 33
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 2
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 198b81d9c0cefe0b33ad65de3fad238a5461d8ee32487bf70fc1926041408cb114624b8ca6b0d5fc97028b58d9cdb78d
+05-13-2025 04:08:38:DEBUG: 								 value 2 : e28a36cdc648795fec9640d10173c9d43a0ee845546b92c20664f068427313593465c04bf282f4e5ace96cc53c6e2cb6
+05-13-2025 04:08:38:DEBUG: 
+							 index : 34
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 2
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 07bbc504d3327cb76d4c4f3b3f1daf8779e40cc31d60826cb11dcc5d09dc59a83bf693f0fb9b1f0b5e58ed4cdc3a580f
+05-13-2025 04:08:38:DEBUG: 								 value 2 : 2625aca7b14d7b842e8837604c14d14c40500dd87155cd808b94da5a01ac8d9cc3d1d619007f81be4d1e2f682e466bb9
+05-13-2025 04:08:38:DEBUG: 
+							 index : 35
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 4
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 909cabeb46f75ccde1d0a4b0f26c7f891b5daa2c3681b14cd7be9addc3266a0cb93be11034e0b1fafe8dff7285e6acba
+05-13-2025 04:08:38:DEBUG: 								 value 2 : 261148337ccf08ed5351584a95557b245326cbc5ef511ca5b22bc162b9932529fc118f0fe6939dd214545c9388158781
+05-13-2025 04:08:38:DEBUG: 								 value 3 : 5af2810f7de5e1f8573ff70f7b6caf2eeeca9bc4920fbd97915d8ab34944de10aed02d6678762f09bffacf60cf0b3b92
+05-13-2025 04:08:38:DEBUG: 								 value 4 : c0962ed90316ecea959dd0b6632d0c4f4d3bfbf72c4cd9031efe48154ed9ca59b41cd20ce06a7f9ca5cd8b0687cf1258
+05-13-2025 04:08:38:DEBUG: 
+							 index : 36
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 3
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 10570f642e274cfc2b9f1c955fab0aa56b6193d5c5ea271a74eb9764334865695921456dc1ca383d7edf9e67760937ca
+05-13-2025 04:08:38:DEBUG: 								 value 2 : e33b54c263b9bd7af1be5eafc87ead7ee0b5f952f1fd234f4ee33b5cc7b7bc0ee386f9b3fd9e9e1e159757c1d296c2e9
+05-13-2025 04:08:38:DEBUG: 								 value 3 : c3cbc9cb8c6164d9f37e2116555618e3d5dd1c89dc732c550e3516a72160623fd62fdd3b1f240032388e3f1b3024aaf1
+05-13-2025 04:08:38:DEBUG: 
+							 index : 37
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : fccd6efa76267f5b43fc4a7647ce843a3912f0944a9bcc907456408c368ad5e85bec4512d9d9aedebab31c3b80950627
+05-13-2025 04:08:38:DEBUG: 
+							 index : 38
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : c7ea135dca389918789454861bb593095dc44f8ad39035665daa81fa02cf6fbd3a18227b6224dced70288b9fd3161cc0
+05-13-2025 04:08:38:DEBUG: 
+							 index : 39
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : b423e1619e93f2e39361d472299ae925dbcd9cac20db517bda1b44d9272f3e295b66ce3db48ec263796a758ff72e347f
+05-13-2025 04:08:38:DEBUG: 
+							 index : 40
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : d2f9efe925fefc0ce3ef99b4d4da4abe83b0b09c79ea09994c393e0ee747221ca98b4231ae0d84811a5a13936bda600a
+05-13-2025 04:08:38:DEBUG: 
+							 index : 41
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 42
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 43
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 44
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 45
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 46
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 47
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 48
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 49
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 50
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 51
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 52
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 53
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 54
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 55
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 56
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 57
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 58
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 59
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 60
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 61
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 62
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 63
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: mark_rim_driver_measurements_as_available called.
+05-13-2025 04:08:38:DEBUG: mark_driver_rim_schema_validated called.
+05-13-2025 04:08:38:DEBUG: mark_rim_driver_version_as_matching called.
+05-13-2025 04:08:38:DEBUG: The driver version in the RIM file is matching with the installed driver version.
+05-13-2025 04:08:38:DEBUG: verify_certificate_chain() called for CERT CHAIN VERIFICATION MODE.DRIVER_RIM_CERT
+05-13-2025 04:08:38:DEBUG: Number of certificates : 4
+05-13-2025 04:08:38:DEBUG: Building OCSP request for HCC RIM L4 Signer:
+05-13-2025 04:08:38:DEBUG: 	Serial Number: 540176471364661328194307614351642315371585428991
+05-13-2025 04:08:38:DEBUG: 	Issuer Key Hash: Uulq6P6RR0jWUlBhD4z7KIxPvuJ7ZyFb7UFiNxdterl8xQCxdS2j8eRqx3xuqK2F
+05-13-2025 04:08:38:DEBUG: 	Issuer Name Hash: ntGAb2TBTiDnNeD2vUUgHOHE5sBcJhSMHSkatpZwjHzhkQ2GxNw/UroN7FF7oQNN
+05-13-2025 04:08:38:INFO: send_ocsp_request called.
+05-13-2025 04:08:38:DEBUG: Successfully fetched the ocsp response from https://useast2.thim.azure.net/nvidia/ocsp/
+05-13-2025 04:08:38:DEBUG: Current time: 2025/05/13 04:08:38 UTC
+05-13-2025 04:08:38:DEBUG: OCSP this update: 2025/05/13 02:17:48 UTC
+05-13-2025 04:08:38:DEBUG: OCSP next update: 2025/05/14 02:17:48 UTC
+05-13-2025 04:08:38:DEBUG: OCSP next update extended: 2025/05/28 02:17:48 UTC
+05-13-2025 04:08:38:DEBUG: verify_certificate_chain() called for CERT CHAIN VERIFICATION MODE.OCSP_RESPONSE
+05-13-2025 04:08:38:DEBUG: Number of certificates : 5
+05-13-2025 04:08:38:DEBUG: Building OCSP request for NVIDIA Reference Value L3 GH100 002:
+05-13-2025 04:08:38:DEBUG: 	Serial Number: 240486225140914514033797600321065952203
+05-13-2025 04:08:38:DEBUG: 	Issuer Key Hash: Rwb2MuBo6Fjs0O53q7bU/P4GjXoRc045aeVmoxu3SGIfLdEKflrj5kn4wLST0wCM
+05-13-2025 04:08:38:DEBUG: 	Issuer Name Hash: nYzbQx7HTjuSjpoz3FOJbM3HA3FEhqLLHNfbMnL/Db5p9+/5ImpALwGeQjKbyEXO
+05-13-2025 04:08:38:INFO: send_ocsp_request called.
+05-13-2025 04:08:38:DEBUG: Successfully fetched the ocsp response from https://useast2.thim.azure.net/nvidia/ocsp/
+05-13-2025 04:08:38:DEBUG: Current time: 2025/05/13 04:08:38 UTC
+05-13-2025 04:08:38:DEBUG: OCSP this update: 2025/05/13 02:43:53 UTC
+05-13-2025 04:08:38:DEBUG: OCSP next update: 2025/05/14 02:43:53 UTC
+05-13-2025 04:08:38:DEBUG: OCSP next update extended: 2025/05/28 02:43:53 UTC
+05-13-2025 04:08:38:DEBUG: verify_certificate_chain() called for CERT CHAIN VERIFICATION MODE.OCSP_RESPONSE
+05-13-2025 04:08:38:DEBUG: Number of certificates : 4
+05-13-2025 04:08:38:DEBUG: Building OCSP request for NVIDIA Reference Value GH100 CA:
+05-13-2025 04:08:38:DEBUG: 	Serial Number: 264329133245418312478028162176129545436
+05-13-2025 04:08:38:DEBUG: 	Issuer Key Hash: Z/YC3g8t24rkZDAqGIB9IG0C5eeCNu9Elcvs0UOkO8kAyaTqFY3UFxaPIKW46/eQ
+05-13-2025 04:08:38:DEBUG: 	Issuer Name Hash: DqQewvsAjRGyHhGJ8nO852rWhcW0i0BrwWqU0FZv6A/bx3ej3mMa8uxzT0bZq5iw
+05-13-2025 04:08:38:INFO: send_ocsp_request called.
+05-13-2025 04:08:38:DEBUG: Successfully fetched the ocsp response from https://useast2.thim.azure.net/nvidia/ocsp/
+05-13-2025 04:08:38:DEBUG: Current time: 2025/05/13 04:08:38 UTC
+05-13-2025 04:08:38:DEBUG: OCSP this update: 2025/05/13 03:46:30 UTC
+05-13-2025 04:08:38:DEBUG: OCSP next update: 2025/05/14 03:46:30 UTC
+05-13-2025 04:08:38:DEBUG: OCSP next update extended: 2025/05/28 03:46:30 UTC
+05-13-2025 04:08:38:DEBUG: verify_certificate_chain() called for CERT CHAIN VERIFICATION MODE.OCSP_RESPONSE
+05-13-2025 04:08:38:DEBUG: Number of certificates : 3
+05-13-2025 04:08:38:INFO: Driver rim cert has been extracted successfully
+05-13-2025 04:08:38:DEBUG: mark_driver_rim_cert_validatedd_successfully called.
+05-13-2025 04:08:38:DEBUG: mark_driver_rim_signature_verified called.
+05-13-2025 04:08:38:DEBUG: vbios_rim_file_id is NV_GPU_VBIOS_1010_0210_886_96009F0004
+05-13-2025 04:08:38:INFO: fetch_rim_file_from_url called.
+05-13-2025 04:08:38:DEBUG: Successfully fetched the RIM file from https://useast2.thim.azure.net/nvidia/v1/rim/NV_GPU_VBIOS_1010_0210_886_96009F0004
+05-13-2025 04:08:38:DEBUG: mark_vbios_rim_fetched called.
+05-13-2025 04:08:38:DEBUG: The driver version in the RIM file is 96.00.9F.00.04
+05-13-2025 04:08:38:DEBUG: vbios golden measurements are : 
+							
+05-13-2025 04:08:38:DEBUG: 
+							 index : 0
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 1
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 8048dfd18fe229bf16eb9d30cca0f11a24dafe6eb731de1462984645a0b189b77c4e4e17de727a5e19e3d07de51da338
+05-13-2025 04:08:38:DEBUG: 
+							 index : 2
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 3ef2c048688f734018cb8a52ef0e445d09b2705d707e0183de62ffda1d4caf60bfee15c66665c45eb40e73397d353a42
+05-13-2025 04:08:38:DEBUG: 
+							 index : 3
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 73bbf35822549e28ba8fb2671fb7b58f46424a0069205b3ecf1d0fa762adef90b538cc9d692eb5c050147f2f1e8214ab
+05-13-2025 04:08:38:DEBUG: 
+							 index : 4
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 568b89291a34cece03b12aaa352d9afe273610307525b8443e90faa78d82ecfa9c7827d8f7915c35b2fab972e1086686
+05-13-2025 04:08:38:DEBUG: 
+							 index : 5
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : c9e4fe668e9dc269a4657146b5e28a22347cde18a4b0e79d8146532f27ebc386f304400ea5d4bf4159b5a6916dd4564e
+05-13-2025 04:08:38:DEBUG: 
+							 index : 6
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 6850b0a82e7e77c0f51e0e6732163866003390c4eb286d8dfb26a72f711a9c8bcdf402a1fd4e5d70b97708107a785efc
+05-13-2025 04:08:38:DEBUG: 
+							 index : 7
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 8
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 9
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 059b32e712a153f490dbfb7976a9e275d789e28bd4803c357def2b6123327c430526bfaecc200f496d4e149fc5eade03
+05-13-2025 04:08:38:DEBUG: 
+							 index : 10
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 11
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : b3050e021caeae6a024b0ae3827c672d98b17a4d5bb67d9fa08673c4baf1493fa43821586a17803922f9b7e515070d49
+05-13-2025 04:08:38:DEBUG: 
+							 index : 12
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 4
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 								 value 2 : 2dca813f446824989e37dc8d897ba56ea9786781b2cd32fc9a103c73ab538838ef89f111affc34066817954a06113cbd
+05-13-2025 04:08:38:DEBUG: 								 value 3 : 351e189b3d8063bef75b9cb2a5eade1e62403c04a091533d2a0abd0ac1f63594fedcd3c0befc9f354caa1c892688e744
+05-13-2025 04:08:38:DEBUG: 								 value 4 : e9bec0ccddde61f522f51f046d85302f4df5ec488e1df29099192b1d73612f6f0f6a6e07b8993688fc131826d3a6d3d7
+05-13-2025 04:08:38:DEBUG: 
+							 index : 13
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 14
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 15
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 16
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 17
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 18
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 19
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 20
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 21
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 22
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 23
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 24
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 25
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 26
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 27
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 28
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 29
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 30
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 31
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 32
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 33
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 34
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 35
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 36
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 37
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 38
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 39
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 40
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 41
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 42
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 43
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 44
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 45
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 46
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 47
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 48
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 49
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 50
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 51
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 52
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 53
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 54
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 55
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 56
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 57
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 58
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 59
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 60
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 61
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 62
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: 
+							 index : 63
+05-13-2025 04:08:38:DEBUG: 							 number of alternative values : 1
+05-13-2025 04:08:38:DEBUG: 								 value 1 : 000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: mark_rim_vbios_measurements_as_available called.
+05-13-2025 04:08:38:DEBUG: mark_vbios_rim_schema_validated called.
+05-13-2025 04:08:38:DEBUG: mark_rim_vbios_version_as_matching called.
+05-13-2025 04:08:38:DEBUG: The vbios version in the RIM file is matching with the installed vbios version.
+05-13-2025 04:08:38:DEBUG: verify_certificate_chain() called for CERT CHAIN VERIFICATION MODE.VBIOS_RIM_CERT
+05-13-2025 04:08:38:DEBUG: Number of certificates : 4
+05-13-2025 04:08:38:DEBUG: Building OCSP request for HCC RIM L4 Signer:
+05-13-2025 04:08:38:DEBUG: 	Serial Number: 12729091228513184434
+05-13-2025 04:08:38:DEBUG: 	Issuer Key Hash: Uulq6P6RR0jWUlBhD4z7KIxPvuJ7ZyFb7UFiNxdterl8xQCxdS2j8eRqx3xuqK2F
+05-13-2025 04:08:38:DEBUG: 	Issuer Name Hash: ntGAb2TBTiDnNeD2vUUgHOHE5sBcJhSMHSkatpZwjHzhkQ2GxNw/UroN7FF7oQNN
+05-13-2025 04:08:38:INFO: send_ocsp_request called.
+05-13-2025 04:08:38:DEBUG: Successfully fetched the ocsp response from https://useast2.thim.azure.net/nvidia/ocsp/
+05-13-2025 04:08:38:DEBUG: Current time: 2025/05/13 04:08:38 UTC
+05-13-2025 04:08:38:DEBUG: OCSP this update: 2025/05/13 02:12:21 UTC
+05-13-2025 04:08:38:DEBUG: OCSP next update: 2025/05/14 02:12:21 UTC
+05-13-2025 04:08:38:DEBUG: OCSP next update extended: 2025/05/28 02:12:21 UTC
+05-13-2025 04:08:38:DEBUG: verify_certificate_chain() called for CERT CHAIN VERIFICATION MODE.OCSP_RESPONSE
+05-13-2025 04:08:38:DEBUG: Number of certificates : 5
+05-13-2025 04:08:38:DEBUG: Building OCSP request for NVIDIA Reference Value L3 GH100 002:
+05-13-2025 04:08:38:DEBUG: 	Serial Number: 240486225140914514033797600321065952203
+05-13-2025 04:08:38:DEBUG: 	Issuer Key Hash: Rwb2MuBo6Fjs0O53q7bU/P4GjXoRc045aeVmoxu3SGIfLdEKflrj5kn4wLST0wCM
+05-13-2025 04:08:38:DEBUG: 	Issuer Name Hash: nYzbQx7HTjuSjpoz3FOJbM3HA3FEhqLLHNfbMnL/Db5p9+/5ImpALwGeQjKbyEXO
+05-13-2025 04:08:38:INFO: send_ocsp_request called.
+05-13-2025 04:08:38:DEBUG: Successfully fetched the ocsp response from https://useast2.thim.azure.net/nvidia/ocsp/
+05-13-2025 04:08:38:DEBUG: Current time: 2025/05/13 04:08:38 UTC
+05-13-2025 04:08:38:DEBUG: OCSP this update: 2025/05/13 02:43:53 UTC
+05-13-2025 04:08:38:DEBUG: OCSP next update: 2025/05/14 02:43:53 UTC
+05-13-2025 04:08:38:DEBUG: OCSP next update extended: 2025/05/28 02:43:53 UTC
+05-13-2025 04:08:38:DEBUG: verify_certificate_chain() called for CERT CHAIN VERIFICATION MODE.OCSP_RESPONSE
+05-13-2025 04:08:38:DEBUG: Number of certificates : 4
+05-13-2025 04:08:38:DEBUG: Building OCSP request for NVIDIA Reference Value GH100 CA:
+05-13-2025 04:08:38:DEBUG: 	Serial Number: 264329133245418312478028162176129545436
+05-13-2025 04:08:38:DEBUG: 	Issuer Key Hash: Z/YC3g8t24rkZDAqGIB9IG0C5eeCNu9Elcvs0UOkO8kAyaTqFY3UFxaPIKW46/eQ
+05-13-2025 04:08:38:DEBUG: 	Issuer Name Hash: DqQewvsAjRGyHhGJ8nO852rWhcW0i0BrwWqU0FZv6A/bx3ej3mMa8uxzT0bZq5iw
+05-13-2025 04:08:38:INFO: send_ocsp_request called.
+05-13-2025 04:08:38:DEBUG: Successfully fetched the ocsp response from https://useast2.thim.azure.net/nvidia/ocsp/
+05-13-2025 04:08:38:DEBUG: Current time: 2025/05/13 04:08:38 UTC
+05-13-2025 04:08:38:DEBUG: OCSP this update: 2025/05/13 03:46:30 UTC
+05-13-2025 04:08:38:DEBUG: OCSP next update: 2025/05/14 03:46:30 UTC
+05-13-2025 04:08:38:DEBUG: OCSP next update extended: 2025/05/28 03:46:30 UTC
+05-13-2025 04:08:38:DEBUG: verify_certificate_chain() called for CERT CHAIN VERIFICATION MODE.OCSP_RESPONSE
+05-13-2025 04:08:38:DEBUG: Number of certificates : 3
+05-13-2025 04:08:38:INFO: Vbios rim cert has been extracted successfully
+05-13-2025 04:08:38:DEBUG: mark_vbios_rim_cert_validated_successfully called.
+05-13-2025 04:08:38:DEBUG: mark_vbios_rim_signature_verified called.
+05-13-2025 04:08:38:DEBUG: mark_no_driver_vbios_measurement_conflict called.
+05-13-2025 04:08:38:DEBUG: Runtime measurements are : 
+							000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+							8048dfd18fe229bf16eb9d30cca0f11a24dafe6eb731de1462984645a0b189b77c4e4e17de727a5e19e3d07de51da338
+							3ef2c048688f734018cb8a52ef0e445d09b2705d707e0183de62ffda1d4caf60bfee15c66665c45eb40e73397d353a42
+							73bbf35822549e28ba8fb2671fb7b58f46424a0069205b3ecf1d0fa762adef90b538cc9d692eb5c050147f2f1e8214ab
+							568b89291a34cece03b12aaa352d9afe273610307525b8443e90faa78d82ecfa9c7827d8f7915c35b2fab972e1086686
+							c9e4fe668e9dc269a4657146b5e28a22347cde18a4b0e79d8146532f27ebc386f304400ea5d4bf4159b5a6916dd4564e
+							6850b0a82e7e77c0f51e0e6732163866003390c4eb286d8dfb26a72f711a9c8bcdf402a1fd4e5d70b97708107a785efc
+							4a5e4b3d501fe31f91bd8b6f2921b58437704a504dbedba971440e840c938c805612689ae3ac04b1009515a179063d49
+							000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+							059b32e712a153f490dbfb7976a9e275d789e28bd4803c357def2b6123327c430526bfaecc200f496d4e149fc5eade03
+							000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+							b3050e021caeae6a024b0ae3827c672d98b17a4d5bb67d9fa08673c4baf1493fa43821586a17803922f9b7e515070d49
+							e9bec0ccddde61f522f51f046d85302f4df5ec488e1df29099192b1d73612f6f0f6a6e07b8993688fc131826d3a6d3d7
+							000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+							000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+							000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+							000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+							000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+							000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+							000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+							000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+							68454d4bb5545a74e478e288469a6548bb4d4aa8556a512f9ddd41b0337a602b3f050a469578139c6cea0e0f7c9861c8
+							9f259ab6a2c1cd938b622191a5edeee640d40db0abc08a16ca750ce63f139ef5d1805f0f7888f617df39b6d589850f51
+							000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+							000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+							b718948c035092ebd0c7d6f069141e6bd0cd40d8ddd436aa0d1a705afedfe67c12891d239e6ddf30ea09775d1056ac1a
+							6dbc7f8e23ac6f69c4bf3cb4c61566d7957fce2f0f16a499ac1f724bacb0935eefa5be16f548ba5141449f43555f240c
+							2191a06d9fad030cb8a707391f2e51838d8ca1e17109325b155f774ddcb2bf704ca023ba711a282c93a1afcd590ce20b
+							000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+							1d040fdc3c8de3d8afbcebb79bf3a9ec09a277651b7ace16627f6201c90414d9917b57a7bd67482b1929c9ec0bd1a15d
+							1bd45c8a34c33ac6a316050cb0752aa648ac4c6cd26af165cec416557468d21f7a61b6c5c7c4ea6d131be92706593939
+							d770363987f581af0d97484b0699bd0749e6c54e233f9217fc9304ad3860d096a7ab96f1f3355eed392620c43175fa21
+							9f976e82fa30fcc6f82bce2c942ad4707c3df6b76e6295ce4c95cf9bb62a08392571e9fb787f19b31bf0f3f04ba887a6
+							198b81d9c0cefe0b33ad65de3fad238a5461d8ee32487bf70fc1926041408cb114624b8ca6b0d5fc97028b58d9cdb78d
+							07bbc504d3327cb76d4c4f3b3f1daf8779e40cc31d60826cb11dcc5d09dc59a83bf693f0fb9b1f0b5e58ed4cdc3a580f
+							261148337ccf08ed5351584a95557b245326cbc5ef511ca5b22bc162b9932529fc118f0fe6939dd214545c9388158781
+							10570f642e274cfc2b9f1c955fab0aa56b6193d5c5ea271a74eb9764334865695921456dc1ca383d7edf9e67760937ca
+							fccd6efa76267f5b43fc4a7647ce843a3912f0944a9bcc907456408c368ad5e85bec4512d9d9aedebab31c3b80950627
+							c7ea135dca389918789454861bb593095dc44f8ad39035665daa81fa02cf6fbd3a18227b6224dced70288b9fd3161cc0
+							b423e1619e93f2e39361d472299ae925dbcd9cac20db517bda1b44d9272f3e295b66ce3db48ec263796a758ff72e347f
+							d2f9efe925fefc0ce3ef99b4d4da4abe83b0b09c79ea09994c393e0ee747221ca98b4231ae0d84811a5a13936bda600a
+							000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+							000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+							000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+							000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+							000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+							000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+							000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+							000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+							000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+							000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+							000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+							000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+							000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+							000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+							000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+							000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+							000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+							000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+							000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+							000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+							000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+							000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+							000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+05-13-2025 04:08:38:DEBUG: mark_measurements_as_matching called.
+05-13-2025 04:08:38:DEBUG: check_if_gpu_arch_is_correct: True
+05-13-2025 04:08:38:DEBUG: check_if_gpu_attestation_report_cert_chain_validated: True
+05-13-2025 04:08:38:DEBUG: check_if_attestation_report_parsed_successfully: True
+05-13-2025 04:08:38:DEBUG: check_if_nonce_are_matching: True
+05-13-2025 04:08:38:DEBUG: check_if_attestation_report_vbios_version_matches: True
+05-13-2025 04:08:38:DEBUG: check_if_attestation_report_signature_verified: True
+05-13-2025 04:08:38:DEBUG: check_if_driver_rim_fetched: True
+05-13-2025 04:08:38:DEBUG: check_if_driver_rim_schema_validated: True
+05-13-2025 04:08:38:DEBUG: check_if_driver_rim_cert_validated: True
+05-13-2025 04:08:38:DEBUG: check_if_driver_rim_signature_verified: True
+05-13-2025 04:08:38:DEBUG: check_rim_driver_measurements_availability: True
+05-13-2025 04:08:38:DEBUG: check_if_vbios_rim_fetched: True
+05-13-2025 04:08:38:DEBUG: check_if_vbios_rim_schema_validated: True
+05-13-2025 04:08:38:DEBUG: check_if_vbios_rim_signature_verified: True
+05-13-2025 04:08:38:DEBUG: check_rim_vbios_measurements_availability: True
+05-13-2025 04:08:38:DEBUG: check_if_no_driver_vbios_measurement_index_conflict: True
+05-13-2025 04:08:38:DEBUG: check_if_gpu_arch_is_correct: True
+05-13-2025 04:08:38:DEBUG: check_if_gpu_attestation_report_cert_chain_validated: True
+05-13-2025 04:08:38:DEBUG: check_if_attestation_report_parsed_successfully: True
+05-13-2025 04:08:38:DEBUG: check_if_nonce_are_matching: True
+05-13-2025 04:08:38:DEBUG: check_if_attestation_report_vbios_version_matches: True
+05-13-2025 04:08:38:DEBUG: check_if_attestation_report_signature_verified: True
+05-13-2025 04:08:38:DEBUG: check_if_driver_rim_fetched: True
+05-13-2025 04:08:38:DEBUG: check_if_driver_rim_schema_validated: True
+05-13-2025 04:08:38:DEBUG: check_if_driver_rim_cert_validated: True
+05-13-2025 04:08:38:DEBUG: check_if_driver_rim_signature_verified: True
+05-13-2025 04:08:38:DEBUG: check_rim_driver_measurements_availability: True
+05-13-2025 04:08:38:DEBUG: check_if_vbios_rim_fetched: True
+05-13-2025 04:08:38:DEBUG: check_if_vbios_rim_schema_validated: True
+05-13-2025 04:08:38:DEBUG: check_if_vbios_rim_signature_verified: True
+05-13-2025 04:08:38:DEBUG: check_rim_vbios_measurements_availability: True
+05-13-2025 04:08:38:DEBUG: check_if_no_driver_vbios_measurement_index_conflict: True
+05-13-2025 04:08:38:DEBUG: check_if_gpu_arch_is_correct: True
+05-13-2025 04:08:38:DEBUG: check_gpu_driver_version called.550.144.03
+05-13-2025 04:08:38:DEBUG: check_gpu_vbios_version called.96.00.9F.00.04
+05-13-2025 04:08:38:DEBUG: check_if_gpu_attestation_report_cert_chain_validated: True
+05-13-2025 04:08:38:DEBUG: check_if_attestation_report_parsed_successfully: True
+05-13-2025 04:08:38:DEBUG: check_if_nonce_are_matching: True
+05-13-2025 04:08:38:DEBUG: check_if_attestation_report_signature_verified: True
+05-13-2025 04:08:38:DEBUG: check_if_driver_rim_fetched: True
+05-13-2025 04:08:38:DEBUG: check_if_driver_rim_schema_validated: True
+05-13-2025 04:08:38:DEBUG: check_if_driver_rim_cert_validated: True
+05-13-2025 04:08:38:DEBUG: check_if_driver_rim_signature_verified: True
+05-13-2025 04:08:38:DEBUG: check_rim_driver_measurements_availability: True
+05-13-2025 04:08:38:DEBUG: check_if_vbios_rim_fetched: True
+05-13-2025 04:08:38:DEBUG: check_if_vbios_rim_schema_validated: True
+05-13-2025 04:08:38:DEBUG: check_if_vbios_rim_cert_extracted: True
+05-13-2025 04:08:38:DEBUG: check_if_vbios_rim_signature_verified: True
+05-13-2025 04:08:38:DEBUG: check_rim_vbios_measurements_availability: True
+05-13-2025 04:08:38:DEBUG: check_if_no_driver_vbios_measurement_index_conflict: True
+05-13-2025 04:08:38:DEBUG: -----------------------------------
+05-13-2025 04:08:38:DEBUG: -----------ENDING-----------

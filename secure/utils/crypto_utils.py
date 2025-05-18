@@ -73,7 +73,15 @@ def run_gpu_attestation(nonce: bytes) -> str:
     tokens_str = out.split("Entity Attestation Token:", 1)[1].strip()
     platform_token = json.loads(tokens_str)[0][-1]
     gpu_token = json.loads(tokens_str)[1]
-    gpu_eat = {"platform_token": platform_token, "gpu_token": gpu_token}
+    success_line = next(
+        ln for ln in out.splitlines()
+        if "UUID" in ln and "verified successfully" in ln
+    ).strip()
+
+   
+    # 2) pull just the UUID (optional) ------------------------------------------
+    uuid = success_line.split("UUID ")[-1].strip().split(" ")[0]
+    gpu_eat = {"platform_token": platform_token, "gpu_token": gpu_token, "uuid": uuid}
     return json.dumps(gpu_eat)
 
 

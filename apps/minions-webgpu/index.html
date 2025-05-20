@@ -79,6 +79,27 @@
         box-shadow: 0 0 0 2px rgba(74, 107, 253, 0.2);
       }
 
+      input[type="text"],
+      input[type="password"] {
+        width: 100%;
+        padding: 1rem;
+        border: 1px solid #e0e0e0;
+        border-radius: var(--border-radius);
+        font-family: inherit;
+        margin-bottom: 0.5rem;
+        box-sizing: border-box;
+        font-size: 1rem;
+        line-height: 1.5;
+        transition: border-color 0.2s;
+      }
+
+      input[type="text"]:focus,
+      input[type="password"]:focus {
+        outline: none;
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 2px rgba(74, 107, 253, 0.2);
+      }
+
       button {
         background-color: var(--primary-color);
         color: white;
@@ -157,6 +178,19 @@
         /> -->
         <h1>Minions Web App</h1>
       </header>
+
+      <div class="card">
+        <label for="api_key">OpenAI API Key:</label>
+        <input
+          type="password"
+          id="api_key"
+          placeholder="Enter your OpenAI API key here"
+        />
+        <small style="display: block; margin-top: 0.5rem; color: #777"
+          >Your API key is used for cloud supervision and never stored or
+          shared.</small
+        >
+      </div>
 
       <div class="card">
         <label for="task">Task:</label>

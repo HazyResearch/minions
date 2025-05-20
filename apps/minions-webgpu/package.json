@@ -1,0 +1,18 @@
+{
+    "name": "minions-webgpu",
+    "private": true,
+    "version": "0.0.0",
+    "type": "module",
+    "scripts": {
+        "dev": "vite",
+        "build": "vite build",
+        "preview": "vite preview"
+    },
+    "devDependencies": {
+        "vite": "^6.3.5"
+    },
+    "dependencies": {
+        "@mlc-ai/web-llm": "^0.2.79",
+        "fastify": "^5.3.3"
+    }
+}

@@ -19,6 +19,7 @@ class GeminiClient:
         tool_calling: bool = False,
         system_instruction: Optional[str] = None,
         use_openai_api: bool = False,
+        thinking_budget: Optional[int] = None,
     ):
         """Initialize Gemini Client.
 
@@ -44,6 +45,7 @@ class GeminiClient:
         self.return_tools = tool_calling
         self.system_instruction = system_instruction
         self.use_openai_api = use_openai_api
+        self.thinking_budget = thinking_budget
 
         # If we want structured schema output:
         self.format_structured_output = None
@@ -306,6 +308,15 @@ class GeminiClient:
                         config=self.types.GenerateContentConfig(
                             temperature=0,
                             max_output_tokens=self.max_tokens,
+                            **(
+                                {
+                                    "thinking_config": self.types.ThinkingConfig(
+                                        thinking_budget=self.thinking_budget
+                                    )
+                                }
+                                if self.thinking_budget is not None
+                                else {}
+                            ),
                         ),
                     ),
                 )

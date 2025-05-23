@@ -445,6 +445,10 @@ def initialize_clients(
     st.session_state.multi_turn_mode = multi_turn_mode
     st.session_state.max_history_turns = max_history_turns
 
+    # Store thinking_budget if provider is Gemini
+    if provider == "Gemini" and "thinking_budget" in st.session_state:
+        st.session_state.thinking_budget = st.session_state.thinking_budget
+
     # Store context description in session state
     if context_description:
         st.session_state.context_description = context_description
@@ -575,6 +579,8 @@ def initialize_clients(
         use_web_search = st.session_state.get("use_web_search", False)
         include_search_queries = st.session_state.get("include_search_queries", False)
         max_web_search_uses = st.session_state.get("max_web_search_uses", 5)
+        use_caching = st.session_state.get("use_caching", False)
+        use_code_interpreter = st.session_state.get("use_code_interpreter", False)
 
         st.session_state.remote_client = AnthropicClient(
             model_name=remote_model_name,
@@ -583,6 +589,8 @@ def initialize_clients(
             api_key=api_key,
             use_web_search=use_web_search,
             include_search_queries=include_search_queries,
+            use_caching=use_caching,
+            use_code_interpreter=use_code_interpreter,
         )
 
         # Set max_web_search_uses if web search is enabled
@@ -629,6 +637,7 @@ def initialize_clients(
             temperature=remote_temperature,
             max_tokens=int(remote_max_tokens),
             api_key=api_key,
+            thinking_budget=st.session_state.get("thinking_budget", 0),
         )
     elif provider == "LlamaAPI":
         st.session_state.remote_client = LlamaApiClient(
@@ -1262,6 +1271,39 @@ with st.sidebar:
         else:
             # This can be kept as it's not tied to a widget
             st.session_state.include_search_queries = False
+
+        # Add caching and code interpreter options
+        use_caching = st.toggle(
+            "Enable Caching",
+            value=st.session_state.get("use_caching", False),
+            key="use_caching",
+            help="When enabled, uses Anthropic's caching feature to reduce costs for repeated content. Useful for long documents or repeated queries.",
+        )
+
+        use_code_interpreter = st.toggle(
+            "Enable Code Interpreter",
+            value=st.session_state.get("use_code_interpreter", False),
+            key="use_code_interpreter",
+            help="When enabled, allows Claude to execute Python code to solve problems, analyze data, and generate visualizations.",
+        )
+
+        if use_code_interpreter:
+            st.info(
+                "💡 Code interpreter is enabled. Claude can now execute Python code to solve complex problems, "
+                "perform calculations, analyze data, and create visualizations."
+            )
+    # Add thinking_budget option for Gemini provider
+    elif selected_provider == "Gemini":
+        thinking_budget = st.slider(
+            "Thinking Budget",
+            min_value=0,
+            max_value=24576,
+            value=st.session_state.get("thinking_budget", 0),
+            step=1024,
+            key="thinking_budget",
+            help="Number of tokens used for model thinking before generating a response. 0 disables thinking. Higher values can improve response quality but increase token usage and cost.",
+        )
+
     else:
         # Clear these session state variables when a different provider is selected
         if "use_web_search" in st.session_state:
@@ -1270,6 +1312,12 @@ with st.sidebar:
             st.session_state.include_search_queries = False
         if "max_web_search_uses" in st.session_state:
             st.session_state.max_web_search_uses = 5
+        if "use_caching" in st.session_state:
+            st.session_state.use_caching = False
+        if "use_code_interpreter" in st.session_state:
+            st.session_state.use_code_interpreter = False
+        if "thinking_budget" in st.session_state:
+            st.session_state.thinking_budget = 0
 
     # Local model provider selection
     st.subheader("Local Model Provider")
@@ -1339,10 +1387,11 @@ with st.sidebar:
         "AzureOpenAI",
         "Together",
         "OpenRouter",
+        "Anthropic",
         "DeepSeek",
         "SambaNova",
         "LlamaAPI",
-    ]:  # Added LlamaAPI to the list
+    ]:  # Added LlamaAPI and Anthropic to the list
         protocol_options = [
             "Minion",
             "Minions",
@@ -1609,6 +1658,7 @@ with st.sidebar:
         elif selected_provider == "Gemini":
             model_mapping = {
                 "gemini-2.0-pro (Recommended)": "gemini-2.5-pro-exp-03-25",
+                "gemini-2.5-flash-preview-05-20": "gemini-2.5-flash-preview-05-20",
                 "gemini-2.0-flash": "gemini-2.0-flash",
                 "gemini-1.5-pro": "gemini-1.5-pro",
                 "gemini-1.5-flash": "gemini-1.5-flash",
@@ -1649,8 +1699,10 @@ with st.sidebar:
                 "Gemini 1.5 Pro": "google/gemini-1.5-pro",
             }
             default_model_index = 0
-        elif selected_provider == "Anthropic":
+        elif selected_provider == "Anthropic":  
             model_mapping = {
+                "Claude 4 Opus (Recommended)": "claude-opus-4-20250514",
+                "Claude 4 Sonnet (Recommended)": "claude-sonnet-4-20250514",
                 "claude-3-7-sonnet-latest (Recommended for web search)": "claude-3-7-sonnet-latest",
                 "claude-3-5-sonnet-latest": "claude-3-5-sonnet-latest",
                 "claude-3-5-haiku-latest": "claude-3-5-haiku-latest",
@@ -1743,13 +1795,6 @@ with st.sidebar:
             remote_max_tokens = 4096
             reasoning_effort = "medium"  # Default reasoning effort
 
-    # Add voice generation toggle if available - MOVED HERE from the top
-    # st.subheader("Voice Generation")
-    # voice_generation_enabled = st.toggle(
-    #     "Enable Minion Voice",
-    #     value=False,
-    #     help="When enabled, minion responses will be spoken using CSM-MLX voice synthesis",
-    # )
     voice_generation_enabled = False
 
     # Only try to import and initialize the voice generator if user enables it
@@ -1806,49 +1851,7 @@ with st.sidebar:
 
         test_col1, test_col2 = st.sidebar.columns(2)
 
-        # with test_col1:
-        #     if st.button("🧮 Open Calculator", key="test_calculator"):
-        #         with st.status("Testing Calculator...", expanded=True) as status:
-        #             st.session_state.method(
-        #                 task="Please open the Calculator application so I can perform some calculations.",
-        #                 context=["User needs to do some math calculations."],
-        #                 max_rounds=2,
-        #                 is_privacy=False,
-        #             )
-        #             status.update(label="Test completed!", state="complete")
-
-        #     if st.button("📝 Open TextEdit", key="test_textedit"):
-        #         with st.status("Testing TextEdit...", expanded=True) as status:
-        #             st.session_state.method(
-        #                 task="Please open TextEdit so I can write a note.",
-        #                 context=["User needs to write something."],
-        #                 max_rounds=2,
-        #                 is_privacy=False,
-        #             )
-        #             status.update(label="Test completed!", state="complete")
-
-        # with test_col2:
-        #     if st.button("🌐 Open Browser", key="test_browser"):
-        #         with st.status("Testing Browser...", expanded=True) as status:
-        #             st.session_state.method(
-        #                 task="Please open Safari browser.",
-        #                 context=["User needs to browse the web."],
-        #                 max_rounds=2,
-        #                 is_privacy=False,
-        #             )
-        #             status.update(label="Test completed!", state="complete")
-
-        #     if st.button("🧠 Run Full Test", key="test_workflow"):
-        #         with st.status(
-        #             "Running full CUA test workflow...", expanded=True
-        #         ) as status:
-        #             st.session_state.method(
-        #                 task="Please open Calculator, type 123+456=, and then open TextEdit.",
-        #                 context=["User wants to test the automation capabilities."],
-        #                 max_rounds=5,
-        #                 is_privacy=False,
-        #             )
-        #             status.update(label="Test workflow completed!", state="complete")
+     
 
         # Add CUA documentation and examples
         with st.sidebar.expander("ℹ️ CUA Automation Sample Tasks", expanded=False):

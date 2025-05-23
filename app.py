@@ -1551,6 +1551,7 @@ with st.sidebar:
             }
         elif local_provider == "Transformers":
             local_model_options = {
+                "MedGemma 4B (Recommended)": "google/medgemma-4b-it",
                 "Mistral 7B Instruct v0.2 (Recommended)": "mistralai/Mistral-7B-Instruct-v0.2",
                 "Llama 3 8B Instruct": "meta-llama/Llama-3.1-8B-Instruct",
                 "Helium-1-2b": "kyutai/helium-1-2b",

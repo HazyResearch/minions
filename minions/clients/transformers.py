@@ -3,6 +3,7 @@ import os
 
 from typing import Any, Dict, List, Optional, Tuple, Union
 
+
 try:
     from transformers import AutoModelForCausalLM, AutoTokenizer, AutoModel
 except ImportError:
@@ -71,6 +72,7 @@ class TransformersClient:
         self.return_tools = tool_calling
         self.embedding_model_name = embedding_model
         self.enable_thinking = enable_thinking
+        
 
         # Check device availability
         self.device, self.dtype = self._get_device_and_dtype()
@@ -104,7 +106,7 @@ class TransformersClient:
             self.logger.info("MPS is available, using Apple Silicon GPU")
             # Note: bfloat16 may not be supported on all MPS devices,
             # but float16 is generally available
-            return "mps", torch.float16
+            return "mps", torch.bfloat16
         else:
             self.logger.info("No GPU available, using CPU")
             return "cpu", torch.float32
@@ -374,6 +376,7 @@ class TransformersClient:
                     tokenize=True,
                     return_tensors="pt",
                     enable_thinking=self.enable_thinking,
+                    add_generation_prompt=True,
                 )
             else:
                 messages_str = "\n".join(

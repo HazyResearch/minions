@@ -12,7 +12,7 @@ class AnthropicClient:
         model_name: str = "claude-3-sonnet-20240229",
         api_key: Optional[str] = None,
         temperature: float = 0.2,
-        max_tokens: int = 2048,
+        max_tokens: int = 4096,
         use_web_search: bool = False,
         include_search_queries: bool = False,
         use_caching: bool = False,
@@ -53,6 +53,9 @@ class AnthropicClient:
         else:
             self.client = anthropic.Anthropic(api_key=self.api_key)
 
+        self.system_prompt = "You are a helpful assistant that can answer questions and help with tasks. Your outputs should be structured JSON objects. Follow the instructions in the user's message to generate the JSON object."
+          
+
     def chat(self, messages: List[Dict[str, Any]], **kwargs) -> Tuple[List[str], Usage]:
         """
         Handle chat completions using the Anthropic API.
@@ -82,6 +85,7 @@ class AnthropicClient:
                 "messages": messages,
                 "max_tokens": self.max_tokens,
                 "temperature": self.temperature,
+                "system": self.system_prompt,
                 **kwargs,
             }
 
@@ -169,7 +173,7 @@ class AnthropicClient:
                 result_text += "\n\n" + "\n".join(citations_parts)
 
             return [result_text], usage
-        
+                
         else:
             # Standard response handling for non-web-search or simple responses
             if (
@@ -178,6 +182,7 @@ class AnthropicClient:
                 and len(response.content) > 0
             ):
                 if hasattr(response.content[0], "text"):
+                    print(response.content[-1].text)
                     return [response.content[-1].text], usage
                 else:
                     self.logger.warning(

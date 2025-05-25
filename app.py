@@ -91,7 +91,9 @@ API_PRICES = {
         "deepseek-chat": {"input": 0.27, "cached_input": 0.07, "output": 1.10},
         "deepseek-reasoner": {"input": 0.27, "cached_input": 0.07, "output": 1.10},
     },
+
     "Gemini": {
+        "gemini-2.5-flash": {"input": 0.15, "cached_input": 0.075, "output": 0.60},
         "gemini-2.0-flash": {"input": 0.35, "cached_input": 0.175, "output": 1.05},
         "gemini-2.0-pro": {"input": 3.50, "cached_input": 1.75, "output": 10.50},
         "gemini-1.5-pro": {"input": 3.50, "cached_input": 1.75, "output": 10.50},
@@ -1659,7 +1661,8 @@ with st.sidebar:
         elif selected_provider == "Gemini":
             model_mapping = {
                 "gemini-2.0-pro (Recommended)": "gemini-2.5-pro-exp-03-25",
-                "gemini-2.5-flash-preview-05-20": "gemini-2.5-flash-preview-05-20",
+                "gemini-2.5-flash-preview": "gemini-2.5-flash-preview-05-20",
+                "gemini-2.5-pro-preview": "gemini-2.5-pro-preview-05-06",
                 "gemini-2.0-flash": "gemini-2.0-flash",
                 "gemini-1.5-pro": "gemini-1.5-pro",
                 "gemini-1.5-flash": "gemini-1.5-flash",

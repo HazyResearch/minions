@@ -199,6 +199,9 @@ export DEEPSEEK_API_KEY=<your-deepseek-api-key>
 
 # Anthropic
 export ANTHROPIC_API_KEY=<your-anthropic-api-key>
+
+# Mistral AI
+export MISTRAL_API_KEY=<your-mistral-api-key>
 ```
 
 ## Minions Demo Application

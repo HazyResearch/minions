@@ -787,8 +787,11 @@ class Minion:
         log_path = os.path.join(self.log_dir, log_filename)
 
         print(f"\n=== SAVING LOG TO {log_path} ===")
-        with open(log_path, "w", encoding="utf-8") as f:
-            json.dump(conversation_log, f, indent=2, ensure_ascii=False)
+        try:
+            with open(log_path, "w", encoding="utf-8") as f:
+                json.dump(conversation_log, f, indent=2, ensure_ascii=False)
+        except Exception as e:
+            print(f"Error saving log to {log_path}: {e}")
 
         print("\n=== MINION TASK COMPLETED ===")
 

@@ -11,6 +11,7 @@ setup(
         "anthropic",  # for Anthropic client
         "together",  # for Together client
         "groq",  # for Groq client
+        "mistralai",  # for Mistral AI client
         "requests",  # for API calls
         "tiktoken",  # for token counting
         "pymupdf",  # for PDF processing

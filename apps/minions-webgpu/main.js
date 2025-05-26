@@ -43,6 +43,7 @@ async function main() {
   const taskEl = document.getElementById("task");
   const ctxEl = document.getElementById("context");
   const apiKeyEl = document.getElementById("api_key");
+  const modelSelectEl = document.getElementById("model_select");
   const startBtn = document.getElementById("start");
 
   startBtn.onclick = async () => {
@@ -50,6 +51,7 @@ async function main() {
     const task = taskEl.value.trim();
     const context = ctxEl.value.trim();
     const apiKey = apiKeyEl.value.trim();
+    const selectedModel = modelSelectEl.value;
 
     if (!apiKey) {
       logEl.textContent =
@@ -61,14 +63,13 @@ async function main() {
       // ——— Initialize local WebLLM engine ———
       const webllm = await import("https://esm.run/@mlc-ai/web-llm");
 
-      logEl.textContent = "Loading local WebLLM model...\n";
+      logEl.textContent = `Loading local WebLLM model: ${selectedModel}...\n`;
 
       const initProgressCallback = (progress) => {
         logEl.textContent = `Loading local WebLLM model: ${progress.progress}%\n`;
         console.log(`Model loading progress: ${progress.progress}%`);
       };
 
-      const selectedModel = "Llama-3.2-1B-Instruct-q4f16_1-MLC";
       const localEngine = await webllm.CreateMLCEngine(selectedModel, {
         initProgressCallback: initProgressCallback,
       });

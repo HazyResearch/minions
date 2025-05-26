@@ -22,6 +22,7 @@ Secure Minions Chat Blogpost: https://hazyresearch.stanford.edu/blog/2025-05-12-
   - [Step 2: Install a Local Model Server](#step-2-install-a-server-for-running-the-local-model)
   - [Step 3: Set Cloud LLM API Keys](#step-3-set-your-api-key-for-at-least-one-of-the-following-cloud-llm-providers)
 - [Minions Demo Application](#minions-demo-application)
+- [Minions WebGPU App](#minions-webgpu-app)
 - [Example Code](#example-code-minion-singular)
   - [Minion (Singular)](#example-code-minion-singular)
   - [Minions (Plural)](#example-code-minions-plural)
@@ -227,6 +228,37 @@ try running the following command:
 ```bash
 OLLAMA_FLASH_ATTENTION=1 ollama serve
 ```
+
+## Minions WebGPU App
+
+The Minions WebGPU app demonstrates the Minions protocol running entirely in the browser using WebGPU for local model inference and cloud APIs for supervision. This approach eliminates the need for local server setup while providing a user-friendly web interface.
+
+### Features
+
+- **Browser-based**: Runs entirely in your web browser with no local server required
+- **WebGPU acceleration**: Uses WebGPU for fast local model inference
+- **Model selection**: Choose from multiple pre-optimized models from [MLC AI](https://mlc.ai/models)
+- **Real-time progress**: See model loading progress and conversation logs in real-time
+- **Privacy-focused**: Your API key and data never leave your browser
+
+### Quick Start
+
+1. **Navigate to the WebGPU app directory:**
+   ```bash
+   cd apps/minions-webgpu
+   ```
+
+2. **Install dependencies:**
+   ```bash
+   npm install
+   ```
+
+3. **Start the development server:**
+   ```bash
+   npm start
+   ```
+
+4. **Open your browser** and navigate to the URL shown in the terminal (typically `http://localhost:5173`)
 
 ## Example code: Minion (singular)
 

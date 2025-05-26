@@ -100,6 +100,27 @@
         box-shadow: 0 0 0 2px rgba(74, 107, 253, 0.2);
       }
 
+      select {
+        width: 100%;
+        padding: 1rem;
+        border: 1px solid #e0e0e0;
+        border-radius: var(--border-radius);
+        font-family: inherit;
+        margin-bottom: 0.5rem;
+        box-sizing: border-box;
+        font-size: 1rem;
+        line-height: 1.5;
+        transition: border-color 0.2s;
+        background-color: white;
+        cursor: pointer;
+      }
+
+      select:focus {
+        outline: none;
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 2px rgba(74, 107, 253, 0.2);
+      }
+
       button {
         background-color: var(--primary-color);
         color: white;
@@ -176,7 +197,7 @@
           alt="Minions Logo"
           class="logo"
         /> -->
-        <h1>Minions Web App</h1>
+        <h1>Minions WebGPU App</h1>
       </header>
 
       <div class="card">
@@ -189,6 +210,27 @@
         <small style="display: block; margin-top: 0.5rem; color: #777"
           >Your API key is used for cloud supervision and never stored or
           shared.</small
+        >
+      </div>
+
+      <div class="card">
+        <label for="model_select">Local Model:</label>
+        <select id="model_select">
+          <option value="Llama-3.2-1B-Instruct-q4f16_1-MLC">Llama-3.2-1B-Instruct (q4f16_1) - Recommended</option>
+          <option value="Llama-3.2-3B-Instruct-q4f16_1-MLC">Llama-3.2-3B-Instruct (q4f16_1)</option>
+          <option value="Llama-3.1-8B-Instruct-q4f16_1-MLC">Llama-3.1-8B-Instruct (q4f16_1)</option>
+          <option value="Llama-3-8B-Instruct-q4f16_1-MLC">Llama-3-8B-Instruct (q4f16_1)</option>
+          <option value="Qwen2.5-0.5B-Instruct-q4f16_1-MLC">Qwen2.5-0.5B-Instruct (q4f16_1)</option>
+          <option value="Qwen2.5-1.5B-Instruct-q4f16_1-MLC">Qwen2.5-1.5B-Instruct (q4f16_1)</option>
+          <option value="Qwen2.5-3B-Instruct-q4f16_1-MLC">Qwen2.5-3B-Instruct (q4f16_1)</option>
+          <option value="Qwen2.5-7B-Instruct-q4f16_1-MLC">Qwen2.5-7B-Instruct (q4f16_1)</option>
+          <option value="gemma-2-2b-it-q4f16_1-MLC">Gemma-2-2B-IT (q4f16_1)</option>
+          <option value="gemma-2-9b-it-q4f16_1-MLC">Gemma-2-9B-IT (q4f16_1)</option>
+          <option value="Phi-3.5-mini-instruct-q4f16_1-MLC">Phi-3.5-Mini-Instruct (q4f16_1)</option>
+          <option value="SmolLM2-1.7B-Instruct-q4f16_1-MLC">SmolLM2-1.7B-Instruct (q4f16_1)</option>
+        </select>
+        <small style="display: block; margin-top: 0.5rem; color: #777"
+          >Select a local model to run in your browser. Smaller models (1B-3B) load faster and use less memory.</small
         >
       </div>
 

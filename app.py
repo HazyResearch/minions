@@ -114,6 +114,12 @@ API_PRICES = {
         "Llama-3.3-70B-Instruct": {"input": 0, "cached_input": 0, "output": 0},
         "Llama-3.3-8B-Instruct": {"input": 0, "cached_input": 0, "output": 0},
     },
+    # Sarvam AI pricing (approximate - please update with actual pricing)
+    "Sarvam": {
+        "sarvam-m": {"input": 0.50, "cached_input": 0.25, "output": 1.50},
+        "sarvam-1b": {"input": 0.10, "cached_input": 0.05, "output": 0.30},
+        "sarvam-3b": {"input": 0.30, "cached_input": 0.15, "output": 0.90},
+    },
 }
 
 PROVIDER_TO_ENV_VAR_KEY = {
@@ -131,6 +137,7 @@ PROVIDER_TO_ENV_VAR_KEY = {
     "Gemini": "GOOGLE_API_KEY",
     "HuggingFace": "HF_TOKEN",
     "LlamaAPI": "LLAMA_API_KEY",
+    "Sarvam": "SARVAM_API_KEY",
 }
 
 
@@ -648,6 +655,13 @@ def initialize_clients(
             max_tokens=int(remote_max_tokens),
             api_key=api_key,
         )
+    elif provider == "Sarvam":
+        st.session_state.remote_client = SarvamClient(
+            model_name=remote_model_name,
+            temperature=remote_temperature,
+            max_tokens=int(remote_max_tokens),
+            api_key=api_key,
+        )
     else:  # OpenAI
         st.session_state.remote_client = OpenAIClient(
             model_name=remote_model_name,
@@ -1126,6 +1140,21 @@ def validate_llama_api_key(api_key):
         return False, str(e)
 
 
+def validate_sarvam_key(api_key):
+    try:
+        client = SarvamClient(
+            model_name="sarvam-m",
+            api_key=api_key,
+            temperature=0.0,
+            max_tokens=1,
+        )
+        messages = [{"role": "user", "content": "Say yes"}]
+        client.chat(messages)
+        return True, ""
+    except Exception as e:
+        return False, str(e)
+
+
 # validate
 
 
@@ -1151,6 +1180,7 @@ with st.sidebar:
             "SambaNova",
             "Gemini",
             "LlamaAPI",
+            "Sarvam",
         ]
         selected_provider = st.selectbox(
             "Select Remote Provider",
@@ -1194,6 +1224,8 @@ with st.sidebar:
             is_valid, msg = validate_gemini_key(api_key)
         elif selected_provider == "LlamaAPI":
             is_valid, msg = validate_llama_api_key(api_key)
+        elif selected_provider == "Sarvam":
+            is_valid, msg = validate_sarvam_key(api_key)
         else:
             raise ValueError(f"Invalid provider: {selected_provider}")
 
@@ -1575,6 +1607,7 @@ with st.sidebar:
                 "Qwen/Qwen3-1.7B": "qwen3:1.7b",
                 "Qwen/Qwen3-0.6B": "qwen3:0.6b",
                 "Qwen/Qwen3-4B": "qwen3:4b",
+                "sarvam-2b": "gaganyatri/sarvam-2b-v0.5:latest",
                 "gemma3:4b-it-qat": "gemma3:4b-it-qat",
                 "gemma3:1b-it-qat": "gemma3:1b-it-qat",
                 "deepcoder:1.5b": "deepcoder:1.5b",
@@ -1752,6 +1785,13 @@ with st.sidebar:
                 "Llama-4-Scout-17B-16E-Instruct-FP8": "Llama-4-Scout-17B-16E-Instruct-FP8",
                 "Llama-3.3-70B-Instruct": "Llama-3.3-70B-Instruct",
                 "Llama-3.3-8B-Instruct": "Llama-3.3-8B-Instruct",
+            }
+            default_model_index = 0
+        elif selected_provider == "Sarvam":
+            model_mapping = {
+                "sarvam-m (Recommended)": "sarvam-m",
+                "sarvam-1b": "sarvam-1b",
+                "sarvam-3b": "sarvam-3b",
             }
             default_model_index = 0
         else:
@@ -2277,24 +2317,20 @@ else:
                 # Token usage for both protocols
                 if "local_usage" in output and "remote_usage" in output:
                     st.header("Token Usage")
-                    local_total = output["local_usage"].get(
-                        "prompt_tokens", 0
-                    ) + output["local_usage"].get("completion_tokens", 0)
-                    remote_total = output["remote_usage"].get(
-                        "prompt_tokens", 0
-                    ) + output["remote_usage"].get("completion_tokens", 0)
+                    local_total = getattr(output["local_usage"], "prompt_tokens", 0) + getattr(output["local_usage"], "completion_tokens", 0)
+                    remote_total = getattr(output["remote_usage"], "prompt_tokens", 0) + getattr(output["remote_usage"], "completion_tokens", 0)
                     c1, c2 = st.columns(2)
                     c1.metric(
                         f"{local_model_name} (Local) Total Tokens",
                         f"{local_total:,}",
-                        f"Prompt: {output['local_usage'].get('prompt_tokens', 0):,}, "
-                        f"Completion: {output['local_usage'].get('completion_tokens', 0):,}",
+                        f"Prompt: {getattr(output['local_usage'], 'prompt_tokens', 0):,}, "
+                        f"Completion: {getattr(output['local_usage'], 'completion_tokens', 0):,}",
                     )
                     c2.metric(
                         f"{remote_model_name} (Remote) Total Tokens",
                         f"{remote_total:,}",
-                        f"Prompt: {output['remote_usage'].get('prompt_tokens', 0):,}, "
-                        f"Completion: {output['remote_usage'].get('completion_tokens', 0):,}",
+                        f"Prompt: {getattr(output['remote_usage'], 'prompt_tokens', 0):,}, "
+                        f"Completion: {getattr(output['remote_usage'], 'completion_tokens', 0):,}",
                     )
                     # Convert to long format DataFrame for explicit ordering
                     df = pd.DataFrame(
@@ -2312,10 +2348,10 @@ else:
                                 "Completion Tokens",
                             ],
                             "Count": [
-                                output["local_usage"].get("prompt_tokens", 0),
-                                output["local_usage"].get("completion_tokens", 0),
-                                output["remote_usage"].get("prompt_tokens", 0),
-                                output["remote_usage"].get("completion_tokens", 0),
+                                getattr(output["local_usage"], "prompt_tokens", 0),
+                                getattr(output["local_usage"], "completion_tokens", 0),
+                                getattr(output["remote_usage"], "prompt_tokens", 0),
+                                getattr(output["remote_usage"], "completion_tokens", 0),
                             ],
                         }
                     )
@@ -2330,10 +2366,10 @@ else:
                         st.header("Remote Model Cost")
                         pricing = API_PRICES[selected_provider][remote_model_name]
                         prompt_cost = (
-                            output["remote_usage"].get("prompt_tokens", 0) / 1_000_000
+                            getattr(output["remote_usage"], "prompt_tokens", 0) / 1_000_000
                         ) * pricing["input"]
                         completion_cost = (
-                            output["remote_usage"].get("completion_tokens", 0)
+                            getattr(output["remote_usage"], "completion_tokens", 0)
                             / 1_000_000
                         ) * pricing["output"]
                         total_cost = prompt_cost + completion_cost
@@ -2342,12 +2378,12 @@ else:
                         col1.metric(
                             "Prompt Cost",
                             f"${prompt_cost:.4f}",
-                            f"{output['remote_usage'].get('prompt_tokens', 0):,} tokens (at ${pricing['input']:.2f}/1M)",
+                            f"{getattr(output['remote_usage'], 'prompt_tokens', 0):,} tokens (at ${pricing['input']:.2f}/1M)",
                         )
                         col2.metric(
                             "Completion Cost",
                             f"${completion_cost:.4f}",
-                            f"{output['remote_usage'].get('completion_tokens', 0):,} tokens (at ${pricing['output']:.2f}/1M)",
+                            f"{getattr(output['remote_usage'], 'completion_tokens', 0):,} tokens (at ${pricing['output']:.2f}/1M)",
                         )
                         col3.metric(
                             "Total Cost",

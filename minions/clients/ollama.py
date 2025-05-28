@@ -234,12 +234,20 @@ class OllamaClient:
 
             if "tool_calls" in response["message"]:
                 tools.append(response["message"]["tool_calls"])
-
-            usage_total += Usage(
-                prompt_tokens=response["prompt_eval_count"],
-                completion_tokens=response["eval_count"],
-            )
-            done_reasons.append(response["done_reason"])
+            try:
+                usage_total += Usage(
+                    prompt_tokens=response["prompt_eval_count"],
+                    completion_tokens=response["eval_count"],
+                )
+            except Exception as e:
+                usage_total = Usage(
+                    prompt_tokens=0,
+                    completion_tokens=0,
+                )
+            try:
+                done_reasons.append(response["done_reason"])
+            except Exception as e:
+                done_reasons.append("stop")
 
         except Exception as e:
             self.logger.error(f"Error during Ollama API call: {e}")

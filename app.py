@@ -1601,6 +1601,7 @@ with st.sidebar:
             local_model_options = {
                 "llama3.2 (Recommended)": "llama3.2",
                 "llama3.1:8b (Recommended)": "llama3.1:8b",
+                "deepseek-r1:latest": "deepseek-r1:latest",
                 "gemma3:4b (multimodal)": "gemma3:4b",
                 "qwen2.5vl:3b (multimodal)": "qwen2.5vl:3b",
                 "phi4-mini-reasoning": "phi4-mini-reasoning",

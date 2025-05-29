@@ -30,24 +30,40 @@ You are the Worker (a small model). You have access to the following context:
 Answer the Supervisor's questions concisely, providing enough detail for the Supervisor to confidently understand your response.
 """
 
-SUPERVISOR_INITIAL_PROMPT = """\
-You are the Supervisor (big language model). Your task is to answer the following question using documents you cannot see directly. 
-A Worker (small language model) can access those documents and will answer simple, single-step questions.
 
-Question:
+
+# Override the supervisor initial prompt to encourage task decomposition.
+SUPERVISOR_INITIAL_PROMPT = """\
+We need to perform the following task.
+
+### Task
 {task}
 
-Ask the Worker only one small, specific question at a time. Use multiple steps if needed (max {max_rounds} steps), then integrate the responses to answer the original question.
+### Instructions
+You will not have direct access to the context, but you can chat with a small language model that has read the entire content.
 
-Format for your question:
-<think briefly about the information needed to answer the question>
+Let's use an incremental, step-by-step approach to ensure we fully decompose the task before proceeding. Please follow these steps:
+
+1. Decompose the Task:
+   Break down the overall task into its key components or sub-tasks. Identify what needs to be done and list these sub-tasks.
+
+2. Explain Each Component:
+   For each sub-task, briefly explain why it is important and what you expect it to achieve. This helps clarify the reasoning behind your breakdown.
+
+3. Formulate a Focused Message:
+   Based on your breakdown, craft a single, clear message to send to the small language model. This message should represent one focused sub-task derived from your decomposition.
+
+4. Conclude with a Final Answer:  
+   After your reasoning, please provide a **concise final answer** that directly and conclusively addresses the original task. Make sure this final answer includes all the specific details requested in the task.
+
+Your output should be in the following JSON format:
+
 ```json
 {{
-    "message": "<one simple question for the Worker>"
+    "reasoning": "<your detailed, step-by-step breakdown here>",
+    "message": "<your final, focused message to the small language model>"
 }}
-```
 """
-
 
 SUPERVISOR_CONVERSATION_PROMPT = """
 The Worker replied with:
@@ -112,24 +128,31 @@ Think about:
 """
 
 
-REMOTE_SYNTHESIS_FINAL = """\
-Here is the response after step-by-step thinking.
 
-### Response
+# Override the final response prompt to encourage a more informative final answer
+REMOTE_SYNTHESIS_FINAL = """\
+Here is the detailed response from the step-by-step reasoning phase.
+
+### Detailed Response
 {response}
 
 ### Instructions
-If you have enough information or if the task is complete, write a final answer to fullfills the task. 
+Based on the detailed reasoning above, synthesize a clear and informative final answer that directly addresses the task with all the specific details required. In your final answer, please:
+
+1. Summarize the key findings and reasoning steps.
+2. Clearly state the conclusive answer, incorporating the important details.
+3. Ensure the final answer is self-contained and actionable.
+
+If you determine that you have gathered enough information to fully answer the task, output the following JSON with your final answer:
 
 ```json
 {{
     "decision": "provide_final_answer", 
-    "answer": "<your answer>"
+    "answer": "<your detailed, conclusive final answer here>"
 }}
 ```
 
 Otherwise, if the task is not complete, request the small language model to do additional work, by outputting the following:
-
 
 ```json
 {{

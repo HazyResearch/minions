@@ -30,6 +30,7 @@ setup(
         "orjson",
         "twilio",
         "pyjwt",  # for JWT utilities
+        "torch",  
     ],
     extras_require={
         "mlx": ["mlx-lm"],

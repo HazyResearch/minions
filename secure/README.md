@@ -1,51 +1,54 @@
-# Secure Minions Chat Manual Setup!
+# Secure Minions Documentation
 
-This guide walks you through the manual installation and configuration of a secure chat system using a confidential VM on Azure and the [Minions](https://github.com/HazyResearch/minions) project.
+This guide covers two secure communication protocols in the Minions ecosystem:
 
-The goal is to enable private, encrypted chat by combining:
+1. **Secure Minions Chat** — An end-to-end encrypted chat system using confidential VMs
+2. **Secure Minions Local-Remote Protocol** — A secure implementation of the Minions protocol with local-remote model collaboration
 
-1. A Remote Inference Server — securely running on a confidential NVIDIA H100 GPU VM
-2. A Local Chat Client — running on your local machine, connected to the remote secure server
-
-There are two ways to use the secure chat:
-
-- [Method 1](#method-1-connect-to-a-hosted-secure-minions-chat-remote-server): Setup a local client and connect to an existing **secure** Minions Chat remote server
-- [Method 2](#method-2-setup-your-own-secure-minions-chat-remote-server): Setup a local client and setup up your own **secure** Minions Chat remote server
-
-In this guide, we will walk you through both ways.
+Both protocols provide end-to-end encryption, attestation verification, and secure communication channels.
 
 ## Table of Contents
 
-### Method 1: Connect to a hosted Secure Minions Chat remote server
+- [Prerequisites](#prerequisites)
+- [Secure Minions Chat](#secure-minions-chat)
+  - [Overview](#overview)
+  - [Method 1: Connect to Hosted Server](#method-1-connect-to-hosted-secure-minions-chat-server)
+  - [Method 2: Setup Your Own Server](#method-2-setup-your-own-secure-minions-chat-server)
+- [Secure Minions Local-Remote Protocol](#secure-minions-local-remote-protocol)
+  - [Overview](#overview-1)
+  - [Features](#features)
+  - [Basic Usage](#basic-usage)
+  - [Advanced Usage](#advanced-usage)
+  - [Security Features](#security-features)
+  - [Configuration Options](#configuration-options)
 
-- [Clone the Minions Repository](#1-clone-the-minions-repository)
-- [Install Minions Locally](#2-install-minions-locally)
-- [Launch Secure Chat (Command Line)](#3-launch-secure-chat-command-line)
-- [Launch the Streamlit Chat App (Web UI)](#4-launch-the-streamlit-chat-app-web-ui----if-you-want-to-use-the-web-ui)
+## Prerequisites
 
-### Method 2: Setup your own Secure Minions Chat remote server
+Install the secure dependencies for both protocols:
 
-- **Part 1: Remote Inference Server Setup**
-  - [Provision a Confidential VM + secure GPU on Azure](#1-provision-a-confidential-vm--and-secure-gpu-on-azure)
-  - [Install System Dependencies](#2-install-system-dependencies)
-  - [Clone and Set Up Minions](#3-clone-and-set-up-minions)
-  - [Create a Virtual Environment](#4-create-a-virtual-environment)
-  - [Install Python Dependencies](#5-install-python-dependencies)
-  - [Install NVIDIA GPU Attestation Tool](#6-install-nvidia-gpu-attestation-tool)
-  - [Open Firewall Port for Server Access](#7-open-firewall-port-for-server-access)
-  - [Set HuggingFace Token](#8-set-huggingface-token)
-  - [Launch Secure Inference Server](#9-launch-secure-inference-server)
-- **Part 2: Set up the Local Chat Client**
-  - [Clone the Minions Repository](#1-clone-the-minions-repository-1)
-  - [Install Minions Locally](#2-install-minions-locally-1)
-  - [Launch Secure Chat (Command Line)](#3-launch-secure-chat-command-line-1)
-  - [Launch the Streamlit Chat App (Web UI)](#4-launch-the-streamlit-chat-app-web-ui----if-you-want-to-use-the-web-ui-1)
-
-## Method 1: Connect to an existing secure Minions Chat remote server
-
-This section walks you through installing and running the Minions chat client locally to connect with a secure remote inference server (e.g., on an Azure confidential GPU VM).
+```bash
+pip install -e ".[secure]"
+```
 
 ---
+
+# Secure Minions Chat
+
+## Overview
+
+Secure Minions Chat provides an end-to-end encrypted chat system using confidential VMs on Azure and the Minions project. The system combines:
+
+1. **Remote Inference Server** — securely running on a confidential NVIDIA H100 GPU VM
+2. **Local Chat Client** — running on your local machine, connected to the remote secure server
+
+There are two ways to use the secure chat:
+
+- **Method 1**: Connect to an existing secure Minions Chat remote server
+- **Method 2**: Setup your own secure Minions Chat remote server
+
+## Method 1: Connect to Hosted Secure Minions Chat Server
+
+This section walks you through installing and running the Minions chat client locally to connect with an existing secure remote inference server.
 
 ### 1. Clone the Minions Repository
 
@@ -56,7 +59,7 @@ cd minions
 
 ### 2. Install Minions Locally
 
-Install in editable mode. Make sure to run this from the top level directory:
+Install in editable mode from the top level directory:
 
 ```bash
 pip install -e ".[secure]"
@@ -64,39 +67,33 @@ pip install -e ".[secure]"
 
 ### 3. Launch Secure Chat (Command Line)
 
-Replace `<AZURE_IP_ADDRESS>` and `<PORT>` with the following IP and port: `http://20.57.33.122:5056`
+Connect to the hosted server:
 
 ```bash
 python secure/minions_chat.py --supervisor_url "http://20.57.33.122:5056"
 ```
 
-### 4. Launch the Streamlit Chat App (Web UI) -- if you want to use the web UI
+### 4. Launch the Streamlit Chat App (Web UI)
 
-Run the visual chat interface via Streamlit (note this is in the top level directory):
+Run the visual chat interface via Streamlit:
 
 ```bash
 streamlit run minions_secure_chat.py
 ```
 
-> **Note**: In the app, make sure you configure the **Supervisor URL** as `http://<AZURE_IP_ADDRESS>:<PORT>` in the sidebar before submitting messages.
+> **Note**: In the app, configure the **Supervisor URL** as `http://20.57.33.122:5056` in the sidebar before submitting messages.
 
-## Method 2: Setup your own secure Minions Chat remote server
+## Method 2: Setup Your Own Secure Minions Chat Server
 
 ### Part 1: Remote Inference Server Setup
 
-This section walks you through installing and running the Minions chat client locally to connect with a secure remote inference server (e.g., on an Azure confidential GPU VM).
-
----
-
-#### 1. Provision a Confidential VM + and secure GPU on Azure
+#### 1. Provision a Confidential VM + Secure GPU on Azure
 
 Follow [Azure CGPU onboarding documentation](https://github.com/Azure/az-cgpu-onboarding/blob/main/docs/Confidential-GPU-H100-Manual-Installation-%28PMK-with-Powershell%29.md) to launch a confidential VM with H100 support.
 
----
-
 #### 2. Install System Dependencies
 
-SSH into the VM and run the following:
+SSH into the VM and run:
 
 ```bash
 sudo apt update
@@ -104,16 +101,12 @@ sudo apt install -y build-essential git cmake ninja-build
 sudo apt install -y nvidia-cuda-toolkit
 ```
 
----
-
 #### 3. Clone and Set Up Minions
 
 ```bash
 git clone https://github.com/HazyResearch/minions.git
 cd minions
 ```
-
----
 
 #### 4. Create a Virtual Environment
 
@@ -126,84 +119,46 @@ Verify the Python path:
 
 ```bash
 which python
-# Expected output:
-# /home/<vm-username>/minions/.venv-msecure/bin/python
+# Expected output: /home/<vm-username>/minions/.venv-msecure/bin/python
 ```
-
----
 
 #### 5. Install Python Dependencies
 
-Upgrade pip and core packaging tools:
-
 ```bash
 pip install --upgrade pip setuptools wheel
-```
-
-Install [uv](https://github.com/astral-sh/uv), a fast Python package manager:
-
-```bash
 pip install uv
-```
-
-Install Minions in editable mode:
-
-```bash
 uv pip install -e .
-```
-
-> ✅ **Note**: You may want to move this into your setup script under `security[remote]` extras depending on your environment needs.
-
-Install SGLang with full extras:
-
-```bash
 uv pip install "sglang[all]>=0.4.6.post2"
 ```
 
----
-
 #### 6. Install NVIDIA GPU Attestation Tool
 
-```
+```bash
 git clone https://github.com/NVIDIA/nvtrust.git
 cd nvtrust/guest_tools/gpu_verifiers/local_gpu_verifier
 pip3 install .
 python3 -m verifier.cc_admin
 ```
 
-Please see [NVIDIA GPU Attestation Tool](https://github.com/NVIDIA/nvtrust/tree/main/guest_tools/gpu_verifiers/local_gpu_verifier) for more details.
-
----
+See [NVIDIA GPU Attestation Tool](https://github.com/NVIDIA/nvtrust/tree/main/guest_tools/gpu_verifiers/local_gpu_verifier) for details.
 
 #### 7. Open Firewall Port for Server Access
 
 In the Azure portal, go to **Networking** for your VM and add an inbound rule to allow **TCP port 5056**.
 
----
-
 #### 8. Set HuggingFace Token
-
-Export your Hugging Face token to enable model loading:
 
 ```bash
 export HF_TOKEN=<YOUR_HUGGINGFACE_TOKEN>
 ```
 
----
-
 #### 9. Launch Secure Inference Server
-
-Start the SGLang server with your preferred model (e.g., Gemma-4B):
 
 ```bash
 python secure/remote/worker_server.py --sglang-model "google/gemma-3-4b-it"
 ```
 
 ### Part 2: Set up the Local Chat Client
-
-This section walks you through installing and running the Minions chat client locally to connect with a secure remote inference server (e.g., on an Azure confidential GPU VM).
-
----
 
 #### 1. Clone the Minions Repository
 
@@ -214,26 +169,180 @@ cd minions
 
 #### 2. Install Minions Locally
 
-Install in editable mode:
-
 ```bash
-pip install -e .
+pip install -e ".[secure]"
 ```
 
 #### 3. Launch Secure Chat (Command Line)
 
-Replace `<AZURE_IP_ADDRESS>` and `<PORT>` with your remote server's IP and port (e.g., `http://20.57.33.122:5056`):
+Replace `<AZURE_IP_ADDRESS>` and `<PORT>` with your server details:
 
 ```bash
 python secure/minions_chat.py --supervisor_url "http://<AZURE_IP_ADDRESS>:<PORT>"
 ```
 
-#### 4. Launch the Streamlit Chat App (Web UI) -- if you want to use the web UI
-
-Run the visual chat interface via Streamlit (note this is in the top level directory):
+#### 4. Launch the Streamlit Chat App (Web UI)
 
 ```bash
 streamlit run minions_secure_chat.py
 ```
 
-> **Note**: In the app, make sure you configure the **Supervisor URL** as `http://<AZURE_IP_ADDRESS>:<PORT>` in the sidebar before submitting messages.
+> **Note**: Configure the **Supervisor URL** as `http://<AZURE_IP_ADDRESS>:<PORT>` in the sidebar.
+
+---
+
+# Secure Minions Local-Remote Protocol
+
+## Overview
+
+The Secure Minions Local-Remote Protocol (`secure/minions_secure.py`) provides an end-to-end encrypted implementation of the Minions protocol that enables secure communication between a local worker model and a remote supervisor server. This protocol includes attestation verification, perfect forward secrecy, and replay protection.
+
+## Features
+
+- **End-to-End Encryption**: All communication encrypted using shared keys from Diffie-Hellman key exchange
+- **Attestation Verification**: Verifies integrity and authenticity of the remote supervisor server
+- **Perfect Forward Secrecy**: Uses ephemeral key pairs for each session
+- **Replay Protection**: Implements nonce-based protection against replay attacks
+- **Multi-Modal Support**: Supports text, images, PDFs, and folder processing
+- **Comprehensive Logging**: Detailed conversation logs with timing and security metrics
+
+## Basic Usage
+
+### Python API
+
+```python
+from minions.clients import OllamaClient
+from secure.minions_secure import SecureMinionProtocol
+
+# Initialize local client
+local_client = OllamaClient(model_name="llama3.2")
+
+# Create secure protocol instance
+protocol = SecureMinionProtocol(
+    supervisor_url="https://your-supervisor-server.com",
+    local_client=local_client,
+    max_rounds=3,
+    system_prompt="You are a helpful AI assistant."
+)
+
+# Run a secure task
+result = protocol(
+    task="Analyze this document for key insights",
+    context=["Your document content here"],
+    max_rounds=2
+)
+
+print(f"Final Answer: {result['final_answer']}")
+print(f"Session ID: {result['session_id']}")
+print(f"Log saved to: {result['log_file']}")
+
+# Clean up the session
+protocol.end_session()
+```
+
+### Command Line Interface
+
+```bash
+python secure/minions_secure.py \
+    --supervisor_url https://your-supervisor-server.com \
+    --local_client_type ollama \
+    --local_model llama3.2 \
+    --max_rounds 3
+```
+
+## Advanced Usage
+
+### With Image Processing
+
+```python
+result = protocol(
+    task="Describe what you see in this image",
+    context=["Additional context if needed"],
+    image_path="/path/to/image.jpg"
+)
+```
+
+### With PDF Processing
+
+```python
+result = protocol(
+    task="Summarize the key points from this document",
+    context=[],
+    pdf_path="/path/to/document.pdf"
+)
+```
+
+### With Folder Processing
+
+```python
+result = protocol(
+    task="Analyze all documents in this folder",
+    context=[],
+    folder_path="/path/to/documents/"
+)
+```
+
+### With Custom Callback
+
+```python
+def message_callback(sender, message, is_final=False):
+    print(f"[{sender}]: {message}")
+
+protocol = SecureMinionProtocol(
+    supervisor_url="https://your-supervisor-server.com",
+    local_client=local_client,
+    callback=message_callback
+)
+```
+
+## Security Features
+
+The protocol implements several security measures:
+
+1. **Attestation Verification**: Verifies that the remote supervisor is running in a trusted environment
+2. **Key Exchange**: Uses Diffie-Hellman key exchange for establishing shared secrets
+3. **Message Encryption**: All messages are encrypted using AES-GCM with the shared key
+4. **Message Authentication**: Messages are signed to prevent tampering
+5. **Nonce Protection**: Sequential nonces prevent replay attacks
+6. **Session Management**: Ephemeral keys are destroyed after each session
+
+## Configuration Options
+
+- `supervisor_url`: URL of the remote supervisor server
+- `local_client`: Local model client (e.g., OllamaClient, MLXLMClient)
+- `max_rounds`: Maximum number of conversation rounds (default: 3)
+- `callback`: Optional callback function for real-time message updates
+- `log_dir`: Directory for saving conversation logs (default: "secure_minion_logs")
+- `system_prompt`: Custom system prompt for the local worker
+
+### Output Format
+
+The protocol returns a comprehensive result dictionary:
+
+```python
+{
+    "final_answer": "The generated answer",
+    "session_id": "unique-session-identifier",
+    "supervisor_messages": [...],  # Full supervisor conversation
+    "worker_messages": [...],      # Full worker conversation
+    "remote_usage": Usage(),       # Remote model usage stats
+    "local_usage": Usage(),        # Local model usage stats
+    "log_file": "/path/to/log.json",
+    "timing": {                    # Detailed timing information
+        "setup": {...},
+        "rounds": [...],
+        "total_time": 45.2
+    }
+}
+```
+
+### Logging
+
+All conversations are automatically logged with detailed metadata including:
+- Complete message history
+- Security session information
+- Timing metrics for each operation
+- Usage statistics for both local and remote models
+- Encryption and verification status
+
+Logs are saved as JSON files in the specified log directory with timestamps and task identifiers.

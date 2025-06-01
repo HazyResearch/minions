@@ -432,7 +432,7 @@ print(f"Log saved to: {result['log_file']}")
 protocol.end_session()
 ```
 
-#### Command Line Interface
+#### Command Line Interfacec
 
 ```bash
 python secure/minions_secure.py \

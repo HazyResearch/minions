@@ -29,6 +29,7 @@ Secure Minions Chat Blogpost: https://hazyresearch.stanford.edu/blog/2025-05-12-
 - [Python Notebook](#python-notebook)
 - [Docker Support](#docker-support)
 - [Command Line Interface](#cli)
+- [Secure Minions Local-Remote Protocol](#secure-minions-local-remote-protocol)
 - [Secure Minions Chat](#secure-minions-chat)
 - [Inference Estimator](#inference-estimator)
   - [Command Line Usage](#command-line-usage)
@@ -382,6 +383,63 @@ minions --help
 
 ```bash
 minions --context <path_to_context> --protocol <minion|minions>
+```
+
+## Secure Minions Local-Remote Protocol
+
+The Secure Minions Local-Remote Protocol (`secure/minions_secure.py`) provides an end-to-end encrypted implementation of the Minions protocol that enables secure communication between a local worker model and a remote supervisor server. This protocol includes attestation verification, perfect forward secrecy, and replay protection.
+
+
+### Prerequisites
+
+Install the secure dependencies:
+
+```bash
+pip install -e ".[secure]"
+```
+
+### Basic Usage
+
+#### Python API
+
+```python
+from minions.clients import OllamaClient
+from secure.minions_secure import SecureMinionProtocol
+
+# Initialize local client
+local_client = OllamaClient(model_name="llama3.2")
+
+# Create secure protocol instance
+protocol = SecureMinionProtocol(
+    supervisor_url="https://your-supervisor-server.com",
+    local_client=local_client,
+    max_rounds=3,
+    system_prompt="You are a helpful AI assistant."
+)
+
+# Run a secure task
+result = protocol(
+    task="Analyze this document for key insights",
+    context=["Your document content here"],
+    max_rounds=2
+)
+
+print(f"Final Answer: {result['final_answer']}")
+print(f"Session ID: {result['session_id']}")
+print(f"Log saved to: {result['log_file']}")
+
+# Clean up the session
+protocol.end_session()
+```
+
+#### Command Line Interface
+
+```bash
+python secure/minions_secure.py \
+    --supervisor_url https://your-supervisor-server.com \
+    --local_client_type ollama \
+    --local_model llama3.2 \
+    --max_rounds 3
 ```
 
 ## Secure Minions Chat

@@ -111,3 +111,13 @@ except ImportError:
     print(
         "WARNING: Transformers is not installed. Please install it with `pip install transformers`."
     )
+
+try:
+    from minions.clients.secure import SecureClient
+    __all__.append("SecureClient")
+except ImportError:
+    # print warning that secure crypto utilities are not available
+    print(
+        "Warning: Secure crypto utilities are not available. SecureClient will not be available. "
+        "Please ensure the secure module is properly installed."
+    )

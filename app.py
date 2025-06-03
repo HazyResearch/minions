@@ -1264,7 +1264,7 @@ with st.sidebar:
             is_valid, msg = validate_secure_endpoint(secure_endpoint_url)
             provider_key = secure_endpoint_url  # Use endpoint URL as the "key"
         else:
-            st.error("**✗ Missing secure endpoint URL.** Please configure the endpoint URL above.")
+            st.error("**✗ Missing secure endpoint URL.** Use http://20.57.33.122:5056 if you don't have a custom endpoint.")
             provider_key = None
     elif api_key:
         if selected_provider == "OpenAI":
@@ -1426,8 +1426,8 @@ with st.sidebar:
             "Secure Endpoint URL",
             value=st.session_state.get("secure_endpoint_url", "") or os.getenv("SECURE_ENDPOINT_URL", ""),
             key="secure_endpoint_url",
-            help="URL of the secure endpoint (e.g., https://secure-endpoint.example.com)",
-            placeholder="https://secure-endpoint.example.com"
+            help="URL of the secure endpoint (e.g., http://20.57.33.122:5056)",
+            placeholder="http://20.57.33.122:5056"
         )
         
         # Attestation verification toggle

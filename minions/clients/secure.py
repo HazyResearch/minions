@@ -77,7 +77,7 @@ class SecureClient:
         self.is_initialized = False
         self.session_start_time = None
 
-        self.logger.info("🔒 SecureClient initialized for encrypted communication")
+        print("🔒 SecureClient initialized for encrypted communication")
 
     def estimate_tokens(self, messages: List[Dict[str, Any]], response_text: str = "") -> Tuple[int, int]:
         """
@@ -114,12 +114,12 @@ class SecureClient:
 
         self.session_id = uuid.uuid4().hex
         self.session_start_time = time.time()
-        self.logger.info(f"🔒 Starting secure communication session {self.session_id}")
+        print(f"🔒 Starting secure communication session {self.session_id}")
 
         # Fetch attestation from endpoint if verification is enabled
        
         if self.verify_attestation:
-            self.logger.info("🔐 SECURITY: Requesting attestation report from endpoint")
+            print("🔐 SECURITY: Requesting attestation report from endpoint")
             
             
             try:
@@ -141,7 +141,7 @@ class SecureClient:
                     public_key=self.endpoint_pub,
                     expected_nonce=endpoint_nonce,
                 )
-                self.logger.info("✅ SECURITY: Endpoint attestation verification successful")
+                print("✅ SECURITY: Endpoint attestation verification successful")
                 
             except ValueError as e:
                 self.logger.error("🚨 Endpoint attestation failed: %s", e)
@@ -152,12 +152,12 @@ class SecureClient:
 
 
         # Generate ephemeral keypair for the session
-        self.logger.info("🔑 SECURITY: Generating ephemeral key pair for perfect forward secrecy")
+        print("🔑 SECURITY: Generating ephemeral key pair for perfect forward secrecy")
         self.local_priv, self.local_pub = generate_key_pair()
         self.shared_key = derive_shared_key(self.local_priv, self.endpoint_pub)
 
-        self.logger.info("✅ SECURITY: Established shared secret key using Diffie-Hellman key exchange")
-        self.logger.info("🔢 SECURITY: Initializing nonce counter for replay protection")
+        print("✅ SECURITY: Established shared secret key using Diffie-Hellman key exchange")
+        print("🔢 SECURITY: Initializing nonce counter for replay protection")
 
         self.is_initialized = True
 
@@ -175,7 +175,7 @@ class SecureClient:
 
 
         # Encrypt and sign the message
-        self.logger.info("🔒 SECURITY: Encrypting message with shared key and signing with private key")
+        print("🔒 SECURITY: Encrypting message with shared key and signing with private key")
         message_json = json.dumps(messages)
         encrypted_payload = encrypt_and_sign(
             message_json, self.shared_key, self.local_priv, self.nonce
@@ -189,7 +189,7 @@ class SecureClient:
             "session_id": self.session_id,
         }
 
-        self.logger.info("📤 SECURITY: Sending encrypted and signed payload to endpoint")
+        print("📤 SECURITY: Sending encrypted and signed payload to endpoint")
 
         try:
             response = requests.post(
@@ -208,12 +208,12 @@ class SecureClient:
             raise RuntimeError(f"Endpoint returned invalid JSON response: {response.text}")
 
         # Decrypt and verify the response
-        self.logger.info("📥 SECURITY: Decrypting and verifying endpoint response")
+        print("📥 SECURITY: Decrypting and verifying endpoint response")
         decrypted_response = decrypt_and_verify(
             response_json, self.shared_key, self.endpoint_pub
         )
 
-        self.logger.info("✅ SECURITY: Message authentication and decryption successful")
+        print("✅ SECURITY: Message authentication and decryption successful")
 
 
         return {
@@ -270,7 +270,7 @@ class SecureClient:
                     prompt_tokens=estimated_prompt_tokens,
                     completion_tokens=estimated_completion_tokens,
                 )
-                self.logger.info(f"Estimated token usage - Prompt: {estimated_prompt_tokens}, Completion: {estimated_completion_tokens}")
+                print(f"Estimated token usage - Prompt: {estimated_prompt_tokens}, Completion: {estimated_completion_tokens}")
 
             return responses, usage
 
@@ -281,7 +281,7 @@ class SecureClient:
     def end_session(self):
         """End the secure session and clear all sensitive data"""
         if self.session_id:
-            self.logger.info(f"🔒 Ending secure session {self.session_id}")
+            print(f"🔒 Ending secure session {self.session_id}")
             
             # Optionally notify the endpoint that the session is ending
             try:
@@ -299,7 +299,7 @@ class SecureClient:
         self.is_initialized = False
         self.session_start_time = None
         
-        self.logger.info("🔒 Secure session terminated and sensitive data cleared")
+        print("🔒 Secure session terminated and sensitive data cleared")
         self.session_id = None
 
     def __del__(self):

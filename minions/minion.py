@@ -401,8 +401,9 @@ class Minion:
         else:
             supervisor_json = _extract_json(supervisor_response[0])
 
+        print(f"Supervisor message: {supervisor_json['message']}")
         worker_messages.append({"role": "user", "content": supervisor_json["message"]})
-
+        
         if self.mcp_client is not None:
             tool_calls = supervisor_json["mcp_tool_calls"]
         else:
@@ -553,12 +554,7 @@ class Minion:
                 )
             else:
                 # First step: Think through the synthesis
-                if self.is_multi_turn:
-                    cot_prompt = REMOTE_SYNTHESIS_COT.format(
-                        response=worker_response[0]
-                    )
-                else:
-                    cot_prompt = REMOTE_SYNTHESIS_COT.format(
+                cot_prompt = REMOTE_SYNTHESIS_COT.format(
                         response=worker_response[0]
                     )
 
@@ -574,6 +570,7 @@ class Minion:
                 step_by_step_response, usage = self.remote_client.chat(
                     supervisor_messages
                 )
+                print(f"supervisor response: {step_by_step_response}")
                 current_time = time.time()
                 timing["remote_call_time"] += current_time - remote_start_time
 

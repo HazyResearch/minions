@@ -1,0 +1,1 @@
+"""Client integration tests for minions"""

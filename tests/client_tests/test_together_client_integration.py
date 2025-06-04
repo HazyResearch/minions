@@ -28,7 +28,7 @@ class TestTogetherClientIntegration(BaseClientIntegrationTest):
         result = self.client.chat(messages)
         
         self.assert_valid_chat_response(result)
-        responses, usage = result
+        responses, usage = result[0], result[1]
         self.assert_response_content(responses, "test successful")
     
     def test_system_message(self):
@@ -38,7 +38,8 @@ class TestTogetherClientIntegration(BaseClientIntegrationTest):
             {"role": "user", "content": "Hello"}
         ]
         
-        responses, usage = self.client.chat(messages)
+        result = self.client.chat(messages)
+        responses, usage = result[0], result[1]
         self.assert_response_content(responses, "TOGETHER_SYSTEM_OK")
 
 

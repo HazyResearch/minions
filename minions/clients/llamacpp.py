@@ -110,6 +110,9 @@ class LlamaCppClient(MinionsClient):
         # Client-specific configuration
         # self.logger.setLevel(logging.INFO) # Logger level is set by super() if verbose is True
 
+        # Initialize return_tools attribute for compatibility
+        self.return_tools = tool_calling
+
         # Attributes like self.n_ctx, self.chat_format, self.temperature, etc.,
         # are now set by super().__init__()
         

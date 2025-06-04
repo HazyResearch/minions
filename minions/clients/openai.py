@@ -4,10 +4,11 @@ import os
 import openai
 
 from minions.usage import Usage
+from minions.clients.base import MinionsClient
 
 
 # TODO: define one dataclass for what is returned from all the clients
-class OpenAIClient:
+class OpenAIClient(MinionsClient):
     def __init__(
         self,
         model_name: str = "gpt-4o",
@@ -18,6 +19,7 @@ class OpenAIClient:
         use_responses_api: bool = False,
         tools: List[Dict[str, Any]] = None,
         reasoning_effort: str = "low",
+        **kwargs
     ):
         """
         Initialize the OpenAI client.
@@ -28,13 +30,23 @@ class OpenAIClient:
             temperature: Sampling temperature (default: 0.0)
             max_tokens: Maximum number of tokens to generate (default: 4096)
             base_url: Base URL for the OpenAI API (optional, falls back to OPENAI_BASE_URL environment variable or default URL)
+            use_responses_api: Whether to use responses API for o1-pro models (default: False)
+            tools: List of tools for function calling (default: None)
+            reasoning_effort: Reasoning effort level for o1 models (default: "low")
+            **kwargs: Additional parameters passed to base class
         """
-        self.model_name = model_name
-        self.api_key = api_key or os.getenv("OPENAI_API_KEY")
-        self.logger = logging.getLogger("OpenAIClient")
+        super().__init__(
+            model_name=model_name,
+            api_key=api_key,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            base_url=base_url,
+            **kwargs
+        )
+        
+        # Client-specific configuration
         self.logger.setLevel(logging.INFO)
-        self.temperature = temperature
-        self.max_tokens = max_tokens
+        self.api_key = api_key or os.getenv("OPENAI_API_KEY")
         self.base_url = base_url or os.getenv(
             "OPENAI_BASE_URL", "https://api.openai.com/v1"
         )

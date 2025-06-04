@@ -20,6 +20,7 @@ class OpenRouterClient(OpenAIClient):
         temperature: float = 0.0,
         max_tokens: int = 4096,
         base_url: Optional[str] = None,
+        **kwargs
     ):
         """Initialize the OpenRouter client.
 
@@ -29,6 +30,7 @@ class OpenRouterClient(OpenAIClient):
             temperature: Temperature parameter for generation.
             max_tokens: Maximum number of tokens to generate.
             base_url: Base URL for the OpenRouter API. If not provided, will look for OPENROUTER_BASE_URL env var or use default.
+            **kwargs: Additional parameters passed to base class
         """
         # Get API key from environment if not provided
         if api_key is None:
@@ -41,13 +43,15 @@ class OpenRouterClient(OpenAIClient):
         # Get base URL from parameter, environment variable, or use default
         base_url = base_url or os.environ.get("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
 
-        # Initialize the OpenAI client with the OpenRouter base URL
-        self.client = OpenAI(api_key=api_key, base_url=base_url)
-        self.model_name = model_name
-        self.temperature = temperature
-        self.max_tokens = max_tokens
-        self.logger = logging.getLogger("OpenRouterClient")
-        self.logger.setLevel(logging.INFO)
+        # Call parent constructor
+        super().__init__(
+            model_name=model_name,
+            api_key=api_key,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            base_url=base_url,
+            **kwargs
+        )
 
     def chat(self, messages: List[Dict[str, Any]], **kwargs) -> Tuple[List[str], Usage]:
         """

@@ -1,11 +1,12 @@
 from typing import Any, Dict, List, Optional, Tuple
 from minions.usage import Usage
+from minions.clients.base import MinionsClient
 import logging
 import os
 import openai
 
 
-class SambanovaClient:
+class SambanovaClient(MinionsClient):
     def __init__(
         self,
         model_name: str = "Meta-Llama-3.1-8B-Instruct",
@@ -13,6 +14,7 @@ class SambanovaClient:
         temperature: float = 0.0,
         max_tokens: int = 4096,
         base_url: str = "https://api.sambanova.ai/v1",
+        **kwargs
     ):
         """
         Initialize the SambaNova client.
@@ -23,13 +25,19 @@ class SambanovaClient:
             temperature: Sampling temperature (default: 0.0)
             max_tokens: Maximum number of tokens to generate (default: 4096)
             base_url: SambaNova API base URL (default: "https://api.sambanova.ai/v1")
+            **kwargs: Additional parameters passed to base class
         """
-        self.model_name = model_name
+        super().__init__(
+            model_name=model_name,
+            api_key=api_key,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            base_url=base_url,
+            **kwargs
+        )
+        
+        # Client-specific configuration
         self.api_key = api_key or os.getenv("SAMBANOVA_API_KEY")
-        self.logger = logging.getLogger("SambanovaClient")
-        self.logger.setLevel(logging.INFO)
-        self.temperature = temperature
-        self.max_tokens = max_tokens
         self.base_url = base_url
 
     def chat(self, messages: List[Dict[str, Any]], **kwargs) -> Tuple[List[str], Usage]:

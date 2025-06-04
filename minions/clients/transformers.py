@@ -32,9 +32,10 @@ except ImportError:
     )
 
 from minions.usage import Usage
+from minions.clients.base import MinionsClient
 
 
-class TransformersClient:
+class TransformersClient(MinionsClient):
     def __init__(
         self,
         model_name: str = "mistralai/Mistral-7B-v0.1",
@@ -46,6 +47,7 @@ class TransformersClient:
         tool_calling: bool = False,
         embedding_model: Optional[str] = None,
         enable_thinking: bool = False,  # for qwen models
+        **kwargs
     ):
         """
         Initialize the Transformers client for local HuggingFace models.
@@ -60,12 +62,17 @@ class TransformersClient:
             hf_token: Optional Hugging Face token for accessing gated models
             tool_calling: Whether to support tool calling (default: False)
             embedding_model: Optional separate model for embeddings (default: None, uses main model)
+            enable_thinking: Whether to enable thinking mode for qwen models (default: False)
+            **kwargs: Additional parameters passed to base class
         """
-        self.model_name = model_name
-        self.logger = logging.getLogger("TransformersClient")
-        self.logger.setLevel(logging.INFO)
-        self.temperature = temperature
-        self.max_tokens = max_tokens
+        super().__init__(
+            model_name=model_name,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            **kwargs
+        )
+        
+        # Client-specific configuration
         self.top_p = top_p
         self.do_sample = do_sample
         self.hf_token = hf_token or os.environ.get("HF_TOKEN")

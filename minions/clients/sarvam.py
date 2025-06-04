@@ -4,9 +4,10 @@ import os
 import requests
 
 from minions.usage import Usage
+from minions.clients.base import MinionsClient
 
 
-class SarvamClient:
+class SarvamClient(MinionsClient):
     def __init__(
         self,
         model_name: str = "sarvam-m",
@@ -16,6 +17,7 @@ class SarvamClient:
         top_p: float = 1.0,
         n: int = 1,
         base_url: Optional[str] = None,
+        **kwargs
     ):
         """
         Initialize the Sarvam AI client.
@@ -28,13 +30,19 @@ class SarvamClient:
             top_p: Top-p sampling parameter (default: 1.0)
             n: Number of completions to generate (default: 1)
             base_url: Base URL for the Sarvam API (optional, falls back to SARVAM_BASE_URL environment variable or default URL)
+            **kwargs: Additional parameters passed to base class
         """
-        self.model_name = model_name
+        super().__init__(
+            model_name=model_name,
+            api_key=api_key,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            base_url=base_url,
+            **kwargs
+        )
+        
+        # Client-specific configuration
         self.api_key = api_key or os.getenv("SARVAM_API_KEY")
-        self.logger = logging.getLogger("SarvamClient")
-        self.logger.setLevel(logging.INFO)
-        self.temperature = temperature
-        self.max_tokens = max_tokens
         self.top_p = top_p
         self.n = n
         self.base_url = base_url or os.getenv(

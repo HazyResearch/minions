@@ -4,9 +4,10 @@ from pydantic import BaseModel
 from typing import Any, Dict, List, Optional, Union, Tuple
 
 from minions.usage import Usage
+from minions.clients.base import MinionsClient
 
 
-class OllamaClient:
+class OllamaClient(MinionsClient):
     def __init__(
         self,
         model_name: str = "llama-3.2",
@@ -17,14 +18,29 @@ class OllamaClient:
         use_async: bool = False,
         tool_calling: bool = False,
         thinking: bool = False,
+        **kwargs
     ):
-        """Initialize Ollama Client."""
-        self.model_name = model_name
-        self.logger = logging.getLogger("OllamaClient")
-        self.logger.setLevel(logging.INFO)
-
-        self.temperature = temperature
-        self.max_tokens = max_tokens
+        """Initialize Ollama Client.
+        
+        Args:
+            model_name: The Ollama model to use (default: "llama-3.2")
+            temperature: Sampling temperature (default: 0.0)
+            max_tokens: Maximum number of tokens to generate (default: 2048)
+            num_ctx: Context window size (default: 48000)
+            structured_output_schema: Optional Pydantic model for structured output
+            use_async: Whether to use async API calls (default: False)
+            tool_calling: Whether to support tool calling (default: False)
+            thinking: Whether to enable thinking mode (default: False)
+            **kwargs: Additional parameters passed to base class
+        """
+        super().__init__(
+            model_name=model_name,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            **kwargs
+        )
+        
+        # Client-specific configuration
         self.num_ctx = num_ctx
 
         if self.model_name == "granite3.2-vision":

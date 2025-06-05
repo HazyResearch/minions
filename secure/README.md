@@ -70,7 +70,7 @@ pip install -e ".[secure]"
 Connect to the hosted server:
 
 ```bash
-python secure/minions_chat.py --supervisor_url "http://20.57.33.122:5056"
+python secure/minions_chat.py --supervisor_url "https://minions-tee.eastus2.cloudapp.azure.com:443"
 ```
 
 ### 4. Launch the Streamlit Chat App (Web UI)
@@ -81,7 +81,7 @@ Run the visual chat interface via Streamlit:
 streamlit run minions_secure_chat.py
 ```
 
-> **Note**: In the app, configure the **Supervisor URL** as `http://20.57.33.122:5056` in the sidebar before submitting messages.
+> **Note**: In the app, configure the **Supervisor URL** as `https://minions-tee.eastus2.cloudapp.azure.com:443` in the sidebar before submitting messages.
 
 ## Method 2: Setup Your Own Secure Minions Chat Server
 
@@ -144,18 +144,70 @@ See [NVIDIA GPU Attestation Tool](https://github.com/NVIDIA/nvtrust/tree/main/gu
 
 #### 7. Open Firewall Port for Server Access
 
-In the Azure portal, go to **Networking** for your VM and add an inbound rule to allow **TCP port 5056**.
+In the Azure portal, go to **Networking** for your VM and add two  inbound rules to allow: (1) **TCP port 443** and (2) **TCP port 80**.
 
-#### 8. Set HuggingFace Token
+#### 8. Configure a DNS name for your server 
+
+In the Azure portal, for your VM, under **Overview** -> **Essentials**, select DNS Name. A new page will open which will enable you to assign a DNS name label (see field "DNS name label (optional)"). This will give you a DNS address of the following form: `<dns_name>.<region>.cloudapp.azure.com`
+
+
+#### 9. Generate PEM Keys for secure communication
+
+On the VM, complete the following steps: 
+1. Download Certbot
+```
+sudo apt update
+sudo apt install -y nginx snapd
+sudo snap install core; sudo snap refresh core
+sudo snap install --classic certbot
+sudo ln -s /snap/bin/certbot /usr/bin/certbot 
+```
+
+2. Generate PEM keys
+`sudo certbot --nginx -d <DNS ADDRESS>`
+
+This will generate a certificate an a key at the following locations
+```
+Certificate: /etc/letsencrypt/live/<DNS ADDRESS>/fullchain.pem
+Key: /etc/letsencrypt/live/<DNS ADDRESS>/privkey.pem
+```
+
+#### 10. Add proper endpoint routing in the NGINX server
+1. Open `/etc/nginx/sites-available/default`
+2. Then add the following snippet (make the necessary modifications to the DNS Address). This will make sure that nginx forwards traffic to our flask server using https.
+```
+server {
+
+       
+    index index.html index.htm index.nginx-debian.html;
+    server_name <DNS ADDRESS>; # managed by Certbot
+
+    listen 443 ssl http2; # managed by Certbot
+    ssl_certificate /etc/letsencrypt/live/<DNS ADDRESS>/fullchain.pem; 
+    ssl_certificate_key /etc/letsencrypt/live/<DNS ADDRESS>/privkey.pem; # managed by Certbot
+    include /etc/letsencrypt/options-ssl-nginx.conf; # managed by Certbot
+    ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem; # managed by Certbot
+
+    location / {
+        proxy_pass         https://127.0.0.1:5056;
+        proxy_set_header   Host $host;
+        proxy_set_header   X-Real-IP $remote_addr;
+        proxy_set_header   X-Forwarded-For $proxy_add_x_forwarded_for;
+    }
+}
+```
+
+#### 11. Set HuggingFace Token
 
 ```bash
 export HF_TOKEN=<YOUR_HUGGINGFACE_TOKEN>
 ```
 
-#### 9. Launch Secure Inference Server
+
+#### 12. Launch Secure Inference Server
 
 ```bash
-python secure/remote/worker_server.py --sglang-model "google/gemma-3-4b-it"
+python secure/remote/worker_server.py --sglang-model "google/gemma-3-4b-it" --ssl-cert <path to certificate> --ssl-key <path to key>
 ```
 
 ### Part 2: Set up the Local Chat Client

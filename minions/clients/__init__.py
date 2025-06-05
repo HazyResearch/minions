@@ -121,3 +121,13 @@ except ImportError:
         "Warning: Secure crypto utilities are not available. SecureClient will not be available. "
         "Please ensure the secure module is properly installed."
     )
+
+try:
+    from minions.clients.cerebras import CerebrasClient
+    __all__.append("CerebrasClient")
+except ImportError:
+    # print warning that cerebras-cloud-sdk is not installed
+    print(
+        "Warning: cerebras-cloud-sdk is not installed. If you want to use CerebrasClient, "
+        "please install it with `pip install cerebras-cloud-sdk`."
+    )

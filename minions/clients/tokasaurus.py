@@ -37,7 +37,7 @@ class TokasaurusClient(ServerMixin):
 
         if port is None:
             self.port = self.find_free_port()
-            launch_command = f"""tksrs \
+            launch_command = f"""toka \
             port={self.port} \
             model={model_name} \
             torch_compile=T \

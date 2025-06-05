@@ -38,7 +38,7 @@ logger.addHandler(handler)
 class SecureMinionChat:
     def __init__(self, supervisor_url: str, system_prompt: str = None):
         self.logger = logger
-        self.supervisor_url = supervisor_url
+        self.supervisor_url = self._validate_supervisor_url(supervisor_url)
         self.system_prompt = system_prompt or "You are a helpful AI assistant."
         self.conversation_history = []
         self.shared_key = None
@@ -52,6 +52,25 @@ class SecureMinionChat:
         self.logger.info(
             "🔒 Secure Minion Chat initialized with end-to-end encryption and attestation verification"
         )
+
+    def _validate_supervisor_url(self, supervisor_url: str) -> str:
+        """Validate that the supervisor URL uses HTTPS protocol for security"""
+        if not supervisor_url:
+            raise ValueError("Supervisor URL cannot be empty")
+        
+        parsed_url = urlparse(supervisor_url)
+        
+        if parsed_url.scheme != 'https':
+            raise ValueError(
+                f"Supervisor URL must use HTTPS protocol for secure communication. "
+                f"Got: {parsed_url.scheme}://{parsed_url.netloc}"
+            )
+        
+        if not parsed_url.netloc:
+            raise ValueError("Invalid supervisor URL format")
+        
+        self.logger.info(f"✅ SECURITY: Validated HTTPS supervisor URL: {supervisor_url}")
+        return supervisor_url
 
     def initialize_secure_session(self):
         """Set up the secure communication channel with attestation and key exchange"""

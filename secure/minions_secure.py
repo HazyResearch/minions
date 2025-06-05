@@ -8,6 +8,7 @@ import os
 import mimetypes
 from typing import List, Dict, Any, Optional, Callable
 from datetime import datetime
+from urllib.parse import urlparse
 import re
 
 from secure.utils.crypto_utils import (
@@ -97,7 +98,7 @@ class SecureMinionProtocol:
             system_prompt: Optional system prompt for the worker
         """
         self.logger = logger
-        self.supervisor_url = supervisor_url
+        self.supervisor_url = self._validate_supervisor_url(supervisor_url)
         self.local_client = local_client
         self.max_rounds = max_rounds
         self.callback = callback
@@ -119,6 +120,25 @@ class SecureMinionProtocol:
         self.logger.info(
             "🔒 Secure Minion Protocol initialized with end-to-end encryption and attestation verification"
         )
+
+    def _validate_supervisor_url(self, supervisor_url: str) -> str:
+        """Validate that the supervisor URL uses HTTPS protocol for security"""
+        if not supervisor_url:
+            raise ValueError("Supervisor URL cannot be empty")
+        
+        parsed_url = urlparse(supervisor_url)
+        
+        if parsed_url.scheme != 'https':
+            raise ValueError(
+                f"Supervisor URL must use HTTPS protocol for secure communication. "
+                f"Got: {parsed_url.scheme}://{parsed_url.netloc}"
+            )
+        
+        if not parsed_url.netloc:
+            raise ValueError("Invalid supervisor URL format")
+        
+        self.logger.info(f"✅ SECURITY: Validated HTTPS supervisor URL: {supervisor_url}")
+        return supervisor_url
 
     def initialize_secure_session(self):
         """Set up the secure communication channel with attestation and key exchange"""

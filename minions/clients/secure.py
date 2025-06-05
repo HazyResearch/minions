@@ -8,6 +8,8 @@ import os
 from typing import List, Dict, Any, Optional, Tuple
 
 from minions.usage import Usage
+from urllib.parse import urlparse
+
 
 # Import crypto utilities from secure module
 try:
@@ -55,7 +57,7 @@ class SecureClient:
                 "Please ensure the secure module is properly installed."
             )
 
-        self.endpoint_url = endpoint_url
+        self.endpoint_url = self._validate_endpoint_url(endpoint_url)
         self.model_name = model_name
         self.temperature = temperature
         self.max_tokens = max_tokens
@@ -78,6 +80,26 @@ class SecureClient:
         self.session_start_time = None
 
         print("🔒 SecureClient initialized for encrypted communication")
+
+
+    def _validate_endpoint_url(self, supervisor_url: str) -> str:
+        """Validate that the supervisor URL uses HTTPS protocol for security"""
+        if not supervisor_url:
+            raise ValueError("Supervisor URL cannot be empty")
+        
+        parsed_url = urlparse(supervisor_url)
+        
+        if parsed_url.scheme != 'https':
+            raise ValueError(
+                f"Supervisor URL must use HTTPS protocol for secure communication. "
+                f"Got: {parsed_url.scheme}://{parsed_url.netloc}"
+            )
+        
+        if not parsed_url.netloc:
+            raise ValueError("Invalid supervisor URL format")
+        
+        print(f"✅ SECURITY: Validated HTTPS supervisor URL: {supervisor_url}")
+        return supervisor_url
 
     def estimate_tokens(self, messages: List[Dict[str, Any]], response_text: str = "") -> Tuple[int, int]:
         """
@@ -125,6 +147,7 @@ class SecureClient:
             try:
                 attestation_response = requests.get(
                     f"{self.endpoint_url}/attestation", 
+                    #verify="/Users/avanikanarayan/Downloads/cert.pem",
                     timeout=self.timeout
                 )
                 attestation_response.raise_for_status()
@@ -195,6 +218,7 @@ class SecureClient:
             response = requests.post(
                 f"{self.endpoint_url}/message",
                 json=request_data,
+                #verify="/Users/avanikanarayan/Downloads/cert.pem",
                 timeout=self.timeout,
             )
             #response.raise_for_status()

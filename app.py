@@ -1184,17 +1184,26 @@ def validate_sarvam_key(api_key):
 
 
 def validate_secure_endpoint(endpoint_url):
-    """Validate secure endpoint by checking if it's reachable and has the required endpoints."""
+    """Validate secure endpoint by checking if it uses HTTPS and is reachable."""
     try:
         import requests
+        from urllib.parse import urlparse
         
         if not endpoint_url:
             return False, "Endpoint URL is required"
         
+        # Validate HTTPS protocol
+        parsed_url = urlparse(endpoint_url)
+        if parsed_url.scheme != 'https':
+            return False, f"Secure endpoint must use HTTPS protocol. Got: {parsed_url.scheme}://{parsed_url.netloc}"
+        
+        if not parsed_url.netloc:
+            return False, "Invalid endpoint URL format"
+        
         # Check if the endpoint is reachable
         response = requests.get(f"{endpoint_url}/health", timeout=10)
         if response.status_code == 200:
-            return True, "Secure endpoint is reachable"
+            return True, "Secure endpoint is reachable and uses HTTPS"
         else:
             return False, f"Endpoint returned status code {response.status_code}"
     except requests.exceptions.ConnectionError:
@@ -1264,7 +1273,7 @@ with st.sidebar:
             is_valid, msg = validate_secure_endpoint(secure_endpoint_url)
             provider_key = secure_endpoint_url  # Use endpoint URL as the "key"
         else:
-            st.error("**✗ Missing secure endpoint URL.** Use http://20.57.33.122:5056 if you don't have a custom endpoint.")
+            st.error("**✗ Missing secure endpoint URL.** Use https://minions-tee.eastus2.cloudapp.azure.com:443 if you don't have a custom endpoint.")
             provider_key = None
     elif api_key:
         if selected_provider == "OpenAI":
@@ -1426,8 +1435,8 @@ with st.sidebar:
             "Secure Endpoint URL",
             value=st.session_state.get("secure_endpoint_url", "") or os.getenv("SECURE_ENDPOINT_URL", ""),
             key="secure_endpoint_url",
-            help="URL of the secure endpoint (e.g., http://20.57.33.122:5056)",
-            placeholder="http://20.57.33.122:5056"
+            help="URL of the secure endpoint (e.g., https://minions-tee.eastus2.cloudapp.azure.com:443)",
+            placeholder="https://minions-tee.eastus2.cloudapp.azure.com:443"
         )
         
         # Attestation verification toggle

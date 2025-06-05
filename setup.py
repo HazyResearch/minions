@@ -30,7 +30,8 @@ setup(
         "orjson",
         "twilio",
         "pyjwt",  # for JWT utilities
-        "torch",  
+        "torch",
+        "cerebras-cloud-sdk",  # for Cerebras client
     ],
     extras_require={
         "mlx": ["mlx-lm"],

@@ -802,7 +802,8 @@ class A2AMinionsServer:
         try:
             get_params = GetTaskParams(**params)
         except ValidationError as e:
-            raise ValidationError(f"Invalid get parameters: {e}")
+            # Re-raise the pydantic ValidationError directly
+            raise e
         
         task = await self.task_manager.get_task(get_params.id, user)
         
@@ -829,7 +830,8 @@ class A2AMinionsServer:
         try:
             cancel_params = CancelTaskParams(**params)
         except ValidationError as e:
-            raise ValidationError(f"Invalid cancel parameters: {e}")
+            # Re-raise the pydantic ValidationError directly
+            raise e
         
         task = await self.task_manager.get_task(cancel_params.id, user)
         

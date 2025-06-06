@@ -44,10 +44,9 @@ class TokasaurusClient(MinionsClient, ServerMixin):
 
         if port is None:
             self.port = self.find_free_port()
-            launch_command = f"""tksrs \
+            launch_command = f"""toka \
             port={self.port} \
             model={model_name} \
-            torch_compile=T \
             """
             self.launch_server(launch_command, self.port, capture_output=capture_output)
         else:

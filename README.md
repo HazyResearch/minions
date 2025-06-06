@@ -82,7 +82,7 @@ We support two servers for running local models: `ollama` and `tokasaurus`. You 
 - You should use `tokasaurus` if you have access to NVIDIA GPUs and you are running the Minions protocol, which benefits from the high-throughput of `tokasaurus`. Install `tokasaurus` with the following command:
 
 ```
-uv pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ tokasaurus==0.0.1.post1
+pip install tokasaurus
 ```
 
 <details>

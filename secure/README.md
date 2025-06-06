@@ -187,6 +187,8 @@ server {
     ssl_certificate_key /etc/letsencrypt/live/<DNS ADDRESS>/privkey.pem; # managed by Certbot
     include /etc/letsencrypt/options-ssl-nginx.conf; # managed by Certbot
     ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem; # managed by Certbot
+    add_header Strict-Transport-Security "max-age=63072000; includeSubDomains" always;
+
 
     location / {
         proxy_pass         https://127.0.0.1:5056;
@@ -196,6 +198,8 @@ server {
     }
 }
 ```
+
+Additionally, in the Azure portal, go to **Networking** for your VM and add remove the inbound role for port 80. We want to make sure to enforce TLS‐only traffic.
 
 #### 11. Set HuggingFace Token
 

@@ -8,13 +8,14 @@ import logging
 import uuid
 import signal
 import sys
-from datetime import datetime
-from typing import Dict, Any, Optional, List
+from datetime import datetime, timedelta
+from typing import Dict, Any, Optional, List, Union
 from fastapi import FastAPI, HTTPException, Request, BackgroundTasks, Depends, Form
 from fastapi.responses import JSONResponse, StreamingResponse
 from sse_starlette.sse import EventSourceResponse
 from pydantic import ValidationError
 import uvicorn
+from collections import OrderedDict
 
 from .config import ConfigManager, MinionsConfig
 from .agent_cards import get_default_agent_card, get_extended_agent_card
@@ -47,34 +48,97 @@ class TaskState:
 class TaskManager:
     """Manages A2A tasks and their execution."""
     
-    def __init__(self):
-        self.tasks: Dict[str, Dict[str, Any]] = {}
+    def __init__(self, max_tasks: int = 1000, retention_time: timedelta = timedelta(hours=24)):
+        self.tasks: OrderedDict[str, Dict[str, Any]] = OrderedDict()  # Use OrderedDict for LRU
         self.task_streams: Dict[str, asyncio.Queue] = {}
-        self.active_tasks: Dict[str, asyncio.Task] = {}  # Track active asyncio tasks
+        self.active_tasks: Dict[str, asyncio.Task] = {}
         self.converter = A2AConverter()
         self.config_manager = ConfigManager()
+        self.max_tasks = max_tasks
+        self.retention_time = retention_time
+        self._cleanup_task = None
         self._shutdown_event = asyncio.Event()
+        self._start_cleanup_task()
+    
+    def _start_cleanup_task(self):
+        """Start background task for periodic cleanup."""
+        async def cleanup_loop():
+            while True:
+                try:
+                    await asyncio.sleep(300)  # Check every 5 minutes
+                    await self._cleanup_old_tasks()
+                except asyncio.CancelledError:
+                    break
+                except Exception as e:
+                    logger.error(f"Error in cleanup task: {e}")
+        
+        self._cleanup_task = asyncio.create_task(cleanup_loop())
+    
+    async def _cleanup_old_tasks(self):
+        """Remove old completed tasks based on retention policy."""
+        now = datetime.now()
+        tasks_to_remove = []
+        
+        for task_id, task in self.tasks.items():
+            # Skip active tasks
+            if task_id in self.active_tasks:
+                continue
+                
+            # Check if task is old enough
+            created_at = datetime.fromisoformat(task["created_at"])
+            if now - created_at > self.retention_time:
+                tasks_to_remove.append(task_id)
+            
+            # Also check task completion time
+            status = task.get("status", {})
+            if status.get("state") in [TaskState.COMPLETED, TaskState.FAILED, TaskState.CANCELED]:
+                timestamp = status.get("timestamp")
+                if timestamp:
+                    completed_at = datetime.fromisoformat(timestamp)
+                    if now - completed_at > timedelta(hours=1):  # Keep completed tasks for 1 hour
+                        tasks_to_remove.append(task_id)
+        
+        # Remove old tasks
+        for task_id in tasks_to_remove:
+            logger.info(f"Removing old task: {task_id}")
+            del self.tasks[task_id]
+    
+    def _enforce_task_limit(self):
+        """Enforce maximum task limit using LRU eviction."""
+        while len(self.tasks) > self.max_tasks:
+            # Remove oldest task that is not active
+            for task_id in list(self.tasks.keys()):
+                if task_id not in self.active_tasks:
+                    logger.info(f"Evicting task due to limit: {task_id}")
+                    del self.tasks[task_id]
+                    break
     
     async def create_task(self, task_id: str, message: A2AMessage, metadata: Optional[TaskMetadata] = None, 
                          user: Optional[str] = None) -> Task:
         """Create a new task."""
         
-        task_status = TaskStatus(state=TaskState.SUBMITTED)
+        # Check task limit before creating
+        self._enforce_task_limit()
         
         task = Task(
             id=task_id,
-            sessionId=str(uuid.uuid4()),
-            status=task_status,
-            history=[message.dict()],
+            message=message,
             metadata=metadata.dict() if metadata else {},
-            artifacts=[]
+            status={
+                "state": TaskState.SUBMITTED,
+                "timestamp": datetime.now().isoformat()
+            },
+            artifacts=[],
+            created_at=datetime.now().isoformat(),
+            created_by=user
         )
         
-        # Add user info to metadata if available
+        # Store task metadata including user ownership
         if user:
             task.metadata["created_by"] = user
         
         self.tasks[task_id] = task.dict()
+        
         return task
     
     async def execute_task(self, task_id: str) -> None:
@@ -113,19 +177,47 @@ class TaskManager:
             skill_id = metadata.skill_id
             logger.info(f"Executing skill: {skill_id} for task: {task_id} with timeout: {timeout}s")
             
-            # Set up streaming callback
+            # Define streaming callback for real-time updates
             def streaming_callback(role: str, message: Any, is_final: bool = True):
-                if task_id in self.task_streams:
-                    event = self.converter.create_streaming_event(role, message, is_final)
-                    # Store event in a thread-safe way for async processing
-                    try:
-                        # Use asyncio's thread-safe method to put item in queue
-                        loop = asyncio.get_event_loop()
-                        loop.call_soon_threadsafe(
-                            lambda: asyncio.create_task(self.task_streams[task_id].put(event))
-                        )
-                    except Exception as e:
-                        logger.warning(f"Failed to enqueue streaming event: {e}")
+                """Callback to send streaming updates."""
+                if task_id not in self.task_streams:
+                    return
+                
+                # Format the message properly
+                if isinstance(message, str):
+                    text = message
+                else:
+                    text = str(message)
+                
+                # Create streaming event
+                event = {
+                    "kind": "message",
+                    "parts": [{
+                        "kind": "text",
+                        "text": text
+                    }],
+                    "metadata": {
+                        "original_role": role,
+                        "timestamp": datetime.now().isoformat()
+                    },
+                    "final": is_final
+                }
+                
+                # Thread-safe queue update using run_coroutine_threadsafe
+                async def put_event():
+                    queue = self.task_streams.get(task_id)
+                    if queue:
+                        await queue.put(event)
+                
+                # Get the running event loop
+                try:
+                    loop = asyncio.get_running_loop()
+                except RuntimeError:
+                    # If no loop is running, try to get the main loop
+                    loop = asyncio.get_event_loop()
+                
+                # Schedule the coroutine in a thread-safe manner
+                asyncio.run_coroutine_threadsafe(put_event(), loop)
             
             # Execute the appropriate skill with timeout
             result = await asyncio.wait_for(
@@ -325,6 +417,14 @@ class TaskManager:
     async def shutdown(self):
         """Gracefully shutdown task manager."""
         logger.info("Shutting down task manager...")
+        
+        # Cancel cleanup task
+        if self._cleanup_task:
+            self._cleanup_task.cancel()
+            try:
+                await self._cleanup_task
+            except asyncio.CancelledError:
+                pass
         
         # Cancel all active tasks
         for task_id, task in list(self.active_tasks.items()):

@@ -4,9 +4,10 @@ import os
 import anthropic
 
 from minions.usage import Usage
+from minions.clients.base import MinionsClient
 
 
-class AnthropicClient:
+class AnthropicClient(MinionsClient):
     def __init__(
         self,
         model_name: str = "claude-3-sonnet-20240229",
@@ -17,6 +18,7 @@ class AnthropicClient:
         include_search_queries: bool = False,
         use_caching: bool = False,
         use_code_interpreter: bool = False,
+        **kwargs
     ):
         """
         Initialize the Anthropic client.
@@ -30,13 +32,19 @@ class AnthropicClient:
             include_search_queries: Whether to include search queries in the response (default: False)
             use_caching: Whether to use caching for the client (default: False)
             use_code_interpreter: Whether to use the code interpreter (default: False)
+            **kwargs: Additional parameters passed to base class
         """
-        self.model_name = model_name
-        self.api_key = api_key or os.getenv("ANTHROPIC_API_KEY")
-        self.logger = logging.getLogger("AnthropicClient")
+        super().__init__(
+            model_name=model_name,
+            api_key=api_key,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            **kwargs
+        )
+        
+        # Client-specific configuration
         self.logger.setLevel(logging.INFO)
-        self.temperature = temperature
-        self.max_tokens = max_tokens
+        self.api_key = api_key or os.getenv("ANTHROPIC_API_KEY")
         self.use_web_search = use_web_search
         self.include_search_queries = include_search_queries
         self.use_code_interpreter = use_code_interpreter

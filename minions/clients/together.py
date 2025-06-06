@@ -4,15 +4,17 @@ import os
 from together import Together
 
 from minions.usage import Usage
+from minions.clients.base import MinionsClient
 
 
-class TogetherClient:
+class TogetherClient(MinionsClient):
     def __init__(
         self,
         model_name: str = "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo",
         api_key: Optional[str] = None,
         temperature: float = 0.0,
         max_tokens: int = 2048,
+        **kwargs
     ):
         """
         Initialize the Together client.
@@ -22,13 +24,18 @@ class TogetherClient:
             api_key: Together API key (optional, falls back to environment variable if not provided)
             temperature: Sampling temperature (default: 0.0)
             max_tokens: Maximum number of tokens to generate (default: 2048)
+            **kwargs: Additional parameters passed to base class
         """
-        self.model_name = model_name
+        super().__init__(
+            model_name=model_name,
+            api_key=api_key,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            **kwargs
+        )
+        
+        # Client-specific configuration
         self.api_key = api_key or os.getenv("TOGETHER_API_KEY")
-        self.logger = logging.getLogger("TogetherClient")
-        self.logger.setLevel(logging.INFO)
-        self.temperature = temperature
-        self.max_tokens = max_tokens
         self.client = Together(api_key=self.api_key)
 
     def chat(self, messages: List[Dict[str, Any]], **kwargs) -> Tuple[List[str], Usage, List[str]]:

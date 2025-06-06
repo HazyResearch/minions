@@ -4,10 +4,11 @@ from typing import Any, Dict, List, Optional, Tuple, Iterator
 import cartesia_mlx as cmx
 import mlx.core as mx
 from minions.usage import Usage
+from minions.clients.base import MinionsClient
 from transformers import AutoTokenizer
 
 
-class CartesiaMLXClient:
+class CartesiaMLXClient(MinionsClient):
     def __init__(
         self,
         model_name: str = "cartesia-ai/Llamba-1B-4bit-mlx",
@@ -15,6 +16,7 @@ class CartesiaMLXClient:
         max_tokens: int = 100,
         verbose: bool = False,
         dtype: str = "float32",
+        **kwargs
     ):
         """
         Initialize the Cartesia MLX client.
@@ -25,13 +27,18 @@ class CartesiaMLXClient:
             max_tokens: Maximum number of tokens to generate (default: 1000)
             verbose: Whether to print tokens and timing information (default: False)
             dtype: Data type for model computation (default: "float32")
+            **kwargs: Additional parameters passed to base class
         """
-        self.model_name = model_name
-        self.logger = logging.getLogger("CartesiaMLXClient")
+        super().__init__(
+            model_name=model_name,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            verbose=verbose,
+            **kwargs
+        )
+        
+        # Client-specific configuration
         self.logger.setLevel(logging.INFO)
-        self.temperature = temperature
-        self.max_tokens = max_tokens
-        self.verbose = verbose
         self.dtype = dtype
 
         # Load the model

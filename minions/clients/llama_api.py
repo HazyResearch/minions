@@ -1,11 +1,12 @@
 from typing import Any, Dict, List, Optional, Tuple
 from minions.usage import Usage
+from minions.clients.base import MinionsClient
 import logging
 import os
 import openai
 
 
-class LlamaApiClient:
+class LlamaApiClient(MinionsClient):
     def __init__(
         self,
         model_name: str = "Llama-4-Maverick-17B-128E-Instruct-FP8",
@@ -13,6 +14,7 @@ class LlamaApiClient:
         temperature: float = 0.0,
         max_tokens: int = 4096,
         base_url: str = "https://api.llama.com/compat/v1/",
+        **kwargs
     ):
         """
         Initialize the LlamaAPI client.
@@ -22,14 +24,22 @@ class LlamaApiClient:
             api_key: LlamaAPI API key (optional, falls back to environment variable if not provided)
             temperature: Sampling temperature (default: 0.0)
             max_tokens: Maximum number of tokens to generate (default: 4096)
+            base_url: Base URL for the LlamaAPI (default: "https://api.llama.com/compat/v1/")
+            **kwargs: Additional parameters passed to base class
         """
-        self.model_name = model_name
-        openai.api_key = api_key or os.getenv("LLAMA_API_KEY")
-        self.logger = logging.getLogger("LlamaApiClient")
+        super().__init__(
+            model_name=model_name,
+            api_key=api_key,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            base_url=base_url,
+            **kwargs
+        )
+        
+        # Client-specific configuration
         self.logger.setLevel(logging.INFO)
-        self.temperature = temperature
-        self.max_tokens = max_tokens
-        self.base_url = base_url
+        openai.api_key = api_key or os.getenv("LLAMA_API_KEY")
+        # self.base_url = base_url # Handled by base
 
     def chat(self, messages: List[Dict[str, Any]], **kwargs) -> Tuple[List[str], Usage]:
         """

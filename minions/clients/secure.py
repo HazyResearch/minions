@@ -7,8 +7,10 @@ import base64
 import os
 from typing import List, Dict, Any, Optional, Tuple
 
-from minions.usage import Usage
 from urllib.parse import urlparse
+
+from minions.usage import Usage
+from minions.clients.base import MinionsClient
 
 
 # Import crypto utilities from secure module
@@ -28,7 +30,7 @@ except ImportError:
     logging.warning("Secure crypto utilities not available. SecureClient will not function properly.")
 
 
-class SecureClient:
+class SecureClient(MinionsClient):
     def __init__(
         self,
         endpoint_url: str,
@@ -38,6 +40,7 @@ class SecureClient:
         timeout: int = 30,
         verify_attestation: bool = True,
         session_timeout: int = 3600,  # 1 hour default session timeout
+        **kwargs
     ):
         """
         Initialize the Secure Client for encrypted communication with secure endpoints.
@@ -50,7 +53,16 @@ class SecureClient:
             timeout: Request timeout in seconds (default: 30)
             verify_attestation: Whether to verify endpoint attestation (default: True)
             session_timeout: Session timeout in seconds (default: 3600)
+            **kwargs: Additional parameters passed to base class
         """
+        super().__init__(
+            model_name=model_name,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            **kwargs
+        )
+        
+        # Client-specific configuration
         if not CRYPTO_AVAILABLE:
             raise ImportError(
                 "Secure crypto utilities are required for SecureClient. "

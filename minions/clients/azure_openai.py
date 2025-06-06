@@ -6,9 +6,10 @@ import openai
 from openai import AzureOpenAI
 
 from minions.usage import Usage
+from minions.clients.base import MinionsClient
 
 
-class AzureOpenAIClient:
+class AzureOpenAIClient(MinionsClient):
     def __init__(
         self,
         model_name: str = "gpt-4o",
@@ -17,6 +18,7 @@ class AzureOpenAIClient:
         azure_endpoint: Optional[str] = None,
         temperature: float = 0.0,
         max_tokens: int = 4096,
+        **kwargs
     ):
         """
         Initialize the Azure OpenAI client.
@@ -28,8 +30,18 @@ class AzureOpenAIClient:
             azure_endpoint: Azure OpenAI endpoint URL (optional, falls back to environment variable if not provided)
             temperature: Sampling temperature (default: 0.0)
             max_tokens: Maximum number of tokens to generate (default: 4096)
+            **kwargs: Additional parameters passed to base class
         """
-        self.model_name = model_name
+        super().__init__(
+            model_name=model_name,
+            api_key=api_key,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            **kwargs
+        )
+        
+        # Client-specific configuration
+        self.logger.setLevel(logging.INFO)
         self.api_key = api_key or os.getenv("AZURE_OPENAI_API_KEY")
         self.api_version = api_version or os.getenv("AZURE_OPENAI_API_VERSION", "2024-02-15-preview")
         self.azure_endpoint = azure_endpoint or os.getenv("AZURE_OPENAI_ENDPOINT")
@@ -46,11 +58,6 @@ class AzureOpenAIClient:
             api_version=self.api_version,
             azure_endpoint=self.azure_endpoint,
         )
-        
-        self.logger = logging.getLogger("AzureOpenAIClient")
-        self.logger.setLevel(logging.INFO)
-        self.temperature = temperature
-        self.max_tokens = max_tokens
 
     def chat(self, messages: List[Dict[str, Any]], **kwargs) -> Tuple[List[str], Usage]:
         """

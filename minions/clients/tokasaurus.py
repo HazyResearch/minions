@@ -4,11 +4,12 @@ import os
 from openai import OpenAI
 
 from minions.usage import Usage
+from minions.clients.base import MinionsClient
 from minions.clients.utils import ServerMixin
 
 
 # TODO: define one dataclass for what is returned from all the clients
-class TokasaurusClient(ServerMixin):
+class TokasaurusClient(MinionsClient, ServerMixin):
     def __init__(
         self,
         model_name: str = "meta-llama/Llama-3.2-1B-Instruct",
@@ -17,6 +18,7 @@ class TokasaurusClient(ServerMixin):
         port: Optional[int] = None,
         capture_output: bool = False,
         base_url: Optional[str] = None,
+        **kwargs
     ):
         """
         Initialize the Tokasaurus client.
@@ -28,12 +30,17 @@ class TokasaurusClient(ServerMixin):
             port: Port to use for the server (optional, will find a free port if not provided)
             capture_output: Whether to capture server output (default: False)
             base_url: Base URL for the Tokasaurus API (optional, falls back to TOKASAURUS_BASE_URL environment variable or default URL)
+            **kwargs: Additional parameters passed to base class
         """
-        self.model_name = model_name
-        self.logger = logging.getLogger("OpenAIClient")
-        self.logger.setLevel(logging.INFO)
-        self.temperature = temperature
-        self.max_tokens = max_tokens
+        super().__init__(
+            model_name=model_name,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            base_url=base_url,
+            **kwargs
+        )
+        
+        # Client-specific configuration
 
         if port is None:
             self.port = self.find_free_port()

@@ -3,8 +3,10 @@ import os
 import tempfile
 from typing import Optional, Union, BinaryIO, Literal
 
+from minions.clients.base import MinionsClient
 
-class MLXAudioClient:
+
+class MLXAudioClient(MinionsClient):
     """
     Client for interacting with the mlx-audio library for text-to-speech generation.
 
@@ -21,6 +23,7 @@ class MLXAudioClient:
         speed: float = 1.0,
         lang_code: Optional[str] = "a",
         verbose: bool = False,
+        **kwargs
     ):
         """
         Initialize the MLX Audio client.
@@ -31,14 +34,18 @@ class MLXAudioClient:
             speed: Speech speed multiplier (default: 1.0)
             lang_code: Language code (default: "a" for Kokoro's af_heart voice)
             verbose: Whether to print verbose output (default: False)
+            **kwargs: Additional parameters passed to base class
         """
-        self.model_name = model_name
-        self.voice = voice
-        self.speed = speed
-        self.lang_code = lang_code
-        self.verbose = verbose
-
-        self.logger = logging.getLogger("MLXAudioClient")
+        super().__init__(
+            model_name=model_name,
+            verbose=verbose,
+            voice=voice,
+            speed=speed,
+            lang_code=lang_code,
+            **kwargs
+        )
+        
+        # Client-specific configuration
         self.logger.setLevel(logging.INFO if verbose else logging.WARNING)
 
         # Check if mlx-audio is installed

@@ -11,16 +11,18 @@ import numpy as np
 from huggingface_hub import InferenceClient, AsyncInferenceClient
 
 from minions.usage import Usage
+from minions.clients.base import MinionsClient
 from minions.clients.utils import ServerMixin
 
 
-class HuggingFaceClient:
+class HuggingFaceClient(MinionsClient):
     def __init__(
         self,
         model_name: str = "meta-llama/Llama-3.2-3B-Instruct",
         temperature: float = 0.2,
         max_tokens: int = 2048,
         api_token: Optional[str] = None,
+        **kwargs
     ):
         """
         Initialize the HuggingFace client.
@@ -30,12 +32,17 @@ class HuggingFaceClient:
             temperature: Sampling temperature (default: 0.2)
             max_tokens: Maximum number of tokens to generate (default: 2048)
             api_token: HuggingFace API token (optional, falls back to HF_TOKEN environment variable)
+            **kwargs: Additional parameters passed to base class
         """
-        self.model_name = model_name
-        self.logger = logging.getLogger("HuggingFaceClient")
+        super().__init__(
+            model_name=model_name,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            **kwargs
+        )
+        
+        # Client-specific configuration
         self.logger.setLevel(logging.INFO)
-        self.temperature = temperature
-        self.max_tokens = max_tokens
 
         # Get API token from parameter or environment variable
         self.api_token = api_token or os.getenv("HF_TOKEN")

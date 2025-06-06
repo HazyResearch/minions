@@ -10,15 +10,17 @@ except ImportError:
     )
 
 from minions.usage import Usage
+from minions.clients.base import MinionsClient
 
 
-class MLXParallmClient:
+class MLXParallmClient(MinionsClient):
     def __init__(
         self,
         model_name: str = "mlx-community/Meta-Llama-3-8B-Instruct-4bit",
         temperature: float = 0.0,
         max_tokens: int = 100,
         verbose: bool = False,
+        **kwargs
     ):
         """
         Initialize the MLX PARALLM client.
@@ -28,14 +30,17 @@ class MLXParallmClient:
             temperature: Sampling temperature (default: 0.0)
             max_tokens: Maximum number of tokens to generate (default: 100)
             verbose: Whether to print verbose output (default: False)
+            **kwargs: Additional parameters passed to base class
         """
-        self.model_name = model_name
-        self.temperature = temperature
-        self.max_tokens = max_tokens
-        self.verbose = verbose
-
-        self.logger = logging.getLogger("MLXParallmClient")
-        self.logger.setLevel(logging.INFO)
+        super().__init__(
+            model_name=model_name,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            verbose=verbose,
+            **kwargs
+        )
+        
+        # Client-specific configuration
         self.logger.info(f"Loading MLX PARALLM model: {model_name}")
 
         self.model, self.tokenizer = load(model_name)

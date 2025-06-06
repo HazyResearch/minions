@@ -4,9 +4,10 @@ import os
 from mistralai import Mistral
 
 from minions.usage import Usage
+from minions.clients.base import MinionsClient
 
 
-class MistralClient:
+class MistralClient(MinionsClient):
     def __init__(
         self,
         model_name: str = "mistral-large-latest",
@@ -15,6 +16,7 @@ class MistralClient:
         max_tokens: int = 2048,
         websearch_agent: bool = False,
         websearch_premium: bool = False,
+        **kwargs
     ):
         """
         Initialize the Mistral client.
@@ -24,15 +26,21 @@ class MistralClient:
             api_key: Mistral API key (optional, falls back to environment variable if not provided)
             temperature: Sampling temperature (default: 0.0)
             max_tokens: Maximum number of tokens to generate (default: 2048)
-            enable_websearch: Whether to enable websearch capabilities (default: False)
+            websearch_agent: Whether to enable websearch capabilities (default: False)
             websearch_premium: Whether to use premium websearch with news agencies (default: False)
+            **kwargs: Additional parameters passed to base class
         """
-        self.model_name = model_name
-        self.api_key = api_key or os.getenv("MISTRAL_API_KEY")
-        self.logger = logging.getLogger("MistralClient")
+        super().__init__(
+            model_name=model_name,
+            api_key=api_key,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            **kwargs
+        )
+        
+        # Client-specific configuration
         self.logger.setLevel(logging.INFO)
-        self.temperature = temperature
-        self.max_tokens = max_tokens
+        self.api_key = api_key or os.getenv("MISTRAL_API_KEY")
         self.enable_websearch = websearch_agent
         self.websearch_premium = websearch_premium
         self.client = Mistral(api_key=self.api_key)

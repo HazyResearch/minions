@@ -8,6 +8,8 @@ import base64
 import json
 import tempfile
 import aiofiles
+import os
+import uuid
 from typing import List, Dict, Any, Optional, Tuple, Union
 from pathlib import Path
 from pydantic import BaseModel
@@ -259,9 +261,15 @@ class A2AConverter:
             if "bytes" in file_info and file_info["bytes"]:
                 content_bytes = base64.b64decode(file_info["bytes"])
                 
-                # Create temp file
+                # Sanitize filename to prevent path traversal
                 file_name = file_info.get("name", "temp_file")
-                temp_path = self.temp_dir / file_name
+                # Remove path separators and sanitize
+                safe_name = os.path.basename(file_name)
+                safe_name = "".join(c for c in safe_name if c.isalnum() or c in "._- ")
+                
+                # Generate unique filename to prevent overwrites
+                unique_name = f"{uuid.uuid4()}_{safe_name}"
+                temp_path = self.temp_dir / unique_name
                 
                 async with aiofiles.open(temp_path, "wb") as f:
                     await f.write(content_bytes)

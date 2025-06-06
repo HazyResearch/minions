@@ -31,6 +31,7 @@ dependencies = [
     "sse-starlette>=1.6.0",
     "python-multipart>=0.0.6",
     "aiofiles>=23.0.0",
+    "PyPDF2>=3.0.0",
 ]
 
 [project.optional-dependencies]

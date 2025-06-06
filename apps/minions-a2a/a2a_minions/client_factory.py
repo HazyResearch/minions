@@ -6,12 +6,14 @@ import sys
 import os
 from typing import Any, Dict, Optional, Tuple
 from pathlib import Path
+import logging
 
 # Add the parent directory to Python path to import minions
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
 from .config import MinionsConfig, ProviderType, ProtocolType
 
+logger = logging.getLogger(__name__)
 
 class ClientFactory:
     """Factory for creating Minions protocol clients."""
@@ -64,6 +66,8 @@ class ClientFactory:
 
                 
         except ImportError as e:
+            logger.error(f"Failed to import Minions modules: {e}")
+            logger.error(f"Make sure minions package is installed and in PYTHONPATH")
             raise ImportError(f"Failed to import Minions modules: {e}")
     
     def create_client(self, provider: ProviderType, config: Dict[str, Any]) -> Any:
@@ -77,7 +81,10 @@ class ClientFactory:
         # Create client with configuration
         try:
             return client_class(**config)
+        except TypeError as e:
+            raise TypeError(f"Invalid configuration for {provider} client: {e}")
         except Exception as e:
+            logger.error(f"Failed to create {provider} client: {e}")
             raise RuntimeError(f"Failed to create {provider} client: {e}")
     
     def create_minions_protocol(self, config: MinionsConfig) -> Any:

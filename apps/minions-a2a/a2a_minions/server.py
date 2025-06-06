@@ -102,7 +102,27 @@ class TaskManager:
             config = self.config_manager.parse_a2a_metadata(task.get("metadata"))
             
             # Determine skill to use
-            skill_id = self.converter.extract_skill_id(a2a_message, task.get("metadata"))
+            try:
+                skill_id = self.converter.extract_skill_id(a2a_message, task.get("metadata"))
+            except ValueError as e:
+                # Handle missing skill_id specifically
+                logger.error(f"Task {task_id} failed: {str(e)}")
+                await self.update_task_status(task_id, TaskState.FAILED, str(e))
+                
+                # Send error streaming event for missing skill_id
+                if task_id in self.task_streams:
+                    error_event = {
+                        "kind": "error",
+                        "error": {
+                            "code": -32602,
+                            "message": "Invalid params",
+                            "data": str(e)
+                        },
+                        "final": True
+                    }
+                    await self.task_streams[task_id].put(error_event)
+                return
+            
             logger.info(f"Executing skill: {skill_id} for task: {task_id}")
             
             # Set up streaming callback (sync, stores events for async processing)
@@ -186,13 +206,14 @@ class TaskManager:
         print(f"context length: {len(context)}, items: {len(context) if isinstance(context, list) else 'not a list'}")
         
         # Validate context before proceeding
-        if not context or (isinstance(context, list) and all(not c.strip() for c in context)):
-            logger.warning("No meaningful context provided for task")
-            context = ["No specific context was provided for this task."]
-        else:
+        valid_context = [c for c in context if c and c.strip()]
+        if valid_context:
             # Add a clear header to help the worker understand it has access to this information
             context_header = """IMPORTANT: You have been provided with documents and information below. When asked about papers, research, or specific statistics, you MUST refer to the content provided below. Do NOT say you don't have access - the information is available in the context below:"""
-            context = [context_header] + context
+            context = [context_header] + valid_context
+        else:
+            logger.warning("No meaningful context provided for task")
+            context = ["No specific context was provided for this task."]
         
         # Log context details for debugging
         if isinstance(context, list):

@@ -21,10 +21,9 @@ A comprehensive A2A (Agent-to-Agent) server implementation that provides seamles
 
 A2A-Minions bridges the gap between A2A protocol agents and the Minions framework, providing:
 
-- **Dual Protocol Support**: Automatic protocol selection based on skill requirements
+- **Dual Protocol Support**: Skills for both Minion and Minion*S* protocols
 - **Document Processing**: Full support for text, files (including PDFs), and structured data
 - **Streaming Responses**: Real-time task execution updates
-- **Context-Aware Processing**: Intelligent context formatting for optimal model performance
 - **Cost-Efficient Architecture**: Leverages both local and cloud models strategically
 
 ## Features
@@ -34,18 +33,16 @@ A2A-Minions bridges the gap between A2A protocol agents and the Minions framewor
 - ✅ **Two Processing Modes**:
   - `minion_query`: Focused analysis using single-conversation protocol
   - `minions_query`: Parallel processing for complex multi-document analysis
-- ✅ **Multi-Modal Input Support**: Text, files (PDF, TXT), and JSON data
+- ✅ **Multi-Format Input Support**: Text, files (PDF, TXT), and JSON data
 - ✅ **Streaming Support**: Real-time progress updates via Server-Sent Events
 - ✅ **Flexible Model Configuration**: Support for local (Ollama) and remote (OpenAI, Anthropic, etc.) models
 - ✅ **Robust Error Handling**: Comprehensive validation and error reporting
-- ✅ **Context Optimization**: Intelligent document formatting for better model comprehension
 
 ### Protocol Integration
 
 - **A2A Compliance**: Full compliance with A2A protocol specifications
 - **Agent Cards**: Dynamic skill discovery and capability advertisement
 - **JSON-RPC 2.0**: Standard messaging protocol implementation
-- **Task Management**: Complete lifecycle management for long-running tasks
 
 ## Architecture
 
@@ -72,82 +69,135 @@ A2A-Minions bridges the gap between A2A protocol agents and the Minions framewor
 ### Prerequisites
 
 - Python 3.8+
-- Access to at least one supported model provider (Ollama, OpenAI, etc.)
+- Access to at least one supported frontier and model provider (Ollama, OpenAI, etc.)
 
-### Basic Installation
+## Installation Guide
+
+Follow these steps to install and run the Minions A2A server. Instructions are provided for both Windows and Linux/macOS.
+
+### 1. Clone the Repository
+
+First, clone the main Minions repository:
 
 ```bash
-# Clone the repository
 git clone <repository-url>
-cd minions/apps/minions-a2a
+cd minions
+```
 
+### 2. Create and Activate Virtual Environment
+
+#### Windows (PowerShell)
+```powershell
 # Create virtual environment
-python -m venv a2a-venv
-source a2a-venv/bin/activate  # On Windows: a2a-venv\Scripts\activate
+python -m venv venv
 
-# Install dependencies
+# Activate virtual environment
+.\venv\Scripts\activate
+```
+
+#### Linux/macOS
+```bash
+# Create virtual environment
+python -m venv venv
+
+# Activate virtual environment
+source venv/bin/activate
+```
+
+### 3. Install Dependencies
+
+Install the main Minions package in development mode and required dependencies:
+
+```bash
+# Install the main Minions package
 pip install -e .
+
+# Install A2A-specific dependencies
+pip install a2a-sdk fastapi aiofiles
 ```
 
-### Optional Dependencies
+### 4. Navigate to A2A App Directory
 
 ```bash
-# For PDF processing
-pip install PyPDF2
-
-# For MLX support (Apple Silicon)
-pip install mlx-lm
-
-# For additional model providers
-pip install anthropic openai together groq
+cd apps/minions-a2a
 ```
 
-## Quick Start
+### 5. Start the Server
 
-### 1. Start the Server
+Run the A2A-Minions server:
 
 ```bash
-# Basic startup
-python run_server.py
-
-# Custom configuration
-python run_server.py --host 0.0.0.0 --port 8001 --base-url http://localhost:8001
+# Start server on port 8001 (or specify your preferred port)
+python run_server.py --port 8001
 ```
 
-### 2. Verify Installation
+The server will start and be available at `http://localhost:8001`.
+
+### 6. Test the Installation
+
+Run the test clients to verify everything is working:
 
 ```bash
-# Run health check
-curl http://localhost:8000/health
+# Test the minion_query skill (focused analysis)
+python tests/test_client_minion.py
 
-# Get agent capabilities
-curl http://localhost:8000/.well-known/agent.json
+# Test the minions_query skill (parallel processing)
+python tests/test_client_minions.py
 ```
 
-### 3. Test with Sample Client
+### 7. Environment Setup
 
-```bash
-# Test focused analysis
-python test_client.py
+For production use, configure your model providers by setting environment variables:
 
-# Test parallel processing
-python test_client_minions.py
+#### Windows (PowerShell)
+```powershell
+$env:OPENAI_API_KEY="your-openai-key"
+$env:ANTHROPIC_API_KEY="your-anthropic-key"
+$env:OLLAMA_HOST="http://localhost:11434"
 ```
 
-## Configuration
-
-### Environment Variables
-
+#### Linux/macOS
 ```bash
-# Model Provider Configuration
 export OPENAI_API_KEY="your-openai-key"
 export ANTHROPIC_API_KEY="your-anthropic-key"
-export TOGETHER_API_KEY="your-together-key"
-
-# Local Model Configuration (Ollama)
 export OLLAMA_HOST="http://localhost:11434"
 ```
 
+### Troubleshooting Installation
+
+#### Common Installation Issues
+
+1. **Python Version**: Ensure you're using Python 3.8 or higher:
+   ```bash
+   python --version
+   ```
+
+2. **Virtual Environment Issues**: If activation fails, try:
+   - Windows: `venv\Scripts\activate.bat` instead of `.\venv\Scripts\activate`
+   - Linux/macOS: `bash venv/bin/activate` if `source` doesn't work
+
+3. **Permission Errors**: On Linux/macOS, you might need to install with:
+   ```bash
+   pip install --user -e .
+   ```
+
+4. **Dependency Conflicts**: If you encounter conflicts, create a fresh virtual environment:
+   ```bash
+   deactivate  # if already in a venv
+   rm -rf venv  # or rmdir /s venv on Windows
+   python -m venv venv
+   # Then repeat activation and installation steps
+   ```
+
+### Verification
+
+After successful installation, you should see:
+- Server starting without errors on `http://localhost:8001`
+- Test clients completing successfully
+- Health check available at `http://localhost:8001/health`
+- Agent card available at `http://localhost:8001/.well-known/agent.json`
+
+## Configuration
 ### Server Configuration
 
 The server supports various configuration options:

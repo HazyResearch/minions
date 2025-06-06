@@ -1,75 +1,357 @@
-# A2A-Minions Integration
+# A2A-Minions: Agent-to-Agent Integration with Minions Protocol
 
-This project provides an A2A (Agent-to-Agent) protocol server that wraps the Minions protocol, enabling any A2A-compatible client to leverage Minions' cost-efficient local-cloud LLM collaboration.
+A comprehensive A2A (Agent-to-Agent) server implementation that provides seamless integration with the Minions protocol, enabling both focused single-document analysis and parallel processing capabilities for complex multi-document tasks.
+
+## Table of Contents
+
+- [Overview](#overview)
+- [Features](#features)
+- [Architecture](#architecture)
+- [Installation](#installation)
+- [Quick Start](#quick-start)
+- [Configuration](#configuration)
+- [Skills and Protocol Selection](#skills-and-protocol-selection)
+- [API Reference](#api-reference)
+- [Testing](#testing)
+- [Examples](#examples)
+- [Troubleshooting](#troubleshooting)
+- [Contributing](#contributing)
 
 ## Overview
 
-The A2A-Minions server exposes Minions functionality through two core A2A agent skills:
+A2A-Minions bridges the gap between A2A protocol agents and the Minions framework, providing:
 
-- **Minion Query**: Focused document Q&A using single conversation workflow (first part: question, second part: document)
-- **Minions Query**: Parallel processing for complex document analysis (first part: question, second part: document)
+- **Dual Protocol Support**: Automatic protocol selection based on skill requirements
+- **Document Processing**: Full support for text, files (including PDFs), and structured data
+- **Streaming Responses**: Real-time task execution updates
+- **Context-Aware Processing**: Intelligent context formatting for optimal model performance
+- **Cost-Efficient Architecture**: Leverages both local and cloud models strategically
+
+## Features
+
+### Core Capabilities
+
+- ✅ **Two Processing Modes**:
+  - `minion_query`: Focused analysis using single-conversation protocol
+  - `minions_query`: Parallel processing for complex multi-document analysis
+- ✅ **Multi-Modal Input Support**: Text, files (PDF, TXT), and JSON data
+- ✅ **Streaming Support**: Real-time progress updates via Server-Sent Events
+- ✅ **Flexible Model Configuration**: Support for local (Ollama) and remote (OpenAI, Anthropic, etc.) models
+- ✅ **Robust Error Handling**: Comprehensive validation and error reporting
+- ✅ **Context Optimization**: Intelligent document formatting for better model comprehension
+
+### Protocol Integration
+
+- **A2A Compliance**: Full compliance with A2A protocol specifications
+- **Agent Cards**: Dynamic skill discovery and capability advertisement
+- **JSON-RPC 2.0**: Standard messaging protocol implementation
+- **Task Management**: Complete lifecycle management for long-running tasks
 
 ## Architecture
 
 ```
-A2A Client → A2A Protocol → A2A-Minions Server → Minions Protocol → Local/Remote LLMs
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   A2A Client    │────│  A2A-Minions    │────│ Minions Protocol│
+│                 │    │     Server      │    │                 │
+│ • Skill Request │    │ • Skill Router  │    │ • Local Model   │
+│ • Document Send │    │ • Message Conv. │    │ • Remote Model  │
+│ • Stream Listen │    │ • Task Manager  │    │ • Parallel Proc.│
+└─────────────────┘    └─────────────────┘    └─────────────────┘
 ```
 
-## Features
+### Component Breakdown
 
-- **Protocol Preservation**: Core Minions functionality through A2A interface
-- **Document Processing**: PDF extraction, multi-modal support (text/file/data parts)
-- **Streaming Support**: Real-time updates via Server-Sent Events
-- **Flexible Configuration**: Dynamic model and protocol configuration
-- **Parts-Based Input**: A2A standard format with question as first part, document as second part
-- **Cost Optimization**: Local-cloud LLM collaboration for efficient processing
+1. **A2A Server**: Handles A2A protocol compliance and request routing
+2. **Skill Router**: Automatically selects appropriate Minions protocol based on skill ID
+3. **Message Converter**: Translates between A2A and Minions message formats
+4. **Task Manager**: Manages long-running tasks with streaming capabilities
+5. **Client Factory**: Creates and configures Minions protocol instances
 
-## Quick Start
+## Installation
 
-1. Install dependencies:
+### Prerequisites
+
+- Python 3.8+
+- Access to at least one supported model provider (Ollama, OpenAI, etc.)
+
+### Basic Installation
+
 ```bash
+# Clone the repository
+git clone <repository-url>
+cd minions/apps/minions-a2a
+
+# Create virtual environment
+python -m venv a2a-venv
+source a2a-venv/bin/activate  # On Windows: a2a-venv\Scripts\activate
+
+# Install dependencies
 pip install -e .
 ```
 
-2. Run the A2A server:
+### Optional Dependencies
+
 ```bash
-python -m a2a_minions.server
+# For PDF processing
+pip install PyPDF2
+
+# For MLX support (Apple Silicon)
+pip install mlx-lm
+
+# For additional model providers
+pip install anthropic openai together groq
 ```
 
-3. The server will be available at `http://localhost:8000` with the agent card at `/.well-known/agent.json`
+## Quick Start
 
-## Usage Examples
+### 1. Start the Server
 
-### Minion Query (Focused Q&A)
+```bash
+# Basic startup
+python run_server.py
+
+# Custom configuration
+python run_server.py --host 0.0.0.0 --port 8001 --base-url http://localhost:8001
+```
+
+### 2. Verify Installation
+
+```bash
+# Run health check
+curl http://localhost:8000/health
+
+# Get agent capabilities
+curl http://localhost:8000/.well-known/agent.json
+```
+
+### 3. Test with Sample Client
+
+```bash
+# Test focused analysis
+python test_client.py
+
+# Test parallel processing
+python test_client_minions.py
+```
+
+## Configuration
+
+### Environment Variables
+
+```bash
+# Model Provider Configuration
+export OPENAI_API_KEY="your-openai-key"
+export ANTHROPIC_API_KEY="your-anthropic-key"
+export TOGETHER_API_KEY="your-together-key"
+
+# Local Model Configuration (Ollama)
+export OLLAMA_HOST="http://localhost:11434"
+```
+
+### Server Configuration
+
+The server supports various configuration options:
+
+```python
+# Default configuration in config.py
+class MinionsConfig:
+    # Model settings
+    local_provider: str = "ollama"
+    local_model: str = "llama3.2"
+    remote_provider: str = "openai" 
+    remote_model: str = "gpt-4o-mini"
+    
+    # Processing settings
+    max_rounds: int = 3
+    max_jobs_per_round: int = 5
+    num_tasks_per_round: int = 2
+    num_samples_per_task: int = 1
+    
+    # Context settings
+    num_ctx: int = 128000
+    chunking_strategy: str = "chunk_by_section"
+```
+
+## Skills and Protocol Selection
+
+### Automatic Skill Detection
+
+The system automatically routes requests to the appropriate protocol based on the skill ID specified in the request metadata:
+
+#### `minion_query` Skill
+- **Purpose**: Focused analysis and single-document Q&A
+- **Protocol**: Uses Minion (singular) for cost-efficient processing
+- **Best For**: 
+  - Specific questions about documents
+  - Quick fact extraction
+  - Simple analysis tasks
+  - Single conversation flows
+
+#### `minions_query` Skill  
+- **Purpose**: Complex parallel processing and multi-document analysis
+- **Protocol**: Uses Minions (parallel) for distributed processing
+- **Best For**:
+  - Large document analysis
+  - Multi-document processing
+  - Complex research tasks
+  - Parallel task decomposition
+
+### Skill Selection Examples
+
 ```json
+// For focused analysis
 {
-  "method": "tasks/send",
-  "params": {
-    "message": {
-      "parts": [
-        {"kind": "text", "text": "What are the main conclusions?"},
-        {"kind": "file", "file": {"name": "document.pdf", "bytes": "..."}}
-      ]
-    },
-    "metadata": {"skill_id": "minion_query"}
+  "metadata": {
+    "skill_id": "minion_query",
+    "max_rounds": 2
+  }
+}
+
+// For parallel processing
+{
+  "metadata": {
+    "skill_id": "minions_query", 
+    "max_rounds": 3,
+    "max_jobs_per_round": 5,
+    "num_tasks_per_round": 3
   }
 }
 ```
 
-### Minions Query (Parallel Processing)
-```json
+## API Reference
+
+### Core Endpoints
+
+#### Health Check
+```http
+GET /health
+```
+Returns server status and health information.
+
+#### Agent Card
+```http
+GET /.well-known/agent.json
+```
+Returns the public agent card with available skills.
+
+#### Extended Agent Card
+```http
+GET /agent/authenticatedExtendedCard
+```
+Returns extended agent capabilities for authenticated users.
+
+### Task Management
+
+#### Send Task
+```http
+POST /
+Content-Type: application/json
+
 {
-  "method": "tasks/send", 
+  "jsonrpc": "2.0",
+  "method": "tasks/send",
   "params": {
+    "id": "task-uuid",
     "message": {
+      "role": "user",
       "parts": [
-        {"kind": "text", "text": "Extract all insights and patterns"},
-        {"kind": "text", "text": "Large document content..."}
+        {
+          "kind": "text",
+          "text": "Your question here"
+        },
+        {
+          "kind": "text", 
+          "text": "Document content here"
+        }
       ]
     },
     "metadata": {
-      "skill_id": "minions_query",
-      "max_jobs_per_round": 5
+      "skill_id": "minion_query",
+      "max_rounds": 2
+    }
+  },
+  "id": "request-uuid"
+}
+```
+
+#### Send Task with Streaming
+```http
+POST /
+Content-Type: application/json
+Accept: text/event-stream
+
+{
+  "jsonrpc": "2.0",
+  "method": "tasks/sendSubscribe",
+  "params": {
+    "id": "task-uuid",
+    "message": { /* same as above */ },
+    "metadata": { /* same as above */ }
+  },
+  "id": "request-uuid"
+}
+```
+
+#### Get Task Status
+```http
+POST /
+Content-Type: application/json
+
+{
+  "jsonrpc": "2.0",
+  "method": "tasks/get",
+  "params": {
+    "id": "task-uuid"
+  },
+  "id": "request-uuid"
+}
+```
+
+#### Cancel Task
+```http
+POST /
+Content-Type: application/json
+
+{
+  "jsonrpc": "2.0", 
+  "method": "tasks/cancel",
+  "params": {
+    "id": "task-uuid"
+  },
+  "id": "request-uuid"
+}
+```
+
+### Message Formats
+
+#### Text Input
+```json
+{
+  "kind": "text",
+  "text": "Your question or document content"
+}
+```
+
+#### File Input
+```json
+{
+  "kind": "file",
+  "file": {
+    "name": "document.pdf",
+    "mimeType": "application/pdf", 
+    "bytes": "base64-encoded-content"
+  }
+}
+```
+
+#### Data Input
+```json
+{
+  "kind": "data",
+  "data": {
+    "key": "value",
+    "nested": {
+      "data": "structure"
     }
   }
 }
@@ -77,18 +359,290 @@ python -m a2a_minions.server
 
 ## Testing
 
-Run the comprehensive test suite:
+### Running Tests
+
 ```bash
-cd tests
-python run_tests.py
+# Test focused analysis (minion_query)
+python test_client.py
+
+# Test parallel processing (minions_query) 
+python test_client_minions.py
+
+# Custom server URL
+python test_client.py --base-url http://localhost:8001
 ```
 
-Or run individual skill tests:
-```bash
-python run_tests.py minion    # Test minion_query
-python run_tests.py minions   # Test minions_query
+### Test Coverage
+
+The test suites include:
+
+- **Health and Discovery**: Server health, agent cards
+- **Basic Functionality**: Simple queries, context processing
+- **Document Processing**: PDF files, JSON data, multi-modal inputs
+- **Streaming**: Real-time response handling
+- **Error Handling**: Malformed requests, empty inputs
+- **Task Management**: Status checking, cancellation
+- **Long Context**: Large document processing capabilities
+
+### Creating Custom Tests
+
+```python
+import asyncio
+from test_client import A2AMinionsTestClient
+
+async def custom_test():
+    client = A2AMinionsTestClient("http://localhost:8000")
+    
+    message = {
+        "role": "user",
+        "parts": [
+            {"kind": "text", "text": "Your question"},
+            {"kind": "text", "text": "Your document"}
+        ]
+    }
+    
+    metadata = {
+        "skill_id": "minion_query",  # or "minions_query"
+        "max_rounds": 2
+    }
+    
+    response = await client.send_task(message, metadata)
+    task_id = response["result"]["id"]
+    
+    # Wait for completion
+    result = await client.wait_for_completion(task_id)
+    print(f"Result: {result}")
+    
+    await client.close()
+
+asyncio.run(custom_test())
 ```
 
-## Configuration
+## Examples
 
-The server can be configured via environment variables or task metadata for LLM providers, model selection, and processing parameters. 
+### Example 1: Simple Document Q&A
+
+```python
+# Using minion_query for focused analysis
+message = {
+    "role": "user", 
+    "parts": [
+        {
+            "kind": "text",
+            "text": "What are the key findings mentioned in this research paper?"
+        },
+        {
+            "kind": "text",
+            "text": "Research paper content here..."
+        }
+    ]
+}
+
+metadata = {
+    "skill_id": "minion_query",
+    "local_provider": "ollama",
+    "local_model": "llama3.2", 
+    "remote_provider": "openai",
+    "remote_model": "gpt-4o-mini",
+    "max_rounds": 2
+}
+```
+
+### Example 2: Complex Multi-Document Analysis
+
+```python
+# Using minions_query for parallel processing
+message = {
+    "role": "user",
+    "parts": [
+        {
+            "kind": "text", 
+            "text": "Analyze this large document and extract all performance metrics, categorize findings, and identify key trends."
+        },
+        {
+            "kind": "file",
+            "file": {
+                "name": "large_report.pdf",
+                "mimeType": "application/pdf",
+                "bytes": "base64-encoded-pdf-content"
+            }
+        }
+    ]
+}
+
+metadata = {
+    "skill_id": "minions_query",
+    "max_rounds": 3,
+    "max_jobs_per_round": 5,
+    "num_tasks_per_round": 3,
+    "num_samples_per_task": 2
+}
+```
+
+### Example 3: JSON Data Processing
+
+```python
+# Processing structured data
+complex_data = {
+    "quarterly_reports": {
+        "Q1_2024": {"revenue": 2500000, "expenses": 1800000},
+        "Q2_2024": {"revenue": 2800000, "expenses": 2000000}
+    },
+    "performance_metrics": {
+        "customer_satisfaction": 4.7,
+        "employee_retention": 0.92
+    }
+}
+
+message = {
+    "role": "user",
+    "parts": [
+        {
+            "kind": "text",
+            "text": "Calculate revenue growth and identify trends in this business data."
+        },
+        {
+            "kind": "data", 
+            "data": complex_data
+        }
+    ]
+}
+
+metadata = {
+    "skill_id": "minions_query",  # Use parallel processing for complex analysis
+    "max_rounds": 2,
+    "max_jobs_per_round": 4
+}
+```
+
+### Example 4: Streaming Response
+
+```python
+import json
+
+async def stream_example():
+    client = A2AMinionsTestClient()
+    
+    # Send streaming request
+    task_id = await client.send_task_streaming(message, metadata)
+    
+    # Process real-time updates
+    # (streaming events are automatically printed by the client)
+    
+    # Get final result
+    final_task = await client.wait_for_completion(task_id)
+    print(f"Final result: {final_task}")
+```
+
+## Troubleshooting
+
+### Common Issues
+
+#### 1. Skill Detection Problems
+**Symptoms**: Wrong protocol being used, unexpected errors
+**Solution**: Ensure `skill_id` is properly specified in metadata:
+```json
+{
+  "metadata": {
+    "skill_id": "minion_query"  // or "minions_query"
+  }
+}
+```
+
+#### 2. Context Not Being Used
+**Symptoms**: Model responds "I don't have access to documents"
+**Solution**: Check document formatting and ensure context is being extracted:
+- Verify file uploads are base64 encoded correctly
+- Check logs for context validation messages
+- Ensure document content is non-empty
+
+#### 3. Parameter Errors
+**Symptoms**: "Unexpected keyword argument" errors
+**Solution**: Verify skill and parameter compatibility:
+- `minion_query`: Uses basic parameters (max_rounds, images)
+- `minions_query`: Uses parallel parameters (max_jobs_per_round, num_tasks_per_round)
+
+#### 4. Model Provider Issues
+**Symptoms**: Connection errors, authentication failures
+**Solution**: 
+- Check environment variables are set correctly
+- Verify model provider endpoints are accessible
+- Ensure API keys have sufficient permissions
+
+### Debug Mode
+
+Enable detailed logging for troubleshooting:
+
+```python
+import logging
+logging.basicConfig(level=logging.DEBUG)
+```
+
+### Log Analysis
+
+Key log messages to monitor:
+
+```
+INFO:a2a_minions.server:Executing skill: minions_query for task: <task-id>
+INFO:a2a_minions.server:Context validation: X items, Y total characters
+ERROR:a2a_minions.server:Task <task-id> failed: <error-message>
+```
+
+### Performance Tuning
+
+#### For Large Documents
+```json
+{
+  "skill_id": "minions_query",
+  "max_rounds": 2,
+  "max_jobs_per_round": 8,
+  "num_tasks_per_round": 4,
+  "chunking_strategy": "chunk_by_section"
+}
+```
+
+#### For Quick Responses
+```json
+{
+  "skill_id": "minion_query", 
+  "max_rounds": 1,
+  "local_model": "llama3.2:1b",
+  "remote_model": "gpt-4o-mini"
+}
+```
+
+## Contributing
+
+### Development Setup
+
+```bash
+# Clone and setup
+git clone <repository-url>
+cd minions/apps/minions-a2a
+python -m venv dev-env
+source dev-env/bin/activate
+```
+
+### Submission Guidelines
+
+1. Fork the repository
+2. Create a feature branch
+3. Implement changes with tests
+4. Update documentation
+5. Submit pull request
+
+## License
+
+This project is licensed under the MIT License. See LICENSE file for details.
+
+## Support
+
+For issues, questions, or contributions:
+
+- **Issues**: Open a GitHub issue
+- **Discussions**: Use GitHub Discussions
+- **Documentation**: Check this README and inline code documentation
+
+---
+
+**A2A-Minions** - Bridging Agent-to-Agent communication with the power of the Minions protocol for efficient, scalable document processing and analysis.

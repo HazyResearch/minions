@@ -279,48 +279,52 @@ class AuthenticationManager:
             logger.info(f"  Client Secret: {client_secret}")
             logger.info(f"Save these credentials - they won't be shown again!")
     
-    async def authenticate(
-        self,
-        api_key: Optional[str] = Security(lambda: None),
-        credentials: Optional[HTTPAuthorizationCredentials] = Security(lambda: None)
-    ) -> Optional[TokenData]:
-        """Authenticate request using any available method."""
+    @property
+    def authenticate(self):
+        """Return authentication dependency function."""
+        async def _authenticate(
+            request: Request,
+            api_key: Optional[str] = Depends(self.api_key_header),
+            credentials: Optional[HTTPAuthorizationCredentials] = Depends(self.bearer_scheme)
+        ) -> Optional[TokenData]:
+            """Authenticate request using any available method."""
+            
+            # Try API key authentication
+            if api_key:
+                user = self.api_key_manager.validate_api_key(api_key)
+                if user:
+                    if METRICS_AVAILABLE and metrics_manager:
+                        metrics_manager.track_auth_attempt("api_key", True)
+                    return TokenData(
+                        sub=user.get("name", "api_key_user"),
+                        scopes=user.get("scopes", [])
+                    )
+                else:
+                    if METRICS_AVAILABLE and metrics_manager:
+                        metrics_manager.track_auth_attempt("api_key", False)
+            
+            # Try JWT bearer authentication
+            if credentials and credentials.scheme == "Bearer":
+                token_data = self.jwt_manager.verify_token(credentials.credentials)
+                if token_data:
+                    if METRICS_AVAILABLE and metrics_manager:
+                        metrics_manager.track_auth_attempt("jwt", True)
+                    return token_data
+                else:
+                    if METRICS_AVAILABLE and metrics_manager:
+                        metrics_manager.track_auth_attempt("jwt", False)
+            
+            # No valid authentication found
+            if self.config.require_auth:
+                raise HTTPException(
+                    status_code=401,
+                    detail="Authentication required",
+                    headers={"WWW-Authenticate": "Bearer, ApiKey"}
+                )
+            
+            return None
         
-        # Get dependencies properly
-        api_key = await self.api_key_header() if not api_key else api_key
-        credentials = await self.bearer_scheme() if not credentials else credentials
-        
-        # Try API key authentication
-        if api_key:
-            user = self.api_key_manager.validate_api_key(api_key)
-            if user:
-                if METRICS_AVAILABLE and metrics_manager:
-                    metrics_manager.track_auth_attempt("api_key", True)
-                return user
-            else:
-                if METRICS_AVAILABLE and metrics_manager:
-                    metrics_manager.track_auth_attempt("api_key", False)
-        
-        # Try JWT bearer authentication
-        if credentials and credentials.scheme == "Bearer":
-            token_data = self.jwt_manager.verify_token(credentials.credentials)
-            if token_data:
-                if METRICS_AVAILABLE and metrics_manager:
-                    metrics_manager.track_auth_attempt("jwt", True)
-                return token_data
-            else:
-                if METRICS_AVAILABLE and metrics_manager:
-                    metrics_manager.track_auth_attempt("jwt", False)
-        
-        # No valid authentication found
-        if self.config.require_auth:
-            raise HTTPException(
-                status_code=401,
-                detail="Authentication required",
-                headers={"WWW-Authenticate": "Bearer, ApiKey"}
-            )
-        
-        return None
+        return _authenticate
     
     def check_scopes(self, token_data: TokenData, required_scopes: List[str]) -> bool:
         """Check if token has required scopes."""

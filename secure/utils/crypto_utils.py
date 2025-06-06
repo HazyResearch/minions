@@ -13,6 +13,10 @@ from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 from cryptography.exceptions import InvalidSignature
 import subprocess
 import jwt  # requires pip install pyjwt
+from cryptography import x509
+from cryptography.hazmat.primitives import serialization as crypto_serial, hashes as crypto_hashes
+import hashlib, base64, ssl, socket
+
 
 # ------------------ Key Management ------------------
 
@@ -59,6 +63,22 @@ def derive_shared_key(private_key, peer_public_key):
 # ----------------- Remote Attestation (Helper Functions) -----------------
 
 
+def get_tls_pubkey_hash(cert_path: str) -> str:
+    # load the PEM cert from disk
+    cert = x509.load_pem_x509_certificate(open(cert_path, "rb").read())
+    # grab the pubkey in DER form
+    pubkey_der = cert.public_key().public_bytes(
+        crypto_serial.Encoding.DER,
+        crypto_serial.PublicFormat.SubjectPublicKeyInfo,
+    )
+    # sha256 it
+    h = crypto_hashes.Hash(crypto_hashes.SHA256())
+    h.update(pubkey_der)
+    digest = h.finalize()
+    # return a base64 string
+    return base64.b64encode(digest).decode()
+
+
 def run_gpu_attestation(nonce: bytes) -> str:
     """
     Call the NVIDIA Local GPU Verifier (nvtrust) and retrieve the JWT
@@ -81,9 +101,10 @@ def run_gpu_attestation(nonce: bytes) -> str:
 
 
 def create_attestation_report(
-    agent_name: str, public_key, nonce: bytes
+    agent_name: str, public_key, nonce: bytes, tls_cert_path: str
 ) -> Tuple[dict, bytes, str]:
     gpu_eat = run_gpu_attestation(nonce)
+    tls_pubkey_hash = get_tls_pubkey_hash(tls_cert_path)
     public_key_bytes = public_key.public_bytes(
         encoding=serialization.Encoding.DER,
         format=serialization.PublicFormat.SubjectPublicKeyInfo,
@@ -97,6 +118,7 @@ def create_attestation_report(
         "gpu_eat_hash": base64.b64encode(
             hashlib.sha256(gpu_eat.encode()).digest()
         ).decode(),
+        "tls_pubkey_hash": tls_pubkey_hash,
         "nonce": base64.b64encode(nonce).decode(),
         "timestamp": time.time(),
     }
@@ -127,6 +149,25 @@ def verify_attestation(attestation_report, attestation_json, signature_b64, publ
 
     return digest == attestation_report["public_key_hash"]
 
+def get_server_tls_pubkey_hash(host: str, port: int = 443) -> str:
+
+    # open a TLS connection and pull the raw DER cert
+    ctx = ssl.create_default_context()
+    with ctx.wrap_socket(socket.socket(), server_hostname=host) as s:
+        s.connect((host, port))
+        der_cert = s.getpeercert(binary_form=True)
+
+    # load it into cryptography to extract the pubkey
+    from cryptography import x509
+    cert = x509.load_der_x509_certificate(der_cert)
+    pubkey_der = cert.public_key().public_bytes(
+        crypto_serial.Encoding.DER,
+        crypto_serial.PublicFormat.SubjectPublicKeyInfo,
+    )
+
+    # hash and b64
+    digest = hashlib.sha256(pubkey_der).digest()
+    return base64.b64encode(digest).decode()
 
 def verify_attestation_full(
     report_json: bytes,
@@ -134,6 +175,8 @@ def verify_attestation_full(
     gpu_eat_json: str,
     public_key,
     expected_nonce: bytes,
+    server_host: str,
+    server_port: int = 443,
 ):
     # 1) signature check
     sig = base64.b64decode(signature_b64)
@@ -143,6 +186,9 @@ def verify_attestation_full(
         raise ValueError("software‑level signature invalid") from e
 
     report = json.loads(report_json)
+    seen_hash = get_server_tls_pubkey_hash(server_host, server_port)
+    if report["tls_pubkey_hash"] != seen_hash:
+        raise ValueError("TLS pubkey hash mismatch")
 
     pub_key_bytes = public_key.public_bytes(
         encoding=serialization.Encoding.DER,

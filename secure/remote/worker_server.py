@@ -26,7 +26,7 @@ parser.add_argument(
     help="Host to bind to (default: 0.0.0.0 for all interfaces)",
 )
 parser.add_argument(
-    "--port", type=int, default=5056, help="Port to listen on (default: 5006)"
+    "--port", type=int, default=5056, help="Port to listen on (default: 5056)"
 )
 parser.add_argument(
     "--key-path",
@@ -51,7 +51,19 @@ parser.add_argument(
     action="store_true",
     help="Enable streaming mode for SGLang server",
 )
+parser.add_argument(
+    "--ssl-cert",
+    type=str,
+    help="Path to SSL certificate file",
+)
+parser.add_argument(
+    "--ssl-key",
+    type=str,
+    help="Path to SSL private key file",
+)
 args = parser.parse_args()
+
+
 
 
 os.environ["USE_SGLANG"] = "true"
@@ -105,7 +117,7 @@ logger.info("🔐 SECURITY: Creating attestation report for remote verification"
 
 nonce = os.urandom(32)  # fresh each call
 report, report_json, gpu_eat = create_attestation_report(
-    "remote-worker", public_key, nonce
+    "remote-worker", public_key, nonce, args.ssl_cert
 )
 signature = sign_attestation(report_json, private_key)
 logger.info("✅ SECURITY: Attestation report created and signed")
@@ -282,5 +294,5 @@ def message_stream():
 if __name__ == "__main__":
     logger.info(f"🚀 Starting secure worker server on {args.host}:{args.port}")
     # Set debug=False for production environments
-    app.run(host=args.host, port=args.port, debug=False)
+    app.run(host=args.host, port=args.port, debug=False, ssl_context=(args.ssl_cert, args.ssl_key))
 

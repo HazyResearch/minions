@@ -523,7 +523,7 @@ class A2AMinionsServer:
         self.base_url = base_url or f"http://{host}:{port}"
         self.app = FastAPI(title="A2A Minions Server", version="1.0.0")
         self.task_manager = TaskManager()
-        self._shutdown_event = asyncio.Event()
+        self._shutdown_event = None  # Will be created when event loop is running
         
         # Initialize authentication
         self.auth_config = auth_config or AuthConfig()
@@ -545,7 +545,8 @@ class A2AMinionsServer:
         # Handle signals for graceful shutdown
         def handle_shutdown(signum, frame):
             logger.info(f"Received signal {signum}, initiating graceful shutdown...")
-            self._shutdown_event.set()
+            if self._shutdown_event:
+                self._shutdown_event.set()
         
         signal.signal(signal.SIGINT, handle_shutdown)
         signal.signal(signal.SIGTERM, handle_shutdown)
@@ -556,6 +557,7 @@ class A2AMinionsServer:
         @self.app.on_event("startup")
         async def startup_event():
             """Initialize components on startup."""
+            self._shutdown_event = asyncio.Event()
             await self.task_manager.start()
             logger.info("Task manager started successfully")
         
@@ -878,34 +880,13 @@ class A2AMinionsServer:
         """Run the server."""
         logger.info(f"Starting A2A Minions Server at {self.base_url}")
         
-        async def serve():
-            config = uvicorn.Config(
-                self.app,
-                host=self.host,
-                port=self.port,
-                log_level="info"
-            )
-            server = uvicorn.Server(config)
-            
-            # Run server with shutdown event
-            serve_task = asyncio.create_task(server.serve())
-            shutdown_task = asyncio.create_task(self._shutdown_event.wait())
-            
-            done, pending = await asyncio.wait(
-                {serve_task, shutdown_task},
-                return_when=asyncio.FIRST_COMPLETED
-            )
-            
-            # Cancel pending tasks
-            for task in pending:
-                task.cancel()
-            
-            # Shutdown server if it's still running
-            if serve_task in pending:
-                server.should_exit = True
-                await server.shutdown()
-        
-        asyncio.run(serve())
+        # Use uvicorn.run directly instead of manual asyncio management
+        uvicorn.run(
+            self.app,
+            host=self.host,
+            port=self.port,
+            log_level="info"
+        )
 
 
 def main():

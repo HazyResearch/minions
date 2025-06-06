@@ -441,8 +441,8 @@ class TaskManager:
             except asyncio.TimeoutError:
                 logger.warning("Some tasks did not complete within shutdown timeout")
         
-        # Clean up temp files
-        self.converter.cleanup_temp_files()
+        # Shutdown converter (includes temp file cleanup and thread pool shutdown)
+        self.converter.shutdown()
         
         logger.info("Task manager shutdown complete")
 

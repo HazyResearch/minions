@@ -14,6 +14,8 @@ import logging
 from typing import List, Dict, Any, Optional, Tuple, Union
 from pathlib import Path
 import mimetypes
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
 
 from .models import A2AMessage, MessagePart
 
@@ -46,6 +48,12 @@ class A2AConverter:
     def __init__(self):
         self.temp_dir = Path(tempfile.gettempdir()) / "a2a_minions"
         self.temp_dir.mkdir(exist_ok=True)
+        # Create thread pool for CPU-intensive operations
+        self.executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="pdf_worker")
+    
+    def __del__(self):
+        """Cleanup on destruction."""
+        self.executor.shutdown(wait=False)
     
     async def extract_task_and_context(self, message: A2AMessage) -> Tuple[str, List[str], List[str]]:
         """
@@ -206,40 +214,53 @@ class A2AConverter:
         return None
     
     async def _extract_pdf_text(self, pdf_bytes: bytes, filename: str) -> str:
-        """Extract text from PDF bytes."""
+        """Extract text from PDF bytes asynchronously."""
         if not PDF_AVAILABLE:
             return f"[PDF file: {filename} - PyPDF2 not installed for text extraction]"
         
-        try:
-            # Save to temporary file for PyPDF2
-            temp_path = self.temp_dir / f"temp_{filename}"
-            async with aiofiles.open(temp_path, "wb") as f:
-                await f.write(pdf_bytes)
-            
-            # Extract text using PyPDF2
-            with open(temp_path, "rb") as f:
-                pdf_reader = PyPDF2.PdfReader(f)
-                text_content = []
+        def _extract_pdf_sync(pdf_bytes: bytes, filename: str, temp_dir: Path) -> str:
+            """Synchronous PDF extraction to run in thread pool."""
+            try:
+                # Save to temporary file for PyPDF2
+                temp_path = temp_dir / f"temp_{uuid.uuid4()}_{filename}"
+                with open(temp_path, "wb") as f:
+                    f.write(pdf_bytes)
                 
-                for page_num, page in enumerate(pdf_reader.pages):
-                    try:
-                        page_text = page.extract_text()
-                        if page_text.strip():
-                            text_content.append(f"\n--- Page {page_num + 1} ---\n")
-                            text_content.append(page_text)
-                    except Exception as e:
-                        text_content.append(f"\n--- Page {page_num + 1} (error: {e}) ---\n")
-                
-                # Clean up temp file
-                temp_path.unlink(missing_ok=True)
-                
-                if text_content:
-                    return "".join(text_content)
-                else:
-                    return f"[PDF file: {filename} - No extractable text found]"
-                    
-        except Exception as e:
-            return f"[PDF file: {filename} - Error extracting text: {e}]"
+                try:
+                    # Extract text using PyPDF2
+                    with open(temp_path, "rb") as f:
+                        pdf_reader = PyPDF2.PdfReader(f)
+                        text_content = []
+                        
+                        for page_num, page in enumerate(pdf_reader.pages):
+                            try:
+                                page_text = page.extract_text()
+                                if page_text.strip():
+                                    text_content.append(f"\n--- Page {page_num + 1} ---\n")
+                                    text_content.append(page_text)
+                            except Exception as e:
+                                text_content.append(f"\n--- Page {page_num + 1} (error: {e}) ---\n")
+                        
+                        if text_content:
+                            return "".join(text_content)
+                        else:
+                            return f"[PDF file: {filename} - No extractable text found]"
+                finally:
+                    # Clean up temp file
+                    temp_path.unlink(missing_ok=True)
+                        
+            except Exception as e:
+                return f"[PDF file: {filename} - Error extracting text: {e}]"
+        
+        # Run PDF extraction in thread pool
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(
+            self.executor, 
+            _extract_pdf_sync, 
+            pdf_bytes, 
+            filename,
+            self.temp_dir
+        )
     
     def _is_image_file(self, file_info: Dict[str, Any]) -> bool:
         """Check if file is an image."""
@@ -442,4 +463,11 @@ class A2AConverter:
                 shutil.rmtree(self.temp_dir)
                 self.temp_dir.mkdir(exist_ok=True)
         except Exception as e:
-            logger.error(f"Error cleaning up temp files: {e}") 
+            logger.error(f"Error cleaning up temp files: {e}")
+    
+    def shutdown(self):
+        """Shutdown the converter and clean up resources."""
+        # Shutdown thread pool
+        self.executor.shutdown(wait=True)
+        # Clean up temp files
+        self.cleanup_temp_files() 

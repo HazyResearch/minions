@@ -4,11 +4,26 @@ __pycache__/
 *$py.class
 *.so
 .Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
 
-# Virtual environments
+# Virtual Environment
 venv/
-env/
 ENV/
+env/
 
 # IDE
 .vscode/
@@ -16,20 +31,25 @@ ENV/
 *.swp
 *.swo
 
-# Security - API keys and tokens
-api_keys.json
-*.key
-*.pem
-*.cert
+# OS
+.DS_Store
+Thumbs.db
 
-# Temporary files
+# Project specific
+*.log
 temp/
 tmp/
 *.tmp
 
-# Logs
-*.log
+# Authentication files - DO NOT COMMIT
+api_keys.json
+oauth2_clients.json
 
-# OS
-.DS_Store
-Thumbs.db
+# Test files
+test_output/
+*.test
+
+# Security - API keys and tokens
+*.key
+*.pem
+*.cert

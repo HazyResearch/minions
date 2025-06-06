@@ -7,13 +7,13 @@ import os
 import json
 import secrets
 import logging
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any, List, Tuple
 from datetime import datetime, timedelta
 from pathlib import Path
 import jwt
 from fastapi import HTTPException, Security, Depends, Request
 from fastapi.security import HTTPBearer, APIKeyHeader, OAuth2PasswordBearer
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
 
@@ -28,44 +28,35 @@ class TokenData(BaseModel):
     
 class AuthConfig(BaseModel):
     """Authentication configuration."""
-    # API Key settings
-    api_keys_file: str = "api_keys.json"
+    require_auth: bool = True
     api_key_header_name: str = "X-API-Key"
-    
-    # JWT settings
+    api_keys_path: Path = Path("api_keys.json")
+    oauth2_clients_path: Path = Path("oauth2_clients.json")
     jwt_secret: Optional[str] = None
     jwt_algorithm: str = "HS256"
-    jwt_expiry_hours: int = 24
-    
-    # OAuth2 settings
-    oauth2_enabled: bool = False
-    oauth2_token_url: str = "/oauth/token"
-    
-    # Security settings
-    require_auth: bool = True
+    jwt_expire_seconds: int = 3600
     allowed_scopes: Dict[str, List[str]] = {
-        "minion_query": ["minion:query"],
-        "minions_query": ["minions:query"],
         "tasks/send": ["tasks:write"],
         "tasks/sendSubscribe": ["tasks:write"],
         "tasks/get": ["tasks:read"],
-        "tasks/cancel": ["tasks:write"]
+        "tasks/cancel": ["tasks:write"],
+        "agent/authenticatedExtendedCard": ["tasks:read"]
     }
 
 
 class APIKeyManager:
-    """Manages API keys for local deployments."""
+    """Manages API keys with persistence."""
     
     def __init__(self, config: AuthConfig):
         self.config = config
-        self.api_keys_file = Path(config.api_keys_file)
+        self.storage_path = config.api_keys_path
         self.api_keys = self._load_api_keys()
     
     def _load_api_keys(self) -> Dict[str, Dict[str, Any]]:
         """Load API keys from file."""
-        if self.api_keys_file.exists():
+        if self.storage_path.exists():
             try:
-                with open(self.api_keys_file, 'r') as f:
+                with open(self.storage_path, 'r') as f:
                     return json.load(f)
             except Exception as e:
                 logger.error(f"Failed to load API keys: {e}")
@@ -74,7 +65,7 @@ class APIKeyManager:
     def _save_api_keys(self):
         """Save API keys to file."""
         try:
-            with open(self.api_keys_file, 'w') as f:
+            with open(self.storage_path, 'w') as f:
                 json.dump(self.api_keys, f, indent=2)
         except Exception as e:
             logger.error(f"Failed to save API keys: {e}")
@@ -111,37 +102,136 @@ class APIKeyManager:
 
 
 class JWTManager:
-    """Manages JWT tokens for bearer authentication."""
+    """Manages JWT token creation and validation."""
     
     def __init__(self, config: AuthConfig):
         self.config = config
-        self.secret = config.jwt_secret or os.getenv("A2A_JWT_SECRET", secrets.token_urlsafe(32))
+        
+        # Use provided secret or generate one
+        if config.jwt_secret:
+            self.secret = config.jwt_secret
+        else:
+            self.secret = secrets.token_urlsafe(32)
+            logger.warning("No JWT secret provided. Generated random secret (not suitable for production)")
         self.algorithm = config.jwt_algorithm
-        self.expiry_hours = config.jwt_expiry_hours
     
-    def create_token(self, subject: str, scopes: List[str] = None) -> str:
-        """Create a JWT token."""
-        now = datetime.utcnow()
+    def create_token(self, token_data: TokenData) -> str:
+        """Create a JWT token from token data."""
         payload = {
-            "sub": subject,
-            "scopes": scopes or [],
-            "iat": now,
-            "exp": now + timedelta(hours=self.expiry_hours)
+            "sub": token_data.sub,
+            "exp": token_data.exp,
+            "scopes": token_data.scopes
         }
         
         return jwt.encode(payload, self.secret, algorithm=self.algorithm)
     
     def verify_token(self, token: str) -> Optional[TokenData]:
-        """Verify and decode a JWT token."""
+        """Verify a JWT token."""
         try:
             payload = jwt.decode(token, self.secret, algorithms=[self.algorithm])
-            return TokenData(**payload)
+            
+            return TokenData(
+                sub=payload.get("sub"),
+                exp=payload.get("exp"),
+                scopes=payload.get("scopes", [])
+            )
         except jwt.ExpiredSignatureError:
             logger.warning("JWT token expired")
             return None
         except jwt.InvalidTokenError as e:
             logger.warning(f"Invalid JWT token: {e}")
             return None
+
+
+class OAuth2Client(BaseModel):
+    """OAuth2 client registration."""
+    client_id: str
+    client_secret: str
+    name: str
+    scopes: List[str] = Field(default_factory=list)
+    created_at: str = Field(default_factory=lambda: datetime.now().isoformat())
+    active: bool = True
+
+
+class OAuth2ClientManager:
+    """Manages OAuth2 client registrations."""
+    
+    def __init__(self, storage_path: Path = Path("oauth2_clients.json")):
+        self.storage_path = storage_path
+        self.clients: Dict[str, OAuth2Client] = self._load_clients()
+    
+    def _load_clients(self) -> Dict[str, OAuth2Client]:
+        """Load OAuth2 clients from storage."""
+        if self.storage_path.exists():
+            try:
+                with open(self.storage_path, "r") as f:
+                    data = json.load(f)
+                    return {
+                        client_id: OAuth2Client(**client_data)
+                        for client_id, client_data in data.items()
+                    }
+            except Exception as e:
+                logger.error(f"Failed to load OAuth2 clients: {e}")
+        return {}
+    
+    def _save_clients(self):
+        """Save OAuth2 clients to storage."""
+        try:
+            with open(self.storage_path, "w") as f:
+                data = {
+                    client_id: client.dict()
+                    for client_id, client in self.clients.items()
+                }
+                json.dump(data, f, indent=2)
+        except Exception as e:
+            logger.error(f"Failed to save OAuth2 clients: {e}")
+    
+    def register_client(self, name: str, scopes: List[str]) -> Tuple[str, str]:
+        """Register a new OAuth2 client."""
+        client_id = f"oauth2_{secrets.token_urlsafe(16)}"
+        client_secret = secrets.token_urlsafe(32)
+        
+        client = OAuth2Client(
+            client_id=client_id,
+            client_secret=client_secret,
+            name=name,
+            scopes=scopes
+        )
+        
+        self.clients[client_id] = client
+        self._save_clients()
+        
+        logger.info(f"Registered OAuth2 client: {name} (ID: {client_id})")
+        return client_id, client_secret
+    
+    def validate_client(self, client_id: str, client_secret: str) -> Optional[OAuth2Client]:
+        """Validate OAuth2 client credentials."""
+        client = self.clients.get(client_id)
+        if client and client.active and client.client_secret == client_secret:
+            return client
+        return None
+    
+    def revoke_client(self, client_id: str) -> bool:
+        """Revoke an OAuth2 client."""
+        if client_id in self.clients:
+            self.clients[client_id].active = False
+            self._save_clients()
+            logger.info(f"Revoked OAuth2 client: {client_id}")
+            return True
+        return False
+    
+    def list_clients(self) -> List[Dict[str, Any]]:
+        """List all OAuth2 clients (without secrets)."""
+        return [
+            {
+                "client_id": client.client_id,
+                "name": client.name,
+                "scopes": client.scopes,
+                "created_at": client.created_at,
+                "active": client.active
+            }
+            for client in self.clients.values()
+        ]
 
 
 class AuthenticationManager:
@@ -151,6 +241,7 @@ class AuthenticationManager:
         self.config = config or AuthConfig()
         self.api_key_manager = APIKeyManager(self.config)
         self.jwt_manager = JWTManager(self.config)
+        self.oauth2_manager = OAuth2ClientManager(self.config.oauth2_clients_path)
         self.default_api_key = None  # Store the default key
         
         # Security dependencies
@@ -168,6 +259,17 @@ class AuthenticationManager:
             )
             logger.info(f"Generated default API key: {self.default_api_key}")
             logger.info(f"Save this key - it won't be shown again!")
+        
+        # Initialize with a default OAuth2 client if none exist
+        if not self.oauth2_manager.clients and self.config.require_auth:
+            client_id, client_secret = self.oauth2_manager.register_client(
+                "default_oauth_client",
+                ["minion:query", "minions:query", "tasks:read", "tasks:write"]
+            )
+            logger.info(f"Generated default OAuth2 client:")
+            logger.info(f"  Client ID: {client_id}")
+            logger.info(f"  Client Secret: {client_secret}")
+            logger.info(f"Save these credentials - they won't be shown again!")
     
     async def authenticate(
         self,
@@ -234,34 +336,49 @@ class AuthenticationManager:
         return _check_scopes
     
     async def handle_oauth_token(self, grant_type: str, client_id: str, 
-                                client_secret: str, scope: str = "") -> Dict[str, Any]:
-        """Handle OAuth2 token requests (client credentials flow)."""
-        
+                               client_secret: str, scope: str = "") -> Dict[str, Any]:
+        """Handle OAuth2 token requests."""
         if grant_type != "client_credentials":
             raise HTTPException(
                 status_code=400,
                 detail="Unsupported grant type. Only 'client_credentials' is supported."
             )
         
-        # In a real implementation, validate client_id and client_secret
-        # For now, we'll create a token with requested scopes
+        # Validate client credentials
+        client = self.oauth2_manager.validate_client(client_id, client_secret)
+        if not client:
+            raise HTTPException(
+                status_code=401,
+                detail="Invalid client credentials"
+            )
+        
+        # Parse requested scopes
         requested_scopes = scope.split() if scope else []
         
-        # Validate scopes
-        valid_scopes = ["minion:query", "minions:query", "tasks:read", "tasks:write"]
-        scopes = [s for s in requested_scopes if s in valid_scopes]
+        # Check if client has access to requested scopes
+        granted_scopes = []
+        for requested_scope in requested_scopes:
+            if requested_scope in client.scopes:
+                granted_scopes.append(requested_scope)
         
-        if not scopes:
-            scopes = valid_scopes  # Grant all scopes if none specified
+        # If no scopes requested, grant all client scopes
+        if not requested_scopes:
+            granted_scopes = client.scopes
         
-        # Create access token
-        access_token = self.jwt_manager.create_token(client_id, scopes)
+        # Generate access token
+        token_data = TokenData(
+            sub=client_id,
+            exp=datetime.utcnow() + timedelta(seconds=self.config.jwt_expire_seconds),
+            scopes=granted_scopes
+        )
+        
+        access_token = self.jwt_manager.create_token(token_data)
         
         return {
             "access_token": access_token,
             "token_type": "bearer",
-            "expires_in": self.config.jwt_expiry_hours * 3600,
-            "scope": " ".join(scopes)
+            "expires_in": self.config.jwt_expire_seconds,
+            "scope": " ".join(granted_scopes)
         }
 
 

@@ -9,16 +9,53 @@
 - **Missing Features**: 2 (all fixed ✅)
 - **Performance Issues**: 1 (addressed ✅)
 
-**Additional Issues Fixed**: 1
+**Additional Issues Fixed**: 6
 - API key display issue (fixed ✅)
+- Thread safety in streaming callback (fixed ✅)
+- Unbounded task storage memory leak (fixed ✅)
+- Synchronous file operations (fixed ✅)
+- No connection pooling (fixed ✅)
+- OAuth2 client validation (fixed ✅)
 
-**Total Issues Fixed**: 16 ✅
+**Total Issues Fixed**: 21 ✅
 
 ## Bugs Fixed ✅
 
 # A2A-Minions: Implementation Status
 
 ## Completed in This Session
+
+### Performance & Reliability Improvements ✅
+1. ✅ **Thread Safety Fix in Streaming Callback**
+   - Replaced `call_soon_threadsafe` with `asyncio.run_coroutine_threadsafe`
+   - Proper coroutine scheduling in thread-safe manner
+   - Better error handling for event loop access
+
+2. ✅ **Task Storage Memory Management**
+   - Implemented task cleanup mechanism with retention policy
+   - Added LRU eviction with max_tasks limit (default 1000)
+   - Background cleanup task removes old completed tasks
+   - 24-hour retention for all tasks, 1-hour for completed tasks
+
+3. ✅ **Asynchronous PDF Processing**
+   - Moved PDF extraction to thread pool executor
+   - Non-blocking file operations
+   - 4 worker threads for parallel PDF processing
+   - Proper cleanup of thread pool on shutdown
+
+4. ✅ **Connection Pooling**
+   - Implemented client connection pooling in ClientFactory
+   - Reuses LLM clients across requests
+   - Thread-safe pool management with locks
+   - Cache key based on provider and configuration
+
+5. ✅ **OAuth2 Client Registration & Validation**
+   - Created OAuth2ClientManager for proper client management
+   - Client registration with secure credential generation
+   - Client validation for OAuth2 token requests
+   - Persistent storage of OAuth2 clients
+   - Created `manage_oauth2_clients.py` CLI tool
+   - Commands: list, register, revoke, export
 
 ### Error Handling & Data Validation
 1. ✅ **Comprehensive Request Validation**
@@ -76,14 +113,24 @@
    - User ownership tracking for tasks
    - Proper 401/403 error responses
    - Agent card security scheme advertisement
+   - Fixed API key display issue
+   - Updated test clients with authentication
+   - Created run_test_server.py for easy testing
+
+9. ✅ **OAuth2 Client Validation**
+   - Proper client registration system
+   - Secure credential generation and storage
+   - Client validation on token requests
+   - Scope validation based on client permissions
+   - OAuth2 client management CLI tool
 
 ### Project Structure Simplification
-9. ✅ **Removed Standalone Project Files**
-   - Removed `pyproject.toml`
-   - Removed `__main__.py`
-   - Created simple `requirements.txt`
-   - Updated `__init__.py` to remove version info
-   - Now works as part of main minions repo with `pip install -e .`
+10. ✅ **Removed Standalone Project Files**
+    - Removed `pyproject.toml`
+    - Removed `__main__.py`
+    - Created simple `requirements.txt`
+    - Updated `__init__.py` to remove version info
+    - Now works as part of main minions repo with `pip install -e .`
 
 ## Previously Fixed (From Earlier Session)
 
@@ -95,77 +142,51 @@
 
 ## Remaining Issues
 
-### High Priority
-1. **Thread Safety Issue in Streaming Callback**
-   - Still using `call_soon_threadsafe` with lambda
-   - Should use `asyncio.run_coroutine_threadsafe`
-
-2. **Unbounded Task Storage Memory Leak**
-   - Tasks stored indefinitely in memory
-   - Need retention policy and cleanup mechanism
-
-### Performance
-3. **Synchronous File Operations** 
-   - PDF extraction blocks event loop
-   - Should use thread pool for CPU-intensive work
-
-4. **No Connection Pooling**
-   - Creates new clients for each request
-   - Need client reuse mechanism
-
 ### Monitoring & Operations
-5. **No Metrics or Monitoring**
+1. **No Metrics or Monitoring**
    - Can't track service health
    - Need Prometheus metrics
 
-6. **No Request Correlation**
+2. **No Request Correlation**
    - Hard to trace requests
    - Need X-Request-ID support
 
-7. **No Health Check with Dependencies**
+3. **No Health Check with Dependencies**
    - Basic health check doesn't verify Minions availability
 
 ### Additional Security Enhancements
-8. **No Rate Limiting**
+4. **No Rate Limiting**
    - Can be abused without limits
    - Should add per-API-key rate limiting
 
-9. **OAuth2 Client Validation**
-   - Currently accepts any client_id/secret
-   - Need proper client registration system
-
 ### Code Quality
-10. **Missing Type Hints**
-    - Some methods lack proper annotations
+5. **Missing Type Hints**
+   - Some methods lack proper annotations
 
-11. **No Structured Error Codes**
-    - Using generic JSON-RPC error codes
-    - Should have specific A2A error codes
+6. **No Structured Error Codes**
+   - Using generic JSON-RPC error codes
+   - Should have specific A2A error codes
 
 ## Next Steps
 
-### Immediate (Critical Bugs)
-- Fix thread safety in streaming callback
-- Implement task cleanup mechanism
-
-### Short Term (Performance & Reliability)
-- Move PDF processing to thread pool
-- Add connection pooling
-- Add rate limiting
+### Short Term (Monitoring & Operations)
+- Add metrics and monitoring
+- Implement request correlation
+- Add comprehensive health checks
 
 ### Long Term (Features)
-- Add metrics and monitoring
+- Add rate limiting per API key
 - Implement distributed task storage
 - Add request tracing
-- Add OAuth2 client registration
+- Add structured error codes
 
 ## Summary
 
-The A2A-Minions server now has a complete, A2A-compliant authentication system following the protocol's security standards. Users can:
+The A2A-Minions server now has:
 
-1. Run without auth for local testing (`--no-auth`)
-2. Use API keys for simple deployments
-3. Use JWT bearer tokens for production
-4. Use OAuth2 client credentials for enterprise integrations
+1. **Robust Performance**: Thread-safe streaming, async PDF processing, connection pooling
+2. **Reliable Memory Management**: Task cleanup, LRU eviction, retention policies  
+3. **Complete Authentication**: API keys, JWT tokens, OAuth2 with proper client validation
+4. **Production-Ready Features**: Graceful shutdown, timeout handling, comprehensive logging
 
-The implementation includes proper scopes, user tracking, and comprehensive security documentation.
+Users can run the server with confidence that it will handle production workloads efficiently and securely.

@@ -803,3 +803,42 @@ For issues, questions, or contributions:
 ---
 
 **A2A-Minions** - Bridging Agent-to-Agent communication with the power of the Minions protocol for efficient, scalable document processing and analysis.
+
+### OAuth2 Client Management
+
+Register and manage OAuth2 clients:
+
+```bash
+# List all OAuth2 clients
+python manage_oauth2_clients.py list
+
+# Register a new OAuth2 client
+python manage_oauth2_clients.py register "my-app" --scopes minion:query tasks:read
+
+# Register with all scopes
+python manage_oauth2_clients.py register "admin-app"
+
+# Revoke a client
+python manage_oauth2_clients.py revoke oauth2_xxxxx
+
+# Export client list (without secrets)
+python manage_oauth2_clients.py export --output clients.json
+```
+
+### Using OAuth2 Authentication
+
+After registering a client, use the client credentials flow:
+
+```bash
+# Get access token
+curl -X POST http://localhost:8000/oauth/token \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "grant_type=client_credentials" \
+  -d "client_id=YOUR_CLIENT_ID" \
+  -d "client_secret=YOUR_CLIENT_SECRET" \
+  -d "scope=minion:query tasks:read"
+
+# Use the token
+curl http://localhost:8000/agent/authenticatedExtendedCard \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+```

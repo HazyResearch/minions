@@ -33,7 +33,7 @@ class AuthConfig(BaseModel):
     api_key_header_name: str = "X-API-Key"
     
     # JWT settings
-    jwt_secret: str = None
+    jwt_secret: Optional[str] = None
     jwt_algorithm: str = "HS256"
     jwt_expiry_hours: int = 24
     

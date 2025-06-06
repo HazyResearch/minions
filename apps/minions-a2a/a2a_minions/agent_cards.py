@@ -3,8 +3,8 @@ Agent card definitions for A2A-Minions server.
 Defines the public capabilities and skills available through the A2A protocol.
 """
 
-from typing import List, Dict, Any
-from pydantic import BaseModel
+from typing import List, Dict, Any, Optional
+from pydantic import BaseModel, Field
 
 
 class OAuthFlow(BaseModel):
@@ -22,14 +22,13 @@ class SecurityScheme(BaseModel):
     """Security scheme definition."""
     type: str
     description: str
-    scheme: str = None
-    bearerFormat: str = None
-    flows: OAuthFlows = None
-    name: str = None
-    in_: str = None  # 'in' is a reserved keyword
+    scheme: Optional[str] = None
+    bearerFormat: Optional[str] = None
+    flows: Optional[OAuthFlows] = None
+    name: Optional[str] = None
+    in_: Optional[str] = Field(None, alias="in")  # 'in' is a reserved keyword
 
-    class Config:
-        fields = {'in_': 'in'}
+    model_config = {"populate_by_name": True}
 
 
 class AgentSkill(BaseModel):

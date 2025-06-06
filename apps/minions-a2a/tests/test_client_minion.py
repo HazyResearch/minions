@@ -16,9 +16,14 @@ from pathlib import Path
 class A2AMinionsTestClient:
     """Enhanced test client for A2A-Minions server."""
     
-    def __init__(self, base_url: str = "http://localhost:8001"):
+    def __init__(self, base_url: str = "http://localhost:8001", api_key: str = "abcd"):
         self.base_url = base_url
-        self.client = httpx.AsyncClient(timeout=30.0)
+        self.api_key = api_key
+        self.headers = {
+            "X-API-Key": api_key,
+            "Content-Type": "application/json"
+        }
+        self.client = httpx.AsyncClient(timeout=30.0, headers=self.headers)
     
     async def get_agent_card(self) -> Dict[str, Any]:
         """Fetch the public agent card."""
@@ -79,8 +84,11 @@ class A2AMinionsTestClient:
             "id": str(uuid.uuid4())
         }
         
+        stream_headers = self.headers.copy()
+        stream_headers["Accept"] = "text/event-stream"
+        
         async with self.client.stream("POST", self.base_url, json=payload,
-                                     headers={"Accept": "text/event-stream"}) as response:
+                                     headers=stream_headers) as response:
             response.raise_for_status()
             
             events = []

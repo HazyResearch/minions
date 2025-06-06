@@ -1,3 +1,21 @@
+# A2A-Minions Server: Bugs and Issues Report
+
+## Summary
+- **Total Issues Identified**: 15
+- **Critical Bugs**: 4 (all fixed ✅)
+- **Security Vulnerabilities**: 2 (all fixed ✅)
+- **Error Handling Issues**: 3 (all fixed ✅)
+- **Data Validation Issues**: 3 (all fixed ✅) 
+- **Missing Features**: 2 (all fixed ✅)
+- **Performance Issues**: 1 (addressed ✅)
+
+**Additional Issues Fixed**: 1
+- API key display issue (fixed ✅)
+
+**Total Issues Fixed**: 16 ✅
+
+## Bugs Fixed ✅
+
 # A2A-Minions: Implementation Status
 
 ## Completed in This Session
@@ -33,7 +51,7 @@
    - Track active asyncio tasks
    - Cancel on user request or shutdown
 
-### Authentication & Security (NEW)
+### Authentication & Security Improvements ✅
 6. ✅ **A2A-Compatible Authentication**
    - Implemented all three A2A security schemes:
      - API Key authentication (header: X-API-Key)

@@ -505,15 +505,28 @@ Content-Type: application/json
 
 ### Running Tests
 
+First, ensure the server is running with the test API key:
+
+```bash
+# Start server with test API key "abcd"
+python run_server.py --api-key "abcd"
+
+# Or add the key using the management tool
+python manage_api_keys.py generate "test" --scopes minion:query minions:query tasks:read tasks:write
+# Then use the generated key in tests
+```
+
+Then run the tests:
+
 ```bash
 # Test focused analysis (minion_query)
-python test_client.py
+python tests/test_client_minion.py
 
 # Test parallel processing (minions_query) 
-python test_client_minions.py
+python tests/test_client_minions.py
 
 # Custom server URL
-python test_client.py --base-url http://localhost:8001
+python tests/test_client_minion.py --base-url http://localhost:8001
 ```
 
 ### Test Coverage

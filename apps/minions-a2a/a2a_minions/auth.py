@@ -151,6 +151,7 @@ class AuthenticationManager:
         self.config = config or AuthConfig()
         self.api_key_manager = APIKeyManager(self.config)
         self.jwt_manager = JWTManager(self.config)
+        self.default_api_key = None  # Store the default key
         
         # Security dependencies
         self.api_key_header = APIKeyHeader(
@@ -161,11 +162,11 @@ class AuthenticationManager:
         
         # Initialize with a default API key if none exist
         if not self.api_key_manager.api_keys and self.config.require_auth:
-            default_key = self.api_key_manager.generate_api_key(
+            self.default_api_key = self.api_key_manager.generate_api_key(
                 "default",
                 ["minion:query", "minions:query", "tasks:read", "tasks:write"]
             )
-            logger.info(f"Generated default API key: {default_key}")
+            logger.info(f"Generated default API key: {self.default_api_key}")
             logger.info(f"Save this key - it won't be shown again!")
     
     async def authenticate(

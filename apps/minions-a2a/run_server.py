@@ -164,8 +164,12 @@ def main():
             
             # Show default API key if it was generated
             if auth_config.require_auth and not args.api_key:
-                logger.info("")
-                logger.info("⚠️  Check above for generated default API key!")
+                # Check if a default key was generated
+                if hasattr(server, 'auth_manager') and server.auth_manager.default_api_key:
+                    logger.info("")
+                    logger.info("🔑 Generated default API key:")
+                    logger.info(f"   {server.auth_manager.default_api_key}")
+                    logger.info("   ⚠️  Save this key - it won't be shown again!")
         
         logger.info("")
         logger.info("Press Ctrl+C to stop the server")

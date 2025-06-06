@@ -59,11 +59,21 @@ class TaskManager:
         self.retention_time = retention_time
         self._cleanup_task = None
         self._metrics_task = None
-        self._shutdown_event = asyncio.Event()
-        self._start_cleanup_task()
-        self._start_metrics_task()
+        self._shutdown_event = None
+        # Don't start background tasks in __init__
+        self._started = False
     
-    def _start_cleanup_task(self):
+    async def start(self):
+        """Start background tasks. Must be called when event loop is running."""
+        if self._started:
+            return
+        
+        self._shutdown_event = asyncio.Event()
+        await self._start_cleanup_task()
+        await self._start_metrics_task()
+        self._started = True
+    
+    async def _start_cleanup_task(self):
         """Start background task for periodic cleanup."""
         async def cleanup_loop():
             while True:
@@ -77,7 +87,7 @@ class TaskManager:
         
         self._cleanup_task = asyncio.create_task(cleanup_loop())
     
-    def _start_metrics_task(self):
+    async def _start_metrics_task(self):
         """Start background task for periodic metrics updates."""
         async def metrics_loop():
             while True:
@@ -542,6 +552,12 @@ class A2AMinionsServer:
     
     def _setup_routes(self):
         """Set up FastAPI routes."""
+        
+        @self.app.on_event("startup")
+        async def startup_event():
+            """Initialize components on startup."""
+            await self.task_manager.start()
+            logger.info("Task manager started successfully")
         
         @self.app.get("/.well-known/agent.json")
         async def get_agent_card():

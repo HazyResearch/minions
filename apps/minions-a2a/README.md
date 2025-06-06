@@ -10,12 +10,15 @@ A comprehensive A2A (Agent-to-Agent) server implementation that provides seamles
 - [Installation](#installation)
 - [Quick Start](#quick-start)
 - [Configuration](#configuration)
+- [Authentication](#authentication)
 - [Skills and Protocol Selection](#skills-and-protocol-selection)
 - [API Reference](#api-reference)
 - [Testing](#testing)
 - [Examples](#examples)
 - [Troubleshooting](#troubleshooting)
 - [Contributing](#contributing)
+- [Monitoring](#monitoring)
+- [Production Deployment](#production-deployment)
 
 ## Overview
 
@@ -28,21 +31,16 @@ A2A-Minions bridges the gap between A2A protocol agents and the Minions framewor
 
 ## Features
 
-### Core Capabilities
-
-- ✅ **Two Processing Modes**:
-  - `minion_query`: Focused analysis using single-conversation protocol
-  - `minions_query`: Parallel processing for complex multi-document analysis
-- ✅ **Multi-Format Input Support**: Text, files (PDF, TXT), and JSON data
-- ✅ **Streaming Support**: Real-time progress updates via Server-Sent Events
-- ✅ **Flexible Model Configuration**: Support for local (Ollama) and remote (OpenAI, Anthropic, etc.) models
-- ✅ **Robust Error Handling**: Comprehensive validation and error reporting
-
-### Protocol Integration
-
-- **A2A Compliance**: Full compliance with A2A protocol specifications
-- **Agent Cards**: Dynamic skill discovery and capability advertisement
-- **JSON-RPC 2.0**: Standard messaging protocol implementation
+- **A2A Protocol Compliance**: Full implementation of the Agent-to-Agent protocol specification
+- **Dual Query Skills**: 
+  - `minion_query`: Single-agent focused analysis
+  - `minions_query`: Multi-agent parallel processing
+- **Streaming Support**: Real-time responses via Server-Sent Events
+- **Multi-modal Input**: Handles text, files (PDF), data (JSON), and images
+- **Authentication**: API Keys, JWT tokens, and OAuth2 client credentials
+- **Task Management**: Async task execution with status tracking
+- **Error Handling**: Comprehensive validation and error responses
+- **Monitoring**: Prometheus metrics for production observability
 
 ## Architecture
 
@@ -68,134 +66,74 @@ A2A-Minions bridges the gap between A2A protocol agents and the Minions framewor
 
 ### Prerequisites
 
-- Python 3.8+
-- Access to at least one supported frontier and model provider (Ollama, OpenAI, etc.)
+- Python 3.10+
+- Access to at least one supported model provider (Ollama, OpenAI, etc.)
+- The main Minions repository
 
-## Installation Guide
+### Installation Steps
 
-Follow these steps to install and run the Minions A2A server. Instructions are provided for both Windows and Linux/macOS.
+1. **Clone the Minions repository**:
+   ```bash
+   git clone <repository-url>
+   cd minions
+   ```
 
-### 1. Clone the Repository
+2. **Install Minions in development mode**:
+   ```bash
+   pip install -e .
+   ```
 
-First, clone the main Minions repository:
+3. **Install A2A-specific dependencies**:
+   ```bash
+   cd apps/minions-a2a
+   pip install -r requirements.txt
+   ```
 
+4. **Set up environment variables** (required for some model providers):
+   ```bash
+   export OPENAI_API_KEY="your-openai-key"
+   export ANTHROPIC_API_KEY="your-anthropic-key"  # Optional
+   export OLLAMA_HOST="http://localhost:11434"    # Optional, defaults to localhost
+   ```
+
+### Quick Verification
+
+To verify installation:
 ```bash
-git clone <repository-url>
-cd minions
+# Check dependencies
+python run_server.py --skip-checks
+
+# Run with environment checks
+python run_server.py
 ```
 
-### 2. Create and Activate Virtual Environment
+## Quick Start
 
-#### Windows (PowerShell)
-```powershell
-# Create virtual environment
-python -m venv venv
-
-# Activate virtual environment
-.\venv\Scripts\activate
-```
-
-#### Linux/macOS
-```bash
-# Create virtual environment
-python -m venv venv
-
-# Activate virtual environment
-source venv/bin/activate
-```
-
-### 3. Install Dependencies
-
-Install the main Minions package in development mode and required dependencies:
+### Start the Server
 
 ```bash
-# Install the main Minions package
-pip install -e .
-
-# Install A2A-specific dependencies
-pip install a2a-sdk fastapi aiofiles
-```
-
-### 4. Navigate to A2A App Directory
-
-```bash
-cd apps/minions-a2a
-```
-
-### 5. Start the Server
-
-Run the A2A-Minions server:
-
-```bash
-# Start server on port 8001 (or specify your preferred port)
+# From the apps/minions-a2a directory
 python run_server.py --port 8001
 ```
 
-The server will start and be available at `http://localhost:8001`.
+The server will be available at `http://localhost:8001`.
 
-### 6. Test the Installation
+### Test Basic Functionality
 
 Run the test clients to verify everything is working:
 
 ```bash
-# Test the minion_query skill (focused analysis)
+# Test focused analysis (minion_query skill)
 python tests/test_client_minion.py
 
-# Test the minions_query skill (parallel processing)
+# Test parallel processing (minions_query skill)
 python tests/test_client_minions.py
 ```
 
-### 7. Environment Setup
+### Check Server Status
 
-For production use, configure your model providers by setting environment variables:
-
-#### Windows (PowerShell)
-```powershell
-$env:OPENAI_API_KEY="your-openai-key"
-$env:ANTHROPIC_API_KEY="your-anthropic-key"
-$env:OLLAMA_HOST="http://localhost:11434"
-```
-
-#### Linux/macOS
-```bash
-export OPENAI_API_KEY="your-openai-key"
-export ANTHROPIC_API_KEY="your-anthropic-key"
-export OLLAMA_HOST="http://localhost:11434"
-```
-
-### Troubleshooting Installation
-
-#### Common Installation Issues
-
-1. **Python Version**: Ensure you're using Python 3.8 or higher:
-   ```bash
-   python --version
-   ```
-
-2. **Virtual Environment Issues**: If activation fails, try:
-   - Windows: `venv\Scripts\activate.bat` instead of `.\venv\Scripts\activate`
-   - Linux/macOS: `bash venv/bin/activate` if `source` doesn't work
-
-3. **Permission Errors**: On Linux/macOS, you might need to install with:
-   ```bash
-   pip install --user -e .
-   ```
-
-4. **Dependency Conflicts**: If you encounter conflicts, create a fresh virtual environment:
-   ```bash
-   deactivate  # if already in a venv
-   rm -rf venv  # or rmdir /s venv on Windows
-   python -m venv venv
-   # Then repeat activation and installation steps
-   ```
-
-### Verification
-
-After successful installation, you should see:
-- Server starting without errors on `http://localhost:8001`
-- Test clients completing successfully
-- Health check available at `http://localhost:8001/health`
-- Agent card available at `http://localhost:8001/.well-known/agent.json`
+- Health check: `http://localhost:8001/health`
+- Agent card: `http://localhost:8001/.well-known/agent.json`
 
 ## Configuration
 ### Server Configuration
@@ -220,6 +158,159 @@ class MinionsConfig:
     # Context settings
     num_ctx: int = 128000
     chunking_strategy: str = "chunk_by_section"
+```
+
+## Authentication
+
+A2A-Minions implements A2A-compatible authentication following the protocol's security standards. The server supports multiple authentication methods as defined in the [A2A specification](https://auth0.com/blog/auth0-google-a2a/).
+
+### Authentication Methods
+
+The server supports three authentication schemes:
+
+1. **API Key Authentication** (Default for local deployments)
+   - Header: `X-API-Key: <your-api-key>`
+   - Best for: Local testing, simple deployments
+
+2. **Bearer Token Authentication** (JWT)
+   - Header: `Authorization: Bearer <token>`
+   - Best for: Production deployments, time-limited access
+
+3. **OAuth2 Client Credentials Flow**
+   - Endpoint: `POST /oauth/token`
+   - Best for: Machine-to-machine (M2M) authentication, enterprise integrations
+
+### Quick Start with Authentication
+
+#### Running Without Authentication (Testing Only)
+```bash
+python run_server.py --no-auth
+```
+
+#### Running With Default Authentication
+```bash
+python run_server.py
+# A default API key will be generated and displayed
+# Save it securely - it won't be shown again!
+```
+
+#### Running With Custom API Key
+```bash
+python run_server.py --api-key "your-custom-api-key"
+```
+
+### Managing API Keys
+
+Use the included CLI tool to manage API keys:
+
+```bash
+# List all API keys
+python manage_api_keys.py list
+
+# Generate a new API key
+python manage_api_keys.py generate "my-client-name"
+
+# Generate with specific scopes
+python manage_api_keys.py generate "limited-client" --scopes minion:query tasks:read
+
+# Revoke an API key (use last 8 characters)
+python manage_api_keys.py revoke "abc12345"
+
+# Export keys for backup
+python manage_api_keys.py export backup_keys.json
+```
+
+### Available Scopes
+
+The A2A-Minions server uses fine-grained scopes for authorization:
+
+- `minion:query` - Execute focused minion queries
+- `minions:query` - Execute parallel minions queries  
+- `tasks:read` - Read task status and results
+- `tasks:write` - Create and cancel tasks
+
+### OAuth2 Client Credentials Flow
+
+To obtain an access token using OAuth2:
+
+```bash
+curl -X POST http://localhost:8001/oauth/token \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "grant_type=client_credentials" \
+  -d "client_id=your-client-id" \
+  -d "client_secret=your-client-secret" \
+  -d "scope=minion:query tasks:read"
+```
+
+Response:
+```json
+{
+  "access_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
+  "token_type": "bearer",
+  "expires_in": 86400,
+  "scope": "minion:query tasks:read"
+}
+```
+
+### Using Authentication in Requests
+
+#### With API Key
+```python
+headers = {
+    "X-API-Key": "a2a_your_api_key_here",
+    "Content-Type": "application/json"
+}
+```
+
+#### With Bearer Token
+```python
+headers = {
+    "Authorization": "Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
+    "Content-Type": "application/json"
+}
+```
+
+### Security Best Practices
+
+1. **Never commit API keys** - The `api_keys.json` file is gitignored by default
+2. **Use environment variables** for JWT secrets: `export A2A_JWT_SECRET="your-secret"`
+3. **Rotate keys regularly** - Use the CLI tool to generate new keys and revoke old ones
+4. **Use minimal scopes** - Only grant the permissions needed for each client
+5. **Enable HTTPS in production** - Authentication tokens should only be sent over encrypted connections
+
+### Agent Card Security
+
+The agent card advertises the supported security schemes:
+
+```json
+{
+  "securitySchemes": {
+    "api_key": {
+      "type": "apiKey",
+      "name": "X-API-Key",
+      "in": "header"
+    },
+    "bearer_auth": {
+      "type": "http",
+      "scheme": "bearer",
+      "bearerFormat": "JWT"
+    },
+    "oauth2_client_credentials": {
+      "type": "oauth2",
+      "flows": {
+        "clientCredentials": {
+          "tokenUrl": "http://localhost:8001/oauth/token",
+          "scopes": {
+            "minion:query": "Execute focused minion queries",
+            "minions:query": "Execute parallel minions queries",
+            "tasks:read": "Read task status and results",
+            "tasks:write": "Create and cancel tasks"
+          }
+        }
+      }
+    }
+  }
+}
 ```
 
 ## Skills and Protocol Selection
@@ -411,15 +502,28 @@ Content-Type: application/json
 
 ### Running Tests
 
+First, ensure the server is running with the test API key:
+
+```bash
+# Start server with test API key "abcd"
+python run_server.py --api-key "abcd"
+
+# Or add the key using the management tool
+python manage_api_keys.py generate "test" --scopes minion:query minions:query tasks:read tasks:write
+# Then use the generated key in tests
+```
+
+Then run the tests:
+
 ```bash
 # Test focused analysis (minion_query)
-python test_client.py
+python tests/test_client_minion.py
 
 # Test parallel processing (minions_query) 
-python test_client_minions.py
+python tests/test_client_minions.py
 
 # Custom server URL
-python test_client.py --base-url http://localhost:8001
+python tests/test_client_minion.py --base-url http://localhost:8001
 ```
 
 ### Test Coverage
@@ -696,3 +800,85 @@ For issues, questions, or contributions:
 ---
 
 **A2A-Minions** - Bridging Agent-to-Agent communication with the power of the Minions protocol for efficient, scalable document processing and analysis.
+
+### OAuth2 Client Management
+
+Register and manage OAuth2 clients:
+
+```bash
+# List all OAuth2 clients
+python manage_oauth2_clients.py list
+
+# Register a new OAuth2 client
+python manage_oauth2_clients.py register "my-app" --scopes minion:query tasks:read
+
+# Register with all scopes
+python manage_oauth2_clients.py register "admin-app"
+
+# Revoke a client
+python manage_oauth2_clients.py revoke oauth2_xxxxx
+
+# Export client list (without secrets)
+python manage_oauth2_clients.py export --output clients.json
+```
+
+### Using OAuth2 Authentication
+
+After registering a client, use the client credentials flow:
+
+```bash
+# Get access token
+curl -X POST http://localhost:8000/oauth/token \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "grant_type=client_credentials" \
+  -d "client_id=YOUR_CLIENT_ID" \
+  -d "client_secret=YOUR_CLIENT_SECRET" \
+  -d "scope=minion:query tasks:read"
+
+# Use the token
+curl http://localhost:8000/agent/authenticatedExtendedCard \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+```
+
+## Monitoring
+
+The server exposes Prometheus metrics at `/metrics`:
+
+```bash
+# View raw metrics
+curl http://localhost:8000/metrics
+
+# Key metrics exposed:
+# - a2a_minions_requests_total: Request count by method and status
+# - a2a_minions_request_duration_seconds: Request latency
+# - a2a_minions_tasks_total: Task count by skill and status
+# - a2a_minions_task_duration_seconds: Task execution time
+# - a2a_minions_active_tasks: Currently running tasks
+# - a2a_minions_auth_attempts_total: Auth attempts by method
+# - a2a_minions_pdf_processed_total: PDFs processed
+# - a2a_minions_errors_total: Error count by type
+```
+
+Example Prometheus configuration:
+```yaml
+scrape_configs:
+  - job_name: 'a2a-minions'
+    static_configs:
+      - targets: ['localhost:8000']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+```
+
+## Production Deployment
+
+Before deploying to production, review the comprehensive checklist:
+
+📋 **[PRODUCTION_CHECKLIST.md](PRODUCTION_CHECKLIST.md)**
+
+Key areas covered:
+- Environment configuration
+- Security hardening
+- Infrastructure requirements
+- Monitoring setup
+- Performance optimization
+- Operational procedures

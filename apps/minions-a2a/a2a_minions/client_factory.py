@@ -6,18 +6,26 @@ import sys
 import os
 from typing import Any, Dict, Optional, Tuple
 from pathlib import Path
+import logging
+import hashlib
+import json
+from threading import Lock
 
 # Add the parent directory to Python path to import minions
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent))
 
 from .config import MinionsConfig, ProviderType, ProtocolType
 
+logger = logging.getLogger(__name__)
 
 class ClientFactory:
-    """Factory for creating Minions protocol clients."""
+    """Factory for creating Minions protocol clients with connection pooling."""
     
     def __init__(self):
         self._import_minions_modules()
+        # Connection pool for reusing clients
+        self._client_pool: Dict[str, Any] = {}
+        self._pool_lock = Lock()
     
     def _import_minions_modules(self):
         """Import Minions modules and clients."""
@@ -64,26 +72,50 @@ class ClientFactory:
 
                 
         except ImportError as e:
+            logger.error(f"Failed to import Minions modules: {e}")
+            logger.error(f"Make sure minions package is installed and in PYTHONPATH")
             raise ImportError(f"Failed to import Minions modules: {e}")
     
+    def _get_client_key(self, provider: ProviderType, config: Dict[str, Any]) -> str:
+        """Generate a unique key for client configuration."""
+        # Create a deterministic key based on provider and config
+        config_str = json.dumps(config, sort_keys=True)
+        return f"{provider}:{hashlib.md5(config_str.encode()).hexdigest()}"
+    
     def create_client(self, provider: ProviderType, config: Dict[str, Any]) -> Any:
-        """Create a client instance for the specified provider."""
+        """Create or retrieve a cached client instance for the specified provider."""
         
         if provider not in self.clients:
             raise ValueError(f"Unsupported provider: {provider}")
         
-        client_class = self.clients[provider]
+        # Generate cache key
+        cache_key = self._get_client_key(provider, config)
         
-        # Create client with configuration
-        try:
-            return client_class(**config)
-        except Exception as e:
-            raise RuntimeError(f"Failed to create {provider} client: {e}")
+        # Check if client already exists in pool
+        with self._pool_lock:
+            if cache_key in self._client_pool:
+                logger.debug(f"Reusing cached client for {provider}")
+                return self._client_pool[cache_key]
+            
+            # Create new client
+            client_class = self.clients[provider]
+            
+            try:
+                client = client_class(**config)
+                # Cache the client
+                self._client_pool[cache_key] = client
+                logger.info(f"Created new {provider} client and added to pool")
+                return client
+            except TypeError as e:
+                raise TypeError(f"Invalid configuration for {provider} client: {e}")
+            except Exception as e:
+                logger.error(f"Failed to create {provider} client: {e}")
+                raise RuntimeError(f"Failed to create {provider} client: {e}")
     
     def create_minions_protocol(self, config: MinionsConfig) -> Any:
         """Create the appropriate Minions protocol instance."""
         
-        # Create local and remote clients
+        # Create local and remote clients (will be reused from pool if available)
         local_client, remote_client = self.create_client_pair(config)
         
         if config.protocol == ProtocolType.MINION:
@@ -160,6 +192,19 @@ class ClientFactory:
             "max_tokens": config.remote_max_tokens,
         }
     
+    def clear_pool(self):
+        """Clear the client pool (useful for testing or cleanup)."""
+        with self._pool_lock:
+            self._client_pool.clear()
+            logger.info("Cleared client pool")
+    
+    def get_pool_stats(self) -> Dict[str, int]:
+        """Get statistics about the client pool."""
+        with self._pool_lock:
+            return {
+                "total_clients": len(self._client_pool),
+                "providers": len(set(key.split(":")[0] for key in self._client_pool))
+            }
 
 
 

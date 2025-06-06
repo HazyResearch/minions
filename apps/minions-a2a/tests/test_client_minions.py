@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Comprehensive test client for A2A-Minions server using MINIONS (parallel) protocol.
-Tests all functionality including edge cases and error handling with parallel processing.
+Test client for A2A-Minions server using the minions_query skill.
+Tests parallel processing capabilities.
 """
 
 import asyncio
@@ -14,14 +14,20 @@ from pathlib import Path
 
 
 class A2AMinionsTestClient:
-    """Enhanced test client for A2A-Minions server."""
+    """Test client for A2A-Minions server with minions_query focus."""
     
-    def __init__(self, base_url: str = "http://localhost:8001"):
+    def __init__(self, base_url: str = "http://localhost:8001", api_key: str = "abcd"):
         self.base_url = base_url
-        self.client = httpx.AsyncClient(timeout=30.0)
+        self.api_key = api_key
+        self.headers = {
+            "X-API-Key": api_key,
+            "Content-Type": "application/json"
+        }
+        self.client = httpx.AsyncClient(timeout=60.0, headers=self.headers)  # Longer timeout for parallel processing
     
     async def get_agent_card(self) -> Dict[str, Any]:
         """Fetch the public agent card."""
+        # Agent card doesn't require auth
         response = await self.client.get(f"{self.base_url}/.well-known/agent.json")
         response.raise_for_status()
         return response.json()
@@ -34,6 +40,7 @@ class A2AMinionsTestClient:
     
     async def health_check(self) -> Dict[str, Any]:
         """Check server health."""
+        # Health check doesn't require auth
         response = await self.client.get(f"{self.base_url}/health")
         response.raise_for_status()
         return response.json()
@@ -79,8 +86,12 @@ class A2AMinionsTestClient:
             "id": str(uuid.uuid4())
         }
         
+        # Add SSE headers
+        stream_headers = self.headers.copy()
+        stream_headers["Accept"] = "text/event-stream"
+        
         async with self.client.stream("POST", self.base_url, json=payload,
-                                     headers={"Accept": "text/event-stream"}) as response:
+                                     headers=stream_headers) as response:
             response.raise_for_status()
             
             events = []

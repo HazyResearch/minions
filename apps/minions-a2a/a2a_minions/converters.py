@@ -8,10 +8,16 @@ import base64
 import json
 import tempfile
 import aiofiles
+import os
+import uuid
+import logging
 from typing import List, Dict, Any, Optional, Tuple, Union
 from pathlib import Path
-from pydantic import BaseModel
 import mimetypes
+import asyncio
+from concurrent.futures import ThreadPoolExecutor
+
+from .models import A2AMessage, MessagePart
 
 # PDF processing imports
 try:
@@ -20,31 +26,28 @@ try:
 except ImportError:
     PDF_AVAILABLE = False
 
+# Import metrics manager if available
+try:
+    from .metrics import metrics_manager
+    METRICS_AVAILABLE = True
+except ImportError:
+    METRICS_AVAILABLE = False
+    metrics_manager = None
 
-class MessagePart(BaseModel):
-    """A2A Message Part."""
-    kind: str  # "text", "file", "data"
-    text: Optional[str] = None
-    data: Optional[Dict[str, Any]] = None
-    file: Optional[Dict[str, Any]] = None
-    metadata: Optional[Dict[str, Any]] = None
-
-
-class A2AMessage(BaseModel):
-    """A2A Message format."""
-    role: str  # "user", "agent"
-    parts: List[MessagePart]
-    messageId: Optional[str] = None
-    metadata: Optional[Dict[str, Any]] = None
+# Set up logging
+logger = logging.getLogger(__name__)
 
 
-class MinionsResult(BaseModel):
+class MinionsResult:
     """Minions execution result."""
-    final_answer: str
-    conversation: List[Dict[str, Any]]
-    usage: Dict[str, Any]
-    timing: Dict[str, Any]
-    metadata: Optional[Dict[str, Any]] = None
+    def __init__(self, final_answer: str, conversation: List[Dict[str, Any]], 
+                 usage: Dict[str, Any], timing: Dict[str, Any], 
+                 metadata: Optional[Dict[str, Any]] = None):
+        self.final_answer = final_answer
+        self.conversation = conversation
+        self.usage = usage
+        self.timing = timing
+        self.metadata = metadata or {}
 
 
 class A2AConverter:
@@ -53,6 +56,12 @@ class A2AConverter:
     def __init__(self):
         self.temp_dir = Path(tempfile.gettempdir()) / "a2a_minions"
         self.temp_dir.mkdir(exist_ok=True)
+        # Create thread pool for CPU-intensive operations
+        self.executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="pdf_worker")
+    
+    def __del__(self):
+        """Cleanup on destruction."""
+        self.executor.shutdown(wait=False)
     
     async def extract_task_and_context(self, message: A2AMessage) -> Tuple[str, List[str], List[str]]:
         """
@@ -77,16 +86,16 @@ class A2AConverter:
             
             elif part.kind == "file" and part.file:
                 # Handle file parts
-                file_content = await self._extract_file_content(part.file)
+                file_content = await self._extract_file_content(part.file.dict())
                 if file_content and not file_content.startswith("[Error"):
                     # Add clear document formatting for legacy file content
-                    file_name = part.file.get("name", "document")
+                    file_name = part.file.name
                     formatted_content = f"=== FILE CONTENT: {file_name} ===\n{file_content.strip()}\n=== END FILE ==="
                     context.append(formatted_content)
                 
                 # Check if it's an image file
-                if self._is_image_file(part.file):
-                    image_path = await self._save_temp_file(part.file)
+                if self._is_image_file(part.file.dict()):
+                    image_path = await self._save_temp_file(part.file.dict())
                     if image_path:
                         image_paths.append(image_path)
             
@@ -169,12 +178,12 @@ class A2AConverter:
         
         # If we still have no context, check if this was intentional (query-only) or an error
         if not context:
-            print("Warning: No meaningful context extracted from parts")
+            logger.warning("No meaningful context extracted from parts")
             # For single-part messages (query only), this is normal
             if len(parts) == 1:
-                print("Note: Single part message detected - query without context")
+                logger.info("Single part message detected - query without context")
             else:
-                print(f"Note: {len(parts)} parts provided but no extractable context found")
+                logger.info(f"{len(parts)} parts provided but no extractable context found")
         
         return task, context, image_paths
     
@@ -207,46 +216,68 @@ class A2AConverter:
                 return f"[External file: {file_info['uri']}]"
             
         except Exception as e:
-            print(f"Error extracting file content: {e}")
+            logger.error(f"Error extracting file content: {e}")
             return f"[Error reading file: {file_info.get('name', 'unknown')}]"
         
         return None
     
     async def _extract_pdf_text(self, pdf_bytes: bytes, filename: str) -> str:
-        """Extract text from PDF bytes."""
+        """Extract text from PDF bytes asynchronously."""
         if not PDF_AVAILABLE:
             return f"[PDF file: {filename} - PyPDF2 not installed for text extraction]"
         
-        try:
-            # Save to temporary file for PyPDF2
-            temp_path = self.temp_dir / f"temp_{filename}"
-            async with aiofiles.open(temp_path, "wb") as f:
-                await f.write(pdf_bytes)
-            
-            # Extract text using PyPDF2
-            with open(temp_path, "rb") as f:
-                pdf_reader = PyPDF2.PdfReader(f)
-                text_content = []
+        # Track PDF processing if metrics available
+        if METRICS_AVAILABLE and metrics_manager:
+            with metrics_manager.track_pdf_processing():
+                return await self._extract_pdf_text_internal(pdf_bytes, filename)
+        else:
+            return await self._extract_pdf_text_internal(pdf_bytes, filename)
+    
+    async def _extract_pdf_text_internal(self, pdf_bytes: bytes, filename: str) -> str:
+        """Internal PDF extraction method."""
+        def _extract_pdf_sync(pdf_bytes: bytes, filename: str, temp_dir: Path) -> str:
+            """Synchronous PDF extraction to run in thread pool."""
+            try:
+                # Save to temporary file for PyPDF2
+                temp_path = temp_dir / f"temp_{uuid.uuid4()}_{filename}"
+                with open(temp_path, "wb") as f:
+                    f.write(pdf_bytes)
                 
-                for page_num, page in enumerate(pdf_reader.pages):
-                    try:
-                        page_text = page.extract_text()
-                        if page_text.strip():
-                            text_content.append(f"\n--- Page {page_num + 1} ---\n")
-                            text_content.append(page_text)
-                    except Exception as e:
-                        text_content.append(f"\n--- Page {page_num + 1} (error: {e}) ---\n")
-                
-                # Clean up temp file
-                temp_path.unlink(missing_ok=True)
-                
-                if text_content:
-                    return "".join(text_content)
-                else:
-                    return f"[PDF file: {filename} - No extractable text found]"
-                    
-        except Exception as e:
-            return f"[PDF file: {filename} - Error extracting text: {e}]"
+                try:
+                    # Extract text using PyPDF2
+                    with open(temp_path, "rb") as f:
+                        pdf_reader = PyPDF2.PdfReader(f)
+                        text_content = []
+                        
+                        for page_num, page in enumerate(pdf_reader.pages):
+                            try:
+                                page_text = page.extract_text()
+                                if page_text.strip():
+                                    text_content.append(f"\n--- Page {page_num + 1} ---\n")
+                                    text_content.append(page_text)
+                            except Exception as e:
+                                text_content.append(f"\n--- Page {page_num + 1} (error: {e}) ---\n")
+                        
+                        if text_content:
+                            return "".join(text_content)
+                        else:
+                            return f"[PDF file: {filename} - No extractable text found]"
+                finally:
+                    # Clean up temp file
+                    temp_path.unlink(missing_ok=True)
+                        
+            except Exception as e:
+                return f"[PDF file: {filename} - Error extracting text: {e}]"
+        
+        # Run PDF extraction in thread pool
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(
+            self.executor, 
+            _extract_pdf_sync, 
+            pdf_bytes, 
+            filename,
+            self.temp_dir
+        )
     
     def _is_image_file(self, file_info: Dict[str, Any]) -> bool:
         """Check if file is an image."""
@@ -259,9 +290,15 @@ class A2AConverter:
             if "bytes" in file_info and file_info["bytes"]:
                 content_bytes = base64.b64decode(file_info["bytes"])
                 
-                # Create temp file
+                # Sanitize filename to prevent path traversal
                 file_name = file_info.get("name", "temp_file")
-                temp_path = self.temp_dir / file_name
+                # Remove path separators and sanitize
+                safe_name = os.path.basename(file_name)
+                safe_name = "".join(c for c in safe_name if c.isalnum() or c in "._- ")
+                
+                # Generate unique filename to prevent overwrites
+                unique_name = f"{uuid.uuid4()}_{safe_name}"
+                temp_path = self.temp_dir / unique_name
                 
                 async with aiofiles.open(temp_path, "wb") as f:
                     await f.write(content_bytes)
@@ -269,7 +306,7 @@ class A2AConverter:
                 return str(temp_path)
                 
         except Exception as e:
-            print(f"Error saving temp file: {e}")
+            logger.error(f"Error saving temp file: {e}")
             
         return None
     
@@ -443,4 +480,11 @@ class A2AConverter:
                 shutil.rmtree(self.temp_dir)
                 self.temp_dir.mkdir(exist_ok=True)
         except Exception as e:
-            print(f"Error cleaning up temp files: {e}") 
+            logger.error(f"Error cleaning up temp files: {e}")
+    
+    def shutdown(self):
+        """Shutdown the converter and clean up resources."""
+        # Shutdown thread pool
+        self.executor.shutdown(wait=True)
+        # Clean up temp files
+        self.cleanup_temp_files() 

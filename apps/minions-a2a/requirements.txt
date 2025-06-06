@@ -1,0 +1,11 @@
+# Core dependencies for A2A-Minions
+# Assumes minions is already installed from parent directory
+a2a-sdk>=0.1.0
+fastapi>=0.104.0
+uvicorn[standard]>=0.24.0
+pydantic>=2.0.0
+httpx>=0.25.0
+sse-starlette>=1.6.0
+python-multipart>=0.0.6
+aiofiles>=23.0.0
+PyPDF2>=3.0.0

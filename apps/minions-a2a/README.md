@@ -68,134 +68,74 @@ A2A-Minions bridges the gap between A2A protocol agents and the Minions framewor
 
 ### Prerequisites
 
-- Python 3.8+
-- Access to at least one supported frontier and model provider (Ollama, OpenAI, etc.)
+- Python 3.10+
+- Access to at least one supported model provider (Ollama, OpenAI, etc.)
+- The main Minions repository
 
-## Installation Guide
+### Installation Steps
 
-Follow these steps to install and run the Minions A2A server. Instructions are provided for both Windows and Linux/macOS.
+1. **Clone the Minions repository**:
+   ```bash
+   git clone <repository-url>
+   cd minions
+   ```
 
-### 1. Clone the Repository
+2. **Install Minions in development mode**:
+   ```bash
+   pip install -e .
+   ```
 
-First, clone the main Minions repository:
+3. **Install A2A-specific dependencies**:
+   ```bash
+   cd apps/minions-a2a
+   pip install -r requirements.txt
+   ```
 
+4. **Set up environment variables** (required for some model providers):
+   ```bash
+   export OPENAI_API_KEY="your-openai-key"
+   export ANTHROPIC_API_KEY="your-anthropic-key"  # Optional
+   export OLLAMA_HOST="http://localhost:11434"    # Optional, defaults to localhost
+   ```
+
+### Quick Verification
+
+To verify installation:
 ```bash
-git clone <repository-url>
-cd minions
+# Check dependencies
+python run_server.py --skip-checks
+
+# Run with environment checks
+python run_server.py
 ```
 
-### 2. Create and Activate Virtual Environment
+## Quick Start
 
-#### Windows (PowerShell)
-```powershell
-# Create virtual environment
-python -m venv venv
-
-# Activate virtual environment
-.\venv\Scripts\activate
-```
-
-#### Linux/macOS
-```bash
-# Create virtual environment
-python -m venv venv
-
-# Activate virtual environment
-source venv/bin/activate
-```
-
-### 3. Install Dependencies
-
-Install the main Minions package in development mode and required dependencies:
+### Start the Server
 
 ```bash
-# Install the main Minions package
-pip install -e .
-
-# Install A2A-specific dependencies
-pip install a2a-sdk fastapi aiofiles
-```
-
-### 4. Navigate to A2A App Directory
-
-```bash
-cd apps/minions-a2a
-```
-
-### 5. Start the Server
-
-Run the A2A-Minions server:
-
-```bash
-# Start server on port 8001 (or specify your preferred port)
+# From the apps/minions-a2a directory
 python run_server.py --port 8001
 ```
 
-The server will start and be available at `http://localhost:8001`.
+The server will be available at `http://localhost:8001`.
 
-### 6. Test the Installation
+### Test Basic Functionality
 
 Run the test clients to verify everything is working:
 
 ```bash
-# Test the minion_query skill (focused analysis)
+# Test focused analysis (minion_query skill)
 python tests/test_client_minion.py
 
-# Test the minions_query skill (parallel processing)
+# Test parallel processing (minions_query skill)
 python tests/test_client_minions.py
 ```
 
-### 7. Environment Setup
+### Check Server Status
 
-For production use, configure your model providers by setting environment variables:
-
-#### Windows (PowerShell)
-```powershell
-$env:OPENAI_API_KEY="your-openai-key"
-$env:ANTHROPIC_API_KEY="your-anthropic-key"
-$env:OLLAMA_HOST="http://localhost:11434"
-```
-
-#### Linux/macOS
-```bash
-export OPENAI_API_KEY="your-openai-key"
-export ANTHROPIC_API_KEY="your-anthropic-key"
-export OLLAMA_HOST="http://localhost:11434"
-```
-
-### Troubleshooting Installation
-
-#### Common Installation Issues
-
-1. **Python Version**: Ensure you're using Python 3.8 or higher:
-   ```bash
-   python --version
-   ```
-
-2. **Virtual Environment Issues**: If activation fails, try:
-   - Windows: `venv\Scripts\activate.bat` instead of `.\venv\Scripts\activate`
-   - Linux/macOS: `bash venv/bin/activate` if `source` doesn't work
-
-3. **Permission Errors**: On Linux/macOS, you might need to install with:
-   ```bash
-   pip install --user -e .
-   ```
-
-4. **Dependency Conflicts**: If you encounter conflicts, create a fresh virtual environment:
-   ```bash
-   deactivate  # if already in a venv
-   rm -rf venv  # or rmdir /s venv on Windows
-   python -m venv venv
-   # Then repeat activation and installation steps
-   ```
-
-### Verification
-
-After successful installation, you should see:
-- Server starting without errors on `http://localhost:8001`
-- Test clients completing successfully
-- Health check available at `http://localhost:8001/health`
-- Agent card available at `http://localhost:8001/.well-known/agent.json`
+- Health check: `http://localhost:8001/health`
+- Agent card: `http://localhost:8001/.well-known/agent.json`
 
 ## Configuration
 ### Server Configuration

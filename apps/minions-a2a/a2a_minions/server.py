@@ -6,20 +6,31 @@ import asyncio
 import json
 import logging
 import uuid
+import signal
+import sys
 from datetime import datetime
 from typing import Dict, Any, Optional, List
 from fastapi import FastAPI, HTTPException, Request, BackgroundTasks
 from fastapi.responses import JSONResponse, StreamingResponse
 from sse_starlette.sse import EventSourceResponse
+from pydantic import ValidationError
 import uvicorn
 
 from .config import ConfigManager, MinionsConfig
 from .agent_cards import get_default_agent_card, get_extended_agent_card
-from .converters import A2AConverter, A2AMessage, MessagePart
+from .converters import A2AConverter
 from .client_factory import client_factory
+from .models import (
+    A2AMessage, MessagePart, SendTaskParams, GetTaskParams, 
+    CancelTaskParams, JSONRPCRequest, JSONRPCResponse, 
+    JSONRPCError, Task, TaskStatus, TaskMetadata
+)
 
 # Set up logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger(__name__)
 
 
@@ -38,29 +49,30 @@ class TaskManager:
     def __init__(self):
         self.tasks: Dict[str, Dict[str, Any]] = {}
         self.task_streams: Dict[str, asyncio.Queue] = {}
+        self.active_tasks: Dict[str, asyncio.Task] = {}  # Track active asyncio tasks
         self.converter = A2AConverter()
         self.config_manager = ConfigManager()
+        self._shutdown_event = asyncio.Event()
     
-    async def create_task(self, task_id: str, message: Dict[str, Any], metadata: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    async def create_task(self, task_id: str, message: A2AMessage, metadata: Optional[TaskMetadata] = None) -> Task:
         """Create a new task."""
         
-        task = {
-            "id": task_id,
-            "sessionId": str(uuid.uuid4()),
-            "status": {
-                "state": TaskState.SUBMITTED,
-                "timestamp": datetime.now().isoformat()
-            },
-            "history": [message],
-            "metadata": metadata or {},
-            "artifacts": []
-        }
+        task_status = TaskStatus(state=TaskState.SUBMITTED)
         
-        self.tasks[task_id] = task
+        task = Task(
+            id=task_id,
+            sessionId=str(uuid.uuid4()),
+            status=task_status,
+            history=[message.dict()],
+            metadata=metadata.dict() if metadata else {},
+            artifacts=[]
+        )
+        
+        self.tasks[task_id] = task.dict()
         return task
     
     async def execute_task(self, task_id: str) -> None:
-        """Execute a Minions task asynchronously."""
+        """Execute a Minions task asynchronously with timeout support."""
         
         if task_id not in self.tasks:
             logger.error(f"Task {task_id} not found")
@@ -72,60 +84,30 @@ class TaskManager:
             # Update task status
             await self.update_task_status(task_id, TaskState.WORKING, "Starting Minions execution")
             
+            # Get timeout from metadata
+            timeout = task.get("metadata", {}).get("timeout", 300)  # Default 5 minutes
+            
             # Get last message from history
             last_message = task["history"][-1]
             
-            # Handle both old A2AMessage format and new parts-based format
-            if "parts" in last_message:
-                parts = last_message["parts"]
-                if not parts or len(parts) == 0:
-                    # Empty parts array - treat as error
-                    raise ValueError("Empty parts array provided")
-                
-                # New parts-based format with valid parts
-                minions_task, context, image_paths = await self.converter.extract_query_and_document_from_parts(parts)
-                # Create a minimal A2AMessage for skill detection
-                a2a_message = A2AMessage(role="user", parts=[{"kind": "text", "text": minions_task}])
-            else:
-                # Legacy A2AMessage format or no parts key
-                if not isinstance(last_message, dict) or not last_message:
-                    raise ValueError("Invalid message format - empty or malformed message")
-                
-                # Try to create A2AMessage from legacy format
-                try:
-                    a2a_message = A2AMessage(**last_message)
-                    minions_task, context, image_paths = await self.converter.extract_task_and_context(a2a_message)
-                except Exception as e:
-                    raise ValueError(f"Failed to parse legacy A2A message format: {e}")
+            # Parse message with Pydantic model
+            a2a_message = A2AMessage(**last_message)
+            
+            # Extract task and context
+            parts = a2a_message.parts
+            minions_task, context, image_paths = await self.converter.extract_query_and_document_from_parts(
+                [part.dict() for part in parts]
+            )
             
             # Parse configuration from metadata
-            config = self.config_manager.parse_a2a_metadata(task.get("metadata"))
+            metadata = TaskMetadata(**task.get("metadata", {}))
+            config = self.config_manager.parse_a2a_metadata(metadata.dict())
             
-            # Determine skill to use
-            try:
-                skill_id = self.converter.extract_skill_id(a2a_message, task.get("metadata"))
-            except ValueError as e:
-                # Handle missing skill_id specifically
-                logger.error(f"Task {task_id} failed: {str(e)}")
-                await self.update_task_status(task_id, TaskState.FAILED, str(e))
-                
-                # Send error streaming event for missing skill_id
-                if task_id in self.task_streams:
-                    error_event = {
-                        "kind": "error",
-                        "error": {
-                            "code": -32602,
-                            "message": "Invalid params",
-                            "data": str(e)
-                        },
-                        "final": True
-                    }
-                    await self.task_streams[task_id].put(error_event)
-                return
+            # Get skill ID (guaranteed to exist due to validation)
+            skill_id = metadata.skill_id
+            logger.info(f"Executing skill: {skill_id} for task: {task_id} with timeout: {timeout}s")
             
-            logger.info(f"Executing skill: {skill_id} for task: {task_id}")
-            
-            # Set up streaming callback (sync, stores events for async processing)
+            # Set up streaming callback
             def streaming_callback(role: str, message: Any, is_final: bool = True):
                 if task_id in self.task_streams:
                     event = self.converter.create_streaming_event(role, message, is_final)
@@ -139,8 +121,11 @@ class TaskManager:
                     except Exception as e:
                         logger.warning(f"Failed to enqueue streaming event: {e}")
             
-            # Execute the appropriate skill
-            result = await self._execute_skill(skill_id, minions_task, context, image_paths, config, streaming_callback)
+            # Execute the appropriate skill with timeout
+            result = await asyncio.wait_for(
+                self._execute_skill(skill_id, minions_task, context, image_paths, config, streaming_callback),
+                timeout=timeout
+            )
             
             # Convert result to A2A artifact
             artifact = self.converter.convert_minions_result_to_a2a(result)
@@ -158,9 +143,26 @@ class TaskManager:
                     "timestamp": datetime.now().isoformat()
                 }
                 await self.task_streams[task_id].put(final_event)
+        
+        except asyncio.TimeoutError:
+            logger.error(f"Task {task_id} timed out after {timeout} seconds")
+            await self.update_task_status(task_id, TaskState.FAILED, f"Task timed out after {timeout} seconds")
+            
+            # Send timeout error streaming event
+            if task_id in self.task_streams:
+                error_event = {
+                    "kind": "error",
+                    "error": {
+                        "code": -32603,
+                        "message": "Task timeout",
+                        "data": f"Task exceeded timeout of {timeout} seconds"
+                    },
+                    "final": True
+                }
+                await self.task_streams[task_id].put(error_event)
             
         except Exception as e:
-            logger.error(f"Task {task_id} failed: {str(e)}")
+            logger.error(f"Task {task_id} failed: {str(e)}", exc_info=True)
             await self.update_task_status(task_id, TaskState.FAILED, f"Task failed: {str(e)}")
             
             # Send error streaming event
@@ -175,6 +177,11 @@ class TaskManager:
                     "final": True
                 }
                 await self.task_streams[task_id].put(error_event)
+        
+        finally:
+            # Remove from active tasks
+            if task_id in self.active_tasks:
+                del self.active_tasks[task_id]
     
     async def _execute_skill(self, skill_id: str, task: str, context: List[str], 
                            image_paths: List[str], config: MinionsConfig, 
@@ -203,7 +210,7 @@ class TaskManager:
         minion = client_factory.create_minions_protocol(config)
         minion.callback = callback  # Set the callback after creation
 
-        print(f"context length: {len(context)}, items: {len(context) if isinstance(context, list) else 'not a list'}")
+        logger.debug(f"Context length: {len(context)} items")
         
         # Validate context before proceeding
         valid_context = [c for c in context if c and c.strip()]
@@ -219,14 +226,8 @@ class TaskManager:
         if isinstance(context, list):
             total_chars = sum(len(c) for c in context)
             logger.info(f"Context validation: {len(context)} items, {total_chars} total characters")
-            for i, c in enumerate(context):
-                logger.info(f"Context item {i+1}: {len(c)} chars - {c[:100]}...")
-            
-            # Debug: Log what will actually be sent to minion
-            joined_context = "\n\n".join(context)
-            logger.info(f"JOINED CONTEXT LENGTH: {len(joined_context)} chars")
-            logger.info(f"JOINED CONTEXT PREVIEW: {joined_context[:500]}...")
-        
+            for i, c in enumerate(context[:3]):  # Log first 3 items only
+                logger.debug(f"Context item {i+1}: {len(c)} chars - {c[:100]}...")
         
         # Execute Minion protocol
         result = await asyncio.get_event_loop().run_in_executor(
@@ -300,6 +301,38 @@ class TaskManager:
         """Clean up streaming for a task."""
         if task_id in self.task_streams:
             del self.task_streams[task_id]
+    
+    async def cancel_task(self, task_id: str) -> bool:
+        """Cancel a running task."""
+        if task_id in self.active_tasks:
+            self.active_tasks[task_id].cancel()
+            await self.update_task_status(task_id, TaskState.CANCELED, "Task canceled by user")
+            return True
+        return False
+    
+    async def shutdown(self):
+        """Gracefully shutdown task manager."""
+        logger.info("Shutting down task manager...")
+        
+        # Cancel all active tasks
+        for task_id, task in list(self.active_tasks.items()):
+            logger.info(f"Canceling active task: {task_id}")
+            task.cancel()
+        
+        # Wait for tasks to complete (with timeout)
+        if self.active_tasks:
+            try:
+                await asyncio.wait_for(
+                    asyncio.gather(*self.active_tasks.values(), return_exceptions=True),
+                    timeout=10
+                )
+            except asyncio.TimeoutError:
+                logger.warning("Some tasks did not complete within shutdown timeout")
+        
+        # Clean up temp files
+        self.converter.cleanup_temp_files()
+        
+        logger.info("Task manager shutdown complete")
 
 
 class A2AMinionsServer:
@@ -311,9 +344,28 @@ class A2AMinionsServer:
         self.base_url = base_url or f"http://{host}:{port}"
         self.app = FastAPI(title="A2A Minions Server", version="0.1.0")
         self.task_manager = TaskManager()
+        self._shutdown_event = asyncio.Event()
         
         # Set up routes
         self._setup_routes()
+        
+        # Set up shutdown handlers
+        self._setup_shutdown_handlers()
+    
+    def _setup_shutdown_handlers(self):
+        """Set up graceful shutdown handlers."""
+        
+        @self.app.on_event("shutdown")
+        async def shutdown_event():
+            await self.task_manager.shutdown()
+        
+        # Handle signals for graceful shutdown
+        def handle_shutdown(signum, frame):
+            logger.info(f"Received signal {signum}, initiating graceful shutdown...")
+            self._shutdown_event.set()
+        
+        signal.signal(signal.SIGINT, handle_shutdown)
+        signal.signal(signal.SIGTERM, handle_shutdown)
     
     def _setup_routes(self):
         """Set up FastAPI routes."""
@@ -351,47 +403,33 @@ class A2AMinionsServer:
                         }
                     }, status_code=400)
                 
-                # Validate JSON-RPC structure
-                if not isinstance(body, dict):
+                # Parse and validate JSON-RPC request
+                try:
+                    rpc_request = JSONRPCRequest(**body)
+                    request_id = rpc_request.id
+                except ValidationError as e:
                     return JSONResponse({
                         "jsonrpc": "2.0",
-                        "id": None,
+                        "id": body.get("id") if isinstance(body, dict) else None,
                         "error": {
                             "code": -32600,
                             "message": "Invalid Request",
-                            "data": "Request body must be a JSON object"
-                        }
-                    }, status_code=400)
-                
-                # Extract JSON-RPC components
-                method = body.get("method")
-                params = body.get("params", {})
-                request_id = body.get("id")
-                
-                # Validate method
-                if not method:
-                    return JSONResponse({
-                        "jsonrpc": "2.0",
-                        "id": request_id,
-                        "error": {
-                            "code": -32600,
-                            "message": "Invalid Request",
-                            "data": "Missing 'method' field"
+                            "data": str(e)
                         }
                     }, status_code=400)
                 
                 # Route to appropriate handler
-                if method == "tasks/send":
-                    return await self._handle_send_task(params, request_id, background_tasks)
+                if rpc_request.method == "tasks/send":
+                    return await self._handle_send_task(rpc_request.params, request_id, background_tasks)
                 
-                elif method == "tasks/sendSubscribe":
-                    return await self._handle_send_task_streaming(params, request_id, background_tasks)
+                elif rpc_request.method == "tasks/sendSubscribe":
+                    return await self._handle_send_task_streaming(rpc_request.params, request_id, background_tasks)
                 
-                elif method == "tasks/get":
-                    return await self._handle_get_task(params, request_id)
+                elif rpc_request.method == "tasks/get":
+                    return await self._handle_get_task(rpc_request.params, request_id)
                 
-                elif method == "tasks/cancel":
-                    return await self._handle_cancel_task(params, request_id)
+                elif rpc_request.method == "tasks/cancel":
+                    return await self._handle_cancel_task(rpc_request.params, request_id)
                 
                 else:
                     return JSONResponse({
@@ -400,11 +438,11 @@ class A2AMinionsServer:
                         "error": {
                             "code": -32601,
                             "message": "Method not found",
-                            "data": f"Unknown method: {method}"
+                            "data": f"Unknown method: {rpc_request.method}"
                         }
                     }, status_code=400)
                     
-            except ValueError as e:
+            except ValidationError as e:
                 # Handle validation errors from task processing
                 logger.error(f"Validation error: {e}")
                 return JSONResponse({
@@ -418,7 +456,7 @@ class A2AMinionsServer:
                 }, status_code=400)
                 
             except Exception as e:
-                logger.error(f"Unexpected error handling request: {e}")
+                logger.error(f"Unexpected error handling request: {e}", exc_info=True)
                 return JSONResponse({
                     "jsonrpc": "2.0",
                     "id": request_id,
@@ -438,72 +476,66 @@ class A2AMinionsServer:
                               background_tasks: BackgroundTasks) -> JSONResponse:
         """Handle tasks/send requests."""
         
-        # Validate required parameters
-        if not isinstance(params, dict):
-            raise ValueError("Parameters must be a dictionary")
-        
-        message = params.get("message")
-        if not message:
-            raise ValueError("Missing required 'message' parameter")
-        
-        # Validate message structure
-        if not isinstance(message, dict):
-            raise ValueError("Message parameter must be a dictionary")
-        
-        # Validate parts if present
-        if "parts" in message:
-            parts = message["parts"]
-            if not parts or len(parts) == 0:
-                raise ValueError("Empty parts array provided")
-        
-        task_id = params.get("id", str(uuid.uuid4()))
-        metadata = params.get("metadata")
+        # Validate and parse parameters
+        try:
+            send_params = SendTaskParams(**params)
+        except ValidationError as e:
+            raise ValidationError(f"Invalid task parameters: {e}")
         
         # Create task
-        task = await self.task_manager.create_task(task_id, message, metadata)
+        task = await self.task_manager.create_task(
+            send_params.id,
+            send_params.message,
+            send_params.metadata
+        )
         
         # Execute task in background
-        background_tasks.add_task(self.task_manager.execute_task, task_id)
+        async_task = asyncio.create_task(self.task_manager.execute_task(send_params.id))
+        self.task_manager.active_tasks[send_params.id] = async_task
         
         return JSONResponse({
             "jsonrpc": "2.0",
             "id": request_id,
-            "result": task
+            "result": task.dict()
         })
     
     async def _handle_send_task_streaming(self, params: Dict[str, Any], request_id: str,
                                         background_tasks: BackgroundTasks) -> EventSourceResponse:
         """Handle tasks/sendSubscribe requests with streaming."""
         
-        # Validate required parameters
-        if not isinstance(params, dict):
-            raise ValueError("Parameters must be a dictionary")
-        
-        message = params.get("message")
-        if not message:
-            raise ValueError("Missing required 'message' parameter")
-        
-        # Validate message structure
-        if not isinstance(message, dict):
-            raise ValueError("Message parameter must be a dictionary")
-        
-        # Validate parts if present
-        if "parts" in message:
-            parts = message["parts"]
-            if not parts or len(parts) == 0:
-                raise ValueError("Empty parts array provided")
-        
-        task_id = params.get("id", str(uuid.uuid4()))
-        metadata = params.get("metadata")
+        # Validate and parse parameters
+        try:
+            send_params = SendTaskParams(**params)
+        except ValidationError as e:
+            # For streaming, we need to return error in SSE format
+            error_msg = str(e)  # Capture the error message
+            async def error_generator():
+                error_response = {
+                    "jsonrpc": "2.0",
+                    "id": request_id,
+                    "error": {
+                        "code": -32602,
+                        "message": "Invalid params",
+                        "data": error_msg
+                    }
+                }
+                yield {"data": json.dumps(error_response)}
+            
+            return EventSourceResponse(error_generator())
         
         # Set up streaming
-        stream_queue = await self.task_manager.setup_streaming(task_id)
+        stream_queue = await self.task_manager.setup_streaming(send_params.id)
         
         # Create task
-        await self.task_manager.create_task(task_id, message, metadata)
+        await self.task_manager.create_task(
+            send_params.id,
+            send_params.message,
+            send_params.metadata
+        )
         
         # Execute task in background
-        background_tasks.add_task(self.task_manager.execute_task, task_id)
+        async_task = asyncio.create_task(self.task_manager.execute_task(send_params.id))
+        self.task_manager.active_tasks[send_params.id] = async_task
         
         async def event_generator():
             """Generate SSE events."""
@@ -538,15 +570,20 @@ class A2AMinionsServer:
                 yield {"data": json.dumps(error_response)}
             
             finally:
-                await self.task_manager.cleanup_streaming(task_id)
+                await self.task_manager.cleanup_streaming(send_params.id)
         
         return EventSourceResponse(event_generator())
     
     async def _handle_get_task(self, params: Dict[str, Any], request_id: str) -> JSONResponse:
         """Handle tasks/get requests."""
         
-        task_id = params.get("id")
-        task = await self.task_manager.get_task(task_id)
+        # Validate parameters
+        try:
+            get_params = GetTaskParams(**params)
+        except ValidationError as e:
+            raise ValidationError(f"Invalid get parameters: {e}")
+        
+        task = await self.task_manager.get_task(get_params.id)
         
         if task is None:
             return JSONResponse({
@@ -567,8 +604,13 @@ class A2AMinionsServer:
     async def _handle_cancel_task(self, params: Dict[str, Any], request_id: str) -> JSONResponse:
         """Handle tasks/cancel requests."""
         
-        task_id = params.get("id")
-        task = await self.task_manager.get_task(task_id)
+        # Validate parameters
+        try:
+            cancel_params = CancelTaskParams(**params)
+        except ValidationError as e:
+            raise ValidationError(f"Invalid cancel parameters: {e}")
+        
+        task = await self.task_manager.get_task(cancel_params.id)
         
         if task is None:
             return JSONResponse({
@@ -580,8 +622,12 @@ class A2AMinionsServer:
                 }
             }, status_code=404)
         
-        # Update task status to canceled
-        await self.task_manager.update_task_status(task_id, TaskState.CANCELED, "Task canceled by user")
+        # Cancel the task
+        canceled = await self.task_manager.cancel_task(cancel_params.id)
+        
+        if canceled:
+            # Get updated task
+            task = await self.task_manager.get_task(cancel_params.id)
         
         return JSONResponse({
             "jsonrpc": "2.0",
@@ -592,7 +638,35 @@ class A2AMinionsServer:
     def run(self):
         """Run the server."""
         logger.info(f"Starting A2A Minions Server at {self.base_url}")
-        uvicorn.run(self.app, host=self.host, port=self.port)
+        
+        async def serve():
+            config = uvicorn.Config(
+                self.app,
+                host=self.host,
+                port=self.port,
+                log_level="info"
+            )
+            server = uvicorn.Server(config)
+            
+            # Run server with shutdown event
+            serve_task = asyncio.create_task(server.serve())
+            shutdown_task = asyncio.create_task(self._shutdown_event.wait())
+            
+            done, pending = await asyncio.wait(
+                {serve_task, shutdown_task},
+                return_when=asyncio.FIRST_COMPLETED
+            )
+            
+            # Cancel pending tasks
+            for task in pending:
+                task.cancel()
+            
+            # Shutdown server if it's still running
+            if serve_task in pending:
+                server.should_exit = True
+                await server.shutdown()
+        
+        asyncio.run(serve())
 
 
 def main():

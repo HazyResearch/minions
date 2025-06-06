@@ -6,16 +6,25 @@ Startup script for A2A-Minions server.
 import os
 import sys
 import argparse
+import logging
 from pathlib import Path
 
 # Add the project root to Python path
 project_root = Path(__file__).parent.parent.parent
 sys.path.insert(0, str(project_root))
 
+# Set up logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+
 def check_environment():
     """Check if required environment variables are set."""
     
-    print("🔍 Checking environment...")
+    logger.info("🔍 Checking environment...")
     
     required_vars = {
         "OPENAI_API_KEY": "OpenAI API access",
@@ -33,32 +42,32 @@ def check_environment():
             missing_vars.append(f"  - {var}: {description}")
     
     if missing_vars:
-        print("⚠️  Missing environment variables:")
+        logger.warning("⚠️  Missing environment variables:")
         for var in missing_vars:
-            print(var)
-        print("\nPlease set these environment variables before running the server.")
-        print("Example:")
-        print("  export OPENAI_API_KEY=your_api_key_here")
+            logger.warning(var)
+        logger.info("Please set these environment variables before running the server.")
+        logger.info("Example:")
+        logger.info("  export OPENAI_API_KEY=your_api_key_here")
         return False
     
-    print("✅ Environment looks good!")
+    logger.info("✅ Environment looks good!")
     return True
 
 
 def check_dependencies():
     """Check if required dependencies are available."""
     
-    print("📦 Checking dependencies...")
+    logger.info("📦 Checking dependencies...")
     
     try:
         import fastapi
         import uvicorn
         import httpx
         import pydantic
-        print("✅ Core dependencies available")
+        logger.info("✅ Core dependencies available")
     except ImportError as e:
-        print(f"❌ Missing dependency: {e}")
-        print("Install with: pip install -r requirements.txt")
+        logger.error(f"❌ Missing dependency: {e}")
+        logger.error("Install with: pip install -r requirements.txt")
         return False
     
     # Check if Minions is available
@@ -66,10 +75,11 @@ def check_dependencies():
         from minions.minion import Minion
         from minions.clients.ollama import OllamaClient
         from minions.clients.openai import OpenAIClient
-        print("✅ Minions protocol available")
+        logger.info("✅ Minions protocol available")
     except ImportError as e:
-        print(f"❌ Minions not available: {e}")
-        print("Make sure you're running from the Minions project directory")
+        logger.error(f"❌ Minions not available: {e}")
+        logger.error("Make sure you're running from the Minions project directory")
+        logger.error("and have installed minions with: pip install -e .")
         return False
     
     return True
@@ -86,8 +96,8 @@ def main():
     
     args = parser.parse_args()
     
-    print("🚀 A2A-Minions Server Startup")
-    print("=" * 50)
+    logger.info("🚀 A2A-Minions Server Startup")
+    logger.info("=" * 50)
     
     # Run checks unless skipped
     if not args.skip_checks:
@@ -107,21 +117,21 @@ def main():
             base_url=args.base_url
         )
         
-        print(f"🌟 Starting A2A-Minions server...")
-        print(f"   Host: {args.host}")
-        print(f"   Port: {args.port}")
-        print(f"   URL: http://{args.host}:{args.port}")
-        print(f"   Agent Card: http://{args.host}:{args.port}/.well-known/agent.json")
-        print()
-        print("Press Ctrl+C to stop the server")
-        print("-" * 50)
+        logger.info(f"🌟 Starting A2A-Minions server...")
+        logger.info(f"   Host: {args.host}")
+        logger.info(f"   Port: {args.port}")
+        logger.info(f"   URL: http://{args.host}:{args.port}")
+        logger.info(f"   Agent Card: http://{args.host}:{args.port}/.well-known/agent.json")
+        logger.info("")
+        logger.info("Press Ctrl+C to stop the server")
+        logger.info("-" * 50)
         
         server.run()
         
     except KeyboardInterrupt:
-        print("\n👋 Server stopped by user")
+        logger.info("\n👋 Server stopped by user")
     except Exception as e:
-        print(f"\n💥 Server failed to start: {e}")
+        logger.error(f"\n💥 Server failed to start: {e}")
         sys.exit(1)
 
 

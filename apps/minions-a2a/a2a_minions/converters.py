@@ -10,10 +10,12 @@ import tempfile
 import aiofiles
 import os
 import uuid
+import logging
 from typing import List, Dict, Any, Optional, Tuple, Union
 from pathlib import Path
-from pydantic import BaseModel
 import mimetypes
+
+from .models import A2AMessage, MessagePart
 
 # PDF processing imports
 try:
@@ -22,31 +24,20 @@ try:
 except ImportError:
     PDF_AVAILABLE = False
 
-
-class MessagePart(BaseModel):
-    """A2A Message Part."""
-    kind: str  # "text", "file", "data"
-    text: Optional[str] = None
-    data: Optional[Dict[str, Any]] = None
-    file: Optional[Dict[str, Any]] = None
-    metadata: Optional[Dict[str, Any]] = None
+# Set up logging
+logger = logging.getLogger(__name__)
 
 
-class A2AMessage(BaseModel):
-    """A2A Message format."""
-    role: str  # "user", "agent"
-    parts: List[MessagePart]
-    messageId: Optional[str] = None
-    metadata: Optional[Dict[str, Any]] = None
-
-
-class MinionsResult(BaseModel):
+class MinionsResult:
     """Minions execution result."""
-    final_answer: str
-    conversation: List[Dict[str, Any]]
-    usage: Dict[str, Any]
-    timing: Dict[str, Any]
-    metadata: Optional[Dict[str, Any]] = None
+    def __init__(self, final_answer: str, conversation: List[Dict[str, Any]], 
+                 usage: Dict[str, Any], timing: Dict[str, Any], 
+                 metadata: Optional[Dict[str, Any]] = None):
+        self.final_answer = final_answer
+        self.conversation = conversation
+        self.usage = usage
+        self.timing = timing
+        self.metadata = metadata or {}
 
 
 class A2AConverter:
@@ -79,16 +70,16 @@ class A2AConverter:
             
             elif part.kind == "file" and part.file:
                 # Handle file parts
-                file_content = await self._extract_file_content(part.file)
+                file_content = await self._extract_file_content(part.file.dict())
                 if file_content and not file_content.startswith("[Error"):
                     # Add clear document formatting for legacy file content
-                    file_name = part.file.get("name", "document")
+                    file_name = part.file.name
                     formatted_content = f"=== FILE CONTENT: {file_name} ===\n{file_content.strip()}\n=== END FILE ==="
                     context.append(formatted_content)
                 
                 # Check if it's an image file
-                if self._is_image_file(part.file):
-                    image_path = await self._save_temp_file(part.file)
+                if self._is_image_file(part.file.dict()):
+                    image_path = await self._save_temp_file(part.file.dict())
                     if image_path:
                         image_paths.append(image_path)
             
@@ -171,12 +162,12 @@ class A2AConverter:
         
         # If we still have no context, check if this was intentional (query-only) or an error
         if not context:
-            print("Warning: No meaningful context extracted from parts")
+            logger.warning("No meaningful context extracted from parts")
             # For single-part messages (query only), this is normal
             if len(parts) == 1:
-                print("Note: Single part message detected - query without context")
+                logger.info("Single part message detected - query without context")
             else:
-                print(f"Note: {len(parts)} parts provided but no extractable context found")
+                logger.info(f"{len(parts)} parts provided but no extractable context found")
         
         return task, context, image_paths
     
@@ -209,7 +200,7 @@ class A2AConverter:
                 return f"[External file: {file_info['uri']}]"
             
         except Exception as e:
-            print(f"Error extracting file content: {e}")
+            logger.error(f"Error extracting file content: {e}")
             return f"[Error reading file: {file_info.get('name', 'unknown')}]"
         
         return None
@@ -277,7 +268,7 @@ class A2AConverter:
                 return str(temp_path)
                 
         except Exception as e:
-            print(f"Error saving temp file: {e}")
+            logger.error(f"Error saving temp file: {e}")
             
         return None
     
@@ -451,4 +442,4 @@ class A2AConverter:
                 shutil.rmtree(self.temp_dir)
                 self.temp_dir.mkdir(exist_ok=True)
         except Exception as e:
-            print(f"Error cleaning up temp files: {e}") 
+            logger.error(f"Error cleaning up temp files: {e}") 

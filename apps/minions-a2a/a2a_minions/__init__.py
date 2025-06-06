@@ -1,12 +1,6 @@
 """
-A2A-Minions Integration Package
-
-This package provides an A2A (Agent-to-Agent) protocol server that wraps 
-the Minions protocol, enabling standardized agent communication.
+A2A-Minions: Agent-to-Agent server implementation for Minions protocol.
 """
-
-__version__ = "0.1.0"
-__author__ = "Minions A2A Team"
 
 from .server import A2AMinionsServer
 from .config import MinionsConfig, ConfigManager
@@ -17,5 +11,5 @@ __all__ = [
     "MinionsConfig", 
     "ConfigManager",
     "get_default_agent_card",
-    "MINIONS_SKILLS",
+    "MINIONS_SKILLS"
 ] 

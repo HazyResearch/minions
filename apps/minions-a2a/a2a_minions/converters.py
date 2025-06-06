@@ -26,6 +26,14 @@ try:
 except ImportError:
     PDF_AVAILABLE = False
 
+# Import metrics manager if available
+try:
+    from .metrics import metrics_manager
+    METRICS_AVAILABLE = True
+except ImportError:
+    METRICS_AVAILABLE = False
+    metrics_manager = None
+
 # Set up logging
 logger = logging.getLogger(__name__)
 
@@ -218,6 +226,15 @@ class A2AConverter:
         if not PDF_AVAILABLE:
             return f"[PDF file: {filename} - PyPDF2 not installed for text extraction]"
         
+        # Track PDF processing if metrics available
+        if METRICS_AVAILABLE and metrics_manager:
+            with metrics_manager.track_pdf_processing():
+                return await self._extract_pdf_text_internal(pdf_bytes, filename)
+        else:
+            return await self._extract_pdf_text_internal(pdf_bytes, filename)
+    
+    async def _extract_pdf_text_internal(self, pdf_bytes: bytes, filename: str) -> str:
+        """Internal PDF extraction method."""
         def _extract_pdf_sync(pdf_bytes: bytes, filename: str, temp_dir: Path) -> str:
             """Synchronous PDF extraction to run in thread pool."""
             try:

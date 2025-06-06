@@ -27,6 +27,7 @@ from .models import (
     JSONRPCError, Task, TaskStatus, TaskMetadata
 )
 from .auth import init_auth, get_auth_manager, AuthConfig, TokenData
+from .metrics import metrics_manager, create_metrics_endpoint
 
 # Set up logging
 logging.basicConfig(
@@ -57,8 +58,10 @@ class TaskManager:
         self.max_tasks = max_tasks
         self.retention_time = retention_time
         self._cleanup_task = None
+        self._metrics_task = None
         self._shutdown_event = asyncio.Event()
         self._start_cleanup_task()
+        self._start_metrics_task()
     
     def _start_cleanup_task(self):
         """Start background task for periodic cleanup."""
@@ -73,6 +76,33 @@ class TaskManager:
                     logger.error(f"Error in cleanup task: {e}")
         
         self._cleanup_task = asyncio.create_task(cleanup_loop())
+    
+    def _start_metrics_task(self):
+        """Start background task for periodic metrics updates."""
+        async def metrics_loop():
+            while True:
+                try:
+                    await asyncio.sleep(30)  # Update every 30 seconds
+                    # Update task counts
+                    metrics_manager.update_stored_tasks(len(self.tasks))
+                    metrics_manager.update_streaming_sessions(len(self.task_streams))
+                    
+                    # Update client pool stats
+                    pool_stats = client_factory.get_pool_stats()
+                    provider_stats = {}
+                    # Parse pool stats to get per-provider counts
+                    if pool_stats.get("total_clients", 0) > 0:
+                        # Simple approximation - in real implementation, 
+                        # client_factory should provide detailed stats
+                        provider_stats["total"] = pool_stats["total_clients"]
+                    metrics_manager.update_client_pool_stats(provider_stats)
+                    
+                except asyncio.CancelledError:
+                    break
+                except Exception as e:
+                    logger.error(f"Error in metrics task: {e}")
+        
+        self._metrics_task = asyncio.create_task(metrics_loop())
     
     async def _cleanup_old_tasks(self):
         """Remove old completed tasks based on retention policy."""
@@ -102,6 +132,7 @@ class TaskManager:
         for task_id in tasks_to_remove:
             logger.info(f"Removing old task: {task_id}")
             del self.tasks[task_id]
+            metrics_manager.track_task_eviction()
     
     def _enforce_task_limit(self):
         """Enforce maximum task limit using LRU eviction."""
@@ -111,6 +142,7 @@ class TaskManager:
                 if task_id not in self.active_tasks:
                     logger.info(f"Evicting task due to limit: {task_id}")
                     del self.tasks[task_id]
+                    metrics_manager.track_task_eviction()
                     break
     
     async def create_task(self, task_id: str, message: A2AMessage, metadata: Optional[TaskMetadata] = None, 
@@ -142,88 +174,80 @@ class TaskManager:
         return task
     
     async def execute_task(self, task_id: str) -> None:
-        """Execute a Minions task asynchronously with timeout support."""
+        """Execute a task using the Minions protocol."""
         
         if task_id not in self.tasks:
-            logger.error(f"Task {task_id} not found")
+            logger.error(f"Task not found: {task_id}")
             return
         
         task = self.tasks[task_id]
+        skill_id = None
         
         try:
             # Update task status
-            await self.update_task_status(task_id, TaskState.WORKING, "Starting Minions execution")
+            await self.update_task_status(task_id, TaskState.WORKING)
+            
+            # Extract message and metadata
+            message = A2AMessage(**task["message"])
+            metadata = TaskMetadata(**task.get("metadata", {}))
             
             # Get timeout from metadata
-            timeout = task.get("metadata", {}).get("timeout", 300)  # Default 5 minutes
-            
-            # Get last message from history
-            last_message = task["history"][-1]
-            
-            # Parse message with Pydantic model
-            a2a_message = A2AMessage(**last_message)
-            
-            # Extract task and context
-            parts = a2a_message.parts
-            minions_task, context, image_paths = await self.converter.extract_query_and_document_from_parts(
-                [part.dict() for part in parts]
-            )
-            
-            # Parse configuration from metadata
-            metadata = TaskMetadata(**task.get("metadata", {}))
-            config = self.config_manager.parse_a2a_metadata(metadata.dict())
-            
-            # Get skill ID (guaranteed to exist due to validation)
+            timeout = metadata.timeout
             skill_id = metadata.skill_id
+            
             logger.info(f"Executing skill: {skill_id} for task: {task_id} with timeout: {timeout}s")
             
-            # Define streaming callback for real-time updates
-            def streaming_callback(role: str, message: Any, is_final: bool = True):
-                """Callback to send streaming updates."""
-                if task_id not in self.task_streams:
-                    return
+            with metrics_manager.track_task(skill_id):
+                # Define streaming callback for real-time updates
+                def streaming_callback(role: str, message: Any, is_final: bool = True):
+                    """Callback to send streaming updates."""
+                    if task_id not in self.task_streams:
+                        return
+                    
+                    # Format the message properly
+                    if isinstance(message, str):
+                        text = message
+                    else:
+                        text = str(message)
+                    
+                    # Create streaming event
+                    event = {
+                        "kind": "message",
+                        "parts": [{
+                            "kind": "text",
+                            "text": text
+                        }],
+                        "metadata": {
+                            "original_role": role,
+                            "timestamp": datetime.now().isoformat()
+                        },
+                        "final": is_final
+                    }
+                    
+                    # Track streaming event
+                    metrics_manager.track_streaming_event()
+                    
+                    # Thread-safe queue update using run_coroutine_threadsafe
+                    async def put_event():
+                        queue = self.task_streams.get(task_id)
+                        if queue:
+                            await queue.put(event)
+                    
+                    # Get the running event loop
+                    try:
+                        loop = asyncio.get_running_loop()
+                    except RuntimeError:
+                        # If no loop is running, try to get the main loop
+                        loop = asyncio.get_event_loop()
+                    
+                    # Schedule the coroutine in a thread-safe manner
+                    asyncio.run_coroutine_threadsafe(put_event(), loop)
                 
-                # Format the message properly
-                if isinstance(message, str):
-                    text = message
-                else:
-                    text = str(message)
-                
-                # Create streaming event
-                event = {
-                    "kind": "message",
-                    "parts": [{
-                        "kind": "text",
-                        "text": text
-                    }],
-                    "metadata": {
-                        "original_role": role,
-                        "timestamp": datetime.now().isoformat()
-                    },
-                    "final": is_final
-                }
-                
-                # Thread-safe queue update using run_coroutine_threadsafe
-                async def put_event():
-                    queue = self.task_streams.get(task_id)
-                    if queue:
-                        await queue.put(event)
-                
-                # Get the running event loop
-                try:
-                    loop = asyncio.get_running_loop()
-                except RuntimeError:
-                    # If no loop is running, try to get the main loop
-                    loop = asyncio.get_event_loop()
-                
-                # Schedule the coroutine in a thread-safe manner
-                asyncio.run_coroutine_threadsafe(put_event(), loop)
-            
-            # Execute the appropriate skill with timeout
-            result = await asyncio.wait_for(
-                self._execute_skill(skill_id, minions_task, context, image_paths, config, streaming_callback),
-                timeout=timeout
-            )
+                # Execute the appropriate skill with timeout
+                result = await asyncio.wait_for(
+                    self._execute_skill(skill_id, message, metadata, streaming_callback),
+                    timeout=timeout
+                )
             
             # Convert result to A2A artifact
             artifact = self.converter.convert_minions_result_to_a2a(result)
@@ -258,7 +282,7 @@ class TaskManager:
                     "final": True
                 }
                 await self.task_streams[task_id].put(error_event)
-            
+        
         except Exception as e:
             logger.error(f"Task {task_id} failed: {str(e)}", exc_info=True)
             await self.update_task_status(task_id, TaskState.FAILED, f"Task failed: {str(e)}")
@@ -281,10 +305,17 @@ class TaskManager:
             if task_id in self.active_tasks:
                 del self.active_tasks[task_id]
     
-    async def _execute_skill(self, skill_id: str, task: str, context: List[str], 
-                           image_paths: List[str], config: MinionsConfig, 
-                           callback) -> Dict[str, Any]:
+    async def _execute_skill(self, skill_id: str, message: A2AMessage, 
+                           metadata: TaskMetadata, callback) -> Dict[str, Any]:
         """Execute a specific Minions skill."""
+        
+        # Extract task and context from message
+        task, context, image_paths = await self.converter.extract_query_and_document_from_parts(
+            [part.dict() for part in message.parts]
+        )
+        
+        # Parse configuration from metadata
+        config = self.config_manager.parse_a2a_metadata(metadata.dict())
         
         if skill_id == "minion_query":
             return await self._execute_minion_query(task, context, image_paths, config, callback)
@@ -426,6 +457,14 @@ class TaskManager:
             except asyncio.CancelledError:
                 pass
         
+        # Cancel metrics task
+        if self._metrics_task:
+            self._metrics_task.cancel()
+            try:
+                await self._metrics_task
+            except asyncio.CancelledError:
+                pass
+        
         # Cancel all active tasks
         for task_id, task in list(self.active_tasks.items()):
             logger.info(f"Canceling active task: {task_id}")
@@ -511,6 +550,9 @@ class A2AMinionsServer:
                 grant_type, client_id, client_secret, scope
             )
         
+        # Add metrics endpoint
+        self.app.get("/metrics")(create_metrics_endpoint())
+        
         @self.app.post("/")
         async def handle_a2a_request(
             request: Request, 
@@ -522,6 +564,8 @@ class A2AMinionsServer:
             """Handle A2A JSON-RPC requests."""
             
             request_id = None
+            method = None
+            
             try:
                 # Parse request body
                 try:
@@ -542,6 +586,7 @@ class A2AMinionsServer:
                 try:
                     rpc_request = JSONRPCRequest(**body)
                     request_id = rpc_request.id
+                    method = rpc_request.method
                 except ValidationError as e:
                     return JSONResponse({
                         "jsonrpc": "2.0",
@@ -553,48 +598,50 @@ class A2AMinionsServer:
                         }
                     }, status_code=400)
                 
-                # Check authorization for method
-                if self.auth_config.require_auth and token_data:
-                    method_scopes = self.auth_config.allowed_scopes.get(
-                        rpc_request.method, 
-                        ["tasks:read", "tasks:write"]
-                    )
-                    if not self.auth_manager.check_scopes(token_data, method_scopes):
+                # Track request
+                with metrics_manager.track_request(method):
+                    # Check authorization for method
+                    if self.auth_config.require_auth and token_data:
+                        method_scopes = self.auth_config.allowed_scopes.get(
+                            rpc_request.method, 
+                            ["tasks:read", "tasks:write"]
+                        )
+                        if not self.auth_manager.check_scopes(token_data, method_scopes):
+                            return JSONResponse({
+                                "jsonrpc": "2.0",
+                                "id": request_id,
+                                "error": {
+                                    "code": -32603,
+                                    "message": "Forbidden",
+                                    "data": f"Insufficient permissions. Required scopes: {method_scopes}"
+                                }
+                            }, status_code=403)
+                    
+                    # Route to appropriate handler
+                    user = token_data.sub if token_data else None
+                    
+                    if rpc_request.method == "tasks/send":
+                        return await self._handle_send_task(rpc_request.params, request_id, background_tasks, user)
+                    
+                    elif rpc_request.method == "tasks/sendSubscribe":
+                        return await self._handle_send_task_streaming(rpc_request.params, request_id, background_tasks, user)
+                    
+                    elif rpc_request.method == "tasks/get":
+                        return await self._handle_get_task(rpc_request.params, request_id, user)
+                    
+                    elif rpc_request.method == "tasks/cancel":
+                        return await self._handle_cancel_task(rpc_request.params, request_id, user)
+                    
+                    else:
                         return JSONResponse({
                             "jsonrpc": "2.0",
                             "id": request_id,
                             "error": {
-                                "code": -32603,
-                                "message": "Forbidden",
-                                "data": f"Insufficient permissions. Required scopes: {method_scopes}"
+                                "code": -32601,
+                                "message": "Method not found",
+                                "data": f"Unknown method: {rpc_request.method}"
                             }
-                        }, status_code=403)
-                
-                # Route to appropriate handler
-                user = token_data.sub if token_data else None
-                
-                if rpc_request.method == "tasks/send":
-                    return await self._handle_send_task(rpc_request.params, request_id, background_tasks, user)
-                
-                elif rpc_request.method == "tasks/sendSubscribe":
-                    return await self._handle_send_task_streaming(rpc_request.params, request_id, background_tasks, user)
-                
-                elif rpc_request.method == "tasks/get":
-                    return await self._handle_get_task(rpc_request.params, request_id, user)
-                
-                elif rpc_request.method == "tasks/cancel":
-                    return await self._handle_cancel_task(rpc_request.params, request_id, user)
-                
-                else:
-                    return JSONResponse({
-                        "jsonrpc": "2.0",
-                        "id": request_id,
-                        "error": {
-                            "code": -32601,
-                            "message": "Method not found",
-                            "data": f"Unknown method: {rpc_request.method}"
-                        }
-                    }, status_code=400)
+                        }, status_code=400)
                     
             except ValidationError as e:
                 # Handle validation errors from task processing

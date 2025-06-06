@@ -17,6 +17,8 @@ A comprehensive A2A (Agent-to-Agent) server implementation that provides seamles
 - [Examples](#examples)
 - [Troubleshooting](#troubleshooting)
 - [Contributing](#contributing)
+- [Monitoring](#monitoring)
+- [Production Deployment](#production-deployment)
 
 ## Overview
 
@@ -29,21 +31,16 @@ A2A-Minions bridges the gap between A2A protocol agents and the Minions framewor
 
 ## Features
 
-### Core Capabilities
-
-- ✅ **Two Processing Modes**:
-  - `minion_query`: Focused analysis using single-conversation protocol
-  - `minions_query`: Parallel processing for complex multi-document analysis
-- ✅ **Multi-Format Input Support**: Text, files (PDF, TXT), and JSON data
-- ✅ **Streaming Support**: Real-time progress updates via Server-Sent Events
-- ✅ **Flexible Model Configuration**: Support for local (Ollama) and remote (OpenAI, Anthropic, etc.) models
-- ✅ **Robust Error Handling**: Comprehensive validation and error reporting
-
-### Protocol Integration
-
-- **A2A Compliance**: Full compliance with A2A protocol specifications
-- **Agent Cards**: Dynamic skill discovery and capability advertisement
-- **JSON-RPC 2.0**: Standard messaging protocol implementation
+- **A2A Protocol Compliance**: Full implementation of the Agent-to-Agent protocol specification
+- **Dual Query Skills**: 
+  - `minion_query`: Single-agent focused analysis
+  - `minions_query`: Multi-agent parallel processing
+- **Streaming Support**: Real-time responses via Server-Sent Events
+- **Multi-modal Input**: Handles text, files (PDF), data (JSON), and images
+- **Authentication**: API Keys, JWT tokens, and OAuth2 client credentials
+- **Task Management**: Async task execution with status tracking
+- **Error Handling**: Comprehensive validation and error responses
+- **Monitoring**: Prometheus metrics for production observability
 
 ## Architecture
 
@@ -842,3 +839,46 @@ curl -X POST http://localhost:8000/oauth/token \
 curl http://localhost:8000/agent/authenticatedExtendedCard \
   -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
 ```
+
+## Monitoring
+
+The server exposes Prometheus metrics at `/metrics`:
+
+```bash
+# View raw metrics
+curl http://localhost:8000/metrics
+
+# Key metrics exposed:
+# - a2a_minions_requests_total: Request count by method and status
+# - a2a_minions_request_duration_seconds: Request latency
+# - a2a_minions_tasks_total: Task count by skill and status
+# - a2a_minions_task_duration_seconds: Task execution time
+# - a2a_minions_active_tasks: Currently running tasks
+# - a2a_minions_auth_attempts_total: Auth attempts by method
+# - a2a_minions_pdf_processed_total: PDFs processed
+# - a2a_minions_errors_total: Error count by type
+```
+
+Example Prometheus configuration:
+```yaml
+scrape_configs:
+  - job_name: 'a2a-minions'
+    static_configs:
+      - targets: ['localhost:8000']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+```
+
+## Production Deployment
+
+Before deploying to production, review the comprehensive checklist:
+
+📋 **[PRODUCTION_CHECKLIST.md](PRODUCTION_CHECKLIST.md)**
+
+Key areas covered:
+- Environment configuration
+- Security hardening
+- Infrastructure requirements
+- Monitoring setup
+- Performance optimization
+- Operational procedures

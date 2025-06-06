@@ -11,11 +11,19 @@ from typing import Optional, Dict, Any, List, Tuple
 from datetime import datetime, timedelta
 from pathlib import Path
 import jwt
-from fastapi import HTTPException, Security, Depends, Request
-from fastapi.security import HTTPBearer, APIKeyHeader, OAuth2PasswordBearer
+from fastapi import HTTPException, Security, Depends, Request, Form
+from fastapi.security import HTTPBearer, APIKeyHeader, OAuth2PasswordBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel, Field
 
 logger = logging.getLogger(__name__)
+
+# Import metrics manager if available
+try:
+    from .metrics import metrics_manager
+    METRICS_AVAILABLE = True
+except ImportError:
+    METRICS_AVAILABLE = False
+    metrics_manager = None
 
 
 class TokenData(BaseModel):
@@ -273,40 +281,46 @@ class AuthenticationManager:
     
     async def authenticate(
         self,
-        request: Request,
         api_key: Optional[str] = Security(lambda: None),
-        bearer_token: Optional[str] = Security(lambda: None)
+        credentials: Optional[HTTPAuthorizationCredentials] = Security(lambda: None)
     ) -> Optional[TokenData]:
-        """Authenticate request using available methods."""
+        """Authenticate request using any available method."""
         
-        # Check if authentication is required
-        if not self.config.require_auth:
-            return TokenData(sub="anonymous", scopes=["*"])
+        # Get dependencies properly
+        api_key = await self.api_key_header() if not api_key else api_key
+        credentials = await self.bearer_scheme() if not credentials else credentials
         
         # Try API key authentication
-        api_key = request.headers.get(self.config.api_key_header_name)
         if api_key:
-            key_data = self.api_key_manager.validate_api_key(api_key)
-            if key_data:
-                return TokenData(
-                    sub=key_data.get("name", "api_key_user"),
-                    scopes=key_data.get("scopes", [])
-                )
+            user = self.api_key_manager.validate_api_key(api_key)
+            if user:
+                if METRICS_AVAILABLE and metrics_manager:
+                    metrics_manager.track_auth_attempt("api_key", True)
+                return user
+            else:
+                if METRICS_AVAILABLE and metrics_manager:
+                    metrics_manager.track_auth_attempt("api_key", False)
         
-        # Try Bearer token authentication
-        auth_header = request.headers.get("Authorization", "")
-        if auth_header.startswith("Bearer "):
-            token = auth_header[7:]
-            token_data = self.jwt_manager.verify_token(token)
+        # Try JWT bearer authentication
+        if credentials and credentials.scheme == "Bearer":
+            token_data = self.jwt_manager.verify_token(credentials.credentials)
             if token_data:
+                if METRICS_AVAILABLE and metrics_manager:
+                    metrics_manager.track_auth_attempt("jwt", True)
                 return token_data
+            else:
+                if METRICS_AVAILABLE and metrics_manager:
+                    metrics_manager.track_auth_attempt("jwt", False)
         
         # No valid authentication found
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid or missing authentication credentials",
-            headers={"WWW-Authenticate": "Bearer, ApiKey"}
-        )
+        if self.config.require_auth:
+            raise HTTPException(
+                status_code=401,
+                detail="Authentication required",
+                headers={"WWW-Authenticate": "Bearer, ApiKey"}
+            )
+        
+        return None
     
     def check_scopes(self, token_data: TokenData, required_scopes: List[str]) -> bool:
         """Check if token has required scopes."""
@@ -347,10 +361,16 @@ class AuthenticationManager:
         # Validate client credentials
         client = self.oauth2_manager.validate_client(client_id, client_secret)
         if not client:
+            if METRICS_AVAILABLE and metrics_manager:
+                metrics_manager.track_auth_attempt("oauth2", False)
             raise HTTPException(
                 status_code=401,
                 detail="Invalid client credentials"
             )
+        
+        # Track successful OAuth2 authentication
+        if METRICS_AVAILABLE and metrics_manager:
+            metrics_manager.track_auth_attempt("oauth2", True)
         
         # Parse requested scopes
         requested_scopes = scope.split() if scope else []

@@ -115,9 +115,11 @@ class TaskManager:
                 continue
                 
             # Check if task is old enough
-            created_at = datetime.fromisoformat(task["created_at"])
-            if now - created_at > self.retention_time:
-                tasks_to_remove.append(task_id)
+            created_at_str = task.get("metadata", {}).get("created_at")
+            if created_at_str:
+                created_at = datetime.fromisoformat(created_at_str)
+                if now - created_at > self.retention_time:
+                    tasks_to_remove.append(task_id)
             
             # Also check task completion time
             status = task.get("status", {})
@@ -152,22 +154,33 @@ class TaskManager:
         # Check task limit before creating
         self._enforce_task_limit()
         
-        task = Task(
-            id=task_id,
-            message=message,
-            metadata=metadata.dict() if metadata else {},
-            status={
-                "state": TaskState.SUBMITTED,
-                "timestamp": datetime.now().isoformat()
-            },
-            artifacts=[],
-            created_at=datetime.now().isoformat(),
-            created_by=user
+        # Generate a session ID for this task
+        session_id = f"session_{task_id}"
+        
+        # Create initial history with the incoming message
+        history = [message]
+        
+        # Create task status object
+        task_status = TaskStatus(
+            state=TaskState.SUBMITTED,
+            message=None,
+            timestamp=datetime.now().isoformat()
         )
         
-        # Store task metadata including user ownership
+        # Build metadata including user ownership
+        task_metadata = metadata.dict() if metadata else {}
         if user:
-            task.metadata["created_by"] = user
+            task_metadata["created_by"] = user
+        task_metadata["created_at"] = datetime.now().isoformat()
+        
+        task = Task(
+            id=task_id,
+            sessionId=session_id,
+            status=task_status,
+            history=history,
+            metadata=task_metadata,
+            artifacts=[]
+        )
         
         self.tasks[task_id] = task.dict()
         
@@ -187,8 +200,9 @@ class TaskManager:
             # Update task status
             await self.update_task_status(task_id, TaskState.WORKING)
             
-            # Extract message and metadata
-            message = A2AMessage(**task["message"])
+            # Extract message from history and metadata
+            # The first message in history is the original user message
+            message = A2AMessage(**task["history"][0])
             metadata = TaskMetadata(**task.get("metadata", {}))
             
             # Get timeout from metadata
@@ -410,11 +424,14 @@ class TaskManager:
         if task_id not in self.tasks:
             return
         
-        self.tasks[task_id]["status"] = {
-            "state": state,
-            "message": message,
-            "timestamp": datetime.now().isoformat()
-        }
+        # Create new TaskStatus object
+        new_status = TaskStatus(
+            state=state,
+            message=message,
+            timestamp=datetime.now().isoformat()
+        )
+        
+        self.tasks[task_id]["status"] = new_status.dict()
     
     async def get_task(self, task_id: str, user: Optional[str] = None) -> Optional[Dict[str, Any]]:
         """Get task by ID, optionally checking ownership."""
@@ -681,7 +698,8 @@ class A2AMinionsServer:
         try:
             send_params = SendTaskParams(**params)
         except ValidationError as e:
-            raise ValidationError(f"Invalid task parameters: {e}")
+            # Re-raise the pydantic ValidationError directly
+            raise e
         
         # Create task
         task = await self.task_manager.create_task(

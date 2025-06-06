@@ -4,9 +4,10 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 from mlx_lm import generate, load
 from minions.usage import Usage
+from minions.clients.base import MinionsClient
 
 
-class MLXLMClient:
+class MLXLMClient(MinionsClient):
     def __init__(
         self,
         model_name: str = "mlx-community/Llama-3.2-3B-Instruct",
@@ -15,6 +16,7 @@ class MLXLMClient:
         verbose: bool = False,
         use_async: bool = False,
         enable_thinking: bool = False,
+        **kwargs
     ):
         """
         Initialize the MLX LM client.
@@ -25,13 +27,18 @@ class MLXLMClient:
             max_tokens: Maximum number of tokens to generate (default: 1000)
             verbose: Whether to print tokens and timing information (default: False)
             use_async: Whether to use async mode (default: False)
+            enable_thinking: Whether to enable thinking mode (default: False)
+            **kwargs: Additional parameters passed to base class
         """
-        self.model_name = model_name
-        self.logger = logging.getLogger("MLXLMClient")
-        self.logger.setLevel(logging.INFO)
-        self.temperature = temperature
-        self.max_tokens = max_tokens
-        self.verbose = verbose
+        super().__init__(
+            model_name=model_name,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            verbose=verbose,
+            **kwargs
+        )
+        
+        # Client-specific configuration
         self.use_async = use_async
         self.enable_thinking = enable_thinking
         # Load the model and tokenizer

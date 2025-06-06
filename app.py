@@ -29,6 +29,7 @@ import json
 from streamlit_theme import st_theme
 from dotenv import load_dotenv
 import base64
+import requests
 
 
 # Load environment variables from .env file
@@ -91,7 +92,9 @@ API_PRICES = {
         "deepseek-chat": {"input": 0.27, "cached_input": 0.07, "output": 1.10},
         "deepseek-reasoner": {"input": 0.27, "cached_input": 0.07, "output": 1.10},
     },
+
     "Gemini": {
+        "gemini-2.5-flash": {"input": 0.15, "cached_input": 0.075, "output": 0.60},
         "gemini-2.0-flash": {"input": 0.35, "cached_input": 0.175, "output": 1.05},
         "gemini-2.0-pro": {"input": 3.50, "cached_input": 1.75, "output": 10.50},
         "gemini-1.5-pro": {"input": 3.50, "cached_input": 1.75, "output": 10.50},
@@ -112,6 +115,12 @@ API_PRICES = {
         "Llama-3.3-70B-Instruct": {"input": 0, "cached_input": 0, "output": 0},
         "Llama-3.3-8B-Instruct": {"input": 0, "cached_input": 0, "output": 0},
     },
+    # Sarvam AI pricing (approximate - please update with actual pricing)
+    "Sarvam": {
+        "sarvam-m": {"input": 0.50, "cached_input": 0.25, "output": 1.50},
+        "sarvam-1b": {"input": 0.10, "cached_input": 0.05, "output": 0.30},
+        "sarvam-3b": {"input": 0.30, "cached_input": 0.15, "output": 0.90},
+    },
 }
 
 PROVIDER_TO_ENV_VAR_KEY = {
@@ -129,6 +138,7 @@ PROVIDER_TO_ENV_VAR_KEY = {
     "Gemini": "GOOGLE_API_KEY",
     "HuggingFace": "HF_TOKEN",
     "LlamaAPI": "LLAMA_API_KEY",
+    "Sarvam": "SARVAM_API_KEY",
 }
 
 
@@ -445,6 +455,10 @@ def initialize_clients(
     st.session_state.multi_turn_mode = multi_turn_mode
     st.session_state.max_history_turns = max_history_turns
 
+    # Store thinking_budget if provider is Gemini
+    if provider == "Gemini" and "thinking_budget" in st.session_state:
+        st.session_state.thinking_budget = st.session_state.thinking_budget
+
     # Store context description in session state
     if context_description:
         st.session_state.context_description = context_description
@@ -575,6 +589,8 @@ def initialize_clients(
         use_web_search = st.session_state.get("use_web_search", False)
         include_search_queries = st.session_state.get("include_search_queries", False)
         max_web_search_uses = st.session_state.get("max_web_search_uses", 5)
+        use_caching = st.session_state.get("use_caching", False)
+        use_code_interpreter = st.session_state.get("use_code_interpreter", False)
 
         st.session_state.remote_client = AnthropicClient(
             model_name=remote_model_name,
@@ -583,6 +599,8 @@ def initialize_clients(
             api_key=api_key,
             use_web_search=use_web_search,
             include_search_queries=include_search_queries,
+            use_caching=use_caching,
+            use_code_interpreter=use_code_interpreter,
         )
 
         # Set max_web_search_uses if web search is enabled
@@ -629,6 +647,7 @@ def initialize_clients(
             temperature=remote_temperature,
             max_tokens=int(remote_max_tokens),
             api_key=api_key,
+            thinking_budget=st.session_state.get("thinking_budget", 0),
         )
     elif provider == "LlamaAPI":
         st.session_state.remote_client = LlamaApiClient(
@@ -637,6 +656,40 @@ def initialize_clients(
             max_tokens=int(remote_max_tokens),
             api_key=api_key,
         )
+    elif provider == "Sarvam":
+        st.session_state.remote_client = SarvamClient(
+            model_name=remote_model_name,
+            temperature=remote_temperature,
+            max_tokens=int(remote_max_tokens),
+            api_key=api_key,
+        )
+    elif provider == "Secure":
+        # Get secure endpoint URL from session state or environment
+        secure_endpoint_url = st.session_state.get("secure_endpoint_url") or os.getenv("SECURE_ENDPOINT_URL")
+        verify_attestation = st.session_state.get("verify_attestation", True)
+        session_timeout = st.session_state.get("session_timeout", 3600)
+        
+        if not secure_endpoint_url:
+            st.error("Secure endpoint URL is required. Please set it in the configuration.")
+            secure_endpoint_url = "https://localhost:8000"  # Default fallback
+        
+        try:
+            from minions.clients.secure import SecureClient
+            st.session_state.remote_client = SecureClient(
+                endpoint_url=secure_endpoint_url,
+                verify_attestation=verify_attestation,
+                session_timeout=session_timeout,
+            )
+        except ImportError:
+            st.error("SecureClient is not available. Please ensure the secure module is properly installed.")
+            # Fallback to OpenAI client
+            remote_model_name = "gpt-4o"
+            st.session_state.remote_client = OpenAIClient(
+                model_name=remote_model_name,
+                temperature=remote_temperature,
+                max_tokens=int(remote_max_tokens),
+                api_key=api_key,
+            )
     else:  # OpenAI
         st.session_state.remote_client = OpenAIClient(
             model_name=remote_model_name,
@@ -1115,6 +1168,52 @@ def validate_llama_api_key(api_key):
         return False, str(e)
 
 
+def validate_sarvam_key(api_key):
+    try:
+        client = SarvamClient(
+            model_name="sarvam-m",
+            api_key=api_key,
+            temperature=0.0,
+            max_tokens=1,
+        )
+        messages = [{"role": "user", "content": "Say yes"}]
+        client.chat(messages)
+        return True, ""
+    except Exception as e:
+        return False, str(e)
+
+
+def validate_secure_endpoint(endpoint_url):
+    """Validate secure endpoint by checking if it uses HTTPS and is reachable."""
+    try:
+        import requests
+        from urllib.parse import urlparse
+        
+        if not endpoint_url:
+            return False, "Endpoint URL is required"
+        
+        # Validate HTTPS protocol
+        parsed_url = urlparse(endpoint_url)
+        if parsed_url.scheme != 'https':
+            return False, f"Secure endpoint must use HTTPS protocol. Got: {parsed_url.scheme}://{parsed_url.netloc}"
+        
+        if not parsed_url.netloc:
+            return False, "Invalid endpoint URL format"
+        
+        # Check if the endpoint is reachable
+        response = requests.get(f"{endpoint_url}/health", timeout=10)
+        if response.status_code == 200:
+            return True, "Secure endpoint is reachable and uses HTTPS"
+        else:
+            return False, f"Endpoint returned status code {response.status_code}"
+    except requests.exceptions.ConnectionError:
+        return False, "Cannot connect to secure endpoint"
+    except requests.exceptions.Timeout:
+        return False, "Connection to secure endpoint timed out"
+    except Exception as e:
+        return False, f"Error validating secure endpoint: {str(e)}"
+
+
 # validate
 
 
@@ -1140,6 +1239,8 @@ with st.sidebar:
             "SambaNova",
             "Gemini",
             "LlamaAPI",
+            "Sarvam",
+            "Secure",
         ]
         selected_provider = st.selectbox(
             "Select Remote Provider",
@@ -1151,16 +1252,30 @@ with st.sidebar:
     env_var_name = f"{selected_provider.upper()}_API_KEY"
     env_key = os.getenv(env_var_name)
     with key_col:
-        user_key = st.text_input(
-            f"{selected_provider} API Key (optional if set in environment)",
-            type="password",
-            value="",
-            key=f"{selected_provider}_key",
-        )
+        # For secure client, we don't need an API key
+        if selected_provider == "Secure":
+            st.info("🔒 Secure client uses endpoint-based authentication")
+            user_key = ""
+        else:
+            user_key = st.text_input(
+                f"{selected_provider} API Key (optional if set in environment)",
+                type="password",
+                value="",
+                key=f"{selected_provider}_key",
+            )
     api_key = user_key if user_key else env_key
 
-    # Validate API key
-    if api_key:
+    # Validate API key or endpoint
+    if selected_provider == "Secure":
+        # For secure client, validate the endpoint instead of API key
+        secure_endpoint_url = st.session_state.get("secure_endpoint_url") or os.getenv("SECURE_ENDPOINT_URL")
+        if secure_endpoint_url:
+            is_valid, msg = validate_secure_endpoint(secure_endpoint_url)
+            provider_key = secure_endpoint_url  # Use endpoint URL as the "key"
+        else:
+            st.error("**✗ Missing secure endpoint URL.** Use https://minions-tee.eastus2.cloudapp.azure.com:443 if you don't have a custom endpoint.")
+            provider_key = None
+    elif api_key:
         if selected_provider == "OpenAI":
             is_valid, msg = validate_openai_key(api_key)
         elif selected_provider == "AzureOpenAI":
@@ -1183,6 +1298,22 @@ with st.sidebar:
             is_valid, msg = validate_gemini_key(api_key)
         elif selected_provider == "LlamaAPI":
             is_valid, msg = validate_llama_api_key(api_key)
+        elif selected_provider == "Sarvam":
+            is_valid, msg = validate_sarvam_key(api_key)
+        elif selected_provider == "Secure":
+            # For secure client, validate the endpoint instead of API key
+            secure_endpoint_url = st.session_state.get("secure_endpoint_url") or os.getenv("SECURE_ENDPOINT_URL")
+            if secure_endpoint_url:
+                is_valid, msg = validate_secure_endpoint(secure_endpoint_url)
+                if is_valid:
+                    st.success("**✓ Secure endpoint is reachable.** You're good to go!")
+                    provider_key = secure_endpoint_url  # Use endpoint URL as the "key"
+                else:
+                    st.error(f"**✗ Secure endpoint validation failed.** {msg}")
+                    provider_key = None
+            else:
+                st.error("**✗ Missing secure endpoint URL.** Please configure the endpoint URL above.")
+                provider_key = None
         else:
             raise ValueError(f"Invalid provider: {selected_provider}")
 
@@ -1262,6 +1393,79 @@ with st.sidebar:
         else:
             # This can be kept as it's not tied to a widget
             st.session_state.include_search_queries = False
+
+        # Add caching and code interpreter options
+        use_caching = st.toggle(
+            "Enable Caching",
+            value=st.session_state.get("use_caching", False),
+            key="use_caching",
+            help="When enabled, uses Anthropic's caching feature to reduce costs for repeated content. Useful for long documents or repeated queries.",
+        )
+
+        use_code_interpreter = st.toggle(
+            "Enable Code Interpreter",
+            value=st.session_state.get("use_code_interpreter", False),
+            key="use_code_interpreter",
+            help="When enabled, allows Claude to execute Python code to solve problems, analyze data, and generate visualizations.",
+        )
+
+        if use_code_interpreter:
+            st.info(
+                "💡 Code interpreter is enabled. Claude can now execute Python code to solve complex problems, "
+                "perform calculations, analyze data, and create visualizations."
+            )
+    # Add thinking_budget option for Gemini provider
+    elif selected_provider == "Gemini":
+        thinking_budget = st.slider(
+            "Thinking Budget",
+            min_value=0,
+            max_value=24576,
+            value=st.session_state.get("thinking_budget", 0),
+            step=1024,
+            key="thinking_budget",
+            help="Number of tokens used for model thinking before generating a response. 0 disables thinking. Higher values can improve response quality but increase token usage and cost.",
+        )
+
+    # Add secure client configuration
+    elif selected_provider == "Secure":
+        st.subheader("🔒 Secure Client Configuration")
+        
+        # Endpoint URL configuration
+        secure_endpoint_url = st.text_input(
+            "Secure Endpoint URL",
+            value=st.session_state.get("secure_endpoint_url", "") or os.getenv("SECURE_ENDPOINT_URL", ""),
+            key="secure_endpoint_url",
+            help="URL of the secure endpoint (e.g., https://minions-tee.eastus2.cloudapp.azure.com:443)",
+            placeholder="https://minions-tee.eastus2.cloudapp.azure.com:443"
+        )
+        
+        # Attestation verification toggle
+        verify_attestation = st.toggle(
+            "Verify Attestation",
+            value=st.session_state.get("verify_attestation", True),
+            key="verify_attestation",
+            help="When enabled, verifies the endpoint's attestation for enhanced security. Disable only for testing.",
+        )
+        
+        # Session timeout configuration
+        session_timeout = st.slider(
+            "Session Timeout (seconds)",
+            min_value=300,  # 5 minutes
+            max_value=7200,  # 2 hours
+            value=st.session_state.get("session_timeout", 3600),  # 1 hour default
+            step=300,
+            key="session_timeout",
+            help="How long the secure session remains active before requiring re-authentication.",
+        )
+        
+        if secure_endpoint_url:
+            st.info(
+                "🔒 Secure client will establish an encrypted communication channel with end-to-end encryption "
+                "and optional attestation verification for enhanced security."
+            )
+        else:
+            st.warning("⚠️ Please configure the secure endpoint URL to use the secure client.")
+
     else:
         # Clear these session state variables when a different provider is selected
         if "use_web_search" in st.session_state:
@@ -1270,6 +1474,12 @@ with st.sidebar:
             st.session_state.include_search_queries = False
         if "max_web_search_uses" in st.session_state:
             st.session_state.max_web_search_uses = 5
+        if "use_caching" in st.session_state:
+            st.session_state.use_caching = False
+        if "use_code_interpreter" in st.session_state:
+            st.session_state.use_code_interpreter = False
+        if "thinking_budget" in st.session_state:
+            st.session_state.thinking_budget = 0
 
     # Local model provider selection
     st.subheader("Local Model Provider")
@@ -1339,10 +1549,11 @@ with st.sidebar:
         "AzureOpenAI",
         "Together",
         "OpenRouter",
+        "Anthropic",
         "DeepSeek",
         "SambaNova",
         "LlamaAPI",
-    ]:  # Added LlamaAPI to the list
+    ]:  # Added LlamaAPI and Anthropic to the list
         protocol_options = [
             "Minion",
             "Minions",
@@ -1502,6 +1713,7 @@ with st.sidebar:
             }
         elif local_provider == "Transformers":
             local_model_options = {
+                "MedGemma 4B (Recommended)": "google/medgemma-4b-it",
                 "Mistral 7B Instruct v0.2 (Recommended)": "mistralai/Mistral-7B-Instruct-v0.2",
                 "Llama 3 8B Instruct": "meta-llama/Llama-3.1-8B-Instruct",
                 "Helium-1-2b": "kyutai/helium-1-2b",
@@ -1517,10 +1729,14 @@ with st.sidebar:
             local_model_options = {
                 "llama3.2 (Recommended)": "llama3.2",
                 "llama3.1:8b (Recommended)": "llama3.1:8b",
+                "deepseek-r1:latest": "deepseek-r1:latest",
+                "gemma3:4b (multimodal)": "gemma3:4b",
+                "qwen2.5vl:3b (multimodal)": "qwen2.5vl:3b",
                 "phi4-mini-reasoning": "phi4-mini-reasoning",
                 "Qwen/Qwen3-1.7B": "qwen3:1.7b",
                 "Qwen/Qwen3-0.6B": "qwen3:0.6b",
                 "Qwen/Qwen3-4B": "qwen3:4b",
+                "sarvam-2b": "gaganyatri/sarvam-2b-v0.5:latest",
                 "gemma3:4b-it-qat": "gemma3:4b-it-qat",
                 "gemma3:1b-it-qat": "gemma3:1b-it-qat",
                 "deepcoder:1.5b": "deepcoder:1.5b",
@@ -1607,6 +1823,8 @@ with st.sidebar:
         elif selected_provider == "Gemini":
             model_mapping = {
                 "gemini-2.0-pro (Recommended)": "gemini-2.5-pro-exp-03-25",
+                "gemini-2.5-flash-preview": "gemini-2.5-flash-preview-05-20",
+                "gemini-2.5-pro-preview": "gemini-2.5-pro-preview-05-06",
                 "gemini-2.0-flash": "gemini-2.0-flash",
                 "gemini-1.5-pro": "gemini-1.5-pro",
                 "gemini-1.5-flash": "gemini-1.5-flash",
@@ -1647,8 +1865,10 @@ with st.sidebar:
                 "Gemini 1.5 Pro": "google/gemini-1.5-pro",
             }
             default_model_index = 0
-        elif selected_provider == "Anthropic":
+        elif selected_provider == "Anthropic":  
             model_mapping = {
+                "Claude 4 Opus (Recommended)": "claude-opus-4-20250514",
+                "Claude 4 Sonnet (Recommended)": "claude-sonnet-4-20250514",
                 "claude-3-7-sonnet-latest (Recommended for web search)": "claude-3-7-sonnet-latest",
                 "claude-3-5-sonnet-latest": "claude-3-5-sonnet-latest",
                 "claude-3-5-haiku-latest": "claude-3-5-haiku-latest",
@@ -1696,6 +1916,42 @@ with st.sidebar:
                 "Llama-3.3-8B-Instruct": "Llama-3.3-8B-Instruct",
             }
             default_model_index = 0
+        elif selected_provider == "Sarvam":
+            model_mapping = {
+                "sarvam-m (Recommended)": "sarvam-m",
+                "sarvam-1b": "sarvam-1b",
+                "sarvam-3b": "sarvam-3b",
+            }
+            default_model_index = 0
+        elif selected_provider == "Secure":
+            # Get secure endpoint URL from session state or environment
+            secure_endpoint_url = st.session_state.get("secure_endpoint_url") or os.getenv("SECURE_ENDPOINT_URL")
+            verify_attestation = st.session_state.get("verify_attestation", True)
+            session_timeout = st.session_state.get("session_timeout", 3600)
+            model_mapping = {
+                "gemma3-27B (Recommended)": "gemma3-27B",
+            }
+            default_model_index = 0
+            
+            if not secure_endpoint_url:
+                st.error("Secure endpoint URL is required. Please set it in the configuration.")
+                secure_endpoint_url = "https://localhost:8000"  # Default fallback
+            
+            try:
+                from minions.clients.secure import SecureClient
+                st.session_state.remote_client = SecureClient(
+                    endpoint_url=secure_endpoint_url,                
+                    verify_attestation=verify_attestation,
+                    session_timeout=session_timeout,
+                )
+            except ImportError:
+                st.error("SecureClient is not available. Please ensure the secure module is properly installed.")
+                # Fallback to OpenAI client
+                remote_model_name = "gpt-4o"
+                st.session_state.remote_client = OpenAIClient(
+                    model_name=remote_model_name,
+                    api_key=api_key,
+                )
         else:
             model_mapping = {}
             default_model_index = 0
@@ -1741,13 +1997,6 @@ with st.sidebar:
             remote_max_tokens = 4096
             reasoning_effort = "medium"  # Default reasoning effort
 
-    # Add voice generation toggle if available - MOVED HERE from the top
-    # st.subheader("Voice Generation")
-    # voice_generation_enabled = st.toggle(
-    #     "Enable Minion Voice",
-    #     value=False,
-    #     help="When enabled, minion responses will be spoken using CSM-MLX voice synthesis",
-    # )
     voice_generation_enabled = False
 
     # Only try to import and initialize the voice generator if user enables it
@@ -1804,49 +2053,7 @@ with st.sidebar:
 
         test_col1, test_col2 = st.sidebar.columns(2)
 
-        # with test_col1:
-        #     if st.button("🧮 Open Calculator", key="test_calculator"):
-        #         with st.status("Testing Calculator...", expanded=True) as status:
-        #             st.session_state.method(
-        #                 task="Please open the Calculator application so I can perform some calculations.",
-        #                 context=["User needs to do some math calculations."],
-        #                 max_rounds=2,
-        #                 is_privacy=False,
-        #             )
-        #             status.update(label="Test completed!", state="complete")
-
-        #     if st.button("📝 Open TextEdit", key="test_textedit"):
-        #         with st.status("Testing TextEdit...", expanded=True) as status:
-        #             st.session_state.method(
-        #                 task="Please open TextEdit so I can write a note.",
-        #                 context=["User needs to write something."],
-        #                 max_rounds=2,
-        #                 is_privacy=False,
-        #             )
-        #             status.update(label="Test completed!", state="complete")
-
-        # with test_col2:
-        #     if st.button("🌐 Open Browser", key="test_browser"):
-        #         with st.status("Testing Browser...", expanded=True) as status:
-        #             st.session_state.method(
-        #                 task="Please open Safari browser.",
-        #                 context=["User needs to browse the web."],
-        #                 max_rounds=2,
-        #                 is_privacy=False,
-        #             )
-        #             status.update(label="Test completed!", state="complete")
-
-        #     if st.button("🧠 Run Full Test", key="test_workflow"):
-        #         with st.status(
-        #             "Running full CUA test workflow...", expanded=True
-        #         ) as status:
-        #             st.session_state.method(
-        #                 task="Please open Calculator, type 123+456=, and then open TextEdit.",
-        #                 context=["User wants to test the automation capabilities."],
-        #                 max_rounds=5,
-        #                 is_privacy=False,
-        #             )
-        #             status.update(label="Test workflow completed!", state="complete")
+     
 
         # Add CUA documentation and examples
         with st.sidebar.expander("ℹ️ CUA Automation Sample Tasks", expanded=False):
@@ -2268,24 +2475,20 @@ else:
                 # Token usage for both protocols
                 if "local_usage" in output and "remote_usage" in output:
                     st.header("Token Usage")
-                    local_total = output["local_usage"].get(
-                        "prompt_tokens", 0
-                    ) + output["local_usage"].get("completion_tokens", 0)
-                    remote_total = output["remote_usage"].get(
-                        "prompt_tokens", 0
-                    ) + output["remote_usage"].get("completion_tokens", 0)
+                    local_total = getattr(output["local_usage"], "prompt_tokens", 0) + getattr(output["local_usage"], "completion_tokens", 0)
+                    remote_total = getattr(output["remote_usage"], "prompt_tokens", 0) + getattr(output["remote_usage"], "completion_tokens", 0)
                     c1, c2 = st.columns(2)
                     c1.metric(
                         f"{local_model_name} (Local) Total Tokens",
                         f"{local_total:,}",
-                        f"Prompt: {output['local_usage'].get('prompt_tokens', 0):,}, "
-                        f"Completion: {output['local_usage'].get('completion_tokens', 0):,}",
+                        f"Prompt: {getattr(output['local_usage'], 'prompt_tokens', 0):,}, "
+                        f"Completion: {getattr(output['local_usage'], 'completion_tokens', 0):,}",
                     )
                     c2.metric(
                         f"{remote_model_name} (Remote) Total Tokens",
                         f"{remote_total:,}",
-                        f"Prompt: {output['remote_usage'].get('prompt_tokens', 0):,}, "
-                        f"Completion: {output['remote_usage'].get('completion_tokens', 0):,}",
+                        f"Prompt: {getattr(output['remote_usage'], 'prompt_tokens', 0):,}, "
+                        f"Completion: {getattr(output['remote_usage'], 'completion_tokens', 0):,}",
                     )
                     # Convert to long format DataFrame for explicit ordering
                     df = pd.DataFrame(
@@ -2303,10 +2506,10 @@ else:
                                 "Completion Tokens",
                             ],
                             "Count": [
-                                output["local_usage"].get("prompt_tokens", 0),
-                                output["local_usage"].get("completion_tokens", 0),
-                                output["remote_usage"].get("prompt_tokens", 0),
-                                output["remote_usage"].get("completion_tokens", 0),
+                                getattr(output["local_usage"], "prompt_tokens", 0),
+                                getattr(output["local_usage"], "completion_tokens", 0),
+                                getattr(output["remote_usage"], "prompt_tokens", 0),
+                                getattr(output["remote_usage"], "completion_tokens", 0),
                             ],
                         }
                     )
@@ -2321,10 +2524,10 @@ else:
                         st.header("Remote Model Cost")
                         pricing = API_PRICES[selected_provider][remote_model_name]
                         prompt_cost = (
-                            output["remote_usage"].get("prompt_tokens", 0) / 1_000_000
+                            getattr(output["remote_usage"], "prompt_tokens", 0) / 1_000_000
                         ) * pricing["input"]
                         completion_cost = (
-                            output["remote_usage"].get("completion_tokens", 0)
+                            getattr(output["remote_usage"], "completion_tokens", 0)
                             / 1_000_000
                         ) * pricing["output"]
                         total_cost = prompt_cost + completion_cost
@@ -2333,12 +2536,12 @@ else:
                         col1.metric(
                             "Prompt Cost",
                             f"${prompt_cost:.4f}",
-                            f"{output['remote_usage'].get('prompt_tokens', 0):,} tokens (at ${pricing['input']:.2f}/1M)",
+                            f"{getattr(output['remote_usage'], 'prompt_tokens', 0):,} tokens (at ${pricing['input']:.2f}/1M)",
                         )
                         col2.metric(
                             "Completion Cost",
                             f"${completion_cost:.4f}",
-                            f"{output['remote_usage'].get('completion_tokens', 0):,} tokens (at ${pricing['output']:.2f}/1M)",
+                            f"{getattr(output['remote_usage'], 'completion_tokens', 0):,} tokens (at ${pricing['output']:.2f}/1M)",
                         )
                         col3.metric(
                             "Total Cost",

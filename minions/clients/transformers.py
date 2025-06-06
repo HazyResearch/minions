@@ -3,6 +3,7 @@ import os
 
 from typing import Any, Dict, List, Optional, Tuple, Union
 
+
 try:
     from transformers import AutoModelForCausalLM, AutoTokenizer, AutoModel
 except ImportError:
@@ -31,9 +32,10 @@ except ImportError:
     )
 
 from minions.usage import Usage
+from minions.clients.base import MinionsClient
 
 
-class TransformersClient:
+class TransformersClient(MinionsClient):
     def __init__(
         self,
         model_name: str = "mistralai/Mistral-7B-v0.1",
@@ -45,6 +47,7 @@ class TransformersClient:
         tool_calling: bool = False,
         embedding_model: Optional[str] = None,
         enable_thinking: bool = False,  # for qwen models
+        **kwargs
     ):
         """
         Initialize the Transformers client for local HuggingFace models.
@@ -59,18 +62,24 @@ class TransformersClient:
             hf_token: Optional Hugging Face token for accessing gated models
             tool_calling: Whether to support tool calling (default: False)
             embedding_model: Optional separate model for embeddings (default: None, uses main model)
+            enable_thinking: Whether to enable thinking mode for qwen models (default: False)
+            **kwargs: Additional parameters passed to base class
         """
-        self.model_name = model_name
-        self.logger = logging.getLogger("TransformersClient")
-        self.logger.setLevel(logging.INFO)
-        self.temperature = temperature
-        self.max_tokens = max_tokens
+        super().__init__(
+            model_name=model_name,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            **kwargs
+        )
+        
+        # Client-specific configuration
         self.top_p = top_p
         self.do_sample = do_sample
         self.hf_token = hf_token or os.environ.get("HF_TOKEN")
         self.return_tools = tool_calling
         self.embedding_model_name = embedding_model
         self.enable_thinking = enable_thinking
+        
 
         # Check device availability
         self.device, self.dtype = self._get_device_and_dtype()
@@ -104,7 +113,7 @@ class TransformersClient:
             self.logger.info("MPS is available, using Apple Silicon GPU")
             # Note: bfloat16 may not be supported on all MPS devices,
             # but float16 is generally available
-            return "mps", torch.float16
+            return "mps", torch.bfloat16
         else:
             self.logger.info("No GPU available, using CPU")
             return "cpu", torch.float32
@@ -374,6 +383,7 @@ class TransformersClient:
                     tokenize=True,
                     return_tensors="pt",
                     enable_thinking=self.enable_thinking,
+                    add_generation_prompt=True,
                 )
             else:
                 messages_str = "\n".join(

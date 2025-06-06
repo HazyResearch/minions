@@ -8,6 +8,7 @@ anthropic                 # Anthropic client
 together                  # Together AI client
 groq                      # Groq client
 google-genai              # Gemini client
+mistralai                 # Mistral AI client
 
 # --- Retrieval, search & scraping ---
 requests                  # generic HTTP

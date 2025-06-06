@@ -4,9 +4,10 @@ import os
 import openai
 
 from minions.usage import Usage
+from minions.clients.base import MinionsClient
 
 
-class PerplexityAIClient:
+class PerplexityAIClient(MinionsClient):
     def __init__(
         self,
         model_name: str = "sonar-pro",
@@ -14,24 +15,31 @@ class PerplexityAIClient:
         temperature: float = 0.0,
         max_tokens: int = 4096,
         base_url: Optional[str] = None,
+        **kwargs
     ):
         """
         Initialize the Perplexity client.
 
         Args:
-            model_name: The name of the model to use (default: "sonar")
+            model_name: The name of the model to use (default: "sonar-pro")
             api_key: Perplexity API key (optional, falls back to environment variable if not provided)
             temperature: Sampling temperature (default: 0.0)
             max_tokens: Maximum number of tokens to generate (default: 4096)
             base_url: Base URL for the Perplexity API (optional, falls back to PERPLEXITY_BASE_URL environment variable or default URL)
+            **kwargs: Additional parameters passed to base class
         """
-        self.model_name = model_name
+        super().__init__(
+            model_name=model_name,
+            api_key=api_key,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            base_url=base_url,
+            **kwargs
+        )
+        
+        # Client-specific configuration
         openai.api_key = api_key or os.getenv("PERPLEXITY_API_KEY")
         self.api_key = openai.api_key
-        self.logger = logging.getLogger("PerplexityAIClient")
-        self.logger.setLevel(logging.INFO)
-        self.temperature = temperature
-        self.max_tokens = max_tokens
         
         # Get base URL from parameter, environment variable, or use default
         base_url = base_url or os.getenv("PERPLEXITY_BASE_URL", "https://api.perplexity.ai")

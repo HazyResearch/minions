@@ -39,73 +39,6 @@ from minions.prompts.multi_turn import (
 from minions.usage import Usage
 from minions.utils.conversation_history import ConversationHistory, ConversationTurn
 
-# Override the supervisor initial prompt to encourage task decomposition.
-SUPERVISOR_INITIAL_PROMPT = """\
-We need to perform the following task.
-
-### Task
-{task}
-
-### Instructions
-You will not have direct access to the context, but you can chat with a small language model that has read the entire content.
-
-Let's use an incremental, step-by-step approach to ensure we fully decompose the task before proceeding. Please follow these steps:
-
-1. Decompose the Task:
-   Break down the overall task into its key components or sub-tasks. Identify what needs to be done and list these sub-tasks.
-
-2. Explain Each Component:
-   For each sub-task, briefly explain why it is important and what you expect it to achieve. This helps clarify the reasoning behind your breakdown.
-
-3. Formulate a Focused Message:
-   Based on your breakdown, craft a single, clear message to send to the small language model. This message should represent one focused sub-task derived from your decomposition.
-
-4. Conclude with a Final Answer:  
-   After your reasoning, please provide a **concise final answer** that directly and conclusively addresses the original task. Make sure this final answer includes all the specific details requested in the task.
-
-Your output should be in the following JSON format:
-
-```json
-{{
-    "reasoning": "<your detailed, step-by-step breakdown here>",
-    "message": "<your final, focused message to the small language model>"
-}}
-"""
-
-# Override the final response prompt to encourage a more informative final answer
-REMOTE_SYNTHESIS_FINAL = """\
-Here is the detailed response from the step-by-step reasoning phase.
-
-### Detailed Response
-{response}
-
-### Instructions
-Based on the detailed reasoning above, synthesize a clear and informative final answer that directly addresses the task with all the specific details required. In your final answer, please:
-
-1. Summarize the key findings and reasoning steps.
-2. Clearly state the conclusive answer, incorporating the important details.
-3. Ensure the final answer is self-contained and actionable.
-
-If you determine that you have gathered enough information to fully answer the task, output the following JSON with your final answer:
-
-```json
-{{
-    "decision": "provide_final_answer", 
-    "answer": "<your detailed, conclusive final answer here>"
-}}
-```
-
-Otherwise, if the task is not complete, request the small language model to do additional work, by outputting the following:
-
-```json
-{{
-    "decision": "request_additional_info",
-    "message": "<your message to the small language model>"
-}}
-```
-
-"""
-
 
 def _escape_newlines_in_strings(json_str: str) -> str:
     # This regex naively matches any content inside double quotes (including escaped quotes)
@@ -193,7 +126,6 @@ class Minion:
             ConversationHistory(max_turns=max_history_turns) if is_multi_turn else None
         )
 
-        print(self.mcp_client)
 
     def __call__(
         self,
@@ -418,7 +350,6 @@ class Minion:
             supervisor_response, supervisor_usage = self.remote_client.chat(
                 messages=supervisor_messages, response_format={"type": "json_object"}
             )
-            print(supervisor_response)
         elif isinstance(self.remote_client, GeminiClient):
             from pydantic import BaseModel
 
@@ -468,8 +399,9 @@ class Minion:
         else:
             supervisor_json = _extract_json(supervisor_response[0])
 
+        print(f"💬 SUPERVISOR MESSAGE: {supervisor_json['message']}")
         worker_messages.append({"role": "user", "content": supervisor_json["message"]})
-
+        
         if self.mcp_client is not None:
             tool_calls = supervisor_json["mcp_tool_calls"]
         else:
@@ -551,8 +483,7 @@ class Minion:
             current_time = time.time()
             timing["local_call_time"] += current_time - local_start_time
 
-            print(f"Worker response: {worker_response}")
-            print(f"Worker usage: {worker_usage}")
+            print(f" 🔨 WORKER RESPONSE: {worker_response[0]}")
 
             local_usage += worker_usage
 
@@ -620,12 +551,7 @@ class Minion:
                 )
             else:
                 # First step: Think through the synthesis
-                if self.is_multi_turn:
-                    cot_prompt = REMOTE_SYNTHESIS_COT.format(
-                        response=worker_response[0]
-                    )
-                else:
-                    cot_prompt = REMOTE_SYNTHESIS_COT.format(
+                cot_prompt = REMOTE_SYNTHESIS_COT.format(
                         response=worker_response[0]
                     )
 
@@ -641,6 +567,7 @@ class Minion:
                 step_by_step_response, usage = self.remote_client.chat(
                     supervisor_messages
                 )
+                print(f"🔎 SUPERVISOR RESPONSE: {step_by_step_response[0]}")
                 current_time = time.time()
                 timing["remote_call_time"] += current_time - remote_start_time
 
@@ -787,8 +714,11 @@ class Minion:
         log_path = os.path.join(self.log_dir, log_filename)
 
         print(f"\n=== SAVING LOG TO {log_path} ===")
-        with open(log_path, "w", encoding="utf-8") as f:
-            json.dump(conversation_log, f, indent=2, ensure_ascii=False)
+        try:
+            with open(log_path, "w", encoding="utf-8") as f:
+                json.dump(conversation_log, f, indent=2, ensure_ascii=False)
+        except Exception as e:
+            print(f"Error saving log to {log_path}: {e}")
 
         print("\n=== MINION TASK COMPLETED ===")
 

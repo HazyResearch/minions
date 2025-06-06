@@ -4,17 +4,21 @@ import os
 import anthropic
 
 from minions.usage import Usage
+from minions.clients.base import MinionsClient
 
 
-class AnthropicClient:
+class AnthropicClient(MinionsClient):
     def __init__(
         self,
         model_name: str = "claude-3-sonnet-20240229",
         api_key: Optional[str] = None,
         temperature: float = 0.2,
-        max_tokens: int = 2048,
+        max_tokens: int = 4096,
         use_web_search: bool = False,
         include_search_queries: bool = False,
+        use_caching: bool = False,
+        use_code_interpreter: bool = False,
+        **kwargs
     ):
         """
         Initialize the Anthropic client.
@@ -26,16 +30,39 @@ class AnthropicClient:
             max_tokens: Maximum number of tokens to generate (default: 2048)
             use_web_search: Whether to enable web search functionality (default: False)
             include_search_queries: Whether to include search queries in the response (default: False)
+            use_caching: Whether to use caching for the client (default: False)
+            use_code_interpreter: Whether to use the code interpreter (default: False)
+            **kwargs: Additional parameters passed to base class
         """
-        self.model_name = model_name
-        self.api_key = api_key or os.getenv("ANTHROPIC_API_KEY")
-        self.logger = logging.getLogger("AnthropicClient")
+        super().__init__(
+            model_name=model_name,
+            api_key=api_key,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            **kwargs
+        )
+        
+        # Client-specific configuration
         self.logger.setLevel(logging.INFO)
-        self.temperature = temperature
-        self.max_tokens = max_tokens
+        self.api_key = api_key or os.getenv("ANTHROPIC_API_KEY")
         self.use_web_search = use_web_search
         self.include_search_queries = include_search_queries
-        self.client = anthropic.Anthropic(api_key=self.api_key)
+        self.use_code_interpreter = use_code_interpreter
+        self.use_caching = use_caching
+        
+        # Initialize client with appropriate headers
+        if self.use_code_interpreter:
+            self.client = anthropic.Anthropic(
+                api_key=self.api_key,
+                default_headers={
+                    "anthropic-beta": "code-execution-2025-05-22"
+                }
+            )
+        else:
+            self.client = anthropic.Anthropic(api_key=self.api_key)
+
+        self.system_prompt = "You are a helpful assistant that can answer questions and help with tasks. Your outputs should be structured JSON objects. Follow the instructions in the user's message to generate the JSON object."
+          
 
     def chat(self, messages: List[Dict[str, Any]], **kwargs) -> Tuple[List[str], Usage]:
         """
@@ -51,11 +78,22 @@ class AnthropicClient:
         assert len(messages) > 0, "Messages cannot be empty."
 
         try:
+            if self.use_caching:
+                final_message = messages[-1]
+                final_message["content"] =[ {
+                    "type": "text",
+                    "text": final_message["content"],
+                    "cache_control": {"type": "ephemeral"},
+                }]
+                messages[-1] = final_message
+
+
             params = {
                 "model": self.model_name,
                 "messages": messages,
                 "max_tokens": self.max_tokens,
                 "temperature": self.temperature,
+                "system": self.system_prompt,
                 **kwargs,
             }
 
@@ -67,6 +105,16 @@ class AnthropicClient:
                     "max_uses": kwargs.get("max_web_search_uses", 5),
                 }
                 params["tools"] = params.get("tools", []) + [web_search_tool]
+
+            if self.use_code_interpreter:
+                code_interpreter_tool = {
+                    "type": "code_execution_20250522",
+                    "name": "code_execution",
+                }
+                if "tools" in params:
+                    params["tools"].append(code_interpreter_tool)
+                else:
+                    params["tools"] = [code_interpreter_tool]
 
             response = self.client.messages.create(**params)
         except Exception as e:
@@ -133,6 +181,7 @@ class AnthropicClient:
                 result_text += "\n\n" + "\n".join(citations_parts)
 
             return [result_text], usage
+                
         else:
             # Standard response handling for non-web-search or simple responses
             if (
@@ -141,7 +190,8 @@ class AnthropicClient:
                 and len(response.content) > 0
             ):
                 if hasattr(response.content[0], "text"):
-                    return [response.content[0].text], usage
+                    print(response.content[-1].text)
+                    return [response.content[-1].text], usage
                 else:
                     self.logger.warning(
                         "Unexpected response format - missing text attribute"

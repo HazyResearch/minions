@@ -1,3 +1,4 @@
+from minions.clients.base import MinionsClient
 from minions.clients.ollama import OllamaClient
 from minions.clients.openai import OpenAIClient
 from minions.clients.azure_openai import AzureOpenAIClient
@@ -11,6 +12,8 @@ from minions.clients.sambanova import SambanovaClient
 from minions.clients.gemini import GeminiClient
 from minions.clients.grok import GrokClient
 from minions.clients.llama_api import LlamaApiClient
+from minions.clients.mistral import MistralClient
+from minions.clients.sarvam import SarvamClient
 
 __all__ = [
     "OllamaClient",
@@ -26,6 +29,8 @@ __all__ = [
     "GeminiClient",
     "GrokClient",
     "LlamaApiClient",
+    "MistralClient",
+    "SarvamClient",
 ]
 
 try:
@@ -106,4 +111,24 @@ except ImportError:
     # print warning that transformers is not installed
     print(
         "WARNING: Transformers is not installed. Please install it with `pip install transformers`."
+    )
+
+try:
+    from minions.clients.secure import SecureClient
+    __all__.append("SecureClient")
+except ImportError:
+    # print warning that secure crypto utilities are not available
+    print(
+        "Warning: Secure crypto utilities are not available. SecureClient will not be available. "
+        "Please ensure the secure module is properly installed."
+    )
+
+try:
+    from minions.clients.cerebras import CerebrasClient
+    __all__.append("CerebrasClient")
+except ImportError:
+    # print warning that cerebras-cloud-sdk is not installed
+    print(
+        "Warning: cerebras-cloud-sdk is not installed. If you want to use CerebrasClient, "
+        "please install it with `pip install cerebras-cloud-sdk`."
     )

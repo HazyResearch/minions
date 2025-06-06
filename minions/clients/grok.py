@@ -1,11 +1,12 @@
 from typing import Any, Dict, List, Optional, Tuple
 from minions.usage import Usage
+from minions.clients.base import MinionsClient
 import logging
 import os
 import openai
 
 
-class GrokClient:
+class GrokClient(MinionsClient):
     def __init__(
         self,
         model_name: str = "grok-3-beta",
@@ -13,23 +14,32 @@ class GrokClient:
         temperature: float = 0.0,
         max_tokens: int = 4096,
         base_url: str = "https://api.x.ai/v1",
+        **kwargs
     ):
         """
-        Initialize the DeepSeek client.
+        Initialize the Grok client.
 
         Args:
-            model_name: The name of the model to use (default: "deepseek-chat")
-            api_key: DeepSeek API key (optional, falls back to environment variable if not provided)
+            model_name: The name of the model to use (default: "grok-3-beta")
+            api_key: Grok API key (optional, falls back to environment variable if not provided)
             temperature: Sampling temperature (default: 0.0)
             max_tokens: Maximum number of tokens to generate (default: 4096)
+            base_url: Base URL for the Grok API (default: "https://api.x.ai/v1")
+            **kwargs: Additional parameters passed to base class
         """
-        self.model_name = model_name
-        openai.api_key = api_key or os.getenv("XAI_API_KEY")
-        self.logger = logging.getLogger("GrokClient")
+        super().__init__(
+            model_name=model_name,
+            api_key=api_key,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            base_url=base_url,
+            **kwargs
+        )
+        
+        # Client-specific configuration
         self.logger.setLevel(logging.INFO)
-        self.temperature = temperature
-        self.max_tokens = max_tokens
-        self.base_url = base_url
+        openai.api_key = api_key or os.getenv("XAI_API_KEY")
+        # self.base_url = base_url # Handled by base
 
     def chat(self, messages: List[Dict[str, Any]], **kwargs) -> Tuple[List[str], Usage]:
         """

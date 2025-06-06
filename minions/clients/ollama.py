@@ -4,9 +4,10 @@ from pydantic import BaseModel
 from typing import Any, Dict, List, Optional, Union, Tuple
 
 from minions.usage import Usage
+from minions.clients.base import MinionsClient
 
 
-class OllamaClient:
+class OllamaClient(MinionsClient):
     def __init__(
         self,
         model_name: str = "llama-3.2",
@@ -16,14 +17,30 @@ class OllamaClient:
         structured_output_schema: Optional[BaseModel] = None,
         use_async: bool = False,
         tool_calling: bool = False,
+        thinking: bool = False,
+        **kwargs
     ):
-        """Initialize Ollama Client."""
-        self.model_name = model_name
-        self.logger = logging.getLogger("OllamaClient")
-        self.logger.setLevel(logging.INFO)
-
-        self.temperature = temperature
-        self.max_tokens = max_tokens
+        """Initialize Ollama Client.
+        
+        Args:
+            model_name: The Ollama model to use (default: "llama-3.2")
+            temperature: Sampling temperature (default: 0.0)
+            max_tokens: Maximum number of tokens to generate (default: 2048)
+            num_ctx: Context window size (default: 48000)
+            structured_output_schema: Optional Pydantic model for structured output
+            use_async: Whether to use async API calls (default: False)
+            tool_calling: Whether to support tool calling (default: False)
+            thinking: Whether to enable thinking mode (default: False)
+            **kwargs: Additional parameters passed to base class
+        """
+        super().__init__(
+            model_name=model_name,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            **kwargs
+        )
+        
+        # Client-specific configuration
         self.num_ctx = num_ctx
 
         if self.model_name == "granite3.2-vision":
@@ -32,6 +49,7 @@ class OllamaClient:
 
         self.use_async = use_async
         self.return_tools = tool_calling
+        self.thinking = thinking
 
         # If we want structured schema output:
         self.format_structured_output = None
@@ -168,6 +186,10 @@ class OllamaClient:
         # Now we have a list of dictionaries. We'll call them in parallel.
         chat_kwargs = self._prepare_options()
 
+        if self.thinking:
+            kwargs["think"] = True
+
+       
         async def process_one(msg):
             resp = await self.client.chat(
                 model=self.model_name,
@@ -234,12 +256,20 @@ class OllamaClient:
 
             if "tool_calls" in response["message"]:
                 tools.append(response["message"]["tool_calls"])
-
-            usage_total += Usage(
-                prompt_tokens=response["prompt_eval_count"],
-                completion_tokens=response["eval_count"],
-            )
-            done_reasons.append(response["done_reason"])
+            try:
+                usage_total += Usage(
+                    prompt_tokens=response["prompt_eval_count"],
+                    completion_tokens=response["eval_count"],
+                )
+            except Exception as e:
+                usage_total = Usage(
+                    prompt_tokens=0,
+                    completion_tokens=0,
+                )
+            try:
+                done_reasons.append(response["done_reason"])
+            except Exception as e:
+                done_reasons.append("stop")
 
         except Exception as e:
             self.logger.error(f"Error during Ollama API call: {e}")

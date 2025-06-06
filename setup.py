@@ -11,6 +11,7 @@ setup(
         "anthropic",  # for Anthropic client
         "together",  # for Together client
         "groq",  # for Groq client
+        "mistralai",  # for Mistral AI client
         "requests",  # for API calls
         "tiktoken",  # for token counting
         "pymupdf",  # for PDF processing
@@ -29,6 +30,8 @@ setup(
         "orjson",
         "twilio",
         "pyjwt",  # for JWT utilities
+        "torch",
+        "cerebras-cloud-sdk",  # for Cerebras client
     ],
     extras_require={
         "mlx": ["mlx-lm"],
@@ -44,6 +47,7 @@ setup(
             "cryptography",  # for crypto utils
             "orjson",
             "twilio",
+            "pyjwt",  # for JWT utilities
         ],
     },
     author="Sabri, Avanika, and Dan",

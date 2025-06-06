@@ -4,15 +4,17 @@ import os
 from groq import Groq
 
 from minions.usage import Usage
+from minions.clients.base import MinionsClient
 
 
-class GroqClient:
+class GroqClient(MinionsClient):
     def __init__(
         self,
         model_name: str = "llama-3.3-70b-versatile",
         api_key: Optional[str] = None,
         temperature: float = 0.0,
         max_tokens: int = 2048,
+        **kwargs
     ):
         """
         Initialize the Groq client.
@@ -22,13 +24,19 @@ class GroqClient:
             api_key: Groq API key (optional, falls back to environment variable if not provided)
             temperature: Sampling temperature (default: 0.0)
             max_tokens: Maximum number of tokens to generate (default: 2048)
+            **kwargs: Additional parameters passed to base class
         """
-        self.model_name = model_name
-        self.api_key = api_key or os.getenv("GROQ_API_KEY")
-        self.logger = logging.getLogger("GroqClient")
+        super().__init__(
+            model_name=model_name,
+            api_key=api_key,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            **kwargs
+        )
+        
+        # Client-specific configuration
         self.logger.setLevel(logging.INFO)
-        self.temperature = temperature
-        self.max_tokens = max_tokens
+        self.api_key = api_key or os.getenv("GROQ_API_KEY")
         self.client = Groq(api_key=self.api_key)
 
     def chat(self, messages: List[Dict[str, Any]], **kwargs) -> Tuple[List[str], Usage]:

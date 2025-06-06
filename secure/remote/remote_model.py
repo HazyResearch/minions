@@ -91,7 +91,7 @@ class SGLangClient:
     def stream_chat(self, messages, temperature=0.7, max_tokens=16384):
         """Stream chat responses using SGLang."""
         try:
-            # Convert messages to OpenAI format 
+            # Convert messages to OpenAI format
             formatted_messages = []
             for msg in messages:
                 content = msg.get("content", "")

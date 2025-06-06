@@ -5,9 +5,10 @@ from typing import Any, Dict, List, Optional, Union, Tuple
 import os
 
 from minions.usage import Usage
+from minions.clients.base import MinionsClient
 
 
-class GeminiClient:
+class GeminiClient(MinionsClient):
     def __init__(
         self,
         model_name: str = "gemini-2.0-flash",
@@ -19,6 +20,8 @@ class GeminiClient:
         tool_calling: bool = False,
         system_instruction: Optional[str] = None,
         use_openai_api: bool = False,
+        thinking_budget: Optional[int] = None,
+        **kwargs
     ):
         """Initialize Gemini Client.
 
@@ -32,18 +35,25 @@ class GeminiClient:
             tool_calling: Whether to support tool calling.
             system_instruction: Optional system instruction to use for all calls.
             use_openai_api: Whether to use OpenAI-compatible API endpoint for Gemini models.
+            **kwargs: Additional parameters passed to base class
         """
-        self.model_name = model_name
-        self.logger = logging.getLogger("GeminiClient")
+        super().__init__(
+            model_name=model_name,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            api_key=api_key,
+            **kwargs
+        )
+        
+        # Client-specific configuration
         self.logger.setLevel(logging.INFO)
 
-        self.temperature = temperature
-        self.max_tokens = max_tokens
         self.api_key = api_key or os.getenv("GOOGLE_API_KEY")
         self.use_async = use_async
         self.return_tools = tool_calling
         self.system_instruction = system_instruction
         self.use_openai_api = use_openai_api
+        self.thinking_budget = thinking_budget
 
         # If we want structured schema output:
         self.format_structured_output = None
@@ -306,6 +316,15 @@ class GeminiClient:
                         config=self.types.GenerateContentConfig(
                             temperature=0,
                             max_output_tokens=self.max_tokens,
+                            **(
+                                {
+                                    "thinking_config": self.types.ThinkingConfig(
+                                        thinking_budget=self.thinking_budget
+                                    )
+                                }
+                                if self.thinking_budget is not None
+                                else {}
+                            ),
                         ),
                     ),
                 )

@@ -3,9 +3,10 @@ import os
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from minions.usage import Usage
+from minions.clients.base import MinionsClient
 
 
-class MLXOmniClient:
+class MLXOmniClient(MinionsClient):
     """
     Client for interacting with MLX Omni Server using TestClient method.
     This allows direct interaction with the application without starting a server.
@@ -19,6 +20,7 @@ class MLXOmniClient:
         temperature: float = 0.0,
         max_tokens: int = 2048,
         use_test_client: bool = True,
+        **kwargs
     ):
         """
         Initialize the MLX Omni client.
@@ -28,14 +30,17 @@ class MLXOmniClient:
             temperature: Sampling temperature (default: 0.0)
             max_tokens: Maximum number of tokens to generate (default: 2048)
             use_test_client: Whether to use TestClient (True) or HTTP client (False)
+            **kwargs: Additional parameters passed to base class
         """
-        self.model_name = model_name
-        self.temperature = temperature
-        self.max_tokens = max_tokens
+        super().__init__(
+            model_name=model_name,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            **kwargs
+        )
+        
+        # Client-specific configuration
         self.use_test_client = use_test_client
-
-        self.logger = logging.getLogger("MLXOmniClient")
-        self.logger.setLevel(logging.INFO)
 
         # Initialize the client
         self._initialize_client()

@@ -147,7 +147,6 @@ class SecureClient:
             try:
                 attestation_response = requests.get(
                     f"{self.endpoint_url}/attestation", 
-                    #verify="/Users/avanikanarayan/Downloads/cert.pem",
                     timeout=self.timeout
                 )
                 attestation_response.raise_for_status()
@@ -218,7 +217,6 @@ class SecureClient:
             response = requests.post(
                 f"{self.endpoint_url}/message",
                 json=request_data,
-                #verify="/Users/avanikanarayan/Downloads/cert.pem",
                 timeout=self.timeout,
             )
             #response.raise_for_status()

@@ -10,7 +10,7 @@ import signal
 import sys
 from datetime import datetime
 from typing import Dict, Any, Optional, List
-from fastapi import FastAPI, HTTPException, Request, BackgroundTasks
+from fastapi import FastAPI, HTTPException, Request, BackgroundTasks, Depends, Form
 from fastapi.responses import JSONResponse, StreamingResponse
 from sse_starlette.sse import EventSourceResponse
 from pydantic import ValidationError
@@ -25,6 +25,7 @@ from .models import (
     CancelTaskParams, JSONRPCRequest, JSONRPCResponse, 
     JSONRPCError, Task, TaskStatus, TaskMetadata
 )
+from .auth import init_auth, get_auth_manager, AuthConfig, TokenData
 
 # Set up logging
 logging.basicConfig(
@@ -54,7 +55,8 @@ class TaskManager:
         self.config_manager = ConfigManager()
         self._shutdown_event = asyncio.Event()
     
-    async def create_task(self, task_id: str, message: A2AMessage, metadata: Optional[TaskMetadata] = None) -> Task:
+    async def create_task(self, task_id: str, message: A2AMessage, metadata: Optional[TaskMetadata] = None, 
+                         user: Optional[str] = None) -> Task:
         """Create a new task."""
         
         task_status = TaskStatus(state=TaskState.SUBMITTED)
@@ -67,6 +69,10 @@ class TaskManager:
             metadata=metadata.dict() if metadata else {},
             artifacts=[]
         )
+        
+        # Add user info to metadata if available
+        if user:
+            task.metadata["created_by"] = user
         
         self.tasks[task_id] = task.dict()
         return task
@@ -287,9 +293,15 @@ class TaskManager:
             "timestamp": datetime.now().isoformat()
         }
     
-    async def get_task(self, task_id: str) -> Optional[Dict[str, Any]]:
-        """Get task by ID."""
-        return self.tasks.get(task_id)
+    async def get_task(self, task_id: str, user: Optional[str] = None) -> Optional[Dict[str, Any]]:
+        """Get task by ID, optionally checking ownership."""
+        task = self.tasks.get(task_id)
+        
+        # If user is provided, check ownership
+        if task and user and task.get("metadata", {}).get("created_by") != user:
+            return None  # Don't reveal task exists to unauthorized users
+            
+        return task
     
     async def setup_streaming(self, task_id: str) -> asyncio.Queue:
         """Set up streaming for a task."""
@@ -338,13 +350,18 @@ class TaskManager:
 class A2AMinionsServer:
     """A2A Server for Minions protocol."""
     
-    def __init__(self, host: str = "0.0.0.0", port: int = 8000, base_url: Optional[str] = None):
+    def __init__(self, host: str = "0.0.0.0", port: int = 8000, base_url: Optional[str] = None, 
+                 auth_config: Optional[AuthConfig] = None):
         self.host = host
         self.port = port
         self.base_url = base_url or f"http://{host}:{port}"
-        self.app = FastAPI(title="A2A Minions Server", version="0.1.0")
+        self.app = FastAPI(title="A2A Minions Server", version="1.0.0")
         self.task_manager = TaskManager()
         self._shutdown_event = asyncio.Event()
+        
+        # Initialize authentication
+        self.auth_config = auth_config or AuthConfig()
+        self.auth_manager = init_auth(self.auth_config)
         
         # Set up routes
         self._setup_routes()
@@ -377,13 +394,31 @@ class A2AMinionsServer:
             return card.dict(exclude_none=True)
         
         @self.app.get("/agent/authenticatedExtendedCard")
-        async def get_extended_card():
+        async def get_extended_card(token_data: TokenData = Depends(self.auth_manager.authenticate)):
             """Get the extended agent card for authenticated users."""
             card = get_extended_agent_card(self.base_url)
             return card.dict(exclude_none=True)
         
+        @self.app.post("/oauth/token")
+        async def oauth_token(
+            grant_type: str = Form(...),
+            client_id: str = Form(...),
+            client_secret: str = Form(...),
+            scope: str = Form(default="")
+        ):
+            """Handle OAuth2 token requests."""
+            return await self.auth_manager.handle_oauth_token(
+                grant_type, client_id, client_secret, scope
+            )
+        
         @self.app.post("/")
-        async def handle_a2a_request(request: Request, background_tasks: BackgroundTasks):
+        async def handle_a2a_request(
+            request: Request, 
+            background_tasks: BackgroundTasks,
+            token_data: Optional[TokenData] = Depends(
+                self.auth_manager.authenticate if self.auth_config.require_auth else lambda: None
+            )
+        ):
             """Handle A2A JSON-RPC requests."""
             
             request_id = None
@@ -418,18 +453,37 @@ class A2AMinionsServer:
                         }
                     }, status_code=400)
                 
+                # Check authorization for method
+                if self.auth_config.require_auth and token_data:
+                    method_scopes = self.auth_config.allowed_scopes.get(
+                        rpc_request.method, 
+                        ["tasks:read", "tasks:write"]
+                    )
+                    if not self.auth_manager.check_scopes(token_data, method_scopes):
+                        return JSONResponse({
+                            "jsonrpc": "2.0",
+                            "id": request_id,
+                            "error": {
+                                "code": -32603,
+                                "message": "Forbidden",
+                                "data": f"Insufficient permissions. Required scopes: {method_scopes}"
+                            }
+                        }, status_code=403)
+                
                 # Route to appropriate handler
+                user = token_data.sub if token_data else None
+                
                 if rpc_request.method == "tasks/send":
-                    return await self._handle_send_task(rpc_request.params, request_id, background_tasks)
+                    return await self._handle_send_task(rpc_request.params, request_id, background_tasks, user)
                 
                 elif rpc_request.method == "tasks/sendSubscribe":
-                    return await self._handle_send_task_streaming(rpc_request.params, request_id, background_tasks)
+                    return await self._handle_send_task_streaming(rpc_request.params, request_id, background_tasks, user)
                 
                 elif rpc_request.method == "tasks/get":
-                    return await self._handle_get_task(rpc_request.params, request_id)
+                    return await self._handle_get_task(rpc_request.params, request_id, user)
                 
                 elif rpc_request.method == "tasks/cancel":
-                    return await self._handle_cancel_task(rpc_request.params, request_id)
+                    return await self._handle_cancel_task(rpc_request.params, request_id, user)
                 
                 else:
                     return JSONResponse({
@@ -473,7 +527,7 @@ class A2AMinionsServer:
             return {"status": "healthy", "service": "a2a-minions"}
     
     async def _handle_send_task(self, params: Dict[str, Any], request_id: str, 
-                              background_tasks: BackgroundTasks) -> JSONResponse:
+                              background_tasks: BackgroundTasks, user: Optional[str] = None) -> JSONResponse:
         """Handle tasks/send requests."""
         
         # Validate and parse parameters
@@ -486,7 +540,8 @@ class A2AMinionsServer:
         task = await self.task_manager.create_task(
             send_params.id,
             send_params.message,
-            send_params.metadata
+            send_params.metadata,
+            user
         )
         
         # Execute task in background
@@ -500,7 +555,7 @@ class A2AMinionsServer:
         })
     
     async def _handle_send_task_streaming(self, params: Dict[str, Any], request_id: str,
-                                        background_tasks: BackgroundTasks) -> EventSourceResponse:
+                                        background_tasks: BackgroundTasks, user: Optional[str] = None) -> EventSourceResponse:
         """Handle tasks/sendSubscribe requests with streaming."""
         
         # Validate and parse parameters
@@ -530,7 +585,8 @@ class A2AMinionsServer:
         await self.task_manager.create_task(
             send_params.id,
             send_params.message,
-            send_params.metadata
+            send_params.metadata,
+            user
         )
         
         # Execute task in background
@@ -574,7 +630,7 @@ class A2AMinionsServer:
         
         return EventSourceResponse(event_generator())
     
-    async def _handle_get_task(self, params: Dict[str, Any], request_id: str) -> JSONResponse:
+    async def _handle_get_task(self, params: Dict[str, Any], request_id: str, user: Optional[str] = None) -> JSONResponse:
         """Handle tasks/get requests."""
         
         # Validate parameters
@@ -583,7 +639,7 @@ class A2AMinionsServer:
         except ValidationError as e:
             raise ValidationError(f"Invalid get parameters: {e}")
         
-        task = await self.task_manager.get_task(get_params.id)
+        task = await self.task_manager.get_task(get_params.id, user)
         
         if task is None:
             return JSONResponse({
@@ -601,7 +657,7 @@ class A2AMinionsServer:
             "result": task
         })
     
-    async def _handle_cancel_task(self, params: Dict[str, Any], request_id: str) -> JSONResponse:
+    async def _handle_cancel_task(self, params: Dict[str, Any], request_id: str, user: Optional[str] = None) -> JSONResponse:
         """Handle tasks/cancel requests."""
         
         # Validate parameters
@@ -610,7 +666,7 @@ class A2AMinionsServer:
         except ValidationError as e:
             raise ValidationError(f"Invalid cancel parameters: {e}")
         
-        task = await self.task_manager.get_task(cancel_params.id)
+        task = await self.task_manager.get_task(cancel_params.id, user)
         
         if task is None:
             return JSONResponse({
@@ -627,7 +683,7 @@ class A2AMinionsServer:
         
         if canceled:
             # Get updated task
-            task = await self.task_manager.get_task(cancel_params.id)
+            task = await self.task_manager.get_task(cancel_params.id, user)
         
         return JSONResponse({
             "jsonrpc": "2.0",

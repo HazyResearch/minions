@@ -8,6 +8,7 @@ import sys
 import argparse
 import logging
 from pathlib import Path
+from datetime import datetime
 
 # Add the project root to Python path
 project_root = Path(__file__).parent.parent.parent
@@ -64,6 +65,7 @@ def check_dependencies():
         import uvicorn
         import httpx
         import pydantic
+        import jwt
         logger.info("✅ Core dependencies available")
     except ImportError as e:
         logger.error(f"❌ Missing dependency: {e}")
@@ -94,6 +96,12 @@ def main():
     parser.add_argument("--base-url", help="Base URL for agent card")
     parser.add_argument("--skip-checks", action="store_true", help="Skip environment checks")
     
+    # Authentication options
+    parser.add_argument("--no-auth", action="store_true", help="Disable authentication (for testing only)")
+    parser.add_argument("--api-key", help="Set a specific API key instead of generating one")
+    parser.add_argument("--jwt-secret", help="JWT secret for token generation")
+    parser.add_argument("--api-keys-file", default="api_keys.json", help="Path to API keys file")
+    
     args = parser.parse_args()
     
     logger.info("🚀 A2A-Minions Server Startup")
@@ -110,18 +118,55 @@ def main():
     # Import and start server
     try:
         from a2a_minions.server import A2AMinionsServer
+        from a2a_minions.auth import AuthConfig
         
+        # Configure authentication
+        auth_config = AuthConfig(
+            require_auth=not args.no_auth,
+            api_keys_file=args.api_keys_file,
+            jwt_secret=args.jwt_secret or os.getenv("A2A_JWT_SECRET")
+        )
+        
+        # Create server instance
         server = A2AMinionsServer(
             host=args.host,
             port=args.port,
-            base_url=args.base_url
+            base_url=args.base_url,
+            auth_config=auth_config
         )
+        
+        # If API key was provided, add it
+        if args.api_key and not args.no_auth:
+            from a2a_minions.auth import get_auth_manager
+            auth_manager = get_auth_manager()
+            auth_manager.api_key_manager.api_keys[args.api_key] = {
+                "name": "cli_provided",
+                "created_at": datetime.now().isoformat(),
+                "scopes": ["minion:query", "minions:query", "tasks:read", "tasks:write"],
+                "active": True
+            }
+            auth_manager.api_key_manager._save_api_keys()
+            logger.info(f"Added API key: {args.api_key}")
         
         logger.info(f"🌟 Starting A2A-Minions server...")
         logger.info(f"   Host: {args.host}")
         logger.info(f"   Port: {args.port}")
         logger.info(f"   URL: http://{args.host}:{args.port}")
         logger.info(f"   Agent Card: http://{args.host}:{args.port}/.well-known/agent.json")
+        logger.info(f"   Auth: {'ENABLED' if not args.no_auth else 'DISABLED'}")
+        
+        if not args.no_auth:
+            logger.info("")
+            logger.info("🔐 Authentication is enabled. Use one of:")
+            logger.info("   - API Key header: X-API-Key: <your-key>")
+            logger.info("   - Bearer token: Authorization: Bearer <token>")
+            logger.info("   - OAuth2: POST /oauth/token (client credentials flow)")
+            
+            # Show default API key if it was generated
+            if auth_config.require_auth and not args.api_key:
+                logger.info("")
+                logger.info("⚠️  Check above for generated default API key!")
+        
         logger.info("")
         logger.info("Press Ctrl+C to stop the server")
         logger.info("-" * 50)

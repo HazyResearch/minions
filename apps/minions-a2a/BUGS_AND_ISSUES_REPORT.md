@@ -33,8 +33,34 @@
    - Track active asyncio tasks
    - Cancel on user request or shutdown
 
+### Authentication & Security (NEW)
+6. ✅ **A2A-Compatible Authentication**
+   - Implemented all three A2A security schemes:
+     - API Key authentication (header: X-API-Key)
+     - Bearer token authentication (JWT)
+     - OAuth2 client credentials flow
+   - Created `auth.py` module with full authentication system
+   - Added fine-grained scopes (minion:query, minions:query, tasks:read, tasks:write)
+   - Authentication integrated into all endpoints
+   - Optional auth mode for local testing (--no-auth)
+
+7. ✅ **API Key Management**
+   - Created `manage_api_keys.py` CLI tool
+   - Commands: list, generate, revoke, export
+   - Secure storage in `api_keys.json` (gitignored)
+   - Default API key generation on first run
+   - Support for custom API keys via CLI
+
+8. ✅ **Security Features**
+   - JWT token generation and validation
+   - Configurable JWT secret (env var or auto-generated)
+   - Token expiry configuration
+   - User ownership tracking for tasks
+   - Proper 401/403 error responses
+   - Agent card security scheme advertisement
+
 ### Project Structure Simplification
-6. ✅ **Removed Standalone Project Files**
+9. ✅ **Removed Standalone Project Files**
    - Removed `pyproject.toml`
    - Removed `__main__.py`
    - Created simple `requirements.txt`
@@ -60,34 +86,35 @@
    - Tasks stored indefinitely in memory
    - Need retention policy and cleanup mechanism
 
-### Security
-3. **No Authentication/Authorization**
-   - Service completely open
-   - Need API key validation
-
-4. **No Rate Limiting**
-   - Can be abused without limits
-
 ### Performance
-5. **Synchronous File Operations** 
+3. **Synchronous File Operations** 
    - PDF extraction blocks event loop
    - Should use thread pool for CPU-intensive work
 
-6. **No Connection Pooling**
+4. **No Connection Pooling**
    - Creates new clients for each request
    - Need client reuse mechanism
 
 ### Monitoring & Operations
-7. **No Metrics or Monitoring**
+5. **No Metrics or Monitoring**
    - Can't track service health
    - Need Prometheus metrics
 
-8. **No Request Correlation**
+6. **No Request Correlation**
    - Hard to trace requests
    - Need X-Request-ID support
 
-9. **No Health Check with Dependencies**
+7. **No Health Check with Dependencies**
    - Basic health check doesn't verify Minions availability
+
+### Additional Security Enhancements
+8. **No Rate Limiting**
+   - Can be abused without limits
+   - Should add per-API-key rate limiting
+
+9. **OAuth2 Client Validation**
+   - Currently accepts any client_id/secret
+   - Need proper client registration system
 
 ### Code Quality
 10. **Missing Type Hints**
@@ -103,13 +130,24 @@
 - Fix thread safety in streaming callback
 - Implement task cleanup mechanism
 
-### Short Term (Security & Reliability)
-- Add authentication middleware
-- Add connection pooling
+### Short Term (Performance & Reliability)
 - Move PDF processing to thread pool
+- Add connection pooling
+- Add rate limiting
 
 ### Long Term (Features)
 - Add metrics and monitoring
 - Implement distributed task storage
 - Add request tracing
-- Performance optimization
+- Add OAuth2 client registration
+
+## Summary
+
+The A2A-Minions server now has a complete, A2A-compliant authentication system following the protocol's security standards. Users can:
+
+1. Run without auth for local testing (`--no-auth`)
+2. Use API keys for simple deployments
+3. Use JWT bearer tokens for production
+4. Use OAuth2 client credentials for enterprise integrations
+
+The implementation includes proper scopes, user tracking, and comprehensive security documentation.

@@ -10,6 +10,7 @@ A comprehensive A2A (Agent-to-Agent) server implementation that provides seamles
 - [Installation](#installation)
 - [Quick Start](#quick-start)
 - [Configuration](#configuration)
+- [Authentication](#authentication)
 - [Skills and Protocol Selection](#skills-and-protocol-selection)
 - [API Reference](#api-reference)
 - [Testing](#testing)
@@ -160,6 +161,159 @@ class MinionsConfig:
     # Context settings
     num_ctx: int = 128000
     chunking_strategy: str = "chunk_by_section"
+```
+
+## Authentication
+
+A2A-Minions implements A2A-compatible authentication following the protocol's security standards. The server supports multiple authentication methods as defined in the [A2A specification](https://auth0.com/blog/auth0-google-a2a/).
+
+### Authentication Methods
+
+The server supports three authentication schemes:
+
+1. **API Key Authentication** (Default for local deployments)
+   - Header: `X-API-Key: <your-api-key>`
+   - Best for: Local testing, simple deployments
+
+2. **Bearer Token Authentication** (JWT)
+   - Header: `Authorization: Bearer <token>`
+   - Best for: Production deployments, time-limited access
+
+3. **OAuth2 Client Credentials Flow**
+   - Endpoint: `POST /oauth/token`
+   - Best for: Machine-to-machine (M2M) authentication, enterprise integrations
+
+### Quick Start with Authentication
+
+#### Running Without Authentication (Testing Only)
+```bash
+python run_server.py --no-auth
+```
+
+#### Running With Default Authentication
+```bash
+python run_server.py
+# A default API key will be generated and displayed
+# Save it securely - it won't be shown again!
+```
+
+#### Running With Custom API Key
+```bash
+python run_server.py --api-key "your-custom-api-key"
+```
+
+### Managing API Keys
+
+Use the included CLI tool to manage API keys:
+
+```bash
+# List all API keys
+python manage_api_keys.py list
+
+# Generate a new API key
+python manage_api_keys.py generate "my-client-name"
+
+# Generate with specific scopes
+python manage_api_keys.py generate "limited-client" --scopes minion:query tasks:read
+
+# Revoke an API key (use last 8 characters)
+python manage_api_keys.py revoke "abc12345"
+
+# Export keys for backup
+python manage_api_keys.py export backup_keys.json
+```
+
+### Available Scopes
+
+The A2A-Minions server uses fine-grained scopes for authorization:
+
+- `minion:query` - Execute focused minion queries
+- `minions:query` - Execute parallel minions queries  
+- `tasks:read` - Read task status and results
+- `tasks:write` - Create and cancel tasks
+
+### OAuth2 Client Credentials Flow
+
+To obtain an access token using OAuth2:
+
+```bash
+curl -X POST http://localhost:8001/oauth/token \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "grant_type=client_credentials" \
+  -d "client_id=your-client-id" \
+  -d "client_secret=your-client-secret" \
+  -d "scope=minion:query tasks:read"
+```
+
+Response:
+```json
+{
+  "access_token": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
+  "token_type": "bearer",
+  "expires_in": 86400,
+  "scope": "minion:query tasks:read"
+}
+```
+
+### Using Authentication in Requests
+
+#### With API Key
+```python
+headers = {
+    "X-API-Key": "a2a_your_api_key_here",
+    "Content-Type": "application/json"
+}
+```
+
+#### With Bearer Token
+```python
+headers = {
+    "Authorization": "Bearer eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9...",
+    "Content-Type": "application/json"
+}
+```
+
+### Security Best Practices
+
+1. **Never commit API keys** - The `api_keys.json` file is gitignored by default
+2. **Use environment variables** for JWT secrets: `export A2A_JWT_SECRET="your-secret"`
+3. **Rotate keys regularly** - Use the CLI tool to generate new keys and revoke old ones
+4. **Use minimal scopes** - Only grant the permissions needed for each client
+5. **Enable HTTPS in production** - Authentication tokens should only be sent over encrypted connections
+
+### Agent Card Security
+
+The agent card advertises the supported security schemes:
+
+```json
+{
+  "securitySchemes": {
+    "api_key": {
+      "type": "apiKey",
+      "name": "X-API-Key",
+      "in": "header"
+    },
+    "bearer_auth": {
+      "type": "http",
+      "scheme": "bearer",
+      "bearerFormat": "JWT"
+    },
+    "oauth2_client_credentials": {
+      "type": "oauth2",
+      "flows": {
+        "clientCredentials": {
+          "tokenUrl": "http://localhost:8001/oauth/token",
+          "scopes": {
+            "minion:query": "Execute focused minion queries",
+            "minions:query": "Execute parallel minions queries",
+            "tasks:read": "Read task status and results",
+            "tasks:write": "Create and cancel tasks"
+          }
+        }
+      }
+    }
+  }
+}
 ```
 
 ## Skills and Protocol Selection

@@ -1,113 +1,150 @@
 """
-Agent cards and skills definitions for A2A-Minions integration.
-Streamlined to support only two core skills: minion_query and minions_query.
+Agent card definitions for A2A-Minions server.
+Defines the public capabilities and skills available through the A2A protocol.
 """
 
 from typing import List, Dict, Any
 from pydantic import BaseModel
 
 
+class OAuthFlow(BaseModel):
+    """OAuth flow configuration."""
+    tokenUrl: str
+    scopes: Dict[str, str]
+
+
+class OAuthFlows(BaseModel):
+    """OAuth flows configuration."""
+    clientCredentials: OAuthFlow
+
+
+class SecurityScheme(BaseModel):
+    """Security scheme definition."""
+    type: str
+    description: str
+    scheme: str = None
+    bearerFormat: str = None
+    flows: OAuthFlows = None
+    name: str = None
+    in_: str = None  # 'in' is a reserved keyword
+
+    class Config:
+        fields = {'in_': 'in'}
+
+
 class AgentSkill(BaseModel):
-    """A2A Agent Skill definition."""
+    """Definition of a skill that an agent can perform."""
     id: str
     name: str
     description: str
     tags: List[str] = []
     examples: List[str] = []
-    inputModes: List[str] = ["text"]
-    outputModes: List[str] = ["text"]
 
 
 class AgentCapabilities(BaseModel):
-    """A2A Agent Capabilities."""
+    """Agent capabilities definition."""
     streaming: bool = True
-    pushNotifications: bool = True
-    stateTransitionHistory: bool = True
 
 
 class AgentCard(BaseModel):
-    """A2A Agent Card definition."""
+    """Agent card following A2A protocol specification."""
     name: str
     description: str
     url: str
-    version: str
-    capabilities: AgentCapabilities
-    defaultInputModes: List[str] = ["text", "file"]
-    defaultOutputModes: List[str] = ["text", "data"]
-    skills: List[AgentSkill]
-    supportsAuthenticatedExtendedCard: bool = False
+    version: str = "1.0.0"
+    defaultInputModes: List[str] = ["application/json"]
+    defaultOutputModes: List[str] = ["application/json"]
+    capabilities: AgentCapabilities = AgentCapabilities()
+    skills: List[AgentSkill] = []
+    securitySchemes: Dict[str, SecurityScheme] = {}
+    security: List[Dict[str, List[str]]] = []
 
 
-# Define core Minions skills
-MINIONS_SKILLS = {
-    "minion_query": AgentSkill(
+# Define available skills
+MINIONS_SKILLS = [
+    AgentSkill(
         id="minion_query",
         name="Minion Query",
-        description=(
-            "Execute focused queries using the Minion protocol with document support. "
-            "Provide your question as the first text part, and your document/context as the second part "
-            "(can be text, file, or data). Ideal for single document Q&A and analysis."
-        ),
-        tags=["query", "document-analysis", "local-remote", "cost-efficient", "single-conversation"],
+        description="Focused analysis using single-conversation protocol for document Q&A and specific questions",
+        tags=["document-analysis", "qa", "focused"],
         examples=[
-            "First part: 'What are the key findings?' Second part: Research paper file",
-            "First part: 'Summarize the main points' Second part: Meeting transcript text",
-            "First part: 'Find the error' Second part: Code file",
-            "First part: 'Extract action items' Second part: Project document"
-        ],
-        inputModes=["text", "file", "data"],
-        outputModes=["text", "data"]
+            "What are the key findings in this research paper?",
+            "Summarize the main points of this document",
+            "Extract specific information from the provided text"
+        ]
     ),
-    
-    "minions_query": AgentSkill(
-        id="minions_query", 
+    AgentSkill(
+        id="minions_query",
         name="Minions Query",
-        description=(
-            "Execute parallel processing queries for complex analysis using distributed Minions. "
-            "Provide your question as the first text part, and your document/context as the second part "
-            "(can be text, file, or data). Best for large documents requiring parallel processing."
-        ),
-        tags=["query", "parallel", "document-processing", "chunking", "scalable", "cost-efficient"],
+        description="Parallel processing for complex multi-document analysis and research tasks",
+        tags=["multi-document", "parallel", "research"],
         examples=[
-            "First part: 'Extract all insights' Second part: Large research report PDF", 
-            "First part: 'Find patterns and themes' Second part: Multiple document files",
-            "First part: 'Analyze trends' Second part: Large dataset",
-            "First part: 'Summarize key points' Second part: 100-page document"
-        ],
-        inputModes=["text", "file", "data"],
-        outputModes=["text", "data"]
+            "Analyze these multiple research papers for common themes",
+            "Process this large dataset and identify patterns",
+            "Compare and contrast information across multiple sources"
+        ]
     )
-}
+]
 
 
-def get_default_agent_card(base_url: str = "http://localhost:8000") -> AgentCard:
-    """Get the default agent card for A2A-Minions server."""
-    return AgentCard(
-        name="Minions Protocol Agent",
-        description=(
-            "Cost-efficient collaboration between on-device and cloud LLMs using the Minions protocol. "
-            "Supports document Q&A and analysis through two main skills: minion_query for focused analysis "
-            "and minions_query for parallel processing of large documents."
+def get_security_schemes(base_url: str) -> Dict[str, SecurityScheme]:
+    """Get security schemes for the agent card."""
+    return {
+        "bearer_auth": SecurityScheme(
+            type="http",
+            scheme="bearer",
+            bearerFormat="JWT",
+            description="Bearer token authentication using JWT tokens"
         ),
+        "api_key": SecurityScheme(
+            type="apiKey",
+            name="X-API-Key",
+            in_="header",
+            description="API key authentication for local deployments"
+        ),
+        "oauth2_client_credentials": SecurityScheme(
+            type="oauth2",
+            description="OAuth2 client credentials flow for M2M authentication",
+            flows=OAuthFlows(
+                clientCredentials=OAuthFlow(
+                    tokenUrl=f"{base_url}/oauth/token",
+                    scopes={
+                        "minion:query": "Execute focused minion queries",
+                        "minions:query": "Execute parallel minions queries",
+                        "tasks:read": "Read task status and results",
+                        "tasks:write": "Create and cancel tasks"
+                    }
+                )
+            )
+        )
+    }
+
+
+def get_default_agent_card(base_url: str) -> AgentCard:
+    """Get the default public agent card."""
+    return AgentCard(
+        name="A2A-Minions Server",
+        description="Agent-to-Agent server providing Minions protocol capabilities for document analysis and complex reasoning tasks",
         url=base_url,
         version="1.0.0",
-        capabilities=AgentCapabilities(
-            streaming=True,
-            pushNotifications=True,
-            stateTransitionHistory=True
-        ),
-        defaultInputModes=["text", "file", "data"],
-        defaultOutputModes=["text", "data"], 
-        skills=list(MINIONS_SKILLS.values()),
-        supportsAuthenticatedExtendedCard=False
+        defaultInputModes=["application/json"],
+        defaultOutputModes=["application/json", "text/event-stream"],
+        capabilities=AgentCapabilities(streaming=True),
+        skills=MINIONS_SKILLS,
+        securitySchemes=get_security_schemes(base_url),
+        security=[
+            {
+                "api_key": []  # Default to API key for local deployments
+            }
+        ]
     )
 
 
-def get_extended_agent_card(base_url: str = "http://localhost:8000") -> AgentCard:
-    """Get an extended agent card - currently same as default."""
-    return get_default_agent_card(base_url)
-
-
+def get_extended_agent_card(base_url: str) -> AgentCard:
+    """Get the extended agent card for authenticated users."""
+    card = get_default_agent_card(base_url)
+    # Extended card can include additional internal skills or capabilities
+    return card
 
 
 def extract_query_and_document_from_parts(parts: List[Dict[str, Any]]) -> tuple[str, str, str]:

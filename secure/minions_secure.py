@@ -119,7 +119,9 @@ class SecureMinionProtocol:
         self.is_initialized = False
 
         if not trusted_attestor_pem:
-            raise ValueError("Trusted attestor PEM file must be provided")
+            raise ValueError(
+                "You must provide a path to the trusted attesator public key. Please provide an attestator certificate. If you would like to use the hosted endpoint, fill out this form: https://forms.gle/21ZAH9NqkehUwbiQ7"
+            )
 
         self.trusted_pem_hash = get_pem_hash(trusted_attestor_pem)
 

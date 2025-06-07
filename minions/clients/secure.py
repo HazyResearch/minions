@@ -101,7 +101,7 @@ class SecureClient(MinionsClient):
 
         if not trusted_attestor_pem:
             raise ValueError(
-                "Trusted attestor PEM cannot be empty. Please provide an attestator certificate."
+                "You must provide a path to the trusted attesator public key. Please provide an attestator certificate. If you would like to use the hosted endpoint, request the PEM file by filling out this form: https://forms.gle/21ZAH9NqkehUwbiQ7"
             )
 
         self.trusted_attestor_hash = get_pem_hash(trusted_attestor_pem)

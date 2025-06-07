@@ -58,6 +58,11 @@ class SecureMinionChat:
         self.session_id = None
         self.is_initialized = False
 
+        if not trusted_attesation_pem:
+            raise ValueError(
+                "You must provide a path to the trusted attesator public key. Please provide an attestator certificate. If you would like to use the hosted endpoint, fill out this form: https://forms.gle/21ZAH9NqkehUwbiQ7"
+            )
+
         self.trusted_attesation_hash = get_pem_hash(self.trusted_attestation_file)
 
         self.logger.info(

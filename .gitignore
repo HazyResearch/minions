@@ -23,6 +23,9 @@ wheels/
 .installed.cfg
 *.egg
 
+/minions_logs
+
+
 # Virtual Environment
 venv/
 env/

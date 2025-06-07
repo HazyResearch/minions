@@ -70,6 +70,9 @@ class SecureClient(MinionsClient):
             )
 
         self.endpoint_url = self._validate_endpoint_url(endpoint_url)
+        self.supervisor_host = urlparse(endpoint_url).hostname
+        self.supervisor_port = urlparse(endpoint_url).port
+
         self.model_name = model_name
         self.temperature = temperature
         self.max_tokens = max_tokens
@@ -174,6 +177,8 @@ class SecureClient(MinionsClient):
                     gpu_eat_json=endpoint_att["gpu_eat"],
                     public_key=self.endpoint_pub,
                     expected_nonce=endpoint_nonce,
+                    host=self.supervisor_host,
+                    port=self.supervisor_port,
                 )
                 print("✅ SECURITY: Endpoint attestation verification successful")
                 

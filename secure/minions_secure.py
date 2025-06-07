@@ -99,6 +99,8 @@ class SecureMinionProtocol:
         """
         self.logger = logger
         self.supervisor_url = self._validate_supervisor_url(supervisor_url)
+        self.supervisor_host = urlparse(supervisor_url).hostname
+        self.supervisor_port = urlparse(supervisor_url).port
         self.local_client = local_client
         self.max_rounds = max_rounds
         self.callback = callback
@@ -172,6 +174,8 @@ class SecureMinionProtocol:
                 gpu_eat_json=supervisor_att["gpu_eat"],
                 public_key=self.supervisor_pub,
                 expected_nonce=supervisor_nonce,
+                server_host=self.supervisor_host,
+                server_port=self.supervisor_port,
             )
             self.logger.info("✅ SECURITY: Supervisor attestation verification successful")
         except ValueError as e:

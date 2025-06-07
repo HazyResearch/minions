@@ -16,6 +16,7 @@ import jwt  # requires pip install pyjwt
 from cryptography import x509
 from cryptography.hazmat.primitives import serialization as crypto_serial, hashes as crypto_hashes
 import hashlib, base64, ssl, socket
+from nv_attestation_sdk.attestation import Attestation, Devices, Environment
 
 
 # ------------------ Key Management ------------------
@@ -86,22 +87,20 @@ def run_gpu_attestation(nonce: bytes) -> str:
         pip install nv-local-gpu-verifier
     is installed.
     """
-    out = subprocess.check_output(
-        ["python", "-m", "verifier.cc_admin", "--user_mode", "--nonce", nonce.hex()],
-        text=True,
+    client = Attestation()
+    client.set_name("myNode")
+    client.set_nonce(nonce.hex())
+    client.add_verifier(
+        Devices.GPU,
+        Environment.LOCAL,
+        "",
+        "",
     )
-    tokens_str = out.split("Entity Attestation Token:", 1)[1].strip()
-    platform_token = json.loads(tokens_str)[0][-1]
-    gpu_token = json.loads(tokens_str)[1]
-    success_line = next(
-        ln for ln in out.splitlines()
-        if "UUID" in ln and "verified successfully" in ln
-    ).strip()
-
-   
-    # 2) pull just the UUID (optional) ------------------------------------------
-    uuid = success_line.split("UUID ")[-1].strip().split(" ")[0]
-    gpu_eat = {"platform_token": platform_token, "gpu_token": gpu_token, "uuid": uuid}
+    evidence_list = client.get_evidence()
+    ok = client.attest(evidence_list)
+    attesation_jwt = client.get_token()
+    tokens = json.loads(attesation_jwt)
+    gpu_eat = {"platform_token": tokens[0][-1], "gpu_token": tokens[1]['LOCAL_GPU_CLAIMS'][1]}
     return json.dumps(gpu_eat)
 
 
@@ -221,14 +220,13 @@ def verify_attestation_full(
         json.loads(gpu_eat_json)["platform_token"],
         json.loads(gpu_eat_json)["gpu_token"],
     )
-    plat_claims = jwt.decode(platform_jwt, options={"verify_signature": False})
 
-    if plat_claims["eat_nonce"] != expected_nonce.hex():
-        raise ValueError("platform nonce mismatch")
-
+    
     for gpu_idx, gpt_token in gpu_jwt.items():
 
         gpu_claims = jwt.decode(gpt_token, options={"verify_signature": False})
+        if gpu_claims.get("eat_nonce") != expected_nonce.hex():
+            raise ValueError("platform nonce mismatch")
 
         if not gpu_claims.get("x-nvidia-gpu-attestation-report-signature-verified"):
             raise ValueError(

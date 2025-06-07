@@ -39,6 +39,8 @@ class SecureMinionChat:
     def __init__(self, supervisor_url: str, system_prompt: str = None):
         self.logger = logger
         self.supervisor_url = self._validate_supervisor_url(supervisor_url)
+        self.supervisor_host = urlparse(supervisor_url).hostname
+        self.supervisor_port = urlparse(supervisor_url).port
         self.system_prompt = system_prompt or "You are a helpful AI assistant."
         self.conversation_history = []
         self.shared_key = None
@@ -96,6 +98,8 @@ class SecureMinionChat:
                 gpu_eat_json=att["gpu_eat"],
                 public_key=self.supervisor_pub,
                 expected_nonce=nonce,
+                server_host=self.supervisor_host,
+                server_port=self.supervisor_port,
             )
         except ValueError as e:
             logger.error("🚨  supervisor attestation failed: %s", e)

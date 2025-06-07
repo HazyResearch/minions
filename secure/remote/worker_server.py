@@ -64,6 +64,8 @@ parser.add_argument(
 args = parser.parse_args()
 
 
+
+
 os.environ["USE_SGLANG"] = "true"
 os.environ["SGLANG_ENDPOINT"] = args.sglang_endpoint
 if args.streaming:
@@ -115,7 +117,7 @@ logger.info("🔐 SECURITY: Creating attestation report for remote verification"
 
 nonce = os.urandom(32)  # fresh each call
 report, report_json, gpu_eat = create_attestation_report(
-    "remote-worker", public_key, nonce
+    "remote-worker", public_key, nonce, args.ssl_cert
 )
 signature = sign_attestation(report_json, private_key)
 logger.info("✅ SECURITY: Attestation report created and signed")

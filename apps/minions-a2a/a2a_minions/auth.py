@@ -136,7 +136,13 @@ class JWTManager:
     def verify_token(self, token: str) -> Optional[TokenData]:
         """Verify a JWT token."""
         try:
-            payload = jwt.decode(token, self.secret, algorithms=[self.algorithm])
+            # Decode with expiration verification enabled
+            payload = jwt.decode(
+                token, 
+                self.secret, 
+                algorithms=[self.algorithm],
+                options={"verify_exp": True}
+            )
             
             return TokenData(
                 sub=payload.get("sub"),
@@ -390,9 +396,10 @@ class AuthenticationManager:
             granted_scopes = client.scopes
         
         # Generate access token
+        expiration = datetime.utcnow() + timedelta(seconds=self.config.jwt_expire_seconds)
         token_data = TokenData(
             sub=client_id,
-            exp=datetime.utcnow() + timedelta(seconds=self.config.jwt_expire_seconds),
+            exp=int(expiration.timestamp()),  # Convert to int timestamp
             scopes=granted_scopes
         )
         

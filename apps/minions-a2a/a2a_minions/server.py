@@ -147,15 +147,29 @@ class TaskManager:
             metrics_manager.track_task_eviction()
     
     def _enforce_task_limit(self):
-        """Enforce maximum task limit using LRU eviction."""
-        while len(self.tasks) > self.max_tasks:
-            # Remove oldest task that is not active
-            for task_id in list(self.tasks.keys()):
-                if task_id not in self.active_tasks:
-                    logger.info(f"Evicting task due to limit: {task_id}")
-                    del self.tasks[task_id]
+        """Enforce task limit by evicting oldest tasks if necessary."""
+        if len(self.tasks) >= self.max_tasks:
+            # Sort tasks by creation time (using timestamp from status)
+            sorted_tasks = sorted(
+                self.tasks.items(),
+                key=lambda x: x[1]["status"]["timestamp"]
+            )
+            
+            # Calculate how many to evict (at least 1 to make room)
+            to_evict = len(self.tasks) - self.max_tasks + 1
+            
+            # Evict oldest tasks
+            for task_id, _ in sorted_tasks[:to_evict]:
+                logger.warning(f"Evicting task {task_id} due to task limit")
+                
+                # Track eviction
+                if metrics_manager:
                     metrics_manager.track_task_eviction()
-                    break
+                
+                # Remove from all collections
+                self.tasks.pop(task_id, None)
+                self.active_tasks.pop(task_id, None)
+                self.task_streams.pop(task_id, None)
     
     async def create_task(self, task_id: str, message: A2AMessage, metadata: Optional[TaskMetadata] = None, 
                          user: Optional[str] = None) -> Task:
@@ -706,7 +720,11 @@ class A2AMinionsServer:
         @self.app.get("/health")
         async def health_check():
             """Health check endpoint."""
-            return {"status": "healthy", "service": "a2a-minions"}
+            return {
+                "status": "healthy", 
+                "service": "a2a-minions",
+                "timestamp": datetime.now().isoformat()
+            }
     
     async def _handle_send_task(self, params: Dict[str, Any], request_id: str, 
                               background_tasks: BackgroundTasks, user: Optional[str] = None) -> JSONResponse:

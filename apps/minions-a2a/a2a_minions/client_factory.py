@@ -21,60 +21,64 @@ logger = logging.getLogger(__name__)
 class ClientFactory:
     """Factory for creating Minions protocol clients with connection pooling."""
     
-    def __init__(self):
-        self._import_minions_modules()
+    def __init__(self, skip_import=False):
         # Connection pool for reusing clients
         self._client_pool: Dict[str, Any] = {}
         self._pool_lock = Lock()
+        self._minions_available = False
+        
+        if not skip_import:
+            try:
+                self._import_minions_modules()
+                self._minions_available = True
+            except ImportError as e:
+                logger.warning(f"Minions modules not available: {e}")
+                logger.info("Running in limited mode without Minions integration")
+                # Set None for all required attributes
+                self.Minion = None
+                self.Minions = None
+                self.clients = {}
     
     def _import_minions_modules(self):
         """Import Minions modules and clients."""
+        # Import Minions core modules
+        from minions.minion import Minion
+        from minions.minions import Minions
+        
+        # Import client modules
+        from minions.clients.ollama import OllamaClient
+        from minions.clients.openai import OpenAIClient
+        from minions.clients.anthropic import AnthropicClient
+        from minions.clients.together import TogetherClient
+        from minions.clients.deepseek import DeepSeekClient
+        from minions.clients.groq import GroqClient
+        from minions.clients.gemini import GeminiClient
+        
+        # Store references
+        self.Minion = Minion
+        self.Minions = Minions
+        self.clients = {
+            ProviderType.OLLAMA: OllamaClient,
+            ProviderType.OPENAI: OpenAIClient,
+            ProviderType.ANTHROPIC: AnthropicClient,
+            ProviderType.TOGETHER: TogetherClient,
+            ProviderType.DEEPSEEK: DeepSeekClient,
+            ProviderType.GROQ: GroqClient,
+            ProviderType.GEMINI: GeminiClient,
+        }
+        
+        # Try to import optional clients
         try:
-            # Import Minions core modules
-            from minions.minion import Minion
-            from minions.minions import Minions
-            
-            # Import client modules
-            from minions.clients.ollama import OllamaClient
-            from minions.clients.openai import OpenAIClient
-            from minions.clients.anthropic import AnthropicClient
-            from minions.clients.together import TogetherClient
-            from minions.clients.deepseek import DeepSeekClient
-            from minions.clients.groq import GroqClient
-            from minions.clients.gemini import GeminiClient
-            
-            # Store references
-            self.Minion = Minion
-            self.Minions = Minions
-            self.clients = {
-                ProviderType.OLLAMA: OllamaClient,
-                ProviderType.OPENAI: OpenAIClient,
-                ProviderType.ANTHROPIC: AnthropicClient,
-                ProviderType.TOGETHER: TogetherClient,
-                ProviderType.DEEPSEEK: DeepSeekClient,
-                ProviderType.GROQ: GroqClient,
-                ProviderType.GEMINI: GeminiClient,
-            }
-            
-            # Try to import optional clients
-            try:
-                from minions.clients.mlx import MLXLMClient
-                self.clients[ProviderType.MLX] = MLXLMClient
-            except ImportError:
-                pass
-            
-            try:
-                from minions.clients.cartesia_mlx import CartesiaMLXClient
-                self.clients[ProviderType.CARTESIA_MLX] = CartesiaMLXClient
-            except ImportError:
-                pass
-                
-
-                
-        except ImportError as e:
-            logger.error(f"Failed to import Minions modules: {e}")
-            logger.error(f"Make sure minions package is installed and in PYTHONPATH")
-            raise ImportError(f"Failed to import Minions modules: {e}")
+            from minions.clients.mlx import MLXLMClient
+            self.clients[ProviderType.MLX] = MLXLMClient
+        except ImportError:
+            pass
+        
+        try:
+            from minions.clients.cartesia_mlx import CartesiaMLXClient
+            self.clients[ProviderType.CARTESIA_MLX] = CartesiaMLXClient
+        except ImportError:
+            pass
     
     def _get_client_key(self, provider: ProviderType, config: Dict[str, Any]) -> str:
         """Generate a unique key for client configuration."""
@@ -89,6 +93,9 @@ class ClientFactory:
     
     def create_client(self, provider: ProviderType, config: Dict[str, Any]) -> Any:
         """Create or retrieve a cached client instance for the specified provider."""
+        
+        if not self._minions_available:
+            raise RuntimeError("Minions modules not available. Cannot create clients.")
         
         if provider not in self.clients:
             raise ValueError(f"Unsupported provider: {provider}")
@@ -119,6 +126,9 @@ class ClientFactory:
     
     def create_minions_protocol(self, config: MinionsConfig) -> Any:
         """Create the appropriate Minions protocol instance."""
+        
+        if not self._minions_available:
+            raise RuntimeError("Minions modules not available. Cannot create protocol instance.")
         
         # Create local and remote clients (will be reused from pool if available)
         local_client, remote_client = self.create_client_pair(config)
@@ -213,5 +223,9 @@ class ClientFactory:
 
 
 
-# Global factory instance
-client_factory = ClientFactory() 
+# Global factory instance - try to import but don't fail if minions not available
+try:
+    client_factory = ClientFactory()
+except ImportError:
+    logger.warning("Creating ClientFactory without Minions support")
+    client_factory = ClientFactory(skip_import=True) 

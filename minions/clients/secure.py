@@ -183,8 +183,9 @@ class SecureClient(MinionsClient):
                 )
                 endpoint_nonce = base64.b64decode(endpoint_att["nonce_b64"])
                 self.attesation_pub = deserialize_public_key(
-                    endpoint_att["public_key_attestor"]
+                    endpoint_att["public_key_attestation"]
                 )
+
 
                 # Verify endpoint attestation
                 verify_attestation_full(
@@ -193,8 +194,8 @@ class SecureClient(MinionsClient):
                     gpu_eat_json=endpoint_att["gpu_eat"],
                     public_key=self.attesation_pub,
                     expected_nonce=endpoint_nonce,
-                    host=self.supervisor_host,
-                    port=self.supervisor_port,
+                    server_host=self.supervisor_host,
+                    server_port=self.supervisor_port,
                     trusted_attestation_hash=self.trusted_attestor_hash,
                 )
                 print("✅ SECURITY: Endpoint attestation verification successful")

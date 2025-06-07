@@ -3,7 +3,7 @@ Pydantic models for A2A-Minions request/response validation.
 """
 
 from typing import Dict, Any, Optional, List, Literal
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, validator, model_validator
 import uuid
 from datetime import datetime
 
@@ -54,23 +54,20 @@ class MessagePart(BaseModel):
     data: Optional[Dict[str, Any]] = None
     metadata: Optional[Dict[str, Any]] = None
     
-    @validator('text')
-    def validate_text(cls, v, values):
-        if values.get('kind') == 'text' and not v:
-            raise ValueError("Text part must have text content")
-        return v
-    
-    @validator('file')
-    def validate_file(cls, v, values):
-        if values.get('kind') == 'file' and not v:
-            raise ValueError("File part must have file content")
-        return v
-    
-    @validator('data')
-    def validate_data(cls, v, values):
-        if values.get('kind') == 'data' and not v:
-            raise ValueError("Data part must have data content")
-        return v
+    @model_validator(mode='after')
+    def validate_content_matches_kind(self):
+        """Validate that the appropriate content field is set based on kind."""
+        if self.kind == 'text':
+            if not self.text:
+                raise ValueError("Text part must have text content")
+        elif self.kind == 'file':
+            if not self.file:
+                raise ValueError("File part must have file content")
+        elif self.kind == 'data':
+            if not self.data:
+                raise ValueError("Data part must have data content")
+        
+        return self
 
 
 class A2AMessage(BaseModel):
@@ -120,21 +117,27 @@ class SendTaskParams(BaseModel):
     @validator('metadata', pre=True, always=True)
     def ensure_metadata(cls, v, values):
         """Ensure metadata exists and has skill_id."""
-        if v is None:
-            v = {}
+        # Convert TaskMetadata instance to dict if needed
+        if isinstance(v, TaskMetadata):
+            metadata_dict = v.dict()
+        elif v is None:
+            metadata_dict = {}
+        else:
+            metadata_dict = v
         
         # Check if skill_id is in the message metadata
         message = values.get('message')
         if message and hasattr(message, 'metadata') and message.metadata:
-            if 'skill_id' in message.metadata and 'skill_id' not in v:
-                v['skill_id'] = message.metadata['skill_id']
+            if 'skill_id' in message.metadata and 'skill_id' not in metadata_dict:
+                metadata_dict['skill_id'] = message.metadata['skill_id']
         
         # Validate we have a skill_id somewhere
-        if not v.get('skill_id'):
+        if not metadata_dict.get('skill_id'):
             # Default to minion_query if not specified
-            v['skill_id'] = 'minion_query'
-            
-        return v
+            metadata_dict['skill_id'] = 'minion_query'
+        
+        # Return as TaskMetadata instance
+        return TaskMetadata(**metadata_dict)
 
 
 class GetTaskParams(BaseModel):

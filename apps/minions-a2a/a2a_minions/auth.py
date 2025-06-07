@@ -138,6 +138,12 @@ class JWTManager:
         try:
             payload = jwt.decode(token, self.secret, algorithms=[self.algorithm])
             
+            # Check if token is expired
+            exp = payload.get("exp")
+            if exp and datetime.utcfromtimestamp(exp) < datetime.utcnow():
+                logger.warning("JWT token expired")
+                return None
+            
             return TokenData(
                 sub=payload.get("sub"),
                 exp=payload.get("exp"),
@@ -390,9 +396,10 @@ class AuthenticationManager:
             granted_scopes = client.scopes
         
         # Generate access token
+        expiration = datetime.utcnow() + timedelta(seconds=self.config.jwt_expire_seconds)
         token_data = TokenData(
             sub=client_id,
-            exp=datetime.utcnow() + timedelta(seconds=self.config.jwt_expire_seconds),
+            exp=int(expiration.timestamp()),  # Convert to int timestamp
             scopes=granted_scopes
         )
         

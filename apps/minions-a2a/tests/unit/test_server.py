@@ -1,30 +1,30 @@
 #!/usr/bin/env python3
 """
 Unit tests for A2A-Minions server.
-Tests server endpoints, task management, and streaming functionality.
+Tests FastAPI endpoints, task management, and streaming functionality.
 """
 
 import unittest
 import asyncio
 import json
+import time
 from datetime import datetime, timedelta
-from unittest.mock import MagicMock, AsyncMock, patch
-
+from unittest.mock import Mock, MagicMock, patch, AsyncMock, call
 from fastapi.testclient import TestClient
-from fastapi import HTTPException
+from starlette.responses import StreamingResponse
+import httpx
 
 from a2a_minions.server import (
-    TaskState, TaskManager, A2AMinionsServer, create_app, 
-    JSONRPCRequest, JSONRPCResponse, JSONRPCError
+    A2AMinionsServer, TaskManager, TaskState
 )
 from a2a_minions.models import (
-    A2AMessage, MessagePart, TaskMetadata, TaskStatus, Task,
-    FilePart, MinionsParams, SendTaskParams
+    A2AMessage, MessagePart, TaskMetadata, FilePart,
+    SendTaskParams, JSONRPCRequest, JSONRPCResponse, JSONRPCError
 )
-from a2a_minions.config import Config, AuthConfig
+from a2a_minions.config import MinionsConfig
+from a2a_minions.auth import AuthenticationManager as AuthManager, AuthConfig
 from a2a_minions.metrics import MetricsManager
-from a2a_minions.converters import AToMinionsConverter
-from a2a_minions.auth import AuthManager
+from a2a_minions.converters import A2AConverter
 
 
 class TestTaskState(unittest.TestCase):
@@ -263,34 +263,36 @@ class TestTaskExecution(unittest.TestCase):
     @patch('a2a_minions.server.client_factory')
     def test_execute_task_timeout(self, mock_client_factory):
         """Test task execution timeout."""
-        # Configure mock
-        mock_client_factory.get_client.side_effect = Exception("Client error")
+        # Create task
+        message = A2AMessage(
+            role="user", 
+            parts=[MessagePart(kind="text", text="Test timeout")]
+        )
+        metadata = TaskMetadata(skill_id="minion_query", timeout=10)  # 10 second timeout (minimum allowed)
         
-        task_id = "test_timeout"
-        message = A2AMessage(content=[MessagePart(text="Test")])
-        metadata = TaskMetadata(skill_id="minion_query", timeout=1)  # 1 second timeout
-        params = SendTaskParams(message=message, metadata=metadata)
+        task = self.loop.run_until_complete(
+            self.task_manager.create_task("task-timeout", message, metadata)
+        )
         
-        # Add task
+        # Mock converter
+        self.mock_converter.extract_query_and_document_from_parts = AsyncMock(
+            return_value=("Test timeout", [], [])
+        )
+        
+        # Mock protocol that never completes
+        mock_protocol = MagicMock()
+        mock_protocol.side_effect = asyncio.TimeoutError()
+        mock_client_factory.create_minions_protocol.return_value = mock_protocol
+        
+        # Test that execute_task handles timeout properly
         self.loop.run_until_complete(
-            self.task_manager.add_task(task_id, params)
+            self.task_manager.execute_task("task-timeout")
         )
         
-        # Execute with timeout
-        task = self.loop.create_task(
-            self.task_manager.execute_task(task_id, MagicMock())
-        )
-        
-        # Wait briefly then check
-        try:
-            self.loop.run_until_complete(asyncio.wait_for(task, timeout=2))
-        except asyncio.TimeoutError:
-            pass
-        
-        # Check task status
-        task_data = self.task_manager.tasks[task_id]
-        self.assertEqual(task_data["status"], "error")
-        self.assertIn("error", task_data["error"]["message"].lower())
+        # Check task status was updated to failed
+        updated_task = self.task_manager.tasks["task-timeout"]
+        self.assertEqual(updated_task["status"]["state"], TaskState.FAILED)
+        self.assertIn("timed out", updated_task["status"]["message"].lower())
     
     def test_execute_task_with_streaming(self):
         """Test task execution with streaming updates."""
@@ -367,13 +369,12 @@ class TestA2AMinionsServer(unittest.TestCase):
     def test_health_check_endpoint(self):
         """Test health check endpoint."""
         response = self.client.get("/health")
-        
         self.assertEqual(response.status_code, 200)
-        data = response.json()
         
+        data = response.json()
         self.assertEqual(data["status"], "healthy")
+        self.assertEqual(data["service"], "a2a-minions")
         self.assertIn("timestamp", data)
-        self.assertIn("tasks_count", data)
     
     def test_send_task_endpoint(self):
         """Test tasks/send endpoint."""
@@ -525,28 +526,46 @@ class TestServerWithAuth(unittest.TestCase):
     
     def setUp(self):
         """Set up test server with auth."""
-        # Create auth manager with test credentials
-        self.auth_manager = AuthManager()
-        self.api_key = self.auth_manager.generate_api_key("test_user")
+        # Create auth config
+        self.auth_config = AuthConfig()
         
-        # Create test server with auth
-        self.server = A2AMinionsServer(auth_manager=self.auth_manager)
+        # Create auth manager for API key generation
+        self.auth_manager = AuthManager(self.auth_config)
+        
+        # Generate test API key
+        self.api_key = self.auth_manager.api_key_manager.generate_api_key("test_user")
+        
+        # Create test server with auth config
+        self.server = A2AMinionsServer(auth_config=self.auth_config)
         self.app = self.server.app
         self.client = TestClient(self.app)
     
     def test_authenticated_request(self):
         """Test request with valid authentication."""
-        response = self.client.post(
-            "/tasks/send",
-            json={
-                "id": "1",
-                "method": "minion_query",
-                "params": {
-                    "message": {
-                        "content": [{"text": "Test"}]
-                    }
+        payload = {
+            "jsonrpc": "2.0",
+            "method": "tasks/send",
+            "params": {
+                "id": "test-auth-task",
+                "message": {
+                    "role": "user",
+                    "parts": [
+                        {
+                            "kind": "text",
+                            "text": "Test with auth"
+                        }
+                    ]
+                },
+                "metadata": {
+                    "skill_id": "minion_query"
                 }
             },
+            "id": "auth-req-1"
+        }
+        
+        response = self.client.post(
+            "/",
+            json=payload,
             headers={
                 "X-API-Key": self.api_key
             }
@@ -556,26 +575,37 @@ class TestServerWithAuth(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         data = response.json()
         self.assertIn("result", data)
-        self.assertIn("task_id", data["result"])
+        self.assertEqual(data["result"]["id"], "test-auth-task")
     
     def test_unauthenticated_request(self):
         """Test request without authentication."""
-        response = self.client.post(
-            "/tasks/send",
-            json={
-                "id": "1",
-                "method": "minion_query",
-                "params": {
-                    "message": {
-                        "content": [{"text": "Test"}]
-                    }
+        payload = {
+            "jsonrpc": "2.0",
+            "method": "tasks/send",
+            "params": {
+                "id": "test-unauth-task",
+                "message": {
+                    "role": "user",
+                    "parts": [
+                        {
+                            "kind": "text",
+                            "text": "Test without auth"
+                        }
+                    ]
+                },
+                "metadata": {
+                    "skill_id": "minion_query"
                 }
-            }
-        )
+            },
+            "id": "unauth-req-1"
+        }
+        
+        response = self.client.post("/", json=payload)
         
         # Should fail with 401
         self.assertEqual(response.status_code, 401)
         data = response.json()
+        # FastAPI returns {"detail": "..."} for HTTPException
         self.assertIn("detail", data)
         self.assertEqual(data["detail"], "Authentication required")
     

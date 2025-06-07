@@ -17,6 +17,7 @@ from secure.utils.crypto_utils import (
     serialize_public_key,
     deserialize_public_key,
     verify_attestation_full,
+    get_pem_hash,
 )
 
 from secure.utils.processing_utils import (
@@ -36,11 +37,17 @@ logger.addHandler(handler)
 
 
 class SecureMinionChat:
-    def __init__(self, supervisor_url: str, system_prompt: str = None):
+    def __init__(
+        self,
+        supervisor_url: str,
+        trusted_attesation_pem: str,
+        system_prompt: str = None,
+    ):
         self.logger = logger
         self.supervisor_url = self._validate_supervisor_url(supervisor_url)
         self.supervisor_host = urlparse(supervisor_url).hostname
         self.supervisor_port = urlparse(supervisor_url).port
+        self.trusted_attestation_file = trusted_attesation_pem
         self.system_prompt = system_prompt or "You are a helpful AI assistant."
         self.conversation_history = []
         self.shared_key = None
@@ -51,6 +58,8 @@ class SecureMinionChat:
         self.session_id = None
         self.is_initialized = False
 
+        self.trusted_attesation_hash = get_pem_hash(self.trusted_attestation_file)
+
         self.logger.info(
             "🔒 Secure Minion Chat initialized with end-to-end encryption and attestation verification"
         )
@@ -59,19 +68,21 @@ class SecureMinionChat:
         """Validate that the supervisor URL uses HTTPS protocol for security"""
         if not supervisor_url:
             raise ValueError("Supervisor URL cannot be empty")
-        
+
         parsed_url = urlparse(supervisor_url)
-        
-        if parsed_url.scheme != 'https':
+
+        if parsed_url.scheme != "https":
             raise ValueError(
                 f"Supervisor URL must use HTTPS protocol for secure communication. "
                 f"Got: {parsed_url.scheme}://{parsed_url.netloc}"
             )
-        
+
         if not parsed_url.netloc:
             raise ValueError("Invalid supervisor URL format")
-        
-        self.logger.info(f"✅ SECURITY: Validated HTTPS supervisor URL: {supervisor_url}")
+
+        self.logger.info(
+            f"✅ SECURITY: Validated HTTPS supervisor URL: {supervisor_url}"
+        )
         return supervisor_url
 
     def initialize_secure_session(self):
@@ -88,7 +99,8 @@ class SecureMinionChat:
         start_time = time.time()
         att = requests.get(f"{self.supervisor_url}/attestation").json()
 
-        self.supervisor_pub = deserialize_public_key(att["public_key"])
+        self.supervisor_pub = deserialize_public_key(att["public_key_worker"])
+        self.attestation_pub = deserialize_public_key(att["public_key_attestation"])
         nonce = base64.b64decode(att["nonce_b64"])
 
         try:
@@ -96,10 +108,11 @@ class SecureMinionChat:
                 report_json=att["report_json"].encode(),
                 signature_b64=att["signature"],
                 gpu_eat_json=att["gpu_eat"],
-                public_key=self.supervisor_pub,
+                public_key=self.attestation_pub,
                 expected_nonce=nonce,
                 server_host=self.supervisor_host,
                 server_port=self.supervisor_port,
+                trusted_attestation_hash=self.trusted_attesation_hash,
             )
         except ValueError as e:
             logger.error("🚨  supervisor attestation failed: %s", e)
@@ -511,9 +524,17 @@ if __name__ == "__main__":
         type=str,
         help="Optional system prompt to initialize the conversation",
     )
+    parser.add_argument(
+        "--trusted_attestation_pem",
+        type=str,
+        default="secure/attestation_public_key.pem",
+        help="Path to the trusted attestation PEM file",
+    )
     args = parser.parse_args()
 
-    chat = SecureMinionChat(args.supervisor_url, args.system_prompt)
+    chat = SecureMinionChat(
+        args.supervisor_url, args.trusted_attestation_pem, args.system_prompt
+    )
 
     print(
         "🔒 Secure Minion Chat initialized. Type 'exit' to quit, 'clear' to clear conversation."

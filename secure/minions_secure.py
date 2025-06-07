@@ -19,6 +19,7 @@ from secure.utils.crypto_utils import (
     serialize_public_key,
     deserialize_public_key,
     verify_attestation_full,
+    get_pem_hash,
 )
 
 from secure.utils.processing_utils import (
@@ -81,6 +82,7 @@ class SecureMinionProtocol:
     def __init__(
         self,
         supervisor_url: str,
+        trusted_attestor_pem: str,
         local_client,
         max_rounds: int = 3,
         callback: Optional[Callable] = None,
@@ -116,6 +118,11 @@ class SecureMinionProtocol:
         self.nonce = 1000
         self.is_initialized = False
 
+        if not trusted_attestor_pem:
+            raise ValueError("Trusted attestor PEM file must be provided")
+
+        self.trusted_pem_hash = get_pem_hash(trusted_attestor_pem)
+
         # Create log directory if it doesn't exist
         os.makedirs(log_dir, exist_ok=True)
 
@@ -127,19 +134,21 @@ class SecureMinionProtocol:
         """Validate that the supervisor URL uses HTTPS protocol for security"""
         if not supervisor_url:
             raise ValueError("Supervisor URL cannot be empty")
-        
+
         parsed_url = urlparse(supervisor_url)
-        
-        if parsed_url.scheme != 'https':
+
+        if parsed_url.scheme != "https":
             raise ValueError(
                 f"Supervisor URL must use HTTPS protocol for secure communication. "
                 f"Got: {parsed_url.scheme}://{parsed_url.netloc}"
             )
-        
+
         if not parsed_url.netloc:
             raise ValueError("Invalid supervisor URL format")
-        
-        self.logger.info(f"✅ SECURITY: Validated HTTPS supervisor URL: {supervisor_url}")
+
+        self.logger.info(
+            f"✅ SECURITY: Validated HTTPS supervisor URL: {supervisor_url}"
+        )
         return supervisor_url
 
     def initialize_secure_session(self):
@@ -160,11 +169,19 @@ class SecureMinionProtocol:
         self.logger.info("🔐 SECURITY: Requesting attestation report from supervisor")
 
         start_time = time.time()
-        
+
         # Get supervisor attestation
         supervisor_att = requests.get(f"{self.supervisor_url}/attestation").json()
-        self.supervisor_pub = deserialize_public_key(supervisor_att["public_key"])
+        self.supervisor_pub = deserialize_public_key(
+            supervisor_att["public_key_worker"]
+        )
         supervisor_nonce = base64.b64decode(supervisor_att["nonce_b64"])
+
+        attestor_public_key = deserialize_public_key(
+            supervisor_att["public_key_attestation"]
+        )
+
+        # read in
 
         # Verify supervisor attestation
         try:
@@ -172,12 +189,15 @@ class SecureMinionProtocol:
                 report_json=supervisor_att["report_json"].encode(),
                 signature_b64=supervisor_att["signature"],
                 gpu_eat_json=supervisor_att["gpu_eat"],
-                public_key=self.supervisor_pub,
+                public_key=attestor_public_key,
                 expected_nonce=supervisor_nonce,
                 server_host=self.supervisor_host,
                 server_port=self.supervisor_port,
+                trusted_attestation_hash=self.trusted_pem_hash,
             )
-            self.logger.info("✅ SECURITY: Supervisor attestation verification successful")
+            self.logger.info(
+                "✅ SECURITY: Supervisor attestation verification successful"
+            )
         except ValueError as e:
             self.logger.error("🚨 Supervisor attestation failed: %s", e)
             raise RuntimeError("Supervisor attestation failed") from e
@@ -191,7 +211,9 @@ class SecureMinionProtocol:
 
         start_time = time.time()
         self.local_priv, self.local_pub = generate_key_pair()
-        self.shared_key_supervisor = derive_shared_key(self.local_priv, self.supervisor_pub)
+        self.shared_key_supervisor = derive_shared_key(
+            self.local_priv, self.supervisor_pub
+        )
         setup_timing["key_exchange"] = time.time() - start_time
 
         self.logger.info(
@@ -252,7 +274,7 @@ class SecureMinionProtocol:
         image_path: Optional[str] = None,
         pdf_path: Optional[str] = None,
         folder_path: Optional[str] = None,
-        **kwargs
+        **kwargs,
     ) -> Dict[str, Any]:
         """Run the secure minion protocol to answer a task.
 
@@ -313,7 +335,9 @@ class SecureMinionProtocol:
             context_parts.append(pdf_content)
 
         # Join context sections
-        context_str = "\n\n".join([f"### Document {i+1}\n{doc}" for i, doc in enumerate(context_parts)])
+        context_str = "\n\n".join(
+            [f"### Document {i+1}\n{doc}" for i, doc in enumerate(context_parts)]
+        )
         print(f"Context length: {len(context_str)} characters")
 
         # Initialize the log structure
@@ -482,7 +506,9 @@ class SecureMinionProtocol:
             conversation_log["conversation"][-1]["output"] = worker_response[0]
 
             if self.callback:
-                self.callback("worker", {"role": "assistant", "content": worker_response[0]})
+                self.callback(
+                    "worker", {"role": "assistant", "content": worker_response[0]}
+                )
 
             # (2) Make a call to the supervisor
             self.logger.info("📤 Sending worker response to supervisor")
@@ -491,7 +517,9 @@ class SecureMinionProtocol:
             if round_idx == max_rounds - 1:
                 follow_up = SUPERVISOR_FINAL_PROMPT.format(response=worker_response[0])
             else:
-                follow_up = SUPERVISOR_CONVERSATION_PROMPT.format(response=worker_response[0])
+                follow_up = SUPERVISOR_CONVERSATION_PROMPT.format(
+                    response=worker_response[0]
+                )
 
             # Add follow-up to supervisor messages
             supervisor_messages.append({"role": "user", "content": follow_up})
@@ -512,7 +540,10 @@ class SecureMinionProtocol:
             start_time_round = time.time()
             supervisor_messages_json = json.dumps(supervisor_messages)
             encrypted_supervisor_messages = encrypt_and_sign(
-                supervisor_messages_json, self.shared_key_supervisor, self.local_priv, self.nonce
+                supervisor_messages_json,
+                self.shared_key_supervisor,
+                self.local_priv,
+                self.nonce,
             )
             round_timing["supervisor_encryption"] += time.time() - start_time_round
 
@@ -531,7 +562,9 @@ class SecureMinionProtocol:
                     json=request_data,
                     timeout=30,
                 )
-                round_timing["supervisor_transmission"] += time.time() - start_time_round
+                round_timing["supervisor_transmission"] += (
+                    time.time() - start_time_round
+                )
 
                 if sup_response.status_code != 200:
                     self.logger.error(
@@ -572,7 +605,9 @@ class SecureMinionProtocol:
             conversation_log["conversation"][-1]["output"] = decrypted_sup
 
             if self.callback:
-                self.callback("supervisor", {"role": "assistant", "content": decrypted_sup})
+                self.callback(
+                    "supervisor", {"role": "assistant", "content": decrypted_sup}
+                )
 
             # Add round timing to the timing dictionary
             timing["rounds"].append(round_timing.copy())
@@ -640,7 +675,9 @@ class SecureMinionProtocol:
         print(f"\n=== SAVING LOG TO {log_path} ===")
         try:
             with open(log_path, "w", encoding="utf-8") as f:
-                json.dump(conversation_log, f, indent=2, ensure_ascii=False, default=str)
+                json.dump(
+                    conversation_log, f, indent=2, ensure_ascii=False, default=str
+                )
         except Exception as e:
             print(f"Error saving log to {log_path}: {e}")
 
@@ -687,7 +724,10 @@ if __name__ == "__main__":
         "--supervisor_url", type=str, required=True, help="URL of the supervisor server"
     )
     parser.add_argument(
-        "--local_client_type", type=str, default="ollama", help="Type of local client (ollama, openai, etc.)"
+        "--local_client_type",
+        type=str,
+        default="ollama",
+        help="Type of local client (ollama, openai, etc.)",
     )
     parser.add_argument(
         "--local_model", type=str, default="llama3.2", help="Local model name"
@@ -705,6 +745,7 @@ if __name__ == "__main__":
     # Initialize the local client based on type
     if args.local_client_type.lower() == "ollama":
         from minions.clients import OllamaClient
+
         local_client = OllamaClient(model=args.local_model)
     else:
         raise ValueError(f"Unsupported local client type: {args.local_client_type}")
@@ -730,7 +771,11 @@ if __name__ == "__main__":
             context = [context_input] if context_input.strip() else []
 
             # Ask for attachments
-            attachment_type = input("Include an attachment? (image/pdf/folder/none): ").lower().strip()
+            attachment_type = (
+                input("Include an attachment? (image/pdf/folder/none): ")
+                .lower()
+                .strip()
+            )
 
             image_path = None
             pdf_path = None
@@ -771,7 +816,7 @@ if __name__ == "__main__":
         print("\nExiting...")
     finally:
         protocol.end_session()
-        print("Secure session terminated.") 
+        print("Secure session terminated.")
 
 
 ### USAGE EXAMPLES

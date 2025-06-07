@@ -136,12 +136,28 @@ class JWTManager:
     def verify_token(self, token: str) -> Optional[TokenData]:
         """Verify a JWT token."""
         try:
-            # Decode with expiration verification enabled
+            # First decode without expiration verification to get payload
             payload = jwt.decode(
                 token, 
                 self.secret, 
                 algorithms=[self.algorithm],
-                options={"verify_exp": True}
+                options={"verify_exp": False}  # Disable for now
+            )
+            
+            # Manual expiration check
+            if payload.get("exp"):
+                current_time = int(datetime.utcnow().timestamp())
+                if current_time >= payload["exp"]:
+                    logger.warning(f"JWT token expired: {current_time} >= {payload['exp']}")
+                    return None
+            
+            # Now verify with expiration
+            payload = jwt.decode(
+                token, 
+                self.secret, 
+                algorithms=[self.algorithm],
+                options={"verify_exp": True},
+                leeway=0
             )
             
             return TokenData(

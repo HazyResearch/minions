@@ -211,12 +211,27 @@ class TestJWTManager(unittest.TestCase):
         """Test expired token handling."""
         # Create expired token
         exp_time = int((datetime.utcnow() - timedelta(hours=1)).timestamp())
-        token_data = TokenData(sub="user123", exp=exp_time)
+        print(f"Expired time: {exp_time}")
+        print(f"Current time: {int(datetime.utcnow().timestamp())}")
+        
+        token_data = TokenData(sub="user123", exp=exp_time, scopes=[])  # Add scopes
         
         token = self.manager.create_token(token_data)
+        print(f"Created token: {token}")
+        
+        # Try to decode manually to see what happens
+        try:
+            import jwt as jwt_lib
+            decoded = jwt_lib.decode(token, self.manager.secret, 
+                                   algorithms=[self.manager.algorithm], 
+                                   options={"verify_exp": False})
+            print(f"Token payload: {decoded}")
+        except Exception as e:
+            print(f"Manual decode error: {e}")
         
         # Verify should return None for expired token
         verified = self.manager.verify_token(token)
+        print(f"Verification result: {verified}")
         self.assertIsNone(verified)
     
     def test_invalid_token(self):

@@ -1,0 +1,53 @@
+Minions: Cost-efficient Collaboration Between On-device and Cloud
+Language Models
+Avanika Narayan*1 , Dan Biderman*1,2,3 , Sabri Eyuboglu*1 , Avner May5 ,
+Scott Linderman2,3 , James Zou4 , Christopher Ré1
+
+arXiv:2502.15964v1 [cs.LG] 21 Feb 2025
+
+1
+
+Department of Computer Science, Stanford University
+2
+Department of Statistics, Stanford University
+3
+Wu Tsai Neurosciences Institute, Stanford University
+4
+Departemnet of Biomedical Data Science, Stanford University
+5
+Together AI
+{avanikan,biderman,eyuboglu}@stanford.edu
+
+Abstract
+We investigate an emerging setup in which a small, on-device language model (LM) with access to
+local data communicates with a frontier, cloud-hosted LM to solve real-world tasks involving financial,
+medical, and scientific reasoning over long documents. Can a local-remote collaboration reduce cloud
+inference costs while preserving quality? First, we consider a naı̈ve collaboration protocol where the local
+and remote models simply chat back and forth. Because only the local model reads the full context, this
+protocol achieves a 30.4× reduction in remote costs, but recovers only 87% of the performance of the
+frontier model. We identify two key limitations of this protocol: the local model struggles to (1) follow the
+remote model’s multi-step instructions and (2) reason over long contexts. Motivated by these observations,
+we study an extension of this protocol, coined MinionS, in which the remote model decomposes the task
+into easier subtasks over shorter chunks of the document, that are executed locally in parallel. MinionS
+reduces costs by 5.7× on average while recovering 97.9% of the performance of the remote model alone.
+Our analysis reveals several key design choices that influence the trade-off between cost and performance
+in local-remote systems.
+
+1
+
+Introduction
+
+Today’s cloud-hosted frontier Language Models (LMs) can perform data-intensive reasoning: they can
+generate and refactor code across entire repositories and make decisions based on financial, legal, and medical
+documents. However, accessing these models is expensive: processing a standard million-token code repository
+with OpenAI’s o1 API costs > $15 per query. At the same time, smaller LMs (1-8B parameters) are rapidly
+improving and can now run on personal computers (Ollama, llama.cpp) and smartphones (Mehta et al., 2024;
+Yi et al., 2024; Xu et al., 2024). Yet, today, these small, on-device LMs are used mostly for simple tasks
+such as tone adjustment and text completion (Gunter et al., 2024). They do not play a role in data-intensive
+reasoning tasks.
+Inspired by the growing literature on multi-agent systems (Wang et al., 2024; Guo et al., 2024), in this
+work we ask: how can a small, on-device LM collaborate with a frontier LM in the cloud to reduce inference
+costs on data-intensive reasoning tasks? In particular, we study the communication protocols that govern
+how the two LMs talk to each other, focusing on the tradeoff between cost and accuracy. To mimic realistic
+use cases, we study tasks that involve varying levels of reasoning over large volumes of medical, financial, and
+academic data (Islam et al., 2023; Adams et al., 2024; Dasigi et al., 2021).

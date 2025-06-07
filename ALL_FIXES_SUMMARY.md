@@ -37,13 +37,24 @@ raise e  # Re-raise the original pydantic ValidationError
 - Returns a dependency function that properly uses `Depends()`
 - Fixed return type to always return proper `TokenData` objects
 
+## Issue 5: JSON Serialization Error
+**Problem**: `Object of type ModelMetaclass is not JSON serializable` when caching client configs
+**Fix**:
+- Modified `_get_client_key` method in `client_factory.py` to exclude non-serializable fields
+- Filters out `structured_output_schema` which contains Pydantic model classes
+
 ## Files Modified
 1. `apps/minions-a2a/a2a_minions/server.py` - Task creation, validation handling, event loop fixes
 2. `apps/minions-a2a/a2a_minions/auth.py` - Authentication dependency fixes
+3. `apps/minions-a2a/a2a_minions/client_factory.py` - JSON serialization fix for client caching
 
 ## Testing
 To verify all fixes work:
 1. Start the server: `python apps/minions-a2a/run_server.py --port 8001 --api-key "abcd"`
 2. Run tests: `python apps/minions-a2a/tests/test_client_minions.py`
 
-The server should now start without errors and handle requests properly.
+The server should now:
+- Start without errors ✅
+- Handle authentication properly ✅  
+- Process requests without validation errors ✅
+- Create and cache Minions protocol clients successfully ✅

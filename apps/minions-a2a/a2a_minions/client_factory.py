@@ -78,8 +78,13 @@ class ClientFactory:
     
     def _get_client_key(self, provider: ProviderType, config: Dict[str, Any]) -> str:
         """Generate a unique key for client configuration."""
+        # Create a copy of config excluding non-serializable fields
+        serializable_config = {
+            k: v for k, v in config.items() 
+            if k not in ['structured_output_schema']  # Exclude non-serializable fields
+        }
         # Create a deterministic key based on provider and config
-        config_str = json.dumps(config, sort_keys=True)
+        config_str = json.dumps(serializable_config, sort_keys=True)
         return f"{provider}:{hashlib.md5(config_str.encode()).hexdigest()}"
     
     def create_client(self, provider: ProviderType, config: Dict[str, Any]) -> Any:

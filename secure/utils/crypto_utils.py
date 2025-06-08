@@ -14,7 +14,10 @@ from cryptography.exceptions import InvalidSignature
 import subprocess
 import jwt  # requires pip install pyjwt
 from cryptography import x509
-from cryptography.hazmat.primitives import serialization as crypto_serial, hashes as crypto_hashes
+from cryptography.hazmat.primitives import (
+    serialization as crypto_serial,
+    hashes as crypto_hashes,
+)
 import hashlib, base64, ssl, socket
 from nv_attestation_sdk.attestation import Attestation, Devices, Environment
 
@@ -100,7 +103,10 @@ def run_gpu_attestation(nonce: bytes) -> str:
     ok = client.attest(evidence_list)
     attesation_jwt = client.get_token()
     tokens = json.loads(attesation_jwt)
-    gpu_eat = {"platform_token": tokens[0][-1], "gpu_token": tokens[1]['LOCAL_GPU_CLAIMS'][1]}
+    gpu_eat = {
+        "platform_token": tokens[0][-1],
+        "gpu_token": tokens[1]["LOCAL_GPU_CLAIMS"][1],
+    }
     return json.dumps(gpu_eat)
 
 def generate_attestation_keys(attestation_key_path: str):
@@ -129,6 +135,33 @@ def generate_attestation_keys(attestation_key_path: str):
 
 
 
+def generate_attestation_keys(attestation_key_path: str):
+    # check if keys exist
+    if os.path.exists(
+        f"{attestation_key_path}/attestation_private.pem"
+    ) and os.path.exists(f"{attestation_key_path}/attestation_public.pem"):
+        # load keys
+        with open(f"{attestation_key_path}/attestation_private.pem", "r") as f:
+            private_key = deserialize_private_key(f.read())
+        with open(f"{attestation_key_path}/attestation_public.pem", "r") as f:
+            public_key = deserialize_public_key(f.read())
+        return private_key, public_key
+    else:
+        # generate keys
+        # create directory if it doesn't exist
+        if not os.path.exists(attestation_key_path):
+            os.makedirs(attestation_key_path)
+
+        private_key, public_key = generate_key_pair()
+        # save keys
+        with open(f"{attestation_key_path}/attestation_private.pem", "w") as f:
+            f.write(serialize_private_key(private_key))
+        with open(f"{attestation_key_path}/attestation_public.pem", "w") as f:
+            f.write(serialize_public_key(public_key))
+
+        return private_key, public_key
+
+
 # ------------------ Attestation ------------------
 
 # write a function that reads a pem file and returns the hash
@@ -142,7 +175,6 @@ def get_pem_hash(pem_file: str) -> str:
 def get_public_key_hash(public_key) -> str:
     """
     Return the base64-encoded SHA256 hash of an ECDSA public key in DER format.
-    
     :param public_key: A cryptography public key object
     :return: Base64 string of the SHA256 hash
     """
@@ -179,6 +211,7 @@ def create_attestation_report(
     tls_pubkey_hash = get_tls_pubkey_hash(tls_cert_path)
     public_key_hash = get_public_key_hash(public_key)
     
+  
     report = {
         "agent_name": agent_name,
         "pubkey_hash": public_key_hash,
@@ -217,6 +250,7 @@ def verify_attestation(attestation_report, attestation_json, signature_b64, publ
 
     return digest == attestation_report["public_key_hash"]
 
+
 def get_server_tls_pubkey_hash(host: str, port: int = 443) -> str:
 
     # open a TLS connection and pull the raw DER cert
@@ -227,6 +261,7 @@ def get_server_tls_pubkey_hash(host: str, port: int = 443) -> str:
 
     # load it into cryptography to extract the pubkey
     from cryptography import x509
+
     cert = x509.load_der_x509_certificate(der_cert)
     pubkey_der = cert.public_key().public_bytes(
         crypto_serial.Encoding.DER,
@@ -236,6 +271,7 @@ def get_server_tls_pubkey_hash(host: str, port: int = 443) -> str:
     # hash and b64
     digest = hashlib.sha256(pubkey_der).digest()
     return base64.b64encode(digest).decode()
+
 
 def verify_attestation_full(
     report_json: bytes,
@@ -268,7 +304,6 @@ def verify_attestation_full(
     pub_key_hash = hashes.Hash(hashes.SHA256())
     pub_key_hash.update(pub_key_bytes)
     digest = base64.b64encode(pub_key_hash.finalize()).decode()
-
 
     pub_bytes = public_key.public_bytes(
         encoding=serialization.Encoding.DER,
@@ -337,7 +372,7 @@ def decrypt_and_verify(payload, key, verifying_key):
         if "slices" in payload and "header" in payload:
             # Use parallel decryption
             return decrypt_and_verify_parallel(payload, key, verifying_key)
-        
+
         # Regular format
         nonce = payload["nonce"]
         iv = base64.b64decode(payload["iv"])
@@ -356,9 +391,12 @@ def decrypt_and_verify(payload, key, verifying_key):
     except Exception as e:
         # Log detailed error information for debugging
         import logging
+
         logger = logging.getLogger(__name__)
         logger.error(f"decrypt_and_verify failed: {type(e).__name__}: {str(e)}")
-        logger.error(f"Payload keys: {list(payload.keys()) if isinstance(payload, dict) else 'Not a dict'}")
+        logger.error(
+            f"Payload keys: {list(payload.keys()) if isinstance(payload, dict) else 'Not a dict'}"
+        )
         if isinstance(payload, dict):
             logger.error(f"Nonce: {payload.get('nonce', 'Missing')}")
             if "iv" in payload:
@@ -370,7 +408,9 @@ def decrypt_and_verify(payload, key, verifying_key):
                 logger.error("IV: Missing")
             if "ciphertext" in payload:
                 try:
-                    logger.error(f"Ciphertext length: {len(base64.b64decode(payload['ciphertext']))}")
+                    logger.error(
+                        f"Ciphertext length: {len(base64.b64decode(payload['ciphertext']))}"
+                    )
                 except:
                     logger.error("Ciphertext: Invalid base64")
             else:

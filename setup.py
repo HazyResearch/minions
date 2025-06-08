@@ -48,6 +48,8 @@ setup(
             "orjson",
             "twilio",
             "pyjwt",  # for JWT utilities
+            "nv-attestation-sdk",
+            "nv-local-gpu-verifier",
         ],
     },
     author="Sabri, Avanika, and Dan",

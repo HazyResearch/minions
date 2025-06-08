@@ -93,6 +93,7 @@ API_PRICES = {
         "deepseek-reasoner": {"input": 0.27, "cached_input": 0.07, "output": 1.10},
     },
     "Gemini": {
+        "gemini-2.5-pro-exp-06-05": {"input": 1.25, "cached_input": 0.075, "output": 10.0},
         "gemini-2.5-flash": {"input": 0.15, "cached_input": 0.075, "output": 0.60},
         "gemini-2.0-flash": {"input": 0.35, "cached_input": 0.175, "output": 1.05},
         "gemini-2.0-pro": {"input": 3.50, "cached_input": 1.75, "output": 10.50},

@@ -232,6 +232,8 @@ export HF_TOKEN=<YOUR_HUGGINGFACE_TOKEN>
 
 #### 13. Launch Secure Inference Server
 
+Note: for the command below, your paths the the `ssl-cert` and `ssl-key` come from Step #10 above.
+
 ```bash
 python secure/remote/worker_server.py --sglang-model "google/gemma-3-4b-it" --ssl-cert <path to certificate> --ssl-key <path to key> --attestation-key-path <location to save attesation private/public keys>
 ```

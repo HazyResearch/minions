@@ -20,6 +20,15 @@ from cryptography.hazmat.primitives import (
 )
 import hashlib, base64, ssl, socket
 from nv_attestation_sdk.attestation import Attestation, Devices, Environment
+import base64, json, requests, jwt
+from jwt import PyJWKClient, get_unverified_header
+from cryptography import x509
+from jwt.algorithms import ECAlgorithm
+
+JWKS_URL = "https://nras.attestation.nvidia.com/.well-known/jwks.json"
+_jwks = PyJWKClient(JWKS_URL)        # caches keys after the first HTTP hit
+
+
 
 
 # ------------------ Key Management ------------------
@@ -66,6 +75,43 @@ def derive_shared_key(private_key, peer_public_key):
 
 # ----------------- Remote Attestation (Helper Functions) -----------------
 
+def _jwks_fallback(token: str, alg: str) -> dict:
+    """
+    Last-chance attempt: download the JWKS and try every key until one
+    verifies the signature.  Works even when there's no `kid` or `x5c`.
+    """
+    jwks = _jwks.fetch_data()        # public method → {"keys":[…]}
+    for jwk_dict in jwks["keys"]:
+        pubkey = ECAlgorithm.from_jwk(json.dumps(jwk_dict))
+        try:
+            return jwt.decode(token, key=pubkey, algorithms=[alg], options={"verify_aud": False})
+        except jwt.InvalidSignatureError:
+            continue
+    raise jwt.InvalidSignatureError("None of the JWKS keys matched this signature.")
+
+
+def decode_gpu_eat(token: str) -> dict:
+    """
+    Verify & decode a NVIDIA GPU-EAT that may lack `kid`.
+    Returns the claim set or raises jwt.InvalidSignatureError.
+    """
+    hdr = get_unverified_header(token)
+    alg = hdr["alg"]                 # ES384 for H100/L40S
+
+    # 1️⃣  Normal path — `kid` is present.
+    if "kid" in hdr:
+        key = _jwks.get_signing_key_from_jwt(token).key
+        return jwt.decode(token, key=key, algorithms=[alg], options={"verify_aud": False})
+
+    # 2️⃣  Self-contained path — use the x5c certificate chain.
+    if "x5c" in hdr:
+        leaf_der = base64.b64decode(hdr["x5c"][0])
+        leaf_pub = x509.load_der_x509_certificate(leaf_der).public_key()
+        return jwt.decode(token, key=leaf_pub, algorithms=[alg], options={"verify_aud": False})
+
+    # 3️⃣  Fallback — brute-check every JWKS key.
+    return _jwks_fallback(token, alg)
+
 
 def get_tls_pubkey_hash(cert_path: str) -> str:
     # load the PEM cert from disk
@@ -95,7 +141,7 @@ def run_gpu_attestation(nonce: bytes) -> str:
     client.set_nonce(nonce.hex())
     client.add_verifier(
         Devices.GPU,
-        Environment.LOCAL,
+        Environment.REMOTE,
         "",
         "",
     )
@@ -105,7 +151,7 @@ def run_gpu_attestation(nonce: bytes) -> str:
     tokens = json.loads(attesation_jwt)
     gpu_eat = {
         "platform_token": tokens[0][-1],
-        "gpu_token": tokens[1]["LOCAL_GPU_CLAIMS"][1],
+        "gpu_token": tokens[1]["REMOTE_GPU_CLAIMS"][1],
     }
     return json.dumps(gpu_eat)
 
@@ -337,7 +383,8 @@ def verify_attestation_full(
     )
 
     for gpu_idx, gpt_token in gpu_jwt.items():
-        gpu_claims = jwt.decode(gpt_token, options={"verify_signature": False})
+        #gpu_claims = jwt.decode(gpt_token, options={"verify_signature": False})
+        gpu_claims = decode_gpu_eat(gpt_token)
         if gpu_claims.get("eat_nonce") != expected_nonce.hex():
             raise ValueError("platform nonce mismatch")
 

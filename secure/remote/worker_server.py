@@ -61,6 +61,13 @@ parser.add_argument(
     type=str,
     help="Path to SSL private key file",
 )
+parser.add_argument(
+    "--attestation-key-path",
+    type=str,
+    default="attestation_keys",
+    help="Path to store attestation keys (default: attestation_keys)",
+
+)
 args = parser.parse_args()
 
 
@@ -115,12 +122,17 @@ else:
 # Attestation
 logger.info("🔐 SECURITY: Creating attestation report for remote verification")
 
+# Attestation keys
+attestation_private_key, attestation_public_key = generate_attestation_keys(args.attestation_key_path)
+
 nonce = os.urandom(32)  # fresh each call
-report, report_json, gpu_eat = create_attestation_report(
-    "remote-worker", public_key, nonce, args.ssl_cert
+report, report_json, gpu_eat, snp_attestation_token = create_attestation_report(
+    "remote-worker", attestation_public_key, nonce, args.ssl_cert
 )
-signature = sign_attestation(report_json, private_key)
+signature = sign_attestation(report_json, attestation_private_key)
 logger.info("✅ SECURITY: Attestation report created and signed")
+
+
 
 # Track sessions (by public key)
 shared_keys = {}
@@ -153,7 +165,9 @@ def attestation():
             "report": report,
             "report_json": report_json.decode(),
             "signature": signature,
-            "public_key": serialize_public_key(public_key),
+            "public_key_attestation": serialize_public_key(attestation_public_key),
+            "snp_attestation_token": serialize_public_key(snp_attestation_token),
+            "public_key_worker": serialize_public_key(public_key),
             "gpu_eat": gpu_eat,
             "nonce_b64": base64.b64encode(nonce).decode(),
         }
@@ -186,8 +200,15 @@ def message():
 
     payload = data["payload"]
     logger.info("🔓 SECURITY: Decrypting and verifying message authenticity")
-    plaintext = decrypt_and_verify(payload, key, peer_pub)
-    logger.info("✅ SECURITY: Message authentication and decryption successful")
+    logger.info(f"🔍 DEBUG: Payload keys: {list(payload.keys()) if isinstance(payload, dict) else 'Not a dict'}")
+    try:
+        plaintext = decrypt_and_verify(payload, key, peer_pub)
+        logger.info("✅ SECURITY: Message authentication and decryption successful")
+    except Exception as e:
+        logger.error(f"❌ SECURITY: Decryption failed: {type(e).__name__}: {str(e)}")
+        logger.error(f"🔍 DEBUG: Peer ID: {peer_id}")
+        logger.error(f"🔍 DEBUG: Key length: {len(key) if key else 'None'}")
+        raise
 
     # Parse the JSON string to get the worker_messages list
     worker_messages = json.loads(plaintext)
@@ -242,8 +263,15 @@ def message_stream():
 
     payload = data["payload"]
     logger.info("🔓 SECURITY: Decrypting and verifying message authenticity")
-    plaintext = decrypt_and_verify(payload, key, peer_pub)
-    logger.info("✅ SECURITY: Message authentication and decryption successful")
+    logger.info(f"🔍 DEBUG: Payload keys: {list(payload.keys()) if isinstance(payload, dict) else 'Not a dict'}")
+    try:
+        plaintext = decrypt_and_verify(payload, key, peer_pub)
+        logger.info("✅ SECURITY: Message authentication and decryption successful")
+    except Exception as e:
+        logger.error(f"❌ SECURITY: Decryption failed: {type(e).__name__}: {str(e)}")
+        logger.error(f"🔍 DEBUG: Peer ID: {peer_id}")
+        logger.error(f"🔍 DEBUG: Key length: {len(key) if key else 'None'}")
+        raise
 
     # Parse the JSON string to get the worker_messages list
     worker_messages = json.loads(plaintext)

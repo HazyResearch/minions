@@ -32,6 +32,10 @@ setup(
         "pyjwt",  # for JWT utilities
         "torch",
         "cerebras-cloud-sdk",  # for Cerebras client
+        "nv-attestation-sdk",
+        "nv-local-gpu-verifier",
+        "azure-security-attestation",
+        "azure-identity",
     ],
     extras_require={
         "mlx": ["mlx-lm"],
@@ -50,6 +54,9 @@ setup(
             "pyjwt",  # for JWT utilities
             "nv-attestation-sdk",
             "nv-local-gpu-verifier",
+            "azure-security-attestation",
+            "azure-identity",
+            "PyJWT[crypto]", # TODO: check if this conflicts with the pyjwt installed above
         ],
     },
     author="Sabri, Avanika, and Dan",

@@ -88,7 +88,7 @@ def _jwks_fallback(token: str, alg: str) -> dict:
         pubkey = ECAlgorithm.from_jwk(json.dumps(jwk_dict))
         try:
             print("no kid or x5c; using JWKS, brute force")
-            return jwt.decode(token, key=pubkey, algorithms=[alg], options={"verify_aud": False, "verify_exp": False})
+            return jwt.decode(token, key=pubkey, algorithms=[alg], options={"verify_aud": False})
         except jwt.InvalidSignatureError:
             continue
     raise jwt.InvalidSignatureError("None of the JWKS keys matched this signature.")
@@ -106,14 +106,14 @@ def decode_gpu_eat(token: str) -> dict:
     if "kid" in hdr:
         print("Kid is present; using JWKS")
         key = _jwks.get_signing_key_from_jwt(token).key
-        return jwt.decode(token, key=key, algorithms=[alg], options={"verify_aud": False, "verify_exp": False})
+        return jwt.decode(token, key=key, algorithms=[alg], options={"verify_aud": False})
 
     # 2️⃣  Self-contained path — use the x5c certificate chain.
     if "x5c" in hdr:
         print("x5c is present; using x5c")
         leaf_der = base64.b64decode(hdr["x5c"][0])
         leaf_pub = x509.load_der_x509_certificate(leaf_der).public_key()
-        return jwt.decode(token, key=leaf_pub, algorithms=[alg], options={"verify_aud": False, "verify_exp": False})
+        return jwt.decode(token, key=leaf_pub, algorithms=[alg], options={"verify_aud": False})
 
     # 3️⃣  Fallback — brute-check every JWKS key.
     return _jwks_fallback(token, alg)

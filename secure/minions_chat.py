@@ -64,6 +64,8 @@ class SecureMinionChat:
             )
 
         self.trusted_attesation_hash = get_pem_hash(self.trusted_attestation_file)
+        self.pem_file = open(self.trusted_attestation_file).read()
+        self.attestation_pub = deserialize_public_key(self.pem_file)
 
         self.logger.info(
             "🔒 Secure Minion Chat initialized with end-to-end encryption and attestation verification"
@@ -105,7 +107,6 @@ class SecureMinionChat:
         att = requests.get(f"{self.supervisor_url}/attestation").json()
 
         self.supervisor_pub = deserialize_public_key(att["public_key_worker"])
-        self.attestation_pub = deserialize_public_key(att["public_key_attestation"])
         nonce = base64.b64decode(att["nonce_b64"])
 
         try:

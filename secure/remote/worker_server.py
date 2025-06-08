@@ -163,7 +163,6 @@ def attestation():
             "report": report,
             "report_json": report_json.decode(),
             "signature": signature,
-            "public_key_attestation": serialize_public_key(attestation_public_key),
             "public_key_worker": serialize_public_key(public_key),
             "gpu_eat": gpu_eat,
             "nonce_b64": base64.b64encode(nonce).decode(),

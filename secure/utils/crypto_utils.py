@@ -564,7 +564,7 @@ def verify_attestation_full(
     report_json: bytes,
     signature_b64: str,
     gpu_eat_json: str,
-    public_key,
+    public_key: str,
     expected_nonce: bytes,
     server_host: str,
     server_port: int = 443,
@@ -581,6 +581,7 @@ def verify_attestation_full(
     seen_hash = get_server_tls_pubkey_hash(server_host, server_port)
     if report["tls_pubkey_hash"] != seen_hash:
         raise ValueError("TLS pubkey hash mismatch")
+
 
 
     # 2) Pin the signer key

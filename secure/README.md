@@ -150,11 +150,26 @@ See [NVIDIA GPU Attestation Tool](https://github.com/NVIDIA/nvtrust/tree/main/gu
 
 In the Azure portal, go to **Networking** for your VM and add two inbound rules to allow: (1) **TCP port 443** and (2) **TCP port 80**.
 
-#### 8. Configure a DNS name for your server
+#### 8. Install azure utils for SNP attestation reports
+Following the instructions [here](https://github.com/Azure/confidential-computing-cvm-guest-attestation/tree/main/cvm-attestation-sample-app#build-instructions-for-linux-using-self-contained-attestation-lib) we do:
+```bash
+git clone https://github.com/Azure/confidential-computing-cvm-guest-attestation.git
+cd confidential-computing-cvm-guest-attestation/cvm-attestation-sample-app
+sudo ./ClientLibBuildAndInstall.sh
+cmake .
+make
+```
+
+When the local client asks for the attestation report, the following command will be run from a Python process to generate a fresh token:
+```bash
+sudo ./AttestationClient -o token
+```
+
+#### 9. Configure a DNS name for your server
 
 In the Azure portal, for your VM, under **Overview** -> **Essentials**, select DNS Name. A new page will open which will enable you to assign a DNS name label (see field "DNS name label (optional)"). This will give you a DNS address of the following form: `<dns_name>.<region>.cloudapp.azure.com`
 
-#### 9. Generate PEM Keys for secure communication
+#### 10. Generate PEM Keys for secure communication
 
 On the VM, complete the following steps:
 
@@ -178,7 +193,7 @@ Certificate: /etc/letsencrypt/live/<DNS ADDRESS>/fullchain.pem
 Key: /etc/letsencrypt/live/<DNS ADDRESS>/privkey.pem
 ```
 
-#### 10. Add proper endpoint routing in the NGINX server
+#### 11. Add proper endpoint routing in the NGINX server
 
 1. Open `/etc/nginx/sites-available/default`
 2. Then add the following snippet (make the necessary modifications to the DNS Address). This will make sure that nginx forwards traffic to our flask server using https.
@@ -209,19 +224,19 @@ server {
 
 Additionally, in the Azure portal, go to **Networking** for your VM and add remove the inbound role for port 80. We want to make sure to enforce TLS‐only traffic.
 
-#### 11. Set HuggingFace Token
+#### 12. Set HuggingFace Token
 
 ```bash
 export HF_TOKEN=<YOUR_HUGGINGFACE_TOKEN>
 ```
 
-#### 12. Launch Secure Inference Server
+#### 13. Launch Secure Inference Server
 
 ```bash
 python secure/remote/worker_server.py --sglang-model "google/gemma-3-4b-it" --ssl-cert <path to certificate> --ssl-key <path to key> --attestation-key-path <location to save attesation private/public keys>
 ```
 
-### 13. Share the public PEM attestation file with all local clients connecting
+### 14. Share the public PEM attestation file with all local clients connecting
 
 Navigate to the path provided in `attestation-key-path` when setting up server and share the `attestation_public.pem` file.
 

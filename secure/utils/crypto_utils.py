@@ -5,7 +5,7 @@ import time
 import hashlib
 import hmac
 from concurrent.futures import ThreadPoolExecutor
-from typing import List, Tuple
+from typing import List, Tuple, Dict, Any, Optional
 from cryptography.hazmat.primitives import serialization, hashes
 from cryptography.hazmat.primitives.asymmetric import ec
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
@@ -30,6 +30,9 @@ _jwks = PyJWKClient(JWKS_URL)        # caches keys after the first HTTP hit
 
 
 
+# Azure Attestation utilities (should be installed locally)
+from azure.security.attestation import AttestationClient
+from azure.identity import DefaultAzureCredential
 
 # ------------------ Key Management ------------------
 
@@ -249,11 +252,249 @@ def run_snp_attestation() -> str:
     else:
         raise Exception(f"Failed to run SNP attestation: {result.stderr}")
 
+
+def verify_azure_attestation_token(
+    token: str,
+    attestation_endpoint: str = "https://sharedeus2.eus2.attest.azure.net",
+    credential: Optional[Any] = None
+) -> Dict[str, Any]:
+    """
+    Verify an Azure Attestation JWT token cryptographically.
+    
+    This function:
+    1. Retrieves signing certificates from the Azure Attestation Service
+    2. Matches the JWT's Key ID (kid) with the correct certificate
+    3. Extracts the public key from the X.509 certificate
+    4. Verifies the JWT signature using RSA-SHA256
+    5. Returns the decoded JWT payload
+    
+    Args:
+        token (str): The Azure Attestation JWT token to verify
+        attestation_endpoint (str): Azure Attestation endpoint URL. 
+                                  Defaults to shared EUS2 endpoint.
+        credential: Azure credential object. If None, uses DefaultAzureCredential.
+    
+    Returns:
+        Dict[str, Any]: The verified JWT payload as a dictionary
+        
+    Raises:
+        ValueError: If no matching certificate is found
+        jwt.InvalidTokenError: If JWT verification fails
+        Exception: For other attestation service errors
+        
+    Example:
+        >>> token = "eyJhbGciOiJSUzI1NiIs..."
+        >>> payload = verify_azure_attestation_token(token)
+        >>> print(f"Attestation type: {payload['x-ms-attestation-type']}")
+        >>> print(f"VM is secure: {payload['secureboot']}")
+    """
+    
+    # Use default credential if none provided
+    if credential is None:
+        credential = DefaultAzureCredential()
+    
+    # Create attestation client
+    client = AttestationClient(attestation_endpoint, credential=credential)
+    
+    # Get signing certificates from Azure
+    try:
+        certs = client.get_signing_certificates()
+    except Exception as e:
+        raise Exception(f"Failed to retrieve signing certificates: {e}")
+    
+    # Decode the JWT header to get the kid (Key ID)
+    try:
+        header = jwt.get_unverified_header(token)
+        token_kid = header['kid']
+    except Exception as e:
+        raise ValueError(f"Failed to decode JWT header: {e}")
+    
+    print(f"Looking for certificate with Kid: {token_kid}")
+    
+    # Find the matching certificate
+    signing_cert = None
+    available_kids = []
+    
+    for cert in certs:
+        # Try different attribute names for the key ID
+        cert_kid = None
+        if hasattr(cert, 'key_id'):
+            cert_kid = cert.key_id
+        elif hasattr(cert, 'kid'):
+            cert_kid = cert.kid
+        
+        available_kids.append(cert_kid)
+        
+        if cert_kid == token_kid:
+            signing_cert = cert
+            break
+    
+    if signing_cert is None:
+        raise ValueError(
+            f"No matching certificate found for kid '{token_kid}'. "
+            f"Available certificate kids: {available_kids}"
+        )
+    
+    print(f"Found matching certificate with kid: {cert_kid}")
+    
+    # Extract the public key from the certificate
+    cert_pem = None
+    
+    try:
+        if hasattr(signing_cert, 'certificates') and signing_cert.certificates:
+            # Certificates are typically PEM encoded in newer SDK versions
+            cert_pem = signing_cert.certificates[0]
+        elif hasattr(signing_cert, 'x5c') and signing_cert.x5c:
+            # x5c contains base64-encoded DER certificates
+            cert_der_b64 = signing_cert.x5c[0]
+            cert_der = base64.b64decode(cert_der_b64)
+            
+            # Convert DER to PEM
+            cert_obj = x509.load_der_x509_certificate(cert_der)
+            cert_pem = cert_obj.public_bytes(serialization.Encoding.PEM).decode('utf-8')
+        
+        if cert_pem is None:
+            raise ValueError(
+                f"Could not extract certificate from AttestationSigner. "
+                f"Available attributes: {dir(signing_cert)}"
+            )
+        
+        # Extract the public key from the PEM certificate
+        cert_obj = x509.load_pem_x509_certificate(cert_pem.encode('utf-8'))
+        public_key = cert_obj.public_key()
+        
+    except Exception as e:
+        raise ValueError(f"Failed to extract public key from certificate: {e}")
+    
+    # Verify the JWT
+    try:
+        result = jwt.decode(token, key=public_key, algorithms=["RS256"])
+        print("✓ JWT verification successful!")
+        return result
+        
+    except jwt.ExpiredSignatureError:
+        raise jwt.InvalidTokenError("JWT token has expired")
+    except jwt.InvalidSignatureError:
+        raise jwt.InvalidTokenError("JWT signature verification failed")
+    except jwt.InvalidTokenError as e:
+        raise jwt.InvalidTokenError(f"JWT verification failed: {e}")
+
+
+def analyze_attestation_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Analyze and summarize the security properties from an attestation payload.
+    
+    Args:
+        payload: The verified JWT payload from verify_azure_attestation_token()
+        
+    Returns:
+        Dict containing a security analysis summary
+    """
+    analysis = {
+        "platform_type": payload.get("x-ms-attestation-type"),
+        "secure_boot_enabled": payload.get("secureboot", False),
+        "debug_disabled": not payload.get("x-ms-azurevm-bootdebug-enabled", True),
+        "kernel_debug_disabled": not payload.get("x-ms-azurevm-kerneldebug-enabled", True),
+        "vm_id": payload.get("x-ms-azurevm-vmid"),
+        "os_info": {
+            "type": payload.get("x-ms-azurevm-ostype"),
+            "distro": payload.get("x-ms-azurevm-osdistro"),
+            "major_version": payload.get("x-ms-azurevm-osversion-major"),
+            "minor_version": payload.get("x-ms-azurevm-osversion-minor"),
+        }
+    }
+    
+    # Check for confidential computing (TEE) information
+    if "x-ms-isolation-tee" in payload:
+        tee_info = payload["x-ms-isolation-tee"]
+        analysis["confidential_computing"] = {
+            "enabled": True,
+            "tee_type": tee_info.get("x-ms-attestation-type"),
+            "compliance_status": tee_info.get("x-ms-compliance-status"),
+            "is_debuggable": tee_info.get("x-ms-sevsnpvm-is-debuggable", False),
+            "launch_measurement": tee_info.get("x-ms-sevsnpvm-launchmeasurement"),
+            "guest_svn": tee_info.get("x-ms-sevsnpvm-guestsvn"),
+        }
+        
+        # Extract runtime keys if available
+        if "x-ms-runtime" in tee_info and "keys" in tee_info["x-ms-runtime"]:
+            analysis["hardware_keys"] = [
+                {
+                    "kid": key.get("kid"),
+                    "key_type": key.get("kty"),
+                    "operations": key.get("key_ops", [])
+                }
+                for key in tee_info["x-ms-runtime"]["keys"]
+            ]
+    else:
+        analysis["confidential_computing"] = {"enabled": False}
+    
+    return analysis
+
+def print_attestation_analysis(analysis: dict) -> None:
+    """
+    Print the attestation analysis. Just for debugging.
+    """
+    print("\n" + "="*60)
+    print("AZURE ATTESTATION VERIFICATION SUMMARY")
+    print("="*60)
+    
+    print(f"Platform Type: {analysis['platform_type']}")
+    print(f"Secure Boot: {'✓' if analysis['secure_boot_enabled'] else '✗'}")
+    print(f"Debug Disabled: {'✓' if analysis['debug_disabled'] else '✗'}")
+    print(f"VM ID: {analysis['vm_id']}")
+    
+    if analysis['confidential_computing']['enabled']:
+        cc = analysis['confidential_computing']
+        print(f"\nCONFIDENTIAL COMPUTING:")
+        print(f"  Type: {cc['tee_type']}")
+        print(f"  Compliance: {cc['compliance_status']}")
+        print(f"  Guest SVN: {cc['guest_svn']}")
+        print(f"  Debuggable: {'✗' if not cc['is_debuggable'] else '✓'}")
+        
+        if 'hardware_keys' in analysis:
+            print(f"\nHARDWARE KEYS:")
+            for key in analysis['hardware_keys']:
+                print(f"  - {key['kid']}: {key['key_type']} ({', '.join(key['operations'])})")
+    
+    print(f"\nOS INFO:")
+    os_info = analysis['os_info']
+    print(f"  {os_info['type']} - {os_info['distro']} {os_info['major_version']}.{os_info['minor_version']}")
+    
+    print("\n✓ Token verification and analysis complete!")
+
+def verify_snp_token(snp_token: str) -> bool:
+    """
+    Verify an SNP attestation token.
+    Local client verifies it is talking to a machine that is using a SNP TEE.
+    
+    Args:
+        snp_token (str): The SNP attestation token to verify
+    """
+    try:
+        # Verify the token
+        payload = verify_azure_attestation_token(snp_token)
+        
+        # Analyze the results
+        analysis = analyze_attestation_payload(payload)
+
+        print_attestation_analysis(analysis)
+
+        # Assert that confidential computing is enabled and that it is type sevsnpvm
+        assert analysis['confidential_computing']['enabled'] == True
+        assert analysis['confidential_computing']['tee_type'] == "sevsnpvm"
+    
+    except Exception as e:
+        raise ValueError(f"Failed to verify SNP token: {e}")
+    
+    return True
+
+
 def create_attestation_report(
     agent_name: str, public_key, nonce: bytes, tls_cert_path: str
 ) -> Tuple[dict, bytes, str]:
     gpu_eat = run_gpu_attestation(nonce)
-    snp_attestation_token = run_snp_attestation() # DB: added SNP report using https://github.com/Azure/confidential-computing-cvm-guest-attestation/tree/main/cvm-attestation-sample-app#build-instructions-for-linux-using-self-contained-attestation-lib
+    snp_attestation_token = run_snp_attestation() # added SNP report using https://github.com/Azure/confidential-computing-cvm-guest-attestation/tree/main/cvm-attestation-sample-app#build-instructions-for-linux-using-self-contained-attestation-lib
     tls_pubkey_hash = get_tls_pubkey_hash(tls_cert_path)
     public_key_hash = get_public_key_hash(public_key)
     
@@ -374,7 +615,7 @@ def verify_attestation_full(
     
     # 5) SNP attestation check
     snp_attestation_token = report["snp_attestation_token"]
-    # DB: add SNP attestation check here
+    verify_snp_token(snp_attestation_token) # raises a ValueError if the token is invalid
 
     # 5) GPU evidence check
     platform_jwt, gpu_jwt = (

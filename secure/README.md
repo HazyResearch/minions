@@ -150,6 +150,21 @@ See [NVIDIA GPU Attestation Tool](https://github.com/NVIDIA/nvtrust/tree/main/gu
 
 In the Azure portal, go to **Networking** for your VM and add two inbound rules to allow: (1) **TCP port 443** and (2) **TCP port 80**.
 
+#### 8. Install azure utils for SNP attestation reports
+Following the instructions [here](https://github.com/Azure/confidential-computing-cvm-guest-attestation/tree/main/cvm-attestation-sample-app#build-instructions-for-linux-using-self-contained-attestation-lib) we do:
+```bash
+git clone https://github.com/Azure/confidential-computing-cvm-guest-attestation.git
+cd confidential-computing-cvm-guest-attestation/cvm-attestation-sample-app
+sudo ./ClientLibBuildAndInstall.sh
+cmake .
+make
+```
+
+When the local client asks for the attestation report, the following command will be run from a Python process to generate a fresh token:
+```bash
+sudo ./AttestationClient -o token
+```
+
 #### 8. Configure a DNS name for your server
 
 In the Azure portal, for your VM, under **Overview** -> **Essentials**, select DNS Name. A new page will open which will enable you to assign a DNS name label (see field "DNS name label (optional)"). This will give you a DNS address of the following form: `<dns_name>.<region>.cloudapp.azure.com`

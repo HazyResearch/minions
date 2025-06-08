@@ -1842,7 +1842,7 @@ with st.sidebar:
             default_model_index = 0
         elif selected_provider == "Gemini":
             model_mapping = {
-                "gemini-2.0-pro (Recommended)": "gemini-2.5-pro-exp-06-05",
+                "gemini-2.0-pro-preview-06-05 (Recommended)": "gemini-2.5-pro-exp-06-05",
                 "gemini-2.5-flash-preview": "gemini-2.5-flash-preview-05-20",
                 "gemini-2.5-pro-preview": "gemini-2.5-pro-preview-05-06",
                 "gemini-2.0-flash": "gemini-2.0-flash",

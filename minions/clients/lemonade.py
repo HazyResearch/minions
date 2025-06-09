@@ -1,10 +1,11 @@
 import os
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import requests
 
 from minions.clients.openai import OpenAIClient
+from minions.usage import Usage
 
 
 class LemonadeClient(OpenAIClient):
@@ -37,6 +38,55 @@ class LemonadeClient(OpenAIClient):
         self.session = requests.Session()
         self.base_url = base_url
         self.logger.setLevel(logging.INFO)
+
+    def chat(self, messages: List[Dict[str, Any]], **kwargs) -> Tuple[List[str], Usage]:
+        """
+        Handle chat completions using direct HTTP requests to the lemonade service.
+        
+        Lemonade service doesn't provide token usage information, so we estimate based on content.
+        """
+        assert len(messages) > 0, "Messages cannot be empty."
+
+        try:
+            # Prepare the request payload for lemonade's OpenAI-compatible endpoint
+            payload = {
+                "model": self.model_name,
+                "messages": messages,
+                "max_tokens": self.max_tokens,
+                "temperature": self.temperature,
+                **kwargs,
+            }
+
+            # Make direct HTTP request to lemonade's chat completions endpoint
+            response = self.session.post(
+                f"{self.base_url.rstrip('/api/v1')}/api/v1/chat/completions",
+                json=payload,
+                headers={"Content-Type": "application/json"}
+            )
+            response.raise_for_status()
+            response_data = response.json()
+
+        except Exception as e:
+            self.logger.error(f"Error during Lemonade API call: {e}")
+            raise
+
+        # Extract responses from the lemonade response
+        choices = response_data.get("choices", [])
+        responses = [choice["message"]["content"] for choice in choices if "message" in choice]
+
+        # Estimate token usage since lemonade doesn't provide it
+        # Simple estimation: ~4 characters per token
+        prompt_text = " ".join([msg.get("content", "") for msg in messages])
+        response_text = " ".join(responses)
+        estimated_prompt_tokens = max(1, len(prompt_text) // 4)
+        estimated_completion_tokens = max(1, len(response_text) // 4)
+
+        usage = Usage(
+            prompt_tokens=estimated_prompt_tokens,
+            completion_tokens=estimated_completion_tokens,
+        )
+
+        return responses, usage
 
     # ------------------------------------------------------------------
     # Lemonade specific helper APIs

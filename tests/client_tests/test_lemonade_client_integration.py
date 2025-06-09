@@ -18,11 +18,16 @@ class TestLemonadeClientIntegration(BaseClientIntegrationTest):
     SERVICE_NAME = "lemonade"
     DEFAULT_MODEL = "Qwen2.5-0.5B-Instruct-CPU"
 
+    @classmethod
+    def setUpClass(cls):
+        """Override to skip API key checking since Lemonade is a local service."""
+        # Skip the parent's setUpClass which checks for API keys
+        # Lemonade runs locally and doesn't require API keys
+        pass
+
     def setUp(self):
         """Set up Lemonade client if server URL provided."""
-        base_url = os.getenv("LEMONADE_BASE_URL")
-        if not base_url:
-            self.skipTest("LEMONADE_BASE_URL not set; skipping Lemonade tests")
+        base_url = "http://localhost:8000/api/v1"
         self.client = self.CLIENT_CLASS(
             model_name=self.DEFAULT_MODEL,
             base_url=base_url,

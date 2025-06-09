@@ -39,6 +39,7 @@ class SecureClient(MinionsClient):
         self,
         endpoint_url: str,
         trusted_attestor_pem: str,
+        vm_launch_measurement_hash_file: str,
         model_name: str = "secure-model",
         temperature: float = 0.0,
         max_tokens: int = 4096,
@@ -52,6 +53,8 @@ class SecureClient(MinionsClient):
 
         Args:
             endpoint_url: URL of the secure endpoint
+            trusted_attestor_pem: Path to the trusted attestor PEM file
+            vm_launch_measurement_hash_file: Path to the VM launch measurement hash file
             model_name: Name of the model (for compatibility with other clients)
             temperature: Sampling temperature (default: 0.0)
             max_tokens: Maximum number of tokens to generate (default: 4096)
@@ -103,8 +106,18 @@ class SecureClient(MinionsClient):
             raise ValueError(
                 "You must provide a path to the trusted attesator public key. Please provide an attestator certificate. If you would like to use the hosted endpoint, request the PEM file by filling out this form: https://forms.gle/21ZAH9NqkehUwbiQ7"
             )
+        
+        if not vm_launch_measurement_hash_file:
+            raise ValueError(
+                "You must provide a path to a text file containing a hash of the VM launch measurement. Please provide a file path to the VM launch measurement."
+            )
 
+        self.trusted_attestor_pem = trusted_attestor_pem
+        self.vm_launch_measurement_hash_file = vm_launch_measurement_hash_file
         self.trusted_attestor_hash = get_pem_hash(trusted_attestor_pem)
+        self.vm_launch_measurement = open(vm_launch_measurement_hash_file).read().strip()
+        self.pem_file = open(trusted_attestor_pem).read()
+        self.attestation_pub = deserialize_public_key(self.pem_file)
 
         print("🔒 SecureClient initialized for encrypted communication")
 
@@ -182,21 +195,17 @@ class SecureClient(MinionsClient):
                     endpoint_att["public_key_worker"]
                 )
                 endpoint_nonce = base64.b64decode(endpoint_att["nonce_b64"])
-                self.attesation_pub = deserialize_public_key(
-                    endpoint_att["public_key_attestation"]
-                )
-
-
-                # Verify endpoint attestation
+                
                 verify_attestation_full(
                     report_json=endpoint_att["report_json"].encode(),
                     signature_b64=endpoint_att["signature"],
                     gpu_eat_json=endpoint_att["gpu_eat"],
-                    public_key=self.attesation_pub,
+                    public_key=self.attestation_pub,
                     expected_nonce=endpoint_nonce,
                     server_host=self.supervisor_host,
                     server_port=self.supervisor_port,
                     trusted_attestation_hash=self.trusted_attestor_hash,
+                    vm_launch_measurement=self.vm_launch_measurement,
                 )
                 print("✅ SECURITY: Endpoint attestation verification successful")
 

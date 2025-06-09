@@ -417,6 +417,8 @@ def analyze_attestation_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
             "is_debuggable": tee_info.get("x-ms-sevsnpvm-is-debuggable", False),
             "launch_measurement": tee_info.get("x-ms-sevsnpvm-launchmeasurement"),
             "guest_svn": tee_info.get("x-ms-sevsnpvm-guestsvn"),
+            "launch_measurement": tee_info.get("x-ms-sevsnpvm-launchmeasurement"),
+            "report_data": tee_info.get("x-ms-sevsnpvm-reportdata"),
         }
         
         # Extract runtime keys if available
@@ -481,6 +483,8 @@ def print_attestation_analysis(analysis: dict) -> None:
     print(f"Secure Boot: {'✓' if analysis['secure_boot_enabled'] else '✗'}")
     print(f"Debug Disabled: {'✓' if analysis['debug_disabled'] else '✗'}")
     print(f"VM ID: {analysis['vm_id']}")
+    print(f"Launch Measurement: {analysis['confidential_computing']['launch_measurement']}")
+    print(f"Report Data: {analysis['confidential_computing']['report_data']}")
 
     if analysis['confidential_computing']['enabled']:
         cc = analysis['confidential_computing']
@@ -501,7 +505,7 @@ def print_attestation_analysis(analysis: dict) -> None:
     
     print("✅ CPU claim has been verified")
 
-def verify_snp_token(snp_token: str) -> bool:
+def verify_snp_token(snp_token: str, expected_launch_measurement: str = "572db4d3f521386bec1c76346f9c913431f2f257c9c09d604c1259b108a686ae0d277f31899a73098b41b556dc70a5fb") -> bool:
     """
     Verify an SNP attestation token.
     Local client verifies it is talking to a machine that is using a SNP TEE.
@@ -512,6 +516,10 @@ def verify_snp_token(snp_token: str) -> bool:
     try:
         # Verify the token
         payload = verify_azure_attestation_token(snp_token)
+        tee_info = payload['x-ms-isolation-tee']
+        if tee_info.get("x-ms-sevsnpvm-launchmeasurement") != expected_launch_measurement:
+            raise RuntimeError("Unexpected launch measurement – wrong image!")
+        print("✓ Image verified")
         
         # Analyze the results
         analysis = analyze_attestation_payload(payload)
@@ -520,7 +528,9 @@ def verify_snp_token(snp_token: str) -> bool:
 
         # Assert that confidential computing is enabled and that it is type sevsnpvm
         assert analysis['confidential_computing']['enabled'] == True
+        print("✓ CC mode is enabled")
         assert analysis['confidential_computing']['tee_type'] == "sevsnpvm"
+        print("✓ SNP TEE is enabled")
     
     except Exception as e:
         raise ValueError(f"Failed to verify SNP token: {e}")
@@ -589,6 +599,7 @@ def verify_attestation_full(
     server_host: str,
     server_port: int = 443,
     trusted_attestation_hash: str = None,
+    vm_launch_measurement: str = None,
 ):
     # 1) signature check
     sig = base64.b64decode(signature_b64)
@@ -635,8 +646,10 @@ def verify_attestation_full(
     
     # 5) SNP attestation check
     snp_attestation_token = report["snp_attestation_token"]
-    verify_snp_token(snp_attestation_token) # raises a ValueError if the token is invalid
+    print(f"VM launch measurement: {vm_launch_measurement}")
 
+    verify_snp_token(snp_attestation_token, vm_launch_measurement) # raises a ValueError if the token is invalid
+    
     # 5) GPU evidence check
     platform_jwt, gpu_jwt = (
         json.loads(gpu_eat_json)["platform_token"],

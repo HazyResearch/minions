@@ -40,7 +40,8 @@ class SecureMinionChat:
     def __init__(
         self,
         supervisor_url: str,
-        trusted_attesation_pem: str,
+        trusted_attesation_pem: str, #file path
+        vm_launch_measurement: str,
         system_prompt: str = None,
     ):
         self.logger = logger
@@ -48,6 +49,7 @@ class SecureMinionChat:
         self.supervisor_host = urlparse(supervisor_url).hostname
         self.supervisor_port = urlparse(supervisor_url).port
         self.trusted_attestation_file = trusted_attesation_pem
+        self.vm_launch_measurement = open(vm_launch_measurement).read()
         self.system_prompt = system_prompt or "You are a helpful AI assistant."
         self.conversation_history = []
         self.shared_key = None
@@ -61,6 +63,10 @@ class SecureMinionChat:
         if not trusted_attesation_pem:
             raise ValueError(
                 "You must provide a path to the trusted attesator public key. Please provide an attestator certificate. If you would like to use the hosted endpoint, fill out this form: https://forms.gle/21ZAH9NqkehUwbiQ7"
+            )
+        if not vm_launch_measurement:
+            raise ValueError(
+                "You must provide a path to a text file containing a hash of the VM launch measurement. Please provide a file path to the VM launch measurement."
             )
 
         self.trusted_attesation_hash = get_pem_hash(self.trusted_attestation_file)
@@ -119,6 +125,7 @@ class SecureMinionChat:
                 server_host=self.supervisor_host,
                 server_port=self.supervisor_port,
                 trusted_attestation_hash=self.trusted_attesation_hash,
+                vm_launch_measurement=self.vm_launch_measurement,
             )
         except ValueError as e:
             logger.error("🚨  supervisor attestation failed: %s", e)
@@ -536,10 +543,16 @@ if __name__ == "__main__":
         default="secure/attestation_public_key.pem",
         help="Path to the trusted attestation PEM file",
     )
+    parser.add_argument(
+        "--vm_launch_measurement_hashfile",
+        type=str,
+        default="secure/vm_launch_measurement.txt",
+        help="Path to the VM launch measurement file",
+    )
     args = parser.parse_args()
 
     chat = SecureMinionChat(
-        args.supervisor_url, args.trusted_attestation_pem, args.system_prompt
+        args.supervisor_url, args.trusted_attestation_pem, args.vm_launch_measurement_hashfile, args.system_prompt
     )
 
     print(

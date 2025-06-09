@@ -87,7 +87,8 @@ def _jwks_fallback(token: str, alg: str) -> dict:
     for jwk_dict in jwks["keys"]:
         pubkey = ECAlgorithm.from_jwk(json.dumps(jwk_dict))
         try:
-            return jwt.decode(token, key=pubkey, algorithms=[alg], options={"verify_aud": False})
+            print("no kid or x5c; using JWKS, brute force")
+            return jwt.decode(token, key=pubkey, algorithms=[alg])
         except jwt.InvalidSignatureError:
             continue
     raise jwt.InvalidSignatureError("None of the JWKS keys matched this signature.")
@@ -103,14 +104,16 @@ def decode_gpu_eat(token: str) -> dict:
 
     # 1️⃣  Normal path — `kid` is present.
     if "kid" in hdr:
+        print("Kid is present; using JWKS")
         key = _jwks.get_signing_key_from_jwt(token).key
-        return jwt.decode(token, key=key, algorithms=[alg], options={"verify_aud": False})
+        return jwt.decode(token, key=key, algorithms=[alg])
 
     # 2️⃣  Self-contained path — use the x5c certificate chain.
     if "x5c" in hdr:
+        print("x5c is present; using x5c")
         leaf_der = base64.b64decode(hdr["x5c"][0])
         leaf_pub = x509.load_der_x509_certificate(leaf_der).public_key()
-        return jwt.decode(token, key=leaf_pub, algorithms=[alg], options={"verify_aud": False})
+        return jwt.decode(token, key=leaf_pub, algorithms=[alg])
 
     # 3️⃣  Fallback — brute-check every JWKS key.
     return _jwks_fallback(token, alg)
@@ -144,7 +147,7 @@ def run_gpu_attestation(nonce: bytes) -> str:
     client.set_nonce(nonce.hex())
     client.add_verifier(
         Devices.GPU,
-        Environment.REMOTE,
+        Environment.REMOTE, # using NVIDIA attestation service
         "",
         "",
     )
@@ -431,10 +434,45 @@ def analyze_attestation_payload(payload: Dict[str, Any]) -> Dict[str, Any]:
     
     return analysis
 
+def pretty_print_gpu_claims(gpu_claims: dict) -> None:
+    """
+    Pretty print GPU claims dictionary with formatted output.
+    
+    Args:
+        gpu_claims (dict): Dictionary containing GPU attestation claims
+    """
+    print("\n🔍 GPU Claims Details:")
+    print("=" * 50)
+    for key, value in gpu_claims.items():
+        # Format the key to be more readable
+        formatted_key = key.replace('x-nvidia-gpu-', '').replace('-', ' ').title()
+        if key.startswith('x-nvidia-gpu-'):
+            formatted_key = f"GPU {formatted_key}"
+        elif key in ['iss', 'exp', 'iat', 'nbf', 'jti', 'ueid']:
+            formatted_key = key.upper()
+        
+        # Format the value
+        if isinstance(value, bool):
+            value_str = "✅ Yes" if value else "❌ No"
+        elif key in ['exp', 'iat', 'nbf']:
+            # Convert timestamp to readable format
+            try:
+                import datetime
+                value_str = f"{value} ({datetime.datetime.fromtimestamp(value).strftime('%Y-%m-%d %H:%M:%S')})"
+            except:
+                value_str = str(value)
+        else:
+            value_str = str(value)
+        
+        print(f"  {formatted_key:<40}: {value_str}")
+    print("=" * 50)
+
+
 def print_attestation_analysis(analysis: dict) -> None:
     """
     Print the attestation analysis. Just for debugging.
     """
+    
     print("\n" + "="*60)
     print("AZURE ATTESTATION VERIFICATION SUMMARY")
     print("="*60)
@@ -443,7 +481,7 @@ def print_attestation_analysis(analysis: dict) -> None:
     print(f"Secure Boot: {'✓' if analysis['secure_boot_enabled'] else '✗'}")
     print(f"Debug Disabled: {'✓' if analysis['debug_disabled'] else '✗'}")
     print(f"VM ID: {analysis['vm_id']}")
-    
+
     if analysis['confidential_computing']['enabled']:
         cc = analysis['confidential_computing']
         print(f"\nCONFIDENTIAL COMPUTING:")
@@ -461,7 +499,7 @@ def print_attestation_analysis(analysis: dict) -> None:
     os_info = analysis['os_info']
     print(f"  {os_info['type']} - {os_info['distro']} {os_info['major_version']}.{os_info['minor_version']}")
     
-    print("\n✓ Token verification and analysis complete!")
+    print("✅ CPU claim has been verified")
 
 def verify_snp_token(snp_token: str) -> bool:
     """
@@ -498,7 +536,6 @@ def create_attestation_report(
     tls_pubkey_hash = get_tls_pubkey_hash(tls_cert_path)
     public_key_hash = get_public_key_hash(public_key)
     
-  
     report = {
         "agent_name": agent_name,
         "pubkey_hash": public_key_hash,
@@ -519,23 +556,6 @@ def sign_attestation(attestation_json, private_key):
         private_key.sign(attestation_json, ec.ECDSA(hashes.SHA256()))
     ).decode()
 
-
-def verify_attestation(attestation_report, attestation_json, signature_b64, public_key):
-    signature = base64.b64decode(signature_b64)
-    try:
-        public_key.verify(signature, attestation_json, ec.ECDSA(hashes.SHA256()))
-    except InvalidSignature:
-        return False
-
-    pub_key_bytes = public_key.public_bytes(
-        encoding=serialization.Encoding.DER,
-        format=serialization.PublicFormat.SubjectPublicKeyInfo,
-    )
-    pub_key_hash = hashes.Hash(hashes.SHA256())
-    pub_key_hash.update(pub_key_bytes)
-    digest = base64.b64encode(pub_key_hash.finalize()).decode()
-
-    return digest == attestation_report["public_key_hash"]
 
 
 def get_server_tls_pubkey_hash(host: str, port: int = 443) -> str:
@@ -564,7 +584,7 @@ def verify_attestation_full(
     report_json: bytes,
     signature_b64: str,
     gpu_eat_json: str,
-    public_key,
+    public_key: str,
     expected_nonce: bytes,
     server_host: str,
     server_port: int = 443,
@@ -624,8 +644,9 @@ def verify_attestation_full(
     )
 
     for gpu_idx, gpt_token in gpu_jwt.items():
-        #gpu_claims = jwt.decode(gpt_token, options={"verify_signature": False})
         gpu_claims = decode_gpu_eat(gpt_token)
+        print("✅ GPU claim has been verified")
+        pretty_print_gpu_claims(gpu_claims)
         if gpu_claims.get("eat_nonce") != expected_nonce.hex():
             raise ValueError("platform nonce mismatch")
 

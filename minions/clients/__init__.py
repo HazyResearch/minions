@@ -14,6 +14,7 @@ from minions.clients.grok import GrokClient
 from minions.clients.llama_api import LlamaApiClient
 from minions.clients.mistral import MistralClient
 from minions.clients.sarvam import SarvamClient
+from minions.clients.docker_model_runner import DockerModelRunnerClient
 
 __all__ = [
     "OllamaClient",
@@ -31,6 +32,7 @@ __all__ = [
     "LlamaApiClient",
     "MistralClient",
     "SarvamClient",
+    "DockerModelRunnerClient",
 ]
 
 try:

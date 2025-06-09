@@ -157,13 +157,17 @@ def attestation():
     logger.info(
         "📤 SECURITY: Sending attestation report to client for identity verification"
     )
+    nonce = os.urandom(32)  # fresh each call
+    report, report_json, gpu_eat = create_attestation_report(
+        "remote-worker", attestation_public_key, nonce, args.ssl_cert
+    )
+    signature = sign_attestation(report_json, attestation_private_key)
 
     return jsonify(
         {
             "report": report,
             "report_json": report_json.decode(),
             "signature": signature,
-            "public_key_attestation": serialize_public_key(attestation_public_key),
             "public_key_worker": serialize_public_key(public_key),
             "gpu_eat": gpu_eat,
             "nonce_b64": base64.b64encode(nonce).decode(),

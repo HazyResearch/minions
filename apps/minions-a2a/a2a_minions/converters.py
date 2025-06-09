@@ -21,7 +21,7 @@ from .models import A2AMessage, MessagePart
 
 # PDF processing imports
 try:
-    import PyPDF2
+    import fitz  # PyMuPDF
     PDF_AVAILABLE = True
 except ImportError:
     PDF_AVAILABLE = False
@@ -224,7 +224,7 @@ class A2AConverter:
     async def _extract_pdf_text(self, pdf_bytes: bytes, filename: str) -> str:
         """Extract text from PDF bytes asynchronously."""
         if not PDF_AVAILABLE:
-            return f"[PDF file: {filename} - PyPDF2 not installed for text extraction]"
+            return f"[PDF file: {filename} - PyMuPDF not installed for text extraction]"
         
         # Track PDF processing if metrics available
         if METRICS_AVAILABLE and metrics_manager:
@@ -238,33 +238,29 @@ class A2AConverter:
         def _extract_pdf_sync(pdf_bytes: bytes, filename: str, temp_dir: Path) -> str:
             """Synchronous PDF extraction to run in thread pool."""
             try:
-                # Save to temporary file for PyPDF2
-                temp_path = temp_dir / f"temp_{uuid.uuid4()}_{filename}"
-                with open(temp_path, "wb") as f:
-                    f.write(pdf_bytes)
+                # Open PDF directly from bytes using PyMuPDF
+                pdf_doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+                text_content = []
                 
                 try:
-                    # Extract text using PyPDF2
-                    with open(temp_path, "rb") as f:
-                        pdf_reader = PyPDF2.PdfReader(f)
-                        text_content = []
-                        
-                        for page_num, page in enumerate(pdf_reader.pages):
-                            try:
-                                page_text = page.extract_text()
-                                if page_text.strip():
-                                    text_content.append(f"\n--- Page {page_num + 1} ---\n")
-                                    text_content.append(page_text)
-                            except Exception as e:
-                                text_content.append(f"\n--- Page {page_num + 1} (error: {e}) ---\n")
-                        
-                        if text_content:
-                            return "".join(text_content)
-                        else:
-                            return f"[PDF file: {filename} - No extractable text found]"
+                    # Extract text from each page
+                    for page_num in range(len(pdf_doc)):
+                        try:
+                            page = pdf_doc[page_num]
+                            page_text = page.get_text()
+                            if page_text.strip():
+                                text_content.append(f"\n--- Page {page_num + 1} ---\n")
+                                text_content.append(page_text)
+                        except Exception as e:
+                            text_content.append(f"\n--- Page {page_num + 1} (error: {e}) ---\n")
+                    
+                    if text_content:
+                        return "".join(text_content)
+                    else:
+                        return f"[PDF file: {filename} - No extractable text found]"
                 finally:
-                    # Clean up temp file
-                    temp_path.unlink(missing_ok=True)
+                    # Close the PDF document
+                    pdf_doc.close()
                         
             except Exception as e:
                 return f"[PDF file: {filename} - Error extracting text: {e}]"

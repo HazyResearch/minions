@@ -62,6 +62,14 @@ class TaskManager:
         self._shutdown_event = None
         # Don't start background tasks in __init__
         self._started = False
+        
+        # Create a dedicated thread pool executor for minions
+        import concurrent.futures
+        self.executor = concurrent.futures.ThreadPoolExecutor(
+            max_workers=10,  # Allow up to 10 concurrent minion executions
+            thread_name_prefix="minions-worker"
+        )
+        logger.info(f"Created thread pool executor with {10} workers")
     
     async def start(self):
         """Start background tasks. Must be called when event loop is running."""
@@ -239,47 +247,46 @@ class TaskManager:
                 # Define streaming callback for real-time updates
                 def streaming_callback(role: str, message: Any, is_final: bool = True):
                     """Callback to send streaming updates."""
+                    logger.debug(f"Streaming callback invoked - role: {role}, is_final: {is_final}")
+                    logger.debug(f"Message type: {type(message)}, content: {str(message)[:200]}")
+                    
+                    # Only send if streaming is set up for this task
                     if task_id not in self.task_streams:
+                        logger.warning(f"No stream queue for task {task_id}")
                         return
                     
-                    # Format the message properly
-                    if isinstance(message, str):
-                        text = message
-                    else:
-                        text = str(message)
-                    
-                    # Create streaming event
-                    event = {
-                        "kind": "message",
-                        "parts": [{
-                            "kind": "text",
-                            "text": text
-                        }],
-                        "metadata": {
-                            "original_role": role,
-                            "timestamp": datetime.now().isoformat()
-                        },
-                        "final": is_final
-                    }
-                    
-                    # Track streaming event
-                    metrics_manager.track_streaming_event()
-                    
-                    # Thread-safe queue update using run_coroutine_threadsafe
-                    async def put_event():
-                        queue = self.task_streams.get(task_id)
-                        if queue:
-                            await queue.put(event)
-                    
-                    # Get the running event loop
                     try:
-                        loop = asyncio.get_running_loop()
-                    except RuntimeError:
-                        # If no loop is running, try to get the main loop
-                        loop = asyncio.get_event_loop()
+                        # Create streaming event
+                        event = self.converter.create_streaming_event(role, message, is_final)
+                        
+                        # Add final flag for task completion
+                        if is_final:
+                            event["final"] = True
+                        
+                        # Track streaming event
+                        metrics_manager.track_streaming_event()
+                        
+                        # Thread-safe queue update using run_coroutine_threadsafe
+                        async def put_event():
+                            queue = self.task_streams.get(task_id)
+                            if queue:
+                                logger.debug(f"Putting event into stream queue: {event.get('kind', 'unknown')}, final={event.get('final', False)}")
+                                await queue.put(event)
+                            else:
+                                logger.warning(f"No queue found for task {task_id} when trying to put event")
+                        
+                        # Get the running event loop
+                        try:
+                            loop = asyncio.get_running_loop()
+                        except RuntimeError:
+                            # If no loop is running, try to get the main loop
+                            loop = asyncio.get_event_loop()
+                        
+                        # Schedule the coroutine in a thread-safe manner
+                        asyncio.run_coroutine_threadsafe(put_event(), loop)
                     
-                    # Schedule the coroutine in a thread-safe manner
-                    asyncio.run_coroutine_threadsafe(put_event(), loop)
+                    except Exception as e:
+                        logger.error(f"Error in streaming callback: {e}")
                 
                 # Execute the appropriate skill with timeout
                 result = await asyncio.wait_for(
@@ -345,15 +352,33 @@ class TaskManager:
     
     async def _execute_skill(self, skill_id: str, message: A2AMessage, 
                            metadata: TaskMetadata, callback) -> Dict[str, Any]:
-        """Execute a specific Minions skill."""
+        """Execute a specific Minions skill.
+        
+        Expected metadata format for Minions integration:
+        - skill_id: "minion_query" or "minions_query" (required)
+        - local_provider: Provider for local model (e.g., "ollama", "mlx")
+        - local_model: Model name for local provider (e.g., "llama3.2")
+        - remote_provider: Provider for remote model (e.g., "openai", "anthropic")
+        - remote_model: Model name for remote provider (e.g., "gpt-4o", "claude-3")
+        - max_rounds: Maximum rounds for protocol execution (1-10)
+        - num_tasks_per_round: For parallel processing with minions_query
+        - privacy_mode: Boolean to enable privacy mode
+        - Other fields as defined in MinionsConfig
+        """
+        
+        logger.info(f"Starting skill execution for {skill_id}")
         
         # Extract task and context from message
         task, context, image_paths = await self.converter.extract_query_and_document_from_parts(
             [part.dict() for part in message.parts]
         )
         
+        logger.info(f"Extracted task: {task[:100]}...")
+        logger.info(f"Context items: {len(context)}, image paths: {len(image_paths) if image_paths else 0}")
+        
         # Parse configuration from metadata
         config = self.config_manager.parse_a2a_metadata(metadata.dict())
+        logger.info(f"Config: local_provider={config.local_provider}, local_model={config.local_model}, remote_provider={config.remote_provider}, remote_model={config.remote_model}, max_rounds={config.max_rounds}")
         
         if skill_id == "minion_query":
             return await self._execute_minion_query(task, context, image_paths, config, callback)
@@ -374,8 +399,7 @@ class TaskManager:
         config.protocol = "minion"
         
         # Create Minion instance with callback
-        minion = client_factory.create_minions_protocol(config)
-        minion.callback = callback  # Set the callback after creation
+        minion = client_factory.create_minions_protocol(config, callback=callback)
 
         logger.debug(f"Context length: {len(context)} items")
         
@@ -397,16 +421,31 @@ class TaskManager:
                 logger.debug(f"Context item {i+1}: {len(c)} chars - {c[:100]}...")
         
         # Execute Minion protocol
-        result = await asyncio.get_event_loop().run_in_executor(
-            None, 
-            lambda: minion(
-                task=task,
-                context=context,
-                max_rounds=config.max_rounds,
-                images=image_paths if image_paths else None,
-                is_privacy=config.privacy_mode
+        logger.info(f"Executing minion protocol in thread pool executor...")
+        logger.info(f"Task: {task}")
+        logger.info(f"Context items: {len(context)}")
+        logger.info(f"Image paths: {len(image_paths)}")
+        logger.info(f"Config: max_rounds={config.max_rounds}, provider={config.remote_provider}, model={config.remote_model}")
+        logger.info(f"Callback set: {minion.callback is not None}")
+        
+        try:
+            result = await asyncio.get_event_loop().run_in_executor(
+                self.executor,  # Use dedicated executor
+                lambda: minion(
+                    task=task,
+                    context=context,
+                    max_rounds=config.max_rounds,
+                    images=image_paths if image_paths else None,
+                    is_privacy=config.privacy_mode
+                )
             )
-        )
+            logger.info(f"Minion protocol completed successfully")
+            logger.info(f"Result type: {type(result)}")
+            if hasattr(result, 'final_answer'):
+                logger.info(f"Final answer preview: {str(result.final_answer)[:100]}...")
+        except Exception as e:
+            logger.error(f"Minion protocol execution failed: {e}", exc_info=True)
+            raise
         
         return result
     
@@ -418,27 +457,32 @@ class TaskManager:
         config.protocol = "minions"
         
         # Create Minions instance with callback
-        minions = client_factory.create_minions_protocol(config)
-        minions.callback = callback  # Set the callback after creation
+        minions = client_factory.create_minions_protocol(config, callback=callback)
         
         # Generate document metadata
         doc_metadata = f"Documents provided. Total extracted text length: {sum(len(c) for c in context)} characters"
         
         # Execute Minions protocol
-        result = await asyncio.get_event_loop().run_in_executor(
-            None,
-            lambda: minions(
-                task=task,
-                doc_metadata=doc_metadata,
-                context=context,
-                max_rounds=config.max_rounds,
-                max_jobs_per_round=config.max_jobs_per_round,
-                num_tasks_per_round=config.num_tasks_per_round,
-                num_samples_per_task=config.num_samples_per_task,
-                use_retrieval=config.use_retrieval,
-                chunk_fn=config.chunking_strategy
+        logger.info(f"Executing minions protocol in thread pool executor...")
+        try:
+            result = await asyncio.get_event_loop().run_in_executor(
+                self.executor,  # Use dedicated executor
+                lambda: minions(
+                    task=task,
+                    doc_metadata=doc_metadata,
+                    context=context,
+                    max_rounds=config.max_rounds,
+                    max_jobs_per_round=config.max_jobs_per_round,
+                    num_tasks_per_round=config.num_tasks_per_round,
+                    num_samples_per_task=config.num_samples_per_task,
+                    use_retrieval=config.use_retrieval,
+                    chunk_fn=config.chunking_strategy
+                )
             )
-        )
+            logger.info(f"Minions protocol completed successfully")
+        except Exception as e:
+            logger.error(f"Minions protocol execution failed: {e}", exc_info=True)
+            raise
         
         return result
     
@@ -523,6 +567,10 @@ class TaskManager:
         
         # Shutdown converter (includes temp file cleanup and thread pool shutdown)
         self.converter.shutdown()
+        
+        # Shutdown the dedicated executor
+        logger.info("Shutting down thread pool executor...")
+        self.executor.shutdown(wait=True, cancel_futures=True)
         
         logger.info("Task manager shutdown complete")
 
@@ -723,7 +771,8 @@ class A2AMinionsServer:
             return {
                 "status": "healthy", 
                 "service": "a2a-minions",
-                "timestamp": datetime.now().isoformat()
+                "timestamp": datetime.now().isoformat(),
+                "tasks_count": len(self.task_manager.tasks)
             }
     
     async def _handle_send_task(self, params: Dict[str, Any], request_id: str, 

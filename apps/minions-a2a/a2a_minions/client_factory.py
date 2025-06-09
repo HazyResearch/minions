@@ -124,7 +124,7 @@ class ClientFactory:
                 logger.error(f"Failed to create {provider} client: {e}")
                 raise RuntimeError(f"Failed to create {provider} client: {e}")
     
-    def create_minions_protocol(self, config: MinionsConfig) -> Any:
+    def create_minions_protocol(self, config: MinionsConfig, callback=None) -> Any:
         """Create the appropriate Minions protocol instance."""
         
         if not self._minions_available:
@@ -139,6 +139,7 @@ class ClientFactory:
                 remote_client=remote_client,
                 max_rounds=config.max_rounds,
                 is_multi_turn=True,  # Add standard parameters
+                callback=callback,  # Pass callback if provided
             )
         
         elif config.protocol == ProtocolType.MINIONS:
@@ -147,6 +148,7 @@ class ClientFactory:
                 remote_client=remote_client,
                 max_rounds=config.max_rounds,
                 is_multi_turn=True,  # Add standard parameters
+                callback=callback,  # Pass callback if provided
             )
         
         else:

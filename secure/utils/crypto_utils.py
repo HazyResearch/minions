@@ -19,7 +19,16 @@ from cryptography.hazmat.primitives import (
     hashes as crypto_hashes,
 )
 import hashlib, base64, ssl, socket
-from nv_attestation_sdk.attestation import Attestation, Devices, Environment
+
+# Try to import NVIDIA attestation SDK, but make it optional
+try:
+    from nv_attestation_sdk.attestation import Attestation, Devices, Environment
+    NVIDIA_SDK_AVAILABLE = True
+    print("✅ NVIDIA attestation SDK loaded successfully")
+except Exception as e:
+    NVIDIA_SDK_AVAILABLE = False
+    print(f"Warning: NVIDIA attestation SDK not available: {e}. GPU attestation will not work.")
+
 import base64, json, requests, jwt
 from jwt import PyJWKClient, get_unverified_header
 from cryptography import x509
@@ -142,6 +151,9 @@ def run_gpu_attestation(nonce: bytes) -> str:
         pip install nv-local-gpu-verifier
     is installed.
     """
+    if not NVIDIA_SDK_AVAILABLE:
+        raise ImportError("NVIDIA attestation SDK is not available. Cannot run GPU attestation.")
+    
     client = Attestation()
     client.set_name("myNode")
     client.set_nonce(nonce.hex())

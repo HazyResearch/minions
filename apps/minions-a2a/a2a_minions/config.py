@@ -67,7 +67,24 @@ class MinionsConfig(BaseModel):
 
 
 class ConfigManager:
-    """Manages configuration for A2A-Minions integration."""
+    """Manages configuration for A2A-Minions integration.
+    
+    The A2A protocol allows application-specific metadata. For Minions integration,
+    the following metadata fields are supported:
+    
+    Required:
+    - skill_id: "minion_query" or "minions_query"
+    
+    Optional (with defaults from environment):
+    - local_provider: LLM provider for local model (e.g., "ollama", "mlx")
+    - local_model: Model name for local provider (e.g., "llama3.2")
+    - remote_provider: LLM provider for remote model (e.g., "openai", "anthropic")
+    - remote_model: Model name for remote provider (e.g., "gpt-4o", "claude-3")
+    - max_rounds: Maximum rounds for minions protocol (1-10)
+    - num_tasks_per_round: Number of parallel tasks per round
+    - privacy_mode: Enable privacy mode (boolean)
+    - And other fields defined in MinionsConfig
+    """
     
     def __init__(self):
         self.default_config = self._load_default_config()

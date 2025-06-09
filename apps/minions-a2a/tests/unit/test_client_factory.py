@@ -169,7 +169,8 @@ class TestClientFactory(unittest.TestCase):
             local_client=local_client,
             remote_client=remote_client,
             max_rounds=3,
-            is_multi_turn=True
+            is_multi_turn=True,
+            callback=None
         )
         self.assertEqual(protocol, protocol_instance)
     
@@ -200,7 +201,8 @@ class TestClientFactory(unittest.TestCase):
             local_client=local_client,
             remote_client=remote_client,
             max_rounds=5,
-            is_multi_turn=True
+            is_multi_turn=True,
+            callback=None
         )
         self.assertEqual(protocol, protocol_instance)
     

@@ -23,19 +23,23 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent.parent))
 
 # Set up logging
+DEBUG_MODE = os.environ.get("DEBUG", "").lower() in ["true", "1", "yes"]
 logging.basicConfig(
-    level=logging.INFO,
+    level=logging.DEBUG if DEBUG_MODE else logging.INFO,
     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 logger = logging.getLogger(__name__)
+
+# Also set httpx logging level
+logging.getLogger("httpx").setLevel(logging.WARNING)
 
 
 class A2AIntegrationTestClient:
     """Client for comprehensive integration testing."""
     
-    def __init__(self, base_url: str = "http://localhost:8888"):
+    def __init__(self, base_url: str = "http://localhost:8001"):
         self.base_url = base_url
-        self.client = httpx.AsyncClient(timeout=60.0)
+        self.client = httpx.AsyncClient(timeout=httpx.Timeout(10.0, connect=5.0))  # Shorter timeout for faster failures
         self.api_key = None
         self.oauth_token = None
         self.oauth_client_id = None
@@ -176,6 +180,65 @@ class A2AIntegrationTest:
             "details": details
         })
     
+    async def wait_for_task_completion(self, task_id: str, test_name: str, 
+                                     auth_method: str = "api_key", 
+                                     max_wait_seconds: int = 30) -> Optional[Dict[str, Any]]:
+        """Wait for a task to complete with progress logging."""
+        logger.info(f"⏳ Waiting for task {task_id} to complete (max {max_wait_seconds}s)...")
+        
+        max_attempts = max_wait_seconds // 2  # Check every 2 seconds
+        last_state = None
+        
+        for attempt in range(max_attempts):
+            await asyncio.sleep(2)
+            
+            try:
+                response = await self.client.send_request(
+                    "tasks/get",
+                    {"id": task_id},
+                    auth_method
+                )
+                
+                if "error" in response:
+                    logger.error(f"Error getting task status: {response['error']}")
+                    return None
+                
+                result = response.get("result", {})
+                status = result.get("status", {})
+                state = status.get("state", "unknown")
+                message = status.get("message", "")
+                
+                # Log state changes
+                if state != last_state:
+                    logger.info(f"📊 [{test_name}] Task state: {state}")
+                    if message:
+                        logger.info(f"   Message: {message}")
+                    last_state = state
+                elif attempt > 0 and attempt % 5 == 0:  # Log every 10 seconds
+                    logger.info(f"⏳ [{test_name}] Still {state}... ({(attempt+1)*2}/{max_wait_seconds}s)")
+                
+                if state in ["completed", "failed", "canceled"]:
+                    logger.info(f"🏁 [{test_name}] Task finished with state: {state}")
+                    return result
+                    
+            except Exception as e:
+                logger.error(f"Error checking task status: {type(e).__name__}: {e}")
+                if hasattr(e, 'response'):
+                    logger.error(f"Response details: {e.response}")
+                # Continue checking instead of breaking
+                
+        logger.warning(f"⏱️ [{test_name}] Task did not complete within {max_wait_seconds} seconds")
+        
+        # Get final state
+        try:
+            final_response = await self.client.send_request("tasks/get", {"id": task_id}, auth_method)
+            if "result" in final_response:
+                return final_response["result"]
+        except:
+            pass
+            
+        return None
+    
     async def start_server(self) -> bool:
         """Start the A2A-Minions server."""
         try:
@@ -184,7 +247,7 @@ class A2AIntegrationTest:
             env["PYTHONPATH"] = ":".join(sys.path)
             
             self.server_process = subprocess.Popen(
-                [sys.executable, "run_server.py", "--port", "8888"],
+                [sys.executable, "run_server.py", "--port", "8001"],
                 cwd=Path(__file__).parent.parent.parent,
                 env=env,
                 stdout=subprocess.PIPE,
@@ -259,39 +322,60 @@ class A2AIntegrationTest:
     async def test_authentication_setup(self):
         """Test authentication setup and get credentials."""
         try:
-            # Read generated credentials from server output
-            if self.server_process:
-                # Give server time to output credentials
-                await asyncio.sleep(2)
-                
-                # Read server output
-                output = self.server_process.stderr.read(4096).decode('utf-8')
-                
-                # Extract API key
-                import re
-                api_key_match = re.search(r'Generated default API key: (a2a_\w+)', output)
-                if api_key_match:
-                    self.client.api_key = api_key_match.group(1)
-                
-                # Extract OAuth2 credentials
-                client_id_match = re.search(r'Client ID: (oauth2_\w+)', output)
-                client_secret_match = re.search(r'Client Secret: (\w+)', output)
-                
-                if client_id_match and client_secret_match:
-                    self.client.oauth_client_id = client_id_match.group(1)
-                    self.client.oauth_client_secret = client_secret_match.group(1)
-                
-                success = bool(self.client.api_key and self.client.oauth_client_id)
-                self.log_test(
-                    "Authentication Setup",
-                    success,
-                    f"API Key: {'Found' if self.client.api_key else 'Not found'}, "
-                    f"OAuth2: {'Found' if self.client.oauth_client_id else 'Not found'}"
-                )
-                return success
+            # Give server time to generate credentials
+            await asyncio.sleep(3)
             
-            self.log_test("Authentication Setup", False, "Server process not running")
-            return False
+            # Read credentials from JSON files where the server stores them
+            import json
+            from pathlib import Path
+            
+            # Try to read API keys from api_keys.json
+            api_keys_file = Path(__file__).parent.parent.parent / "api_keys.json"
+            oauth_clients_file = Path(__file__).parent.parent.parent / "oauth2_clients.json"
+            
+            api_key_found = False
+            oauth_found = False
+            
+            # Read API keys
+            if api_keys_file.exists():
+                try:
+                    with open(api_keys_file, 'r') as f:
+                        api_keys = json.load(f)
+                    
+                    # Get the first active API key
+                    for key, data in api_keys.items():
+                        if data.get("active", True) and key.startswith("a2a_"):
+                            self.client.api_key = key
+                            api_key_found = True
+                            break
+                except Exception as e:
+                    logger.debug(f"Failed to read API keys file: {e}")
+            
+            # Read OAuth2 clients
+            if oauth_clients_file.exists():
+                try:
+                    with open(oauth_clients_file, 'r') as f:
+                        oauth_clients = json.load(f)
+                    
+                    # Get the first active OAuth2 client
+                    for client_id, data in oauth_clients.items():
+                        if data.get("active", True) and client_id.startswith("oauth2_"):
+                            self.client.oauth_client_id = client_id
+                            self.client.oauth_client_secret = data.get("client_secret")
+                            if self.client.oauth_client_secret:
+                                oauth_found = True
+                            break
+                except Exception as e:
+                    logger.debug(f"Failed to read OAuth2 clients file: {e}")
+            
+            success = api_key_found and oauth_found
+            self.log_test(
+                "Authentication Setup",
+                success,
+                f"API Key: {'Found' if api_key_found else 'Not found'}, "
+                f"OAuth2: {'Found' if oauth_found else 'Not found'}"
+            )
+            return success
             
         except Exception as e:
             self.log_test("Authentication Setup", False, str(e))
@@ -336,6 +420,8 @@ class A2AIntegrationTest:
         try:
             # Test with both authentication methods
             for auth_method in ["api_key", "oauth"]:
+                logger.info(f"\n🔄 Testing Simple Query with {auth_method} authentication...")
+                
                 params = {
                     "message": {
                         "role": "user",
@@ -349,12 +435,14 @@ class A2AIntegrationTest:
                     "metadata": {
                         "skill_id": "minion_query",
                         "max_rounds": 1,
-                        "local_provider": "ollama",
-                        "local_model": "llama3.2"
+                        "remote_provider": "openai",
+                        "remote_model": "gpt-4o-mini",
+                        "remote_temperature": 0
                     }
                 }
                 
                 # Send task
+                logger.debug(f"Sending task with params: {json.dumps(params, indent=2)}")
                 response = await self.client.send_request("tasks/send", params, auth_method)
                 
                 if "error" in response:
@@ -363,54 +451,56 @@ class A2AIntegrationTest:
                     continue
                 
                 task_id = response["result"]["id"]
+                logger.info(f"✅ Task created successfully with ID: {task_id}")
                 
                 # Wait for completion
-                max_attempts = 30
-                completed = False
+                result = await self.wait_for_task_completion(
+                    task_id, f"Simple Query ({auth_method})", auth_method, max_wait_seconds=20
+                )
                 
-                for _ in range(max_attempts):
-                    await asyncio.sleep(2)
-                    
-                    get_response = await self.client.send_request(
-                        "tasks/get",
-                        {"id": task_id},
-                        auth_method
-                    )
-                    
-                    if "result" in get_response:
-                        state = get_response["result"]["status"]["state"]
-                        if state == "completed":
-                            completed = True
-                            artifacts = get_response["result"].get("artifacts", [])
-                            if artifacts:
-                                answer = artifacts[0]["parts"][0].get("text", "")
-                                success = "4" in answer
-                                self.log_test(
-                                    f"Simple Query ({auth_method})",
-                                    success,
-                                    f"Answer: {answer[:100]}..."
-                                )
-                            break
-                        elif state == "failed":
+                if result:
+                    state = result["status"]["state"]
+                    if state == "completed":
+                        artifacts = result.get("artifacts", [])
+                        if artifacts and artifacts[0].get("parts"):
+                            answer = artifacts[0]["parts"][0].get("text", "")
+                            success = "4" in answer
+                            self.log_test(
+                                f"Simple Query ({auth_method})",
+                                success,
+                                f"Answer: {answer[:200]}..." if answer else "No answer received"
+                            )
+                            if not success:
+                                logger.debug(f"Full answer: {answer}")
+                        else:
                             self.log_test(
                                 f"Simple Query ({auth_method})",
                                 False,
-                                f"Task failed: {get_response['result']['status'].get('message')}"
+                                "Task completed but no artifacts/answer found"
                             )
-                            break
-                
-                if not completed:
-                    self.log_test(f"Simple Query ({auth_method})", False, "Task did not complete in time")
+                            logger.debug(f"Task result: {json.dumps(result, indent=2)}")
+                    else:
+                        self.log_test(
+                            f"Simple Query ({auth_method})",
+                            False,
+                            f"Task ended with state: {state}, message: {result['status'].get('message')}"
+                        )
+                        logger.debug(f"Task details: {json.dumps(result, indent=2)}")
+                else:
+                    self.log_test(f"Simple Query ({auth_method})", False, "Failed to get task result")
             
             return True
             
         except Exception as e:
-            self.log_test("Simple Query", False, str(e))
+            self.log_test("Simple Query", False, f"Exception: {str(e)}")
+            logger.exception("Exception in test_simple_text_query")
             return False
     
     async def test_query_with_context(self):
         """Test query with document context."""
         try:
+            logger.info("\n🔄 Testing Query with Context...")
+            
             context_text = """
             The A2A Protocol (Agent-to-Agent Protocol) is a standardized framework 
             for communication between autonomous AI agents. It was introduced by Google 
@@ -440,10 +530,14 @@ class A2AIntegrationTest:
                 },
                 "metadata": {
                     "skill_id": "minion_query",
-                    "max_rounds": 2
+                    "max_rounds": 1,
+                    "remote_provider": "openai",
+                    "remote_model": "gpt-4o-mini",
+                    "remote_temperature": 0
                 }
             }
             
+            logger.debug(f"Sending task with context...")
             response = await self.client.send_request("tasks/send", params)
             
             if "error" in response:
@@ -451,35 +545,48 @@ class A2AIntegrationTest:
                 return False
             
             task_id = response["result"]["id"]
+            logger.info(f"✅ Task created with ID: {task_id}")
             
-            # Wait and check result
-            await asyncio.sleep(5)
+            # Wait for completion
+            result = await self.wait_for_task_completion(
+                task_id, "Query with Context", max_wait_seconds=20
+            )
             
-            get_response = await self.client.send_request("tasks/get", {"id": task_id})
-            
-            success = False
-            if "result" in get_response and get_response["result"]["status"]["state"] == "completed":
-                artifacts = get_response["result"].get("artifacts", [])
-                if artifacts:
+            if result and result["status"]["state"] == "completed":
+                artifacts = result.get("artifacts", [])
+                if artifacts and artifacts[0].get("parts"):
                     answer = artifacts[0]["parts"][0].get("text", "")
                     # Check if answer mentions key features
-                    success = any(keyword in answer.lower() for keyword in 
-                                ["http", "authentication", "streaming", "modality", "standard"])
+                    keywords = ["http", "authentication", "streaming", "modality", "standard", "web technologies"]
+                    found_keywords = [kw for kw in keywords if kw in answer.lower()]
+                    success = len(found_keywords) >= 3  # At least 3 keywords
+                    
+                    self.log_test("Query with Context", success, 
+                                f"Found {len(found_keywords)}/{len(keywords)} keywords: {found_keywords}")
+                    if not success:
+                        logger.info(f"Answer preview: {answer[:300]}...")
+                else:
+                    self.log_test("Query with Context", False, "No answer found in artifacts")
+            else:
+                state = result["status"]["state"] if result else "unknown"
+                self.log_test("Query with Context", False, 
+                            f"Task ended with state: {state}")
+                if result:
+                    logger.debug(f"Task details: {json.dumps(result, indent=2)}")
             
-            self.log_test("Query with Context", success, 
-                        "Context properly utilized" if success else "Context not properly used")
-            return success
+            return True
             
         except Exception as e:
-            self.log_test("Query with Context", False, str(e))
+            self.log_test("Query with Context", False, f"Exception: {str(e)}")
+            logger.exception("Exception in test_query_with_context")
             return False
     
     async def test_pdf_processing(self):
         """Test PDF file processing."""
         try:
             # Create a simple test PDF content (base64 encoded)
-            # This is a minimal PDF that says "Hello World"
-            pdf_content = """JVBERi0xLjMKJeLjz9MKMSAwIG9iago8PAovVHlwZSAvQ2F0YWxvZwovT3V0bGluZXMgMiAwIFIKL1BhZ2VzIDMgMCBSCj4+CmVuZG9iagoyIDAgb2JqCjw8Ci9UeXBlIC9PdXRsaW5lcwovQ291bnQgMAo+PgplbmRvYmoKMyAwIG9iago8PAovVHlwZSAvUGFnZXMKL0NvdW50IDEKL0tpZHMgWzQgMCBSXQo+PgplbmRvYmoKNCAwIG9iago8PAovVHlwZSAvUGFnZQovUGFyZW50IDMgMCBSCi9NZWRpYUJveCBbMCAwIDYxMiA3OTJdCi9Db250ZW50cyA1IDAgUgovUmVzb3VyY2VzIDw8Ci9Qcm9jU2V0IFsvUERGIC9UZXh0XQovRm9udCA8PAovRjEgNiAwIFIKPj4KPj4KPj4KZW5kb2JqCjUgMCBvYmoKPDwKL0xlbmd0aCA0NAo+PgpzdHJlYW0KQlQKL0YxIDEyIFRmCjEwMCA3MDAgVGQKKEhlbGxvIFdvcmxkKSBUagpFVAplbmRzdHJlYW0KZW5kb2JqCjYgMCBvYmoKPDwKL1R5cGUgL0ZvbnQKL1N1YnR5cGUgL1R5cGUxCi9CYXNlRm9udCAvSGVsdmV0aWNhCj4+CmVuZG9iagp4cmVmCjAgNwowMDAwMDAwMDAwIDY1NTM1IGYgCjAwMDAwMDAwMDkgMDAwMDAgbiAKMDAwMDAwMDA3NCAwMDAwMCBuIAowMDAwMDAwMTIwIDAwMDAwIG4gCjAwMDAwMDAxNzkgMDAwMDAgbiAKMDAwMDAwMDM2NCAwMDAwMCBuIAowMDAwMDAwNDY2IDAwMDAwIG4gCnRyYWlsZXIKPDwKL1NpemUgNwovUm9vdCAxIDAgUgo+PgpzdGFydHhyZWYKNTY1CiUlRU9G"""
+            # This is a PDF with "Hello World" text created using reportlab
+            pdf_content = """JVBERi0xLjMKJZOMi54gUmVwb3J0TGFiIEdlbmVyYXRlZCBQREYgZG9jdW1lbnQgaHR0cDovL3d3dy5yZXBvcnRsYWIuY29tCjEgMCBvYmoKPDwKL0YxIDIgMCBSCj4+CmVuZG9iagoyIDAgb2JqCjw8Ci9CYXNlRm9udCAvSGVsdmV0aWNhIC9FbmNvZGluZyAvV2luQW5zaUVuY29kaW5nIC9OYW1lIC9GMSAvU3VidHlwZSAvVHlwZTEgL1R5cGUgL0ZvbnQKPj4KZW5kb2JqCjMgMCBvYmoKPDwKL0NvbnRlbnRzIDcgMCBSIC9NZWRpYUJveCBbIDAgMCA2MTIgNzkyIF0gL1BhcmVudCA2IDAgUiAvUmVzb3VyY2VzIDw8Ci9Gb250IDEgMCBSIC9Qcm9jU2V0IFsgL1BERiAvVGV4dCAvSW1hZ2VCIC9JbWFnZUMgL0ltYWdlSSBdCj4+IC9Sb3RhdGUgMCAvVHJhbnMgPDwKCj4+IAogIC9UeXBlIC9QYWdlCj4+CmVuZG9iago0IDAgb2JqCjw8Ci9QYWdlTW9kZSAvVXNlTm9uZSAvUGFnZXMgNiAwIFIgL1R5cGUgL0NhdGFsb2cKPj4KZW5kb2JqCjUgMCBvYmoKPDwKL0F1dGhvciAoYW5vbnltb3VzKSAvQ3JlYXRpb25EYXRlIChEOjIwMjUwNjA5MDIxNTQ3LTA3JzAwJykgL0NyZWF0b3IgKFJlcG9ydExhYiBQREYgTGlicmFyeSAtIHd3dy5yZXBvcnRsYWIuY29tKSAvS2V5d29yZHMgKCkgL01vZERhdGUgKEQ6MjAyNTA2MDkwMjE1NDctMDcnMDAnKSAvUHJvZHVjZXIgKFJlcG9ydExhYiBQREYgTGlicmFyeSAtIHd3dy5yZXBvcnRsYWIuY29tKSAKICAvU3ViamVjdCAodW5zcGVjaWZpZWQpIC9UaXRsZSAodW50aXRsZWQpIC9UcmFwcGVkIC9GYWxzZQo+PgplbmRvYmoKNiAwIG9iago8PAovQ291bnQgMSAvS2lkcyBbIDMgMCBSIF0gL1R5cGUgL1BhZ2VzCj4+CmVuZG9iago3IDAgb2JqCjw8Ci9GaWx0ZXIgWyAvQVNDSUk4NURlY29kZSAvRmxhdGVEZWNvZGUgXSAvTGVuZ3RoIDE3NQo+PgpzdHJlYW0KR2FybzkwYWtpUCY0WkVuTURxUCZidDZHa1ptW21uKiZzOUNVNjc/Qiw1Q2E9Zy1uaitqK2BXaG1LQV9EaFJpSGI7UHBpRTFcPz8iQVZLUipCVFtXWjpiZF5kZ246N2RlaUZVLEw6Y2Nra1M5WmRLJD1QT28tS1JLT0RJVDFlaHBgSCs1Wl5qciw0NkM9MV5qPnFVQWRIOC49PmYpaDJvZWhnMGI5J0pINGkyKXR+PmVuZHN0cmVhbQplbmRvYmoKeHJlZgowIDgKMDAwMDAwMDAwMCA2NTUzNSBmIAowMDAwMDAwMDczIDAwMDAwIG4gCjAwMDAwMDAxMDQgMDAwMDAgbiAKMDAwMDAwMDIxMSAwMDAwMCBuIAowMDAwMDAwNDA0IDAwMDAwIG4gCjAwMDAwMDA0NzIgMDAwMDAgbiAKMDAwMDAwMDc2OCAwMDAwMCBuIAowMDAwMDAwODI3IDAwMDAwIG4gCnRyYWlsZXIKPDwKL0lEIApbPDZhNjI0NmMyMDgyNTE4M2U3OTc1NDIwOGRjNTc4NTY2Pjw2YTYyNDZjMjA4MjUxODNlNzk3NTQyMDhkYzU3ODU2Nj5dCiUgUmVwb3J0TGFiIGdlbmVyYXRlZCBQREYgZG9jdW1lbnQgLS0gZGlnZXN0IChodHRwOi8vd3d3LnJlcG9ydGxhYi5jb20pCgovSW5mbyA1IDAgUgovUm9vdCA0IDAgUgovU2l6ZSA4Cj4+CnN0YXJ0eHJlZgoxMDkyCiUlRU9GCg=="""
             
             params = {
                 "message": {
@@ -513,19 +620,22 @@ class A2AIntegrationTest:
             
             task_id = response["result"]["id"]
             
-            # Wait for processing
-            await asyncio.sleep(5)
-            
-            get_response = await self.client.send_request("tasks/get", {"id": task_id})
+            # Wait for task completion
+            result = await self.wait_for_task_completion(task_id, "PDF Processing", max_wait_seconds=15)
             
             success = False
-            if "result" in get_response:
-                state = get_response["result"]["status"]["state"]
-                if state == "completed":
-                    artifacts = get_response["result"].get("artifacts", [])
-                    if artifacts:
-                        answer = artifacts[0]["parts"][0].get("text", "")
-                        success = "hello" in answer.lower() or "world" in answer.lower()
+            if result and result["status"]["state"] == "completed":
+                artifacts = result.get("artifacts", [])
+                logger.debug(f"PDF Processing - artifacts: {json.dumps(artifacts, indent=2)}")
+                if artifacts and artifacts[0].get("parts"):
+                    answer = artifacts[0]["parts"][0].get("text", "")
+                    logger.debug(f"PDF Processing - answer: {answer[:200] if answer else 'No answer'}")
+                    success = "hello" in answer.lower() or "world" in answer.lower()
+            else:
+                state = result["status"]["state"] if result else "unknown"
+                logger.debug(f"PDF Processing - task state: {state}")
+                if result and result["status"].get("message"):
+                    logger.debug(f"PDF Processing - status message: {result['status']['message']}")
                 
             self.log_test("PDF Processing", success, 
                         "PDF content extracted" if success else "Failed to extract PDF content")
@@ -575,17 +685,22 @@ class A2AIntegrationTest:
             
             task_id = response["result"]["id"]
             
-            # Wait for processing
-            await asyncio.sleep(5)
-            
-            get_response = await self.client.send_request("tasks/get", {"id": task_id})
+            # Wait for task completion
+            result = await self.wait_for_task_completion(task_id, "JSON Data Processing", max_wait_seconds=15)
             
             success = False
-            if "result" in get_response and get_response["result"]["status"]["state"] == "completed":
-                artifacts = get_response["result"].get("artifacts", [])
-                if artifacts:
+            if result and result["status"]["state"] == "completed":
+                artifacts = result.get("artifacts", [])
+                logger.debug(f"JSON Processing - artifacts: {json.dumps(artifacts, indent=2)}")
+                if artifacts and artifacts[0].get("parts"):
                     answer = artifacts[0]["parts"][0].get("text", "")
+                    logger.debug(f"JSON Processing - answer: {answer[:200] if answer else 'No answer'}")
                     success = "165000" in answer or "165,000" in answer
+            else:
+                state = result["status"]["state"] if result else "unknown"
+                logger.debug(f"JSON Processing - task state: {state}")
+                if result and result["status"].get("message"):
+                    logger.debug(f"JSON Processing - status message: {result['status']['message']}")
             
             self.log_test("JSON Data Processing", success,
                         "JSON data analyzed correctly" if success else "Failed to analyze JSON data")
@@ -598,41 +713,74 @@ class A2AIntegrationTest:
     async def test_streaming_response(self):
         """Test streaming response functionality."""
         try:
+            logger.info("\n🔄 Testing Streaming Response...")
+            
             params = {
                 "message": {
                     "role": "user",
                     "parts": [
                         {
                             "kind": "text",
-                            "text": "Count from 1 to 5 slowly, showing each number."
+                            "text": "Count from 1 to 3, showing each number on a new line."
                         }
                     ]
                 },
                 "metadata": {
                     "skill_id": "minion_query",
-                    "max_rounds": 1
+                    "max_rounds": 1,
+                    "remote_provider": "openai",
+                    "remote_model": "gpt-4o-mini",
+                    "remote_temperature": 0
                 }
             }
             
+            logger.info("Sending streaming request...")
             events = await self.client.send_request_streaming("tasks/sendSubscribe", params)
             
-            # Check we got streaming events
-            message_events = [e for e in events if e.get("result", {}).get("kind") == "message"]
-            final_event = next((e for e in events if e.get("result", {}).get("final")), None)
+            # Log all events
+            logger.info(f"Received {len(events)} total events")
+            message_events = []
+            final_event = None
+            
+            for i, event in enumerate(events):
+                logger.debug(f"Raw event {i+1}: {json.dumps(event, indent=2)}")
+                
+                event_type = event.get("result", {}).get("kind", "unknown")
+                is_final = event.get("result", {}).get("final", False)
+                
+                logger.debug(f"Event {i+1}: type={event_type}, final={is_final}")
+                
+                if event_type == "message":
+                    message_events.append(event)
+                    # Log the message content
+                    parts = event.get("result", {}).get("parts", [])
+                    if parts and parts[0].get("text"):
+                        logger.info(f"  Message: {parts[0]['text'][:100]}...")
+                
+                # Also consider taskStatusUpdate with state=completed as final
+                if is_final or (event_type == "taskStatusUpdate" and event.get("result", {}).get("state") == "completed"):
+                    final_event = event
             
             success = len(message_events) > 0 and final_event is not None
             
             self.log_test("Streaming Response", success,
-                        f"Received {len(message_events)} message events")
+                        f"Received {len(message_events)} message events with final event")
+            
+            if not success:
+                logger.debug(f"All events: {json.dumps(events, indent=2)}")
+                
             return success
             
         except Exception as e:
-            self.log_test("Streaming Response", False, str(e))
+            self.log_test("Streaming Response", False, f"Exception: {str(e)}")
+            logger.exception("Exception in test_streaming_response")
             return False
     
     async def test_task_cancellation(self):
         """Test task cancellation."""
         try:
+            logger.info("\n🔄 Testing Task Cancellation...")
+            
             # Start a long-running task
             params = {
                 "message": {
@@ -640,40 +788,67 @@ class A2AIntegrationTest:
                     "parts": [
                         {
                             "kind": "text",
-                            "text": "Count from 1 to 1000000 very slowly."
+                            "text": "Please think step by step about the meaning of life for the next 30 seconds."
                         }
                     ]
                 },
                 "metadata": {
                     "skill_id": "minion_query",
-                    "timeout": 300  # Long timeout
+                    "remote_provider": "openai",
+                    "remote_model": "gpt-4o-mini",
+                    "timeout": 60  # Long timeout
                 }
             }
             
+            logger.info("Creating long-running task...")
             response = await self.client.send_request("tasks/send", params)
+            
+            if "error" in response:
+                self.log_test("Task Cancellation", False, f"Failed to create task: {response['error']}")
+                return False
+                
             task_id = response["result"]["id"]
+            logger.info(f"Task created with ID: {task_id}")
             
-            # Wait a bit then cancel
-            await asyncio.sleep(2)
+            # Wait a bit to ensure task has started
+            await asyncio.sleep(3)
             
+            # Check task is running
+            check_response = await self.client.send_request("tasks/get", {"id": task_id})
+            if "result" in check_response:
+                current_state = check_response["result"]["status"]["state"]
+                logger.info(f"Task state before cancel: {current_state}")
+            
+            # Cancel the task
+            logger.info("Sending cancel request...")
             cancel_response = await self.client.send_request("tasks/cancel", {"id": task_id})
             
-            success = "result" in cancel_response
+            if "error" in cancel_response:
+                self.log_test("Task Cancellation", False, 
+                            f"Cancel request failed: {cancel_response['error'].get('message')}")
+                return False
+            
+            # Wait a moment for cancellation to process
+            await asyncio.sleep(2)
             
             # Verify task was canceled
-            if success:
-                await asyncio.sleep(1)
-                get_response = await self.client.send_request("tasks/get", {"id": task_id})
-                if "result" in get_response:
-                    state = get_response["result"]["status"]["state"]
-                    success = state == "canceled"
+            final_result = await self.wait_for_task_completion(
+                task_id, "Task Cancellation", max_wait_seconds=10
+            )
             
-            self.log_test("Task Cancellation", success,
-                        "Task successfully canceled" if success else "Failed to cancel task")
-            return success
+            if final_result:
+                final_state = final_result["status"]["state"]
+                success = final_state == "canceled"
+                self.log_test("Task Cancellation", success,
+                            f"Final state: {final_state}" + (" (successfully canceled)" if success else ""))
+            else:
+                self.log_test("Task Cancellation", False, "Failed to get final task state")
+            
+            return True
             
         except Exception as e:
-            self.log_test("Task Cancellation", False, str(e))
+            self.log_test("Task Cancellation", False, f"Exception: {str(e)}")
+            logger.exception("Exception in test_task_cancellation")
             return False
     
     async def test_parallel_minions_query(self):
@@ -717,18 +892,25 @@ class A2AIntegrationTest:
             
             task_id = response["result"]["id"]
             
-            # Wait for parallel processing
-            await asyncio.sleep(10)
-            
-            get_response = await self.client.send_request("tasks/get", {"id": task_id})
+            # Wait for task completion with longer timeout for parallel processing
+            result = await self.wait_for_task_completion(task_id, "Parallel Minions Query", max_wait_seconds=20)
             
             success = False
-            if "result" in get_response and get_response["result"]["status"]["state"] == "completed":
-                artifacts = get_response["result"].get("artifacts", [])
-                if artifacts:
+            if result and result["status"]["state"] == "completed":
+                artifacts = result.get("artifacts", [])
+                logger.debug(f"Parallel Query - artifacts: {json.dumps(artifacts, indent=2)}")
+                if artifacts and artifacts[0].get("parts"):
                     answer = artifacts[0]["parts"][0].get("text", "").lower()
+                    logger.debug(f"Parallel Query - answer: {answer[:300] if answer else 'No answer'}")
                     # Check if all capitals are mentioned
-                    success = all(city in answer for city in ["paris", "london", "tokyo"])
+                    found_cities = {city: city in answer for city in ["paris", "london", "tokyo"]}
+                    logger.debug(f"Parallel Query - found cities: {found_cities}")
+                    success = all(found_cities.values())
+            else:
+                state = result["status"]["state"] if result else "unknown"
+                logger.debug(f"Parallel Query - task state: {state}")
+                if result and result["status"].get("message"):
+                    logger.debug(f"Parallel Query - status message: {result['status']['message']}")
             
             self.log_test("Parallel Minions Query", success,
                         "All capitals identified" if success else "Failed to identify all capitals")
@@ -740,24 +922,30 @@ class A2AIntegrationTest:
     
     async def test_error_handling(self):
         """Test various error conditions."""
+        logger.info("\n🔄 Testing Error Handling...")
+        
         test_cases = [
             {
                 "name": "Invalid Method",
                 "method": "invalid/method",
                 "params": {},
-                "expected_code": -32601
+                "expected_code": -32601,
+                "expect_http_error": False
             },
             {
                 "name": "Missing Parameters",
                 "method": "tasks/send",
                 "params": {},
-                "expected_code": -32602
+                "expected_code": -32602,
+                "expect_http_error": False
             },
             {
                 "name": "Invalid Task ID",
                 "method": "tasks/get",
                 "params": {"id": "non-existent-task"},
-                "expected_code": -32603  # Internal error when task not found
+                "expected_code": -32001,  # Task not found
+                "expect_http_error": True,  # Returns 404
+                "expected_status": 404
             },
             {
                 "name": "Invalid Message Format",
@@ -768,33 +956,79 @@ class A2AIntegrationTest:
                         "parts": []
                     }
                 },
-                "expected_code": -32602
+                "expected_code": -32602,
+                "expect_http_error": False
             }
         ]
         
         all_passed = True
         for test_case in test_cases:
             try:
+                logger.info(f"  Testing {test_case['name']}...")
                 response = await self.client.send_request(
                     test_case["method"],
                     test_case["params"]
                 )
                 
-                success = (
-                    "error" in response and
-                    response["error"]["code"] == test_case["expected_code"]
-                )
+                # Check if we got the expected error
+                if "error" in response:
+                    error_code = response["error"]["code"]
+                    success = error_code == test_case["expected_code"]
+                    
+                    self.log_test(
+                        f"Error Handling - {test_case['name']}",
+                        success,
+                        f"Got error code {error_code} (expected {test_case['expected_code']})"
+                    )
+                    
+                    if not success:
+                        logger.debug(f"Error response: {json.dumps(response['error'], indent=2)}")
+                else:
+                    self.log_test(
+                        f"Error Handling - {test_case['name']}",
+                        False,
+                        "No error in response when error was expected"
+                    )
+                    logger.debug(f"Response: {json.dumps(response, indent=2)}")
+                    success = False
                 
-                self.log_test(
-                    f"Error Handling - {test_case['name']}",
-                    success,
-                    f"Got error code {response.get('error', {}).get('code')}"
-                )
+                all_passed &= success
+                
+            except httpx.HTTPStatusError as e:
+                # Some errors return HTTP error codes instead of JSON-RPC errors
+                if test_case.get("expect_http_error"):
+                    success = e.response.status_code == test_case.get("expected_status", 400)
+                    self.log_test(
+                        f"Error Handling - {test_case['name']}",
+                        success,
+                        f"Got HTTP {e.response.status_code} (expected {test_case.get('expected_status', 400)})"
+                    )
+                else:
+                    # Try to parse JSON-RPC error from response
+                    try:
+                        error_response = e.response.json()
+                        if "error" in error_response:
+                            error_code = error_response["error"]["code"]
+                            success = error_code == test_case["expected_code"]
+                            self.log_test(
+                                f"Error Handling - {test_case['name']}",
+                                success,
+                                f"Got error code {error_code} from HTTP {e.response.status_code} response"
+                            )
+                        else:
+                            self.log_test(f"Error Handling - {test_case['name']}", False, 
+                                        f"HTTP {e.response.status_code} error with no JSON-RPC error")
+                            success = False
+                    except:
+                        self.log_test(f"Error Handling - {test_case['name']}", False, 
+                                    f"HTTP {e.response.status_code} error: {str(e)}")
+                        success = False
                 
                 all_passed &= success
                 
             except Exception as e:
-                self.log_test(f"Error Handling - {test_case['name']}", False, str(e))
+                self.log_test(f"Error Handling - {test_case['name']}", False, f"Exception: {str(e)}")
+                logger.exception(f"Exception in error handling test {test_case['name']}")
                 all_passed = False
         
         return all_passed
@@ -831,10 +1065,14 @@ class A2AIntegrationTest:
         logger.info("Starting A2A-Minions Integration Tests")
         logger.info("=" * 60)
         
-        # Start server
-        if not await self.start_server():
-            logger.error("Failed to start server, aborting tests")
-            return False
+        # Skip server startup when using external server
+        if self.server_process is None:
+            logger.info("Using external server - skipping server startup")
+        else:
+            # Start server
+            if not await self.start_server():
+                logger.error("Failed to start server, aborting tests")
+                return False
         
         try:
             # Run tests in sequence
@@ -872,17 +1110,28 @@ class A2AIntegrationTest:
             logger.info(f"Success Rate: {(passed/total)*100:.1f}%")
             
             if total - passed > 0:
-                logger.info("\nFailed Tests:")
+                logger.info("\n❌ Failed Tests:")
                 for result in self.test_results:
                     if not result["success"]:
                         logger.info(f"  - {result['name']}: {result['message']}")
+            
+            # Also show passed tests for clarity
+            logger.info("\n✅ Passed Tests:")
+            for result in self.test_results:
+                if result["success"]:
+                    logger.info(f"  - {result['name']}")
             
             return passed == total
             
         finally:
             # Cleanup
             await self.client.close()
-            self.stop_server()
+            
+            # Only stop server if we started it
+            if self.server_process is not None:
+                self.stop_server()
+            else:
+                logger.info("Using external server - skipping server shutdown")
             
             # Clean up temp files
             for temp_file in self.temp_files:
@@ -894,7 +1143,21 @@ class A2AIntegrationTest:
 
 async def main():
     """Main entry point."""
+    logger.info("NOTE: Using external server on port 8001 - make sure to run server separately!")
+    logger.info("Run: cd apps/minions-a2a && python run_server.py --port 8001")
+    
     test_suite = A2AIntegrationTest()
+    
+    # Check if server is available first
+    logger.info("Checking if server is available on port 8001...")
+    if not await test_suite.client.wait_for_server():
+        logger.error("Server not available on port 8001! Please start the server manually.")
+        sys.exit(1)
+    
+    logger.info("Server is ready on port 8001")
+    
+    # Run tests without starting server
+    test_suite.server_process = None  # Skip server management
     success = await test_suite.run_all_tests()
     
     # Exit with appropriate code

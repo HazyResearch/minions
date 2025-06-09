@@ -219,23 +219,21 @@ class TaskManager:
         return task
     
     async def execute_task(self, task_id: str) -> None:
-        """Execute a task using the Minions protocol."""
+        """Execute a task."""
         
         if task_id not in self.tasks:
-            logger.error(f"Task not found: {task_id}")
+            logger.error(f"Task {task_id} not found")
             return
         
         task = self.tasks[task_id]
-        skill_id = None
+        # Extract message from history and metadata
+        # The first message in history is the original user message
+        message = A2AMessage(**task["history"][0])
+        metadata = TaskMetadata(**task.get("metadata", {}))
         
         try:
-            # Update task status
-            await self.update_task_status(task_id, TaskState.WORKING)
-            
-            # Extract message from history and metadata
-            # The first message in history is the original user message
-            message = A2AMessage(**task["history"][0])
-            metadata = TaskMetadata(**task.get("metadata", {}))
+            # Update status to working
+            await self.update_task_status(task_id, TaskState.WORKING, "Task is being processed")
             
             # Get timeout from metadata
             timeout = metadata.timeout
@@ -244,6 +242,9 @@ class TaskManager:
             logger.info(f"Executing skill: {skill_id} for task: {task_id} with timeout: {timeout}s")
             
             with metrics_manager.track_task(skill_id):
+                # Capture the current event loop before entering the executor
+                current_loop = asyncio.get_running_loop()
+                
                 # Define streaming callback for real-time updates
                 def streaming_callback(role: str, message: Any, is_final: bool = True):
                     """Callback to send streaming updates."""
@@ -275,15 +276,13 @@ class TaskManager:
                             else:
                                 logger.warning(f"No queue found for task {task_id} when trying to put event")
                         
-                        # Get the running event loop
+                        # Schedule the coroutine in a thread-safe manner using the captured loop
                         try:
-                            loop = asyncio.get_running_loop()
-                        except RuntimeError:
-                            # If no loop is running, try to get the main loop
-                            loop = asyncio.get_event_loop()
-                        
-                        # Schedule the coroutine in a thread-safe manner
-                        asyncio.run_coroutine_threadsafe(put_event(), loop)
+                            future = asyncio.run_coroutine_threadsafe(put_event(), current_loop)
+                            # Don't wait for the result to avoid blocking the callback
+                            # future.result() would block, so we just schedule it
+                        except Exception as e:
+                            logger.error(f"Failed to schedule streaming event: {e}")
                     
                     except Exception as e:
                         logger.error(f"Error in streaming callback: {e}")
@@ -650,12 +649,16 @@ class A2AMinionsServer:
         # Add metrics endpoint
         self.app.get("/metrics")(create_metrics_endpoint())
         
+        # Create a no-op async dependency function
+        async def no_auth():
+            return None
+        
         @self.app.post("/")
         async def handle_a2a_request(
             request: Request, 
             background_tasks: BackgroundTasks,
             token_data: Optional[TokenData] = Depends(
-                self.auth_manager.authenticate if self.auth_config.require_auth else lambda: None
+                self.auth_manager.authenticate if self.auth_config.require_auth else no_auth
             )
         ):
             """Handle A2A JSON-RPC requests."""

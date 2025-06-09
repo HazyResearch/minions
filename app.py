@@ -92,8 +92,8 @@ API_PRICES = {
         "deepseek-chat": {"input": 0.27, "cached_input": 0.07, "output": 1.10},
         "deepseek-reasoner": {"input": 0.27, "cached_input": 0.07, "output": 1.10},
     },
-
     "Gemini": {
+        "gemini-2.5-pro-exp-06-05": {"input": 1.25, "cached_input": 0.075, "output": 10.0},
         "gemini-2.5-flash": {"input": 0.15, "cached_input": 0.075, "output": 0.60},
         "gemini-2.0-flash": {"input": 0.35, "cached_input": 0.175, "output": 1.05},
         "gemini-2.0-pro": {"input": 3.50, "cached_input": 1.75, "output": 10.50},
@@ -665,23 +665,30 @@ def initialize_clients(
         )
     elif provider == "Secure":
         # Get secure endpoint URL from session state or environment
-        secure_endpoint_url = st.session_state.get("secure_endpoint_url") or os.getenv("SECURE_ENDPOINT_URL")
+        secure_endpoint_url = st.session_state.get("secure_endpoint_url") or os.getenv(
+            "SECURE_ENDPOINT_URL"
+        )
         verify_attestation = st.session_state.get("verify_attestation", True)
         session_timeout = st.session_state.get("session_timeout", 3600)
-        
+
         if not secure_endpoint_url:
-            st.error("Secure endpoint URL is required. Please set it in the configuration.")
+            st.error(
+                "Secure endpoint URL is required. Please set it in the configuration."
+            )
             secure_endpoint_url = "https://localhost:8000"  # Default fallback
-        
+
         try:
             from minions.clients.secure import SecureClient
+
             st.session_state.remote_client = SecureClient(
                 endpoint_url=secure_endpoint_url,
                 verify_attestation=verify_attestation,
                 session_timeout=session_timeout,
             )
         except ImportError:
-            st.error("SecureClient is not available. Please ensure the secure module is properly installed.")
+            st.error(
+                "SecureClient is not available. Please ensure the secure module is properly installed."
+            )
             # Fallback to OpenAI client
             remote_model_name = "gpt-4o"
             st.session_state.remote_client = OpenAIClient(
@@ -1188,18 +1195,21 @@ def validate_secure_endpoint(endpoint_url):
     try:
         import requests
         from urllib.parse import urlparse
-        
+
         if not endpoint_url:
             return False, "Endpoint URL is required"
-        
+
         # Validate HTTPS protocol
         parsed_url = urlparse(endpoint_url)
-        if parsed_url.scheme != 'https':
-            return False, f"Secure endpoint must use HTTPS protocol. Got: {parsed_url.scheme}://{parsed_url.netloc}"
-        
+        if parsed_url.scheme != "https":
+            return (
+                False,
+                f"Secure endpoint must use HTTPS protocol. Got: {parsed_url.scheme}://{parsed_url.netloc}",
+            )
+
         if not parsed_url.netloc:
             return False, "Invalid endpoint URL format"
-        
+
         # Check if the endpoint is reachable
         response = requests.get(f"{endpoint_url}/health", timeout=10)
         if response.status_code == 200:
@@ -1268,12 +1278,16 @@ with st.sidebar:
     # Validate API key or endpoint
     if selected_provider == "Secure":
         # For secure client, validate the endpoint instead of API key
-        secure_endpoint_url = st.session_state.get("secure_endpoint_url") or os.getenv("SECURE_ENDPOINT_URL")
+        secure_endpoint_url = st.session_state.get("secure_endpoint_url") or os.getenv(
+            "SECURE_ENDPOINT_URL"
+        )
         if secure_endpoint_url:
             is_valid, msg = validate_secure_endpoint(secure_endpoint_url)
             provider_key = secure_endpoint_url  # Use endpoint URL as the "key"
         else:
-            st.error("**✗ Missing secure endpoint URL.** Use https://minions-tee.eastus2.cloudapp.azure.com:443 if you don't have a custom endpoint.")
+            st.error(
+                "**✗ Missing secure endpoint URL.** Use https://minions-tee.eastus2.cloudapp.azure.com:443 if you don't have a custom endpoint."
+            )
             provider_key = None
     elif api_key:
         if selected_provider == "OpenAI":
@@ -1302,7 +1316,9 @@ with st.sidebar:
             is_valid, msg = validate_sarvam_key(api_key)
         elif selected_provider == "Secure":
             # For secure client, validate the endpoint instead of API key
-            secure_endpoint_url = st.session_state.get("secure_endpoint_url") or os.getenv("SECURE_ENDPOINT_URL")
+            secure_endpoint_url = st.session_state.get(
+                "secure_endpoint_url"
+            ) or os.getenv("SECURE_ENDPOINT_URL")
             if secure_endpoint_url:
                 is_valid, msg = validate_secure_endpoint(secure_endpoint_url)
                 if is_valid:
@@ -1312,7 +1328,9 @@ with st.sidebar:
                     st.error(f"**✗ Secure endpoint validation failed.** {msg}")
                     provider_key = None
             else:
-                st.error("**✗ Missing secure endpoint URL.** Please configure the endpoint URL above.")
+                st.error(
+                    "**✗ Missing secure endpoint URL.** Please configure the endpoint URL above."
+                )
                 provider_key = None
         else:
             raise ValueError(f"Invalid provider: {selected_provider}")
@@ -1429,16 +1447,17 @@ with st.sidebar:
     # Add secure client configuration
     elif selected_provider == "Secure":
         st.subheader("🔒 Secure Client Configuration")
-        
+
         # Endpoint URL configuration
         secure_endpoint_url = st.text_input(
             "Secure Endpoint URL",
-            value=st.session_state.get("secure_endpoint_url", "") or os.getenv("SECURE_ENDPOINT_URL", ""),
+            value=st.session_state.get("secure_endpoint_url", "")
+            or os.getenv("SECURE_ENDPOINT_URL", ""),
             key="secure_endpoint_url",
             help="URL of the secure endpoint (e.g., https://minions-tee.eastus2.cloudapp.azure.com:443)",
-            placeholder="https://minions-tee.eastus2.cloudapp.azure.com:443"
+            placeholder="https://minions-tee.eastus2.cloudapp.azure.com:443",
         )
-        
+
         # Attestation verification toggle
         verify_attestation = st.toggle(
             "Verify Attestation",
@@ -1446,7 +1465,7 @@ with st.sidebar:
             key="verify_attestation",
             help="When enabled, verifies the endpoint's attestation for enhanced security. Disable only for testing.",
         )
-        
+
         # Session timeout configuration
         session_timeout = st.slider(
             "Session Timeout (seconds)",
@@ -1457,14 +1476,16 @@ with st.sidebar:
             key="session_timeout",
             help="How long the secure session remains active before requiring re-authentication.",
         )
-        
+
         if secure_endpoint_url:
             st.info(
                 "🔒 Secure client will establish an encrypted communication channel with end-to-end encryption "
                 "and optional attestation verification for enhanced security."
             )
         else:
-            st.warning("⚠️ Please configure the secure endpoint URL to use the secure client.")
+            st.warning(
+                "⚠️ Please configure the secure endpoint URL to use the secure client."
+            )
 
     else:
         # Clear these session state variables when a different provider is selected
@@ -1822,7 +1843,7 @@ with st.sidebar:
             default_model_index = 0
         elif selected_provider == "Gemini":
             model_mapping = {
-                "gemini-2.0-pro (Recommended)": "gemini-2.5-pro-exp-03-25",
+                "gemini-2.0-pro-preview-06-05 (Recommended)": "gemini-2.5-pro-exp-06-05",
                 "gemini-2.5-flash-preview": "gemini-2.5-flash-preview-05-20",
                 "gemini-2.5-pro-preview": "gemini-2.5-pro-preview-05-06",
                 "gemini-2.0-flash": "gemini-2.0-flash",
@@ -1865,7 +1886,7 @@ with st.sidebar:
                 "Gemini 1.5 Pro": "google/gemini-1.5-pro",
             }
             default_model_index = 0
-        elif selected_provider == "Anthropic":  
+        elif selected_provider == "Anthropic":
             model_mapping = {
                 "Claude 4 Opus (Recommended)": "claude-opus-4-20250514",
                 "Claude 4 Sonnet (Recommended)": "claude-sonnet-4-20250514",
@@ -1925,27 +1946,34 @@ with st.sidebar:
             default_model_index = 0
         elif selected_provider == "Secure":
             # Get secure endpoint URL from session state or environment
-            secure_endpoint_url = st.session_state.get("secure_endpoint_url") or os.getenv("SECURE_ENDPOINT_URL")
+            secure_endpoint_url = st.session_state.get(
+                "secure_endpoint_url"
+            ) or os.getenv("SECURE_ENDPOINT_URL")
             verify_attestation = st.session_state.get("verify_attestation", True)
             session_timeout = st.session_state.get("session_timeout", 3600)
             model_mapping = {
                 "gemma3-27B (Recommended)": "gemma3-27B",
             }
             default_model_index = 0
-            
+
             if not secure_endpoint_url:
-                st.error("Secure endpoint URL is required. Please set it in the configuration.")
+                st.error(
+                    "Secure endpoint URL is required. Please set it in the configuration."
+                )
                 secure_endpoint_url = "https://localhost:8000"  # Default fallback
-            
+
             try:
                 from minions.clients.secure import SecureClient
+
                 st.session_state.remote_client = SecureClient(
-                    endpoint_url=secure_endpoint_url,                
+                    endpoint_url=secure_endpoint_url,
                     verify_attestation=verify_attestation,
                     session_timeout=session_timeout,
                 )
             except ImportError:
-                st.error("SecureClient is not available. Please ensure the secure module is properly installed.")
+                st.error(
+                    "SecureClient is not available. Please ensure the secure module is properly installed."
+                )
                 # Fallback to OpenAI client
                 remote_model_name = "gpt-4o"
                 st.session_state.remote_client = OpenAIClient(
@@ -2052,8 +2080,6 @@ with st.sidebar:
         )
 
         test_col1, test_col2 = st.sidebar.columns(2)
-
-     
 
         # Add CUA documentation and examples
         with st.sidebar.expander("ℹ️ CUA Automation Sample Tasks", expanded=False):
@@ -2475,8 +2501,12 @@ else:
                 # Token usage for both protocols
                 if "local_usage" in output and "remote_usage" in output:
                     st.header("Token Usage")
-                    local_total = getattr(output["local_usage"], "prompt_tokens", 0) + getattr(output["local_usage"], "completion_tokens", 0)
-                    remote_total = getattr(output["remote_usage"], "prompt_tokens", 0) + getattr(output["remote_usage"], "completion_tokens", 0)
+                    local_total = getattr(
+                        output["local_usage"], "prompt_tokens", 0
+                    ) + getattr(output["local_usage"], "completion_tokens", 0)
+                    remote_total = getattr(
+                        output["remote_usage"], "prompt_tokens", 0
+                    ) + getattr(output["remote_usage"], "completion_tokens", 0)
                     c1, c2 = st.columns(2)
                     c1.metric(
                         f"{local_model_name} (Local) Total Tokens",
@@ -2524,7 +2554,8 @@ else:
                         st.header("Remote Model Cost")
                         pricing = API_PRICES[selected_provider][remote_model_name]
                         prompt_cost = (
-                            getattr(output["remote_usage"], "prompt_tokens", 0) / 1_000_000
+                            getattr(output["remote_usage"], "prompt_tokens", 0)
+                            / 1_000_000
                         ) * pricing["input"]
                         completion_cost = (
                             getattr(output["remote_usage"], "completion_tokens", 0)

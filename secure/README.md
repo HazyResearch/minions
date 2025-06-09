@@ -7,6 +7,8 @@ This guide covers two secure communication protocols in the Minions ecosystem:
 
 Both protocols provide end-to-end encryption, attestation verification, and secure communication channels.
 
+> **Note**: Minions Secure is a research prototype released solely to enable latency measurements of LLM inference. The current code has not been audited, so please treat it as an academic demo rather than hardened infrastructure.
+
 ## Table of Contents
 
 - [Prerequisites](#prerequisites)

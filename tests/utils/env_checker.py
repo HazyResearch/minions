@@ -28,6 +28,7 @@ class APIKeyChecker:
         'cartesia': 'CARTESIA_API_KEY',
         'openrouter': 'OPENROUTER_API_KEY',
         'tokasaurus': 'TOKASAURUS_API_KEY',
+        'lemonade': 'LEMONADE_BASE_URL',
     }
     
     @classmethod

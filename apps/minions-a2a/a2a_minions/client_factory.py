@@ -53,6 +53,7 @@ class ClientFactory:
         from minions.clients.deepseek import DeepSeekClient
         from minions.clients.groq import GroqClient
         from minions.clients.gemini import GeminiClient
+        from minions.clients.lemonade import LemonadeClient
         
         # Store references
         self.Minion = Minion
@@ -65,6 +66,7 @@ class ClientFactory:
             ProviderType.DEEPSEEK: DeepSeekClient,
             ProviderType.GROQ: GroqClient,
             ProviderType.GEMINI: GeminiClient,
+            ProviderType.LEMONADE: LemonadeClient,
         }
         
         # Try to import optional clients

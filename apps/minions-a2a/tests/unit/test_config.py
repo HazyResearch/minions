@@ -31,6 +31,7 @@ class TestEnums(unittest.TestCase):
             ("deepseek", ProviderType.DEEPSEEK),
             ("gemini", ProviderType.GEMINI),
             ("groq", ProviderType.GROQ),
+            ("lemonade", ProviderType.LEMONADE),
             ("mlx", ProviderType.MLX),
             ("cartesia-mlx", ProviderType.CARTESIA_MLX)
         ]

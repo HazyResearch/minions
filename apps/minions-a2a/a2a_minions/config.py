@@ -23,6 +23,7 @@ class ProviderType(str, Enum):
     DEEPSEEK = "deepseek"
     GEMINI = "gemini"
     GROQ = "groq"
+    LEMONADE = "lemonade"
     MLX = "mlx"
     CARTESIA_MLX = "cartesia-mlx"
 

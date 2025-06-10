@@ -48,7 +48,7 @@ All notable changes to the secure minions module will be documented in this file
 ## [2025-05-29]
 
 ### Added
-- Secure hybrid minions functionality
+- Secure minions functionality (local llm - remote llm).
 
 ## [2025-05-18]
 
@@ -94,7 +94,6 @@ All notable changes to the secure minions module will be documented in this file
 ## [2025-05-11]
 
 ### Added
-- NVIDIA secure verifier for attestation
 - Enhanced attestation verification system
 - Secure chat server details
 

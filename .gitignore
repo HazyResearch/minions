@@ -23,6 +23,9 @@ wheels/
 .installed.cfg
 *.egg
 
+/minions_logs
+
+
 # Virtual Environment
 venv/
 env/
@@ -52,3 +55,8 @@ chroma/
 
 # Ignore worker keys file
 worker_keys.json
+
+# Ignore keyfiles for minions-a2a
+api_keys.json
+oauth2_clients.json
+minion_logs/

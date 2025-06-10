@@ -1,0 +1,1138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>A2A-Minions Web Interface</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .task-result {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .streaming-update {
+            animation: fadeIn 0.3s ease-in;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+        }
+        .status-running { background-color: #fbbf24; animation: pulse 2s infinite; }
+        .status-completed { background-color: #10b981; }
+        .status-failed { background-color: #ef4444; }
+        .status-unknown { background-color: #6b7280; }
+    </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+    <div class="container mx-auto p-6 max-w-6xl">
+        <!-- Header -->
+        <header class="mb-8">
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h1 class="text-3xl font-bold text-gray-900 mb-2">
+                            <i class="fas fa-robot text-blue-600 mr-3"></i>
+                            A2A-Minions Web Interface
+                        </h1>
+                        <p class="text-gray-600">Agent-to-Agent communication with the Minions protocol</p>
+                    </div>
+                    <div class="flex items-center space-x-4">
+                        <div id="server-status" class="flex items-center">
+                            <span class="status-indicator status-unknown"></span>
+                            <span class="text-sm text-gray-600">Checking server...</span>
+                        </div>
+                        <button onclick="checkHealth()" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors">
+                            <i class="fas fa-heartbeat mr-2"></i>
+                            Check Health
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <!-- Query Form -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h2 class="text-xl font-semibold mb-4 text-gray-800">
+                    <i class="fas fa-paper-plane text-green-600 mr-2"></i>
+                    Send Query
+                </h2>
+
+                <form id="query-form" class="space-y-4">
+                    <!-- Skill Selection -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Processing Type</label>
+                        <select id="skill-id" name="skill_id" class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <option value="minion_query">Focused Analysis (minion_query)</option>
+                            <option value="minions_query">Parallel Processing (minions_query)</option>
+                        </select>
+                        <p class="text-xs text-gray-500 mt-1">Focused for quick answers, Parallel for complex analysis</p>
+                    </div>
+
+                    <!-- Query Text -->
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Your Question</label>
+                        <textarea id="query" name="query" rows="3" 
+                                  class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                  placeholder="What would you like to know?"></textarea>
+                    </div>
+
+                    <!-- Input Tabs -->
+                    <div>
+                        <div class="border-b border-gray-200">
+                            <nav class="-mb-px flex space-x-8">
+                                <button type="button" onclick="switchTab('text')" 
+                                        class="tab-button py-2 px-1 border-b-2 font-medium text-sm border-blue-500 text-blue-600" 
+                                        data-tab="text">
+                                    <i class="fas fa-file-text mr-1"></i>Text Context
+                                </button>
+                                <button type="button" onclick="switchTab('file')" 
+                                        class="tab-button py-2 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300" 
+                                        data-tab="file">
+                                    <i class="fas fa-file-upload mr-1"></i>File Upload
+                                </button>
+                                <button type="button" onclick="switchTab('json')" 
+                                        class="tab-button py-2 px-1 border-b-2 font-medium text-sm border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300" 
+                                        data-tab="json">
+                                    <i class="fas fa-code mr-1"></i>JSON Data
+                                </button>
+                            </nav>
+                        </div>
+
+                        <!-- Text Context Tab -->
+                        <div id="text-tab" class="tab-content mt-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Context Text</label>
+                            <textarea id="context" name="context" rows="4" 
+                                      class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                      placeholder="Provide any relevant context, documents, or information..."></textarea>
+                        </div>
+
+                        <!-- File Upload Tab -->
+                        <div id="file-tab" class="tab-content mt-4 hidden">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">Upload File</label>
+                            <input type="file" id="file-upload" accept=".txt,.pdf,.json,.csv,.md" 
+                                   class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            <p class="text-xs text-gray-500 mt-1">Supported: PDF, TXT, JSON, CSV, Markdown (max 50MB)</p>
+                        </div>
+
+                        <!-- JSON Data Tab -->
+                        <div id="json-tab" class="tab-content mt-4 hidden">
+                            <label class="block text-sm font-medium text-gray-700 mb-2">JSON Data</label>
+                            <textarea id="json-data" name="json_data" rows="4" 
+                                      class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm"
+                                      placeholder='{"key": "value", "data": {"nested": "structure"}}'></textarea>
+                            <p class="text-xs text-gray-500 mt-1">Provide structured data for analysis</p>
+                        </div>
+                    </div>
+
+                    <!-- Advanced Options -->
+                    <details class="border border-gray-200 rounded-lg">
+                        <summary class="cursor-pointer p-3 bg-gray-50 rounded-lg font-medium text-gray-700">
+                            <i class="fas fa-cogs mr-2"></i>Advanced Options
+                        </summary>
+                        <div class="p-4 space-y-4">
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Max Rounds</label>
+                                    <input type="number" id="max-rounds" value="2" min="1" max="10" 
+                                           class="w-full border border-gray-300 rounded px-2 py-1 text-sm">
+                                </div>
+                                <div class="flex items-center">
+                                    <input type="checkbox" id="streaming" class="mr-2">
+                                    <label for="streaming" class="text-sm text-gray-700">Enable Streaming</label>
+                                </div>
+                            </div>
+                            
+                            <!-- Model Provider Configuration -->
+                            <div class="mb-4">
+                                <h4 class="font-medium text-gray-700 mb-2">Model Configuration</h4>
+                                <div class="grid grid-cols-2 gap-4">
+                                    <!-- Local Provider -->
+                                    <div>
+                                        <label class="block text-xs text-gray-600 mb-1">Local Provider</label>
+                                        <select id="local-provider" class="w-full border border-gray-300 rounded px-2 py-1 text-sm">
+                                            <option value="ollama">Ollama (Local)</option>
+                                            <option value="openai">OpenAI</option>
+                                            <option value="anthropic">Anthropic</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs text-gray-600 mb-1">Local Model</label>
+                                        <input type="text" id="local-model" value="llama3.2" 
+                                               class="w-full border border-gray-300 rounded px-2 py-1 text-sm"
+                                               placeholder="e.g., llama3.2, gpt-4o-mini">
+                                    </div>
+                                    <!-- Remote Provider -->
+                                    <div>
+                                        <label class="block text-xs text-gray-600 mb-1">Remote Provider</label>
+                                        <select id="remote-provider" class="w-full border border-gray-300 rounded px-2 py-1 text-sm">
+                                            <option value="openai">OpenAI</option>
+                                            <option value="anthropic">Anthropic</option>
+                                            <option value="ollama">Ollama (Local)</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs text-gray-600 mb-1">Remote Model</label>
+                                        <input type="text" id="remote-model" value="gpt-4o-mini" 
+                                               class="w-full border border-gray-300 rounded px-2 py-1 text-sm"
+                                               placeholder="e.g., gpt-4o, claude-3-haiku">
+                                    </div>
+                                </div>
+                                <div id="ollama-status" class="mt-2 text-xs text-gray-500 hidden">
+                                    <span class="inline-block w-2 h-2 rounded-full bg-yellow-400 mr-1"></span>
+                                    Ollama server will be started automatically if not running
+                                </div>
+                                <div id="context-info" class="mt-2 text-xs text-blue-600 hidden">
+                                    <i class="fas fa-info-circle mr-1"></i>
+                                    Context window will be automatically calculated by the A2A server
+                                </div>
+                            </div>
+                            
+                            <!-- Parallel Processing Options -->
+                            <div id="parallel-options" class="hidden">
+                                <h4 class="font-medium text-gray-700 mb-2">Parallel Processing Settings</h4>
+                                <div class="grid grid-cols-3 gap-2">
+                                    <div>
+                                        <label class="block text-xs text-gray-600 mb-1">Jobs per Round</label>
+                                        <input type="number" id="max-jobs-per-round" value="5" min="1" max="100" 
+                                               class="w-full border border-gray-300 rounded px-2 py-1 text-sm">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs text-gray-600 mb-1">Tasks per Round</label>
+                                        <input type="number" id="num-tasks-per-round" value="3" min="1" max="10" 
+                                               class="w-full border border-gray-300 rounded px-2 py-1 text-sm">
+                                    </div>
+                                    <div>
+                                        <label class="block text-xs text-gray-600 mb-1">Samples per Task</label>
+                                        <input type="number" id="num-samples-per-task" value="1" min="1" max="5" 
+                                               class="w-full border border-gray-300 rounded px-2 py-1 text-sm">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </details>
+
+                    <!-- Submit Button -->
+                    <button type="submit" id="submit-btn" 
+                            class="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-3 px-4 rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        <i class="fas fa-rocket mr-2"></i>
+                        <span id="submit-text">Send Query</span>
+                    </button>
+                </form>
+            </div>
+
+            <!-- Results Panel -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h2 class="text-xl font-semibold mb-4 text-gray-800">
+                    <i class="fas fa-list-alt text-purple-600 mr-2"></i>
+                    Results & Status
+                </h2>
+
+                <!-- Task List -->
+                <div id="task-list" class="space-y-4">
+                    <div class="text-gray-500 text-center py-8">
+                        <i class="fas fa-inbox text-4xl mb-4"></i>
+                        <p>No tasks yet. Submit a query to get started!</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Developer Debug Panel -->
+        <div class="bg-white rounded-lg shadow-md p-6 mt-6">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-semibold text-gray-800">
+                    <i class="fas fa-code text-gray-600 mr-2"></i>
+                    Developer Debug Panel
+                </h2>
+                <div class="flex space-x-2">
+                    <button onclick="clearDebugLog()" class="text-red-600 hover:text-red-800 text-sm">
+                        <i class="fas fa-trash mr-1"></i>Clear
+                    </button>
+                    <button onclick="toggleDebugPanel()" class="text-gray-600 hover:text-gray-800 text-sm">
+                        <i class="fas fa-chevron-up" id="debug-toggle-icon"></i>
+                    </button>
+                </div>
+            </div>
+            
+            <div id="debug-content" class="space-y-2">
+                <div class="text-sm text-gray-600 mb-3">
+                    <i class="fas fa-info-circle mr-1"></i>
+                    All API requests and responses to the A2A server are logged here for debugging purposes.
+                </div>
+                
+                <div id="debug-log" class="space-y-2 max-h-96 overflow-y-auto bg-gray-50 rounded border p-3">
+                    <div class="text-xs text-gray-500 text-center py-4">
+                        No API calls logged yet. Submit a query to see debug information.
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Task Modal -->
+    <div id="task-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+                <div class="p-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-semibold">Task Details</h3>
+                        <button onclick="closeTaskModal()" class="text-gray-500 hover:text-gray-700">
+                            <i class="fas fa-times text-xl"></i>
+                        </button>
+                    </div>
+                    <div id="task-modal-content">
+                        <!-- Content will be dynamically loaded -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global state
+        let socket = null;
+        let activeTasks = new Map();
+        let debugRequests = [];
+        let debugPanelCollapsed = false;
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeSocket();
+            checkHealth();
+            checkProviders();
+            setupFormHandlers();
+        });
+
+        function initializeSocket() {
+            socket = io();
+            
+            socket.on('connect', function() {
+                console.log('Connected to server');
+            });
+
+            socket.on('task_update', function(data) {
+                handleTaskUpdate(data.task_id, data.event);
+            });
+
+            socket.on('task_error', function(data) {
+                handleTaskError(data.task_id, data.error);
+            });
+        }
+
+        function setupFormHandlers() {
+            document.getElementById('query-form').addEventListener('submit', handleFormSubmit);
+            document.getElementById('skill-id').addEventListener('change', handleSkillChange);
+            document.getElementById('file-upload').addEventListener('change', handleFileUpload);
+            document.getElementById('local-provider').addEventListener('change', handleProviderChange);
+            document.getElementById('remote-provider').addEventListener('change', handleProviderChange);
+            
+            // Add event listeners for context preview updates
+            document.getElementById('query').addEventListener('input', updateContextPreview);
+            document.getElementById('context').addEventListener('input', updateContextPreview);
+            document.getElementById('json-data').addEventListener('input', updateContextPreview);
+            document.getElementById('local-provider').addEventListener('change', updateContextPreview);
+            document.getElementById('remote-provider').addEventListener('change', updateContextPreview);
+        }
+
+        function switchTab(tabName) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(tab => tab.classList.add('hidden'));
+            document.querySelectorAll('.tab-button').forEach(btn => {
+                btn.classList.remove('border-blue-500', 'text-blue-600');
+                btn.classList.add('border-transparent', 'text-gray-500');
+            });
+
+            // Show selected tab
+            document.getElementById(tabName + '-tab').classList.remove('hidden');
+            document.querySelector(`[data-tab="${tabName}"]`).classList.remove('border-transparent', 'text-gray-500');
+            document.querySelector(`[data-tab="${tabName}"]`).classList.add('border-blue-500', 'text-blue-600');
+        }
+
+        function handleSkillChange() {
+            const skillId = document.getElementById('skill-id').value;
+            const parallelOptions = document.getElementById('parallel-options');
+            
+            if (skillId === 'minions_query') {
+                parallelOptions.classList.remove('hidden');
+            } else {
+                parallelOptions.classList.add('hidden');
+            }
+        }
+
+        function handleProviderChange() {
+            const localProvider = document.getElementById('local-provider').value;
+            const remoteProvider = document.getElementById('remote-provider').value;
+            const ollamaStatus = document.getElementById('ollama-status');
+            const contextInfo = document.getElementById('context-info');
+            const localModel = document.getElementById('local-model');
+            const remoteModel = document.getElementById('remote-model');
+            
+            // Show Ollama status if either provider is Ollama
+            if (localProvider === 'ollama' || remoteProvider === 'ollama') {
+                ollamaStatus.classList.remove('hidden');
+                contextInfo.classList.remove('hidden');
+            } else {
+                ollamaStatus.classList.add('hidden');
+                contextInfo.classList.add('hidden');
+            }
+            
+            // Update default models based on provider selection
+            if (localProvider === 'ollama' && localModel.value === 'gpt-4o-mini') {
+                localModel.value = 'llama3.2';
+            } else if (localProvider === 'openai' && localModel.value === 'llama3.2') {
+                localModel.value = 'gpt-4o-mini';
+            } else if (localProvider === 'anthropic' && localModel.value === 'llama3.2') {
+                localModel.value = 'claude-3-haiku-20240307';
+            }
+            
+            if (remoteProvider === 'ollama' && remoteModel.value.startsWith('gpt-') || remoteModel.value.startsWith('claude-')) {
+                remoteModel.value = 'llama3.2';
+            } else if (remoteProvider === 'openai' && remoteModel.value === 'llama3.2') {
+                remoteModel.value = 'gpt-4o-mini';
+            } else if (remoteProvider === 'anthropic' && (remoteModel.value === 'llama3.2' || remoteModel.value.startsWith('gpt-'))) {
+                remoteModel.value = 'claude-3-haiku-20240307';
+            }
+        }
+
+        function updateContextPreview() {
+            const localProvider = document.getElementById('local-provider').value;
+            const remoteProvider = document.getElementById('remote-provider').value;
+            const contextInfo = document.getElementById('context-info');
+            
+            if (localProvider === 'ollama' || remoteProvider === 'ollama') {
+                const providers = [];
+                if (localProvider === 'ollama') providers.push('Local');
+                if (remoteProvider === 'ollama') providers.push('Remote');
+                
+                contextInfo.innerHTML = `
+                    <i class="fas fa-microchip mr-1"></i>
+                    Dynamic Context (${providers.join(' & ')}) - calculated by A2A server
+                `;
+            }
+        }
+
+        async function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (!file) {
+                // File was cleared
+                window.currentFile = null;
+                updateContextPreview();
+                return;
+            }
+
+            if (file.size > 50 * 1024 * 1024) {
+                alert('File size exceeds 50MB limit');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                const base64 = e.target.result.split(',')[1];
+                window.currentFile = {
+                    name: file.name,
+                    type: file.type,
+                    content: base64
+                };
+                // Update context preview when file is loaded
+                updateContextPreview();
+            };
+            reader.readAsDataURL(file);
+        }
+
+        async function handleFormSubmit(event) {
+            event.preventDefault();
+            
+            const formData = new FormData(event.target);
+            const data = {
+                query: formData.get('query'),
+                context: formData.get('context'),
+                json_data: formData.get('json_data'),
+                skill_id: formData.get('skill_id'),
+                max_rounds: parseInt(document.getElementById('max-rounds').value),
+                streaming: document.getElementById('streaming').checked
+            };
+
+            // Add file if uploaded
+            if (window.currentFile) {
+                data.file_content = window.currentFile.content;
+                data.file_name = window.currentFile.name;
+                data.file_type = window.currentFile.type;
+            }
+
+            // Add model provider configuration
+            data.local_provider = document.getElementById('local-provider').value;
+            data.local_model = document.getElementById('local-model').value;
+            data.remote_provider = document.getElementById('remote-provider').value;
+            data.remote_model = document.getElementById('remote-model').value;
+            
+            // Context information will be calculated and returned by the A2A server
+
+            // Add parallel processing options if needed
+            if (data.skill_id === 'minions_query') {
+                data.max_jobs_per_round = parseInt(document.getElementById('max-jobs-per-round').value);
+                data.num_tasks_per_round = parseInt(document.getElementById('num-tasks-per-round').value);
+                data.num_samples_per_task = parseInt(document.getElementById('num-samples-per-task').value);
+            }
+
+            await submitTask(data);
+        }
+
+        async function submitTask(data) {
+            const submitBtn = document.getElementById('submit-btn');
+            const submitText = document.getElementById('submit-text');
+            
+            // Update UI
+            submitBtn.disabled = true;
+            submitText.textContent = 'Sending...';
+            
+            try {
+                const requestBody = JSON.stringify(data);
+                logDebugMessage('info', 'Submitting Task', 'Sending task to A2A server...', data);
+                
+                const response = await fetch('/send-task', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: requestBody
+                });
+
+                const result = await response.json();
+                logApiRequest('POST', '/send-task', data, result, response.status);
+                
+                if (response.ok) {
+                    addTaskToList(result.task_id, data, result.streaming);
+                    
+                    // Check for context information in the response
+                    if (result.context_info) {
+                        displayContextInfo(result.task_id, result.context_info);
+                    }
+                    
+                    if (!result.streaming) {
+                        pollTaskStatus(result.task_id);
+                    }
+                    logDebugMessage('success', 'Task Submitted', `Task ${result.task_id.substring(0, 8)}... created successfully`);
+                } else {
+                    logDebugMessage('error', 'Task Submission Failed', result.error || 'Unknown error');
+                    alert('Error: ' + result.error);
+                }
+            } catch (error) {
+                logApiRequest('POST', '/send-task', data, null, 0);
+                logDebugMessage('error', 'Network Error', error.message);
+                alert('Network error: ' + error.message);
+            } finally {
+                submitBtn.disabled = false;
+                submitText.textContent = 'Send Query';
+            }
+        }
+
+                function addTaskToList(taskId, requestData, isStreaming = false) {
+            const taskList = document.getElementById('task-list');
+            
+            // Remove "no tasks" message
+            if (taskList.children.length === 1 && taskList.children[0].classList.contains('text-gray-500')) {
+                taskList.innerHTML = '';
+            }
+
+            const taskElement = document.createElement('div');
+            taskElement.className = 'border border-gray-200 rounded-lg p-4';
+            taskElement.id = `task-${taskId}`;
+            
+            taskElement.innerHTML = `
+                <div class="flex justify-between items-start mb-2">
+                    <div class="flex-1">
+                        <div class="flex items-center mb-1">
+                            <span class="status-indicator status-running"></span>
+                            <span class="font-medium text-sm">${requestData.skill_id}</span>
+                            <span class="text-xs text-gray-500 ml-2">${isStreaming ? '(Streaming)' : ''}</span>
+                            ${(requestData.local_provider === 'ollama' || requestData.remote_provider === 'ollama') ? 
+                              '<span class="text-xs text-blue-500 ml-1">(Dynamic Context)</span>' : ''}
+                        </div>
+                        <p class="text-sm text-gray-700 truncate">${requestData.query}</p>
+                    </div>
+                    <div class="flex space-x-2">
+                        <button onclick="repeatTask('${taskId}')" class="text-green-600 hover:text-green-800 text-sm" title="Repeat this query">
+                            <i class="fas fa-redo"></i>
+                        </button>
+                        <button onclick="showTaskDetails('${taskId}')" class="text-blue-600 hover:text-blue-800 text-sm" title="View details">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="text-xs text-gray-500 mb-2">
+                    Task ID: ${taskId.substring(0, 8)}...
+                    <div id="context-display-${taskId}" class="mt-1 text-blue-600 hidden">
+                        <i class="fas fa-microchip mr-1"></i>
+                        <span id="context-text-${taskId}">Context info will be updated when available from server</span>
+                    </div>
+                </div>
+                <div id="status-${taskId}" class="text-sm">
+                    <span class="text-yellow-600">Running...</span>
+                </div>
+                <div id="updates-${taskId}" class="mt-2 space-y-1 max-h-32 overflow-y-auto">
+                    <!-- Streaming updates will appear here -->
+                </div>
+            `;
+            
+            taskList.insertBefore(taskElement, taskList.firstChild);
+            activeTasks.set(taskId, { 
+                element: taskElement, 
+                data: requestData, 
+                startTime: Date.now(),
+                pollCount: 0
+            });
+        }
+
+        function displayContextInfo(taskId, contextInfo) {
+            const contextDisplay = document.getElementById(`context-display-${taskId}`);
+            const contextText = document.getElementById(`context-text-${taskId}`);
+            
+            if (contextDisplay && contextText && contextInfo) {
+                let displayText = '';
+                
+                if (contextInfo.input_chars && contextInfo.estimated_tokens && contextInfo.context_size) {
+                    displayText = `${contextInfo.input_chars.toLocaleString()} chars → ~${contextInfo.estimated_tokens.toLocaleString()} tokens → ${contextInfo.context_size.toLocaleString()} context`;
+                } else if (contextInfo.local_context || contextInfo.remote_context) {
+                    const parts = [];
+                    if (contextInfo.local_context) parts.push(`Local: ${contextInfo.local_context.toLocaleString()}`);
+                    if (contextInfo.remote_context) parts.push(`Remote: ${contextInfo.remote_context.toLocaleString()}`);
+                    displayText = parts.join(', ');
+                } else {
+                    displayText = JSON.stringify(contextInfo);
+                }
+                
+                contextText.textContent = displayText;
+                contextDisplay.classList.remove('hidden');
+            }
+        }
+
+        function handleTaskUpdate(taskId, event) {
+            const updatesContainer = document.getElementById(`updates-${taskId}`);
+            if (!updatesContainer) return;
+
+            if (event.result) {
+                const result = event.result;
+                
+                if (result.kind === 'message') {
+                    const parts = result.parts || [];
+                    for (const part of parts) {
+                        if (part.kind === 'text') {
+                            const updateElement = document.createElement('div');
+                            updateElement.className = 'streaming-update text-xs bg-blue-50 p-2 rounded border-l-2 border-blue-400';
+                            const role = result.metadata?.original_role || 'agent';
+                            updateElement.innerHTML = `
+                                <strong>${role}:</strong> ${part.text.substring(0, 100)}${part.text.length > 100 ? '...' : ''}
+                            `;
+                            updatesContainer.appendChild(updateElement);
+                            updatesContainer.scrollTop = updatesContainer.scrollHeight;
+                        }
+                    }
+                }
+                
+                if (result.final) {
+                    updateTaskStatus(taskId, 'completed');
+                    pollTaskStatus(taskId); // Get final results
+                }
+            }
+        }
+
+        function handleTaskError(taskId, error) {
+            updateTaskStatus(taskId, 'failed', error);
+        }
+
+        async function pollTaskStatus(taskId) {
+            const taskInfo = activeTasks.get(taskId);
+            if (!taskInfo) return;
+            
+            taskInfo.pollCount++;
+            const elapsed = Date.now() - taskInfo.startTime;
+            const maxPolls = 150; // Max 5 minutes at 2-second intervals
+            
+            // Check for timeout
+            if (taskInfo.pollCount > maxPolls) {
+                console.log(`Task ${taskId} polling timeout after ${elapsed}ms`);
+                updateTaskStatus(taskId, 'failed', 'Task timed out');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/task-status/${taskId}`);
+                const result = await response.json();
+                
+                // Only log every 5th poll to reduce noise
+                if (taskInfo.pollCount % 5 === 1) {
+                    logApiRequest('GET', `/task-status/${taskId}`, null, result, response.status);
+                }
+                
+                if (result.result) {
+                    const task = result.result;
+                    const state = task.status?.state;
+                    
+                    console.log(`Task ${taskId} state: ${state}, artifacts: ${task.artifacts?.length || 0}, history: ${task.history?.length || 0}`);
+                    
+                    // Check for context information in the task result
+                    if (task.context_info) {
+                        displayContextInfo(taskId, task.context_info);
+                    }
+                    
+                    // Check if task has completed based on artifacts or final messages
+                    const hasArtifacts = task.artifacts && task.artifacts.length > 0;
+                    const hasAgentResponse = task.history && task.history.some(msg => msg.role === 'agent');
+                    
+                    if (state === 'completed' || hasArtifacts) {
+                        updateTaskStatus(taskId, 'completed');
+                        displayTaskResults(taskId, task);
+                        activeTasks.delete(taskId);
+                    } else if (state === 'failed') {
+                        updateTaskStatus(taskId, 'failed', task.status?.message);
+                        activeTasks.delete(taskId);
+                    } else if (state === 'running' || state === 'executing' || !state) {
+                        // Continue polling for running, executing, or unknown states
+                        setTimeout(() => pollTaskStatus(taskId), 2000);
+                    } else {
+                        // For any other state, check if we have results to show
+                        if (hasArtifacts || hasAgentResponse) {
+                            updateTaskStatus(taskId, 'completed');
+                            displayTaskResults(taskId, task);
+                            activeTasks.delete(taskId);
+                        } else {
+                            // Continue polling if no results yet
+                            setTimeout(() => pollTaskStatus(taskId), 2000);
+                        }
+                    }
+                } else if (result.error) {
+                    console.error(`Task ${taskId} error:`, result.error);
+                    updateTaskStatus(taskId, 'failed', result.error.message || 'Unknown error');
+                    activeTasks.delete(taskId);
+                } else {
+                    // No result and no error, continue polling
+                    setTimeout(() => pollTaskStatus(taskId), 2000);
+                }
+            } catch (error) {
+                console.error(`Error polling task status for ${taskId}:`, error);
+                // Don't stop polling on network errors, retry with backoff
+                const retryDelay = Math.min(5000 + (taskInfo.pollCount * 1000), 15000);
+                setTimeout(() => pollTaskStatus(taskId), retryDelay);
+            }
+        }
+
+        function updateTaskStatus(taskId, state, message = '') {
+            const statusElement = document.getElementById(`status-${taskId}`);
+            const indicator = document.querySelector(`#task-${taskId} .status-indicator`);
+            
+            if (!statusElement || !indicator) return;
+            
+            indicator.className = `status-indicator status-${state}`;
+            
+            const taskInfo = activeTasks.get(taskId);
+            const elapsed = taskInfo ? Math.round((Date.now() - taskInfo.startTime) / 1000) : 0;
+            const elapsedText = elapsed > 0 ? ` (${elapsed}s)` : '';
+            
+            switch (state) {
+                case 'completed':
+                    statusElement.innerHTML = `<span class="text-green-600">✅ Completed${elapsedText}</span>`;
+                    break;
+                case 'failed':
+                    statusElement.innerHTML = `<span class="text-red-600">❌ Failed${elapsedText}${message ? ': ' + message : ''}</span>`;
+                    break;
+                case 'running':
+                    const pollCount = taskInfo ? taskInfo.pollCount : 0;
+                    statusElement.innerHTML = `<span class="text-yellow-600">🔄 Running${elapsedText} (check ${pollCount})</span>`;
+                    break;
+            }
+        }
+
+        function displayTaskResults(taskId, task) {
+            const updatesContainer = document.getElementById(`updates-${taskId}`);
+            if (!updatesContainer) return;
+
+            // Clear existing streaming updates
+            updatesContainer.innerHTML = '';
+            
+            // Display artifacts if available
+            if (task.artifacts && task.artifacts.length > 0) {
+                for (const artifact of task.artifacts) {
+                    const resultElement = document.createElement('div');
+                    resultElement.className = 'bg-green-50 border border-green-200 rounded p-3 mt-2';
+                    
+                    let content = '';
+                    for (const part of artifact.parts || []) {
+                        if (part.kind === 'text') {
+                            content += part.text;
+                        }
+                    }
+                    
+                    resultElement.innerHTML = `
+                        <div class="text-xs text-green-700 font-medium mb-1">Final Result:</div>
+                        <div class="text-sm text-gray-800 whitespace-pre-wrap">${content.substring(0, 400)}${content.length > 400 ? '...' : ''}</div>
+                    `;
+                    
+                    updatesContainer.appendChild(resultElement);
+                }
+            } else if (task.history && task.history.length > 0) {
+                // If no artifacts, show the last agent message from history
+                const agentMessages = task.history.filter(msg => msg.role === 'agent').reverse();
+                if (agentMessages.length > 0) {
+                    const lastMessage = agentMessages[0];
+                    const resultElement = document.createElement('div');
+                    resultElement.className = 'bg-blue-50 border border-blue-200 rounded p-3 mt-2';
+                    
+                    let content = '';
+                    for (const part of lastMessage.parts || []) {
+                        if (part.kind === 'text') {
+                            content += part.text;
+                        }
+                    }
+                    
+                    resultElement.innerHTML = `
+                        <div class="text-xs text-blue-700 font-medium mb-1">Response:</div>
+                        <div class="text-sm text-gray-800 whitespace-pre-wrap">${content.substring(0, 400)}${content.length > 400 ? '...' : ''}</div>
+                    `;
+                    
+                    updatesContainer.appendChild(resultElement);
+                }
+            } else {
+                // Show a completion message if no results available
+                const resultElement = document.createElement('div');
+                resultElement.className = 'bg-gray-50 border border-gray-200 rounded p-3 mt-2';
+                resultElement.innerHTML = `
+                    <div class="text-xs text-gray-700 font-medium mb-1">Task Completed</div>
+                    <div class="text-sm text-gray-600">Processing completed but no results to display</div>
+                `;
+                updatesContainer.appendChild(resultElement);
+            }
+        }
+
+        async function showTaskDetails(taskId) {
+            try {
+                const response = await fetch(`/task-status/${taskId}`);
+                const result = await response.json();
+                logApiRequest('GET', `/task-status/${taskId}`, null, result, response.status);
+                
+                if (result.result) {
+                    const task = result.result;
+                    const modalContent = document.getElementById('task-modal-content');
+                    
+                    modalContent.innerHTML = `
+                        <div class="space-y-4">
+                            <div>
+                                <h4 class="font-medium mb-2">Task Information</h4>
+                                <div class="bg-gray-50 p-3 rounded text-sm">
+                                    <p><strong>ID:</strong> ${task.id}</p>
+                                    <p><strong>Status:</strong> ${task.status?.state || 'unknown'}</p>
+                                    <p><strong>Session:</strong> ${task.sessionId}</p>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <h4 class="font-medium mb-2">Message History</h4>
+                                <div class="space-y-2 max-h-64 overflow-y-auto">
+                                    ${task.history?.map(msg => `
+                                        <div class="border border-gray-200 rounded p-3">
+                                            <div class="font-medium text-sm mb-1">${msg.role}</div>
+                                            ${msg.parts?.map(part => {
+                                                if (part.kind === 'text') {
+                                                    return `<div class="text-sm text-gray-700">${part.text}</div>`;
+                                                }
+                                                return `<div class="text-xs text-gray-500">[${part.kind} content]</div>`;
+                                            }).join('') || ''}
+                                        </div>
+                                    `).join('') || '<p class="text-gray-500">No history available</p>'}
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <h4 class="font-medium mb-2">Results</h4>
+                                <div class="space-y-2 max-h-64 overflow-y-auto">
+                                    ${task.artifacts?.map(artifact => `
+                                        <div class="bg-green-50 border border-green-200 rounded p-3">
+                                            ${artifact.parts?.map(part => {
+                                                if (part.kind === 'text') {
+                                                    return `<div class="text-sm whitespace-pre-wrap">${part.text}</div>`;
+                                                }
+                                                return `<div class="text-xs text-gray-500">[${part.kind} content]</div>`;
+                                            }).join('') || ''}
+                                        </div>
+                                    `).join('') || '<p class="text-gray-500">No results available</p>'}
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    
+                    document.getElementById('task-modal').classList.remove('hidden');
+                }
+            } catch (error) {
+                alert('Error loading task details: ' + error.message);
+            }
+        }
+
+        function closeTaskModal() {
+            document.getElementById('task-modal').classList.add('hidden');
+        }
+
+        async function checkHealth() {
+            const statusElement = document.getElementById('server-status');
+            
+            try {
+                const response = await fetch('/health');
+                const data = await response.json();
+                logApiRequest('GET', '/health', null, data, response.status);
+                
+                if (data.status === 'ok') {
+                    statusElement.innerHTML = `
+                        <span class="status-indicator status-completed"></span>
+                        <span class="text-sm text-green-600">Server Online</span>
+                    `;
+                    logDebugMessage('success', 'Health Check', 'A2A server is online and healthy');
+                } else {
+                    throw new Error(data.message || 'Unknown error');
+                }
+            } catch (error) {
+                logApiRequest('GET', '/health', null, null, 0);
+                logDebugMessage('error', 'Health Check Failed', error.message);
+                statusElement.innerHTML = `
+                    <span class="status-indicator status-failed"></span>
+                    <span class="text-sm text-red-600">Server Offline</span>
+                `;
+            }
+        }
+
+        async function checkProviders() {
+            try {
+                const response = await fetch('/providers');
+                const data = await response.json();
+                logApiRequest('GET', '/providers', null, data, response.status);
+                
+                // Update Ollama availability in UI
+                const ollamaOptions = document.querySelectorAll('option[value="ollama"]');
+                const ollamaStatus = document.getElementById('ollama-status');
+                
+                if (!data.ollama_available) {
+                    // Disable Ollama options and show warning
+                    ollamaOptions.forEach(option => {
+                        option.disabled = true;
+                        option.textContent = 'Ollama (Unavailable)';
+                    });
+                    
+                    // Change default if Ollama was selected
+                    const localProvider = document.getElementById('local-provider');
+                    const remoteProvider = document.getElementById('remote-provider');
+                    
+                    if (localProvider.value === 'ollama') {
+                        localProvider.value = 'openai';
+                        document.getElementById('local-model').value = 'gpt-4o-mini';
+                    }
+                    if (remoteProvider.value === 'ollama') {
+                        remoteProvider.value = 'openai';
+                        document.getElementById('remote-model').value = 'gpt-4o-mini';
+                    }
+                    
+                    if (ollamaStatus) {
+                        ollamaStatus.innerHTML = `
+                            <span class="inline-block w-2 h-2 rounded-full bg-red-400 mr-1"></span>
+                            Ollama server not available. Install Ollama or restart with --no-ollama flag.
+                        `;
+                        ollamaStatus.classList.remove('hidden');
+                    }
+                } else {
+                    if (ollamaStatus) {
+                        ollamaStatus.innerHTML = `
+                            <span class="inline-block w-2 h-2 rounded-full bg-green-400 mr-1"></span>
+                            Ollama server is running and available
+                        `;
+                    }
+                }
+                
+                // Trigger provider change to update UI
+                handleProviderChange();
+                
+            } catch (error) {
+                console.error('Failed to check providers:', error);
+            }
+        }
+
+        function repeatTask(taskId) {
+            const taskInfo = activeTasks.get(taskId);
+            if (!taskInfo || !taskInfo.data) {
+                alert('Task data not found. Cannot repeat this task.');
+                return;
+            }
+            
+            const data = taskInfo.data;
+            
+            // Populate form with previous data
+            document.getElementById('query').value = data.query || '';
+            document.getElementById('context').value = data.context || '';
+            document.getElementById('json-data').value = data.json_data || '';
+            document.getElementById('skill-id').value = data.skill_id || 'minion_query';
+            document.getElementById('max-rounds').value = data.max_rounds || 2;
+            document.getElementById('streaming').checked = data.streaming || false;
+            
+            // Set model providers
+            if (data.local_provider) document.getElementById('local-provider').value = data.local_provider;
+            if (data.local_model) document.getElementById('local-model').value = data.local_model;
+            if (data.remote_provider) document.getElementById('remote-provider').value = data.remote_provider;
+            if (data.remote_model) document.getElementById('remote-model').value = data.remote_model;
+            
+            // Set parallel processing options if needed
+            if (data.skill_id === 'minions_query') {
+                document.getElementById('max-jobs-per-round').value = data.max_jobs_per_round || 5;
+                document.getElementById('num-tasks-per-round').value = data.num_tasks_per_round || 3;
+                document.getElementById('num-samples-per-task').value = data.num_samples_per_task || 1;
+            }
+            
+            // Handle file data
+            if (data.file_content && data.file_name && data.file_type) {
+                window.currentFile = {
+                    name: data.file_name,
+                    type: data.file_type,
+                    content: data.file_content
+                };
+            }
+            
+            // Update UI
+            handleSkillChange();
+            handleProviderChange();
+            updateContextPreview();
+            
+            // Scroll to form
+            document.getElementById('query-form').scrollIntoView({ behavior: 'smooth' });
+            
+            logDebugMessage('info', 'Task Repeated', `Populated form with data from task ${taskId.substring(0, 8)}...`);
+        }
+
+        function toggleDebugPanel() {
+            const content = document.getElementById('debug-content');
+            const icon = document.getElementById('debug-toggle-icon');
+            
+            debugPanelCollapsed = !debugPanelCollapsed;
+            
+            if (debugPanelCollapsed) {
+                content.classList.add('hidden');
+                icon.className = 'fas fa-chevron-down';
+            } else {
+                content.classList.remove('hidden');
+                icon.className = 'fas fa-chevron-up';
+            }
+        }
+
+        function clearDebugLog() {
+            debugRequests = [];
+            const debugLog = document.getElementById('debug-log');
+            debugLog.innerHTML = `
+                <div class="text-xs text-gray-500 text-center py-4">
+                    Debug log cleared. Submit a query to see debug information.
+                </div>
+            `;
+        }
+
+        function logDebugMessage(type, title, message, data = null) {
+            const timestamp = new Date().toLocaleTimeString();
+            const entry = {
+                timestamp,
+                type,
+                title,
+                message,
+                data
+            };
+            
+            debugRequests.push(entry);
+            
+            // Keep only last 50 entries
+            if (debugRequests.length > 50) {
+                debugRequests.shift();
+            }
+            
+            updateDebugDisplay();
+        }
+
+        function logApiRequest(method, url, requestData, responseData, status) {
+            const timestamp = new Date().toLocaleTimeString();
+            const entry = {
+                timestamp,
+                type: status === 0 ? 'error' : status >= 400 ? 'error' : status >= 300 ? 'warning' : 'success',
+                title: `${method.toUpperCase()} ${url}`,
+                message: status === 0 ? 'Network Error' : `Status: ${status}`,
+                data: {
+                    request: requestData,
+                    response: responseData
+                }
+            };
+            
+            debugRequests.push(entry);
+            
+            // Keep only last 50 entries
+            if (debugRequests.length > 50) {
+                debugRequests.shift();
+            }
+            
+            updateDebugDisplay();
+        }
+
+        function updateDebugDisplay() {
+            const debugLog = document.getElementById('debug-log');
+            
+            if (debugRequests.length === 0) {
+                debugLog.innerHTML = `
+                    <div class="text-xs text-gray-500 text-center py-4">
+                        No API calls logged yet. Submit a query to see debug information.
+                    </div>
+                `;
+                return;
+            }
+            
+            debugLog.innerHTML = debugRequests.slice().reverse().map(entry => {
+                const typeColors = {
+                    'success': 'bg-green-50 border-green-200 text-green-800',
+                    'info': 'bg-blue-50 border-blue-200 text-blue-800',
+                    'warning': 'bg-yellow-50 border-yellow-200 text-yellow-800',
+                    'error': 'bg-red-50 border-red-200 text-red-800'
+                };
+                
+                const typeIcons = {
+                    'success': 'fas fa-check-circle',
+                    'info': 'fas fa-info-circle',
+                    'warning': 'fas fa-exclamation-triangle',
+                    'error': 'fas fa-times-circle'
+                };
+                
+                return `
+                    <div class="border rounded p-2 text-xs ${typeColors[entry.type] || typeColors.info}">
+                        <div class="flex justify-between items-start mb-1">
+                            <div class="font-medium">
+                                <i class="${typeIcons[entry.type]} mr-1"></i>
+                                ${entry.title}
+                            </div>
+                            <div class="text-xs opacity-75">${entry.timestamp}</div>
+                        </div>
+                        <div class="mb-1">${entry.message}</div>
+                        ${entry.data ? `
+                            <details class="mt-2">
+                                <summary class="cursor-pointer font-medium">View Data</summary>
+                                <pre class="mt-1 p-2 bg-white bg-opacity-50 rounded text-xs overflow-x-auto">${JSON.stringify(entry.data, null, 2)}</pre>
+                            </details>
+                        ` : ''}
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // Close modal when clicking outside
+        document.getElementById('task-modal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeTaskModal();
+            }
+        });
+    </script>
+</body>
+</html> 

@@ -411,6 +411,16 @@ class A2AConverter:
         elif isinstance(message, list):
             # Handle job lists from Minions protocol
             content = self._format_jobs_list(message)
+        elif message is None:
+            # Provide user-friendly status messages instead of "None"
+            if role == "supervisor":
+                if event_type == "supervisor_message":
+                    content = "🧠 Supervisor is analyzing the task..."
+            elif role == "worker":
+                if event_type == "worker_message":
+                    content = "⚙️ Workers are processing in parallel..."
+            else:
+                content = "🔄 Processing..."
         else:
             content = str(message)
         

@@ -169,6 +169,30 @@ def get_providers():
     
     return jsonify(providers)
 
+@app.route('/api-keys', methods=['GET', 'POST'])
+def manage_api_keys():
+    """Manage API keys for different providers."""
+    if request.method == 'GET':
+        # Return current API key status (without exposing actual keys)
+        return jsonify({
+            "openai": bool(app.config.get('OPENAI_API_KEY')),
+            "anthropic": bool(app.config.get('ANTHROPIC_API_KEY')),
+            "together": bool(app.config.get('TOGETHER_API_KEY'))
+        })
+    
+    elif request.method == 'POST':
+        data = request.get_json()
+        
+        # Update API keys in app config
+        if 'openai' in data and data['openai']:
+            app.config['OPENAI_API_KEY'] = data['openai']
+        if 'anthropic' in data and data['anthropic']:
+            app.config['ANTHROPIC_API_KEY'] = data['anthropic']
+        if 'together' in data and data['together']:
+            app.config['TOGETHER_API_KEY'] = data['together']
+        
+        return jsonify({"success": True, "message": "API keys updated successfully"})
+
 @app.route('/context-size', methods=['POST'])
 def calculate_context():
     """Calculate required context size for given text."""
@@ -267,6 +291,14 @@ def send_task():
             "remote_provider": remote_provider, 
             "remote_model": remote_model
         }
+        
+        # Add API keys to metadata if available
+        if app.config.get('OPENAI_API_KEY'):
+            metadata['openai_api_key'] = app.config['OPENAI_API_KEY']
+        if app.config.get('ANTHROPIC_API_KEY'):
+            metadata['anthropic_api_key'] = app.config['ANTHROPIC_API_KEY']
+        if app.config.get('TOGETHER_API_KEY'):
+            metadata['together_api_key'] = app.config['TOGETHER_API_KEY']
         
         # Context sizes will be calculated by the A2A server based on actual processed content
         

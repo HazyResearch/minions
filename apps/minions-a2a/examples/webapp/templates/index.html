@@ -50,9 +50,13 @@
                             <span class="status-indicator status-unknown"></span>
                             <span class="text-sm text-gray-600">Checking server...</span>
                         </div>
-                        <button onclick="checkHealth()" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors">
+                        <button onclick="checkHealth()" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-lg transition-colors mr-2">
                             <i class="fas fa-heartbeat mr-2"></i>
                             Check Health
+                        </button>
+                        <button onclick="openSettingsModal()" class="bg-gray-500 hover:bg-gray-600 text-white px-4 py-2 rounded-lg transition-colors">
+                            <i class="fas fa-cog mr-2"></i>
+                            Settings
                         </button>
                     </div>
                 </div>
@@ -147,8 +151,8 @@
                                            class="w-full border border-gray-300 rounded px-2 py-1 text-sm">
                                 </div>
                                 <div class="flex items-center">
-                                    <input type="checkbox" id="streaming" class="mr-2">
-                                    <label for="streaming" class="text-sm text-gray-700">Enable Streaming</label>
+                                    <input type="checkbox" id="streaming" class="mr-2" checked>
+                                    <label for="streaming" class="text-sm text-gray-700">Enable Streaming (Recommended)</label>
                                 </div>
                             </div>
                             
@@ -292,6 +296,77 @@
                     </div>
                     <div id="task-modal-content">
                         <!-- Content will be dynamically loaded -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-lg max-w-2xl w-full">
+                <div class="p-6">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-semibold">
+                            <i class="fas fa-cog mr-2"></i>
+                            Settings
+                        </h3>
+                        <button onclick="closeSettingsModal()" class="text-gray-500 hover:text-gray-700">
+                            <i class="fas fa-times text-xl"></i>
+                        </button>
+                    </div>
+                    
+                    <div class="space-y-6">
+                        <div>
+                            <h4 class="font-medium mb-3">API Key Configuration</h4>
+                            <p class="text-sm text-gray-600 mb-4">Configure API keys for external providers. Keys are stored in memory and not persisted.</p>
+                            
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">OpenAI API Key</label>
+                                    <div class="flex">
+                                        <input type="password" id="openai-key" placeholder="sk-..." 
+                                               class="flex-1 border border-gray-300 rounded-l px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                        <button id="openai-status" class="px-3 py-2 border-t border-r border-b border-gray-300 rounded-r bg-gray-50">
+                                            <i class="fas fa-question text-gray-400"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Anthropic API Key</label>
+                                    <div class="flex">
+                                        <input type="password" id="anthropic-key" placeholder="sk-ant-..." 
+                                               class="flex-1 border border-gray-300 rounded-l px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                        <button id="anthropic-status" class="px-3 py-2 border-t border-r border-b border-gray-300 rounded-r bg-gray-50">
+                                            <i class="fas fa-question text-gray-400"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                                
+                                <div>
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Together AI API Key</label>
+                                    <div class="flex">
+                                        <input type="password" id="together-key" placeholder="..." 
+                                               class="flex-1 border border-gray-300 rounded-l px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                        <button id="together-status" class="px-3 py-2 border-t border-r border-b border-gray-300 rounded-r bg-gray-50">
+                                            <i class="fas fa-question text-gray-400"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="flex justify-end space-x-3">
+                            <button onclick="closeSettingsModal()" class="px-4 py-2 text-gray-600 hover:text-gray-800">
+                                Cancel
+                            </button>
+                            <button onclick="saveApiKeys()" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded">
+                                <i class="fas fa-save mr-2"></i>
+                                Save API Keys
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -579,7 +654,7 @@
                 <div id="status-${taskId}" class="text-sm">
                     <span class="text-yellow-600">Running...</span>
                 </div>
-                <div id="updates-${taskId}" class="mt-2 space-y-1 max-h-32 overflow-y-auto">
+                <div id="updates-${taskId}" class="mt-2 space-y-1 max-h-64 overflow-y-auto">
                     <!-- Streaming updates will appear here -->
                 </div>
             `;
@@ -628,11 +703,88 @@
                     for (const part of parts) {
                         if (part.kind === 'text') {
                             const updateElement = document.createElement('div');
-                            updateElement.className = 'streaming-update text-xs bg-blue-50 p-2 rounded border-l-2 border-blue-400';
                             const role = result.metadata?.original_role || 'agent';
-                            updateElement.innerHTML = `
-                                <strong>${role}:</strong> ${part.text.substring(0, 100)}${part.text.length > 100 ? '...' : ''}
-                            `;
+                            const isProcessing = part.text.includes('analyzing') || part.text.includes('processing') || part.text.includes('Supervisor is') || part.text.includes('Workers are');
+                            
+                            // Clean up the text content for user-friendly display
+                            let displayText = part.text;
+                            
+                            // Try to parse and extract message content from JSON
+                            try {
+                                if (displayText.startsWith('{')) {
+                                    const jsonData = JSON.parse(displayText);
+                                    
+                                    // Handle supervisor decision structures
+                                    if (jsonData.decision && jsonData.decision === "provide_final_answer" && jsonData.answer) {
+                                        displayText = `✅ ${jsonData.answer}`;
+                                    } else if (jsonData.decision && jsonData.decision === "request_additional_info") {
+                                        displayText = `🔄 ${jsonData.explanation || jsonData.scratchpad || 'Requesting additional information...'}`;
+                                    } else if (jsonData.decision && jsonData.answer) {
+                                        displayText = jsonData.answer;
+                                    }
+                                    // Handle message structures  
+                                    else if (jsonData.message) {
+                                        displayText = jsonData.message;
+                                    } else if (jsonData.content) {
+                                        displayText = jsonData.content;
+                                    }
+                                    // Handle explanation structures
+                                    else if (jsonData.explanation) {
+                                        displayText = jsonData.explanation;
+                                    }
+                                }
+                            } catch (e) {
+                                // Not JSON or parsing failed, use original text
+                            }
+                            
+                            // Enhanced styling based on role and content
+                            if (role === 'supervisor') {
+                                if (isProcessing) {
+                                    updateElement.className = 'streaming-update text-xs bg-purple-50 border border-purple-200 p-3 rounded-lg mb-2';
+                                    updateElement.innerHTML = `
+                                        <div class="flex items-center">
+                                            <div class="w-2 h-2 bg-purple-500 rounded-full mr-2 animate-pulse"></div>
+                                            <span class="font-medium text-purple-700">🧠 Supervisor</span>
+                                        </div>
+                                        <div class="text-purple-600 mt-1">${displayText}</div>
+                                    `;
+                                } else {
+                                    updateElement.className = 'streaming-update text-xs bg-purple-50 border border-purple-200 p-3 rounded-lg mb-2';
+                                    updateElement.innerHTML = `
+                                        <div class="flex items-center mb-1">
+                                            <div class="w-2 h-2 bg-purple-500 rounded-full mr-2"></div>
+                                            <span class="font-medium text-purple-700">🧠 Supervisor</span>
+                                        </div>
+                                        <div class="text-gray-700 whitespace-pre-wrap">${displayText.length > 200 ? displayText.substring(0, 200) + '...' : displayText}</div>
+                                        ${displayText.length > 200 ? '<button onclick="expandText(this)" class="text-purple-600 text-xs mt-1 hover:underline">Show more</button>' : ''}
+                                    `;
+                                }
+                            } else if (role === 'worker') {
+                                if (isProcessing) {
+                                    updateElement.className = 'streaming-update text-xs bg-blue-50 border border-blue-200 p-3 rounded-lg mb-2';
+                                    updateElement.innerHTML = `
+                                        <div class="flex items-center">
+                                            <div class="w-2 h-2 bg-blue-500 rounded-full mr-2 animate-pulse"></div>
+                                            <span class="font-medium text-blue-700">⚙️ Workers</span>
+                                        </div>
+                                        <div class="text-blue-600 mt-1">${displayText}</div>
+                                    `;
+                                } else {
+                                    updateElement.className = 'streaming-update text-xs bg-blue-50 border border-blue-200 p-3 rounded-lg mb-2';
+                                    updateElement.innerHTML = `
+                                        <div class="flex items-center mb-1">
+                                            <div class="w-2 h-2 bg-blue-500 rounded-full mr-2"></div>
+                                            <span class="font-medium text-blue-700">⚙️ Workers</span>
+                                        </div>
+                                        <div class="text-gray-700 whitespace-pre-wrap">${displayText.length > 300 ? displayText.substring(0, 300) + '...' : displayText}</div>
+                                        ${displayText.length > 300 ? '<button onclick="expandText(this)" class="text-blue-600 text-xs mt-1 hover:underline">Show more</button>' : ''}
+                                    `;
+                                }
+                            }
+                            
+                            // Store full cleaned text for expansion
+                            updateElement.setAttribute('data-full-text', displayText);
+                            
                             updatesContainer.appendChild(updateElement);
                             updatesContainer.scrollTop = updatesContainer.scrollHeight;
                         }
@@ -756,14 +908,13 @@
             const updatesContainer = document.getElementById(`updates-${taskId}`);
             if (!updatesContainer) return;
 
-            // Clear existing streaming updates
-            updatesContainer.innerHTML = '';
+            // Keep existing streaming updates and add final result
             
             // Display artifacts if available
             if (task.artifacts && task.artifacts.length > 0) {
                 for (const artifact of task.artifacts) {
                     const resultElement = document.createElement('div');
-                    resultElement.className = 'bg-green-50 border border-green-200 rounded p-3 mt-2';
+                    resultElement.className = 'bg-green-50 border border-green-200 rounded-lg p-4 mt-3 border-l-4 border-green-500';
                     
                     let content = '';
                     for (const part of artifact.parts || []) {
@@ -773,9 +924,15 @@
                     }
                     
                     resultElement.innerHTML = `
-                        <div class="text-xs text-green-700 font-medium mb-1">Final Result:</div>
-                        <div class="text-sm text-gray-800 whitespace-pre-wrap">${content.substring(0, 400)}${content.length > 400 ? '...' : ''}</div>
+                        <div class="flex items-center mb-2">
+                            <i class="fas fa-check-circle text-green-600 mr-2"></i>
+                            <span class="text-sm font-medium text-green-700">Final Answer</span>
+                        </div>
+                        <div class="text-sm text-gray-800 whitespace-pre-wrap max-h-96 overflow-y-auto">${content}</div>
                     `;
+                    
+                    // Store full content for modal view
+                    resultElement.setAttribute('data-full-content', content);
                     
                     updatesContainer.appendChild(resultElement);
                 }
@@ -785,7 +942,7 @@
                 if (agentMessages.length > 0) {
                     const lastMessage = agentMessages[0];
                     const resultElement = document.createElement('div');
-                    resultElement.className = 'bg-blue-50 border border-blue-200 rounded p-3 mt-2';
+                    resultElement.className = 'bg-blue-50 border border-blue-200 rounded-lg p-4 mt-3 border-l-4 border-blue-500';
                     
                     let content = '';
                     for (const part of lastMessage.parts || []) {
@@ -795,8 +952,11 @@
                     }
                     
                     resultElement.innerHTML = `
-                        <div class="text-xs text-blue-700 font-medium mb-1">Response:</div>
-                        <div class="text-sm text-gray-800 whitespace-pre-wrap">${content.substring(0, 400)}${content.length > 400 ? '...' : ''}</div>
+                        <div class="flex items-center mb-2">
+                            <i class="fas fa-comment text-blue-600 mr-2"></i>
+                            <span class="text-sm font-medium text-blue-700">Response</span>
+                        </div>
+                        <div class="text-sm text-gray-800 whitespace-pre-wrap max-h-96 overflow-y-auto">${content}</div>
                     `;
                     
                     updatesContainer.appendChild(resultElement);
@@ -804,9 +964,12 @@
             } else {
                 // Show a completion message if no results available
                 const resultElement = document.createElement('div');
-                resultElement.className = 'bg-gray-50 border border-gray-200 rounded p-3 mt-2';
+                resultElement.className = 'bg-gray-50 border border-gray-200 rounded-lg p-4 mt-3';
                 resultElement.innerHTML = `
-                    <div class="text-xs text-gray-700 font-medium mb-1">Task Completed</div>
+                    <div class="flex items-center mb-1">
+                        <i class="fas fa-info-circle text-gray-600 mr-2"></i>
+                        <span class="text-sm font-medium text-gray-700">Task Completed</span>
+                    </div>
                     <div class="text-sm text-gray-600">Processing completed but no results to display</div>
                 `;
                 updatesContainer.appendChild(resultElement);
@@ -824,46 +987,106 @@
                     const modalContent = document.getElementById('task-modal-content');
                     
                     modalContent.innerHTML = `
-                        <div class="space-y-4">
+                        <div class="space-y-6">
                             <div>
-                                <h4 class="font-medium mb-2">Task Information</h4>
-                                <div class="bg-gray-50 p-3 rounded text-sm">
-                                    <p><strong>ID:</strong> ${task.id}</p>
-                                    <p><strong>Status:</strong> ${task.status?.state || 'unknown'}</p>
-                                    <p><strong>Session:</strong> ${task.sessionId}</p>
+                                <h4 class="font-medium mb-3 flex items-center">
+                                    <i class="fas fa-info-circle text-blue-600 mr-2"></i>
+                                    Task Information
+                                </h4>
+                                <div class="bg-gray-50 p-4 rounded-lg text-sm space-y-2">
+                                    <p><strong>ID:</strong> <code class="bg-gray-200 px-2 py-1 rounded">${task.id}</code></p>
+                                    <p><strong>Status:</strong> <span class="px-2 py-1 rounded text-xs ${task.status?.state === 'completed' ? 'bg-green-100 text-green-800' : task.status?.state === 'failed' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'}">${task.status?.state || 'unknown'}</span></p>
+                                    <p><strong>Session:</strong> <code class="bg-gray-200 px-2 py-1 rounded">${task.sessionId}</code></p>
                                 </div>
                             </div>
                             
                             <div>
-                                <h4 class="font-medium mb-2">Message History</h4>
-                                <div class="space-y-2 max-h-64 overflow-y-auto">
-                                    ${task.history?.map(msg => `
-                                        <div class="border border-gray-200 rounded p-3">
-                                            <div class="font-medium text-sm mb-1">${msg.role}</div>
-                                            ${msg.parts?.map(part => {
-                                                if (part.kind === 'text') {
-                                                    return `<div class="text-sm text-gray-700">${part.text}</div>`;
-                                                }
-                                                return `<div class="text-xs text-gray-500">[${part.kind} content]</div>`;
-                                            }).join('') || ''}
-                                        </div>
-                                    `).join('') || '<p class="text-gray-500">No history available</p>'}
+                                <h4 class="font-medium mb-3 flex items-center">
+                                    <i class="fas fa-history text-purple-600 mr-2"></i>
+                                    Processing Trace
+                                </h4>
+                                <div class="space-y-3 max-h-80 overflow-y-auto">
+                                    ${task.history?.map((msg, index) => {
+                                        const roleColors = {
+                                            'user': 'bg-gray-50 border-gray-200',
+                                            'agent': 'bg-blue-50 border-blue-200',
+                                            'system': 'bg-yellow-50 border-yellow-200'
+                                        };
+                                        const roleIcons = {
+                                            'user': 'fas fa-user',
+                                            'agent': 'fas fa-robot',
+                                            'system': 'fas fa-cog'
+                                        };
+                                        return `
+                                            <div class="border rounded-lg p-3 ${roleColors[msg.role] || roleColors.system}">
+                                                <div class="flex items-center mb-2">
+                                                    <i class="${roleIcons[msg.role] || roleIcons.system} mr-2"></i>
+                                                    <span class="font-medium text-sm">${msg.role}</span>
+                                                    <span class="text-xs text-gray-500 ml-auto">#${index + 1}</span>
+                                                </div>
+                                                ${msg.parts?.map(part => {
+                                                    if (part.kind === 'text') {
+                                                        let text = part.text;
+                                                        
+                                                        // Clean up JSON formatting for user-friendly display
+                                                        try {
+                                                            if (text.startsWith('{')) {
+                                                                const jsonData = JSON.parse(text);
+                                                                
+                                                                // Handle supervisor decision structures
+                                                                if (jsonData.decision && jsonData.decision === "provide_final_answer" && jsonData.answer) {
+                                                                    text = `✅ ${jsonData.answer}`;
+                                                                } else if (jsonData.decision && jsonData.decision === "request_additional_info") {
+                                                                    text = `🔄 ${jsonData.explanation || jsonData.scratchpad || 'Requesting additional information...'}`;
+                                                                } else if (jsonData.decision && jsonData.answer) {
+                                                                    text = jsonData.answer;
+                                                                }
+                                                                // Handle message structures
+                                                                else if (jsonData.message) {
+                                                                    text = jsonData.message;
+                                                                } else if (jsonData.content) {
+                                                                    text = jsonData.content;
+                                                                }
+                                                                // Handle explanation structures
+                                                                else if (jsonData.explanation) {
+                                                                    text = jsonData.explanation;
+                                                                }
+                                                            }
+                                                        } catch (e) {
+                                                            // Not JSON or parsing failed, use original text
+                                                        }
+                                                        
+                                                        const preview = text.length > 200 ? text.substring(0, 200) + '...' : text;
+                                                        return `
+                                                            <div class="text-sm text-gray-700 whitespace-pre-wrap">${preview}</div>
+                                                            ${text.length > 200 ? `<button onclick="expandModalText(this)" data-full-text="${encodeURIComponent(text)}" class="text-blue-600 text-xs mt-2 hover:underline">Show full message</button>` : ''}
+                                                        `;
+                                                    }
+                                                    return `<div class="text-xs text-gray-500 italic">[${part.kind} content]</div>`;
+                                                }).join('') || ''}
+                                            </div>
+                                        `;
+                                    }).join('') || '<p class="text-gray-500 text-center py-4">No processing trace available</p>'}
                                 </div>
                             </div>
                             
                             <div>
-                                <h4 class="font-medium mb-2">Results</h4>
-                                <div class="space-y-2 max-h-64 overflow-y-auto">
-                                    ${task.artifacts?.map(artifact => `
-                                        <div class="bg-green-50 border border-green-200 rounded p-3">
+                                <h4 class="font-medium mb-3 flex items-center">
+                                    <i class="fas fa-trophy text-green-600 mr-2"></i>
+                                    Final Results
+                                </h4>
+                                <div class="space-y-3 max-h-80 overflow-y-auto">
+                                    ${task.artifacts?.map((artifact, index) => `
+                                        <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+                                            <div class="font-medium text-sm mb-2 text-green-700">Result ${index + 1}</div>
                                             ${artifact.parts?.map(part => {
                                                 if (part.kind === 'text') {
-                                                    return `<div class="text-sm whitespace-pre-wrap">${part.text}</div>`;
+                                                    return `<div class="text-sm whitespace-pre-wrap text-gray-800">${part.text}</div>`;
                                                 }
-                                                return `<div class="text-xs text-gray-500">[${part.kind} content]</div>`;
+                                                return `<div class="text-xs text-gray-500 italic">[${part.kind} content]</div>`;
                                             }).join('') || ''}
                                         </div>
-                                    `).join('') || '<p class="text-gray-500">No results available</p>'}
+                                    `).join('') || '<p class="text-gray-500 text-center py-4">No final results available</p>'}
                                 </div>
                             </div>
                         </div>
@@ -1127,10 +1350,130 @@
             }).join('');
         }
 
-        // Close modal when clicking outside
+        // Settings Modal Functions
+        async function openSettingsModal() {
+            try {
+                // Load current API key status
+                const response = await fetch('/api-keys');
+                const data = await response.json();
+                
+                // Update status indicators
+                updateApiKeyStatus('openai', data.openai);
+                updateApiKeyStatus('anthropic', data.anthropic);
+                updateApiKeyStatus('together', data.together);
+                
+                document.getElementById('settings-modal').classList.remove('hidden');
+            } catch (error) {
+                console.error('Error loading API key status:', error);
+                document.getElementById('settings-modal').classList.remove('hidden');
+            }
+        }
+
+        function closeSettingsModal() {
+            document.getElementById('settings-modal').classList.add('hidden');
+        }
+
+        function updateApiKeyStatus(provider, hasKey) {
+            const statusElement = document.getElementById(`${provider}-status`);
+            if (hasKey) {
+                statusElement.innerHTML = '<i class="fas fa-check text-green-600"></i>';
+                statusElement.className = statusElement.className.replace('bg-gray-50', 'bg-green-50');
+            } else {
+                statusElement.innerHTML = '<i class="fas fa-times text-red-600"></i>';
+                statusElement.className = statusElement.className.replace('bg-green-50', 'bg-gray-50');
+            }
+        }
+
+        async function saveApiKeys() {
+            const apiKeys = {
+                openai: document.getElementById('openai-key').value,
+                anthropic: document.getElementById('anthropic-key').value,
+                together: document.getElementById('together-key').value
+            };
+            
+            try {
+                const response = await fetch('/api-keys', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(apiKeys)
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    // Update status indicators
+                    updateApiKeyStatus('openai', !!apiKeys.openai);
+                    updateApiKeyStatus('anthropic', !!apiKeys.anthropic);
+                    updateApiKeyStatus('together', !!apiKeys.together);
+                    
+                    // Clear input fields for security
+                    document.getElementById('openai-key').value = '';
+                    document.getElementById('anthropic-key').value = '';
+                    document.getElementById('together-key').value = '';
+                    
+                    logDebugMessage('success', 'API Keys Updated', 'API keys have been saved successfully');
+                    alert('API keys saved successfully!');
+                } else {
+                    throw new Error(result.message || 'Failed to save API keys');
+                }
+            } catch (error) {
+                logDebugMessage('error', 'API Key Save Failed', error.message);
+                alert('Error saving API keys: ' + error.message);
+            }
+        }
+
+        // Text Expansion Functions
+        function expandText(button) {
+            const container = button.parentElement;
+            const fullText = container.getAttribute('data-full-text');
+            const textDiv = container.querySelector('.text-gray-700');
+            
+            if (fullText) {
+                textDiv.textContent = fullText;
+                button.remove();
+            }
+        }
+
+        function expandModalText(button) {
+            const fullText = decodeURIComponent(button.getAttribute('data-full-text'));
+            const textDiv = button.previousElementSibling;
+            
+            if (fullText) {
+                textDiv.textContent = fullText;
+                button.remove();
+            }
+        }
+
+        // Initialize settings functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            // Add event listeners for API key status loading
+            checkApiKeyStatus();
+        });
+
+        async function checkApiKeyStatus() {
+            try {
+                const response = await fetch('/api-keys');
+                const data = await response.json();
+                
+                // You can add visual indicators in the main UI if needed
+                console.log('API Key Status:', data);
+            } catch (error) {
+                console.error('Error checking API key status:', error);
+            }
+        }
+
+        // Close modals when clicking outside
         document.getElementById('task-modal').addEventListener('click', function(e) {
             if (e.target === this) {
                 closeTaskModal();
+            }
+        });
+        
+        document.getElementById('settings-modal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeSettingsModal();
             }
         });
     </script>

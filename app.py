@@ -229,8 +229,6 @@ def jobs_callback(jobs):
                 st.write(job.output.citation)
 
 
-placeholder_messages = {}
-
 THINKING_GIF = "https://media.giphy.com/media/v1.Y2lkPTc5MGI3NjExa2xhc3QzaHZyYWJ0M3czZXVjMGQ0YW50ZTBvcDdlNXVxNWhvZHdhOCZlcD12MV9naWZzX3NlYXJjaCZjdD1n/3o7bu3XilJ5BOiSGic/giphy.gif"
 GRU_GIF = "https://media.giphy.com/media/ySMINwPzf50IM/giphy.gif?cid=790b7611vozglgf917p8ou0vjzydpgk9p8hpdwq9x95euttp&ep=v1_gifs_search&rid=giphy.gif&ct=g"
 MINION_VIDEO = "https://www.youtube.com/embed/65BzWiQTkII?autoplay=1&mute=1"
@@ -266,6 +264,11 @@ st.markdown("<hr style='width: 100%;'>", unsafe_allow_html=True)
 def message_callback(role, message, is_final=True):
     """Show messages for both Minion and Minions protocols,
     labeling the local vs remote model clearly."""
+    
+    # Initialize placeholder_messages in session state if not present
+    if "placeholder_messages" not in st.session_state:
+        st.session_state.placeholder_messages = {}
+    
     # Map supervisor -> Remote, worker -> Local
     chat_role = "Remote" if role == "supervisor" else "Local"
 
@@ -278,55 +281,168 @@ def message_callback(role, message, is_final=True):
         path = "assets/minion.png"
         # path = MINION_GIF
 
-    # If we are not final, render a placeholder.
+    # If we are not final, handle intermediate content or show working state
     if not is_final:
+        # Clear any existing placeholder for this role to prevent accumulation
+        if role in st.session_state.placeholder_messages:
+            try:
+                st.session_state.placeholder_messages[role].empty()
+            except Exception as e:
+                print(f"Warning: Could not clear existing placeholder for {role}: {e}")
+        
         # Create a placeholder container and store it for later update.
         placeholder = st.empty()
-        with placeholder.chat_message(chat_role, avatar=path):
-            st.markdown("**Working...**")
-            if role == "supervisor":
-                # st.image(GRU_GIF, width=50)
-                st.markdown(
-                    f"""
-                    <div style="display: flex; justify-content: center;">
-                        <img src="{GRU_GIF}" width="200">
-                    </div>
-                    """,
-                    unsafe_allow_html=True,
-                )
-            else:
-                # st.image(MINION_GIF, width=50)
-                video_html = f"""
-                    <style>
-                    .video-container {{
-                        position: relative;
-                        padding-bottom: 56.25%; /* 16:9 Aspect Ratio */
-                        height: 0;
-                        overflow: hidden;
-                        max-width: 100%;
-                    }}
-                    .video-container iframe {{
-                        position: absolute;
-                        top: 0;
-                        left: 0;
-                        width: 100%;
-                        height: 100%;
-                    }}
-                    </style>
+        
+        # Check if we have actual content to show or just need to show working state
+        has_content = message is not None and message != ""
+        
+        if has_content:
+            # Show intermediate content
+            with placeholder.chat_message(chat_role, avatar=path):
+                # Generate voice if enabled and it's a worker/local message
+                if (
+                    st.session_state.get("voice_generation_enabled", False)
+                    and role == "worker"
+                    and "voice_generator" in st.session_state
+                ):
+                    # For text messages, generate audio
+                    if isinstance(message, str):
+                        # Limit text length for voice generation
+                        voice_text = (
+                            message[:500] + "..." if len(message) > 500 else message
+                        )
+                        audio_base64 = st.session_state.voice_generator.generate_audio(
+                            voice_text
+                        )
+                        if audio_base64:
+                            st.markdown(
+                                st.session_state.voice_generator.get_audio_html(
+                                    audio_base64
+                                ),
+                                unsafe_allow_html=True,
+                            )
+                    elif isinstance(message, dict):
+                        if "content" in message and isinstance(message["content"], str):
+                            voice_text = (
+                                message["content"][:500] + "..."
+                                if len(message["content"]) > 500
+                                else message["content"]
+                            )
+                            audio_base64 = st.session_state.voice_generator.generate_audio(
+                                voice_text
+                            )
+                            if audio_base64:
+                                st.markdown(
+                                    st.session_state.voice_generator.get_audio_html(
+                                        audio_base64
+                                    ),
+                                    unsafe_allow_html=True,
+                                )
 
-                    <div class="video-container">
-                        <iframe src="{MINION_VIDEO}"
-                        frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>
-                    </div>
-                """
+                # Display the intermediate content
+                if role == "worker" and isinstance(message, list):
+                    # For Minions protocol, messages are a list of jobs (intermediate results)
+                    st.markdown("#### Intermediate results from minions...")
+                    tasks = {}
+                    for job in message:
+                        task_id = job.manifest.task_id
+                        if task_id not in tasks:
+                            tasks[task_id] = {"task": job.manifest.task, "jobs": []}
+                        tasks[task_id]["jobs"].append(job)
 
-                st.markdown(video_html, unsafe_allow_html=True)
-            # st.image(THINKING_GIF, width=50)
-        placeholder_messages[role] = placeholder
+                    for task_id, task_info in tasks.items():
+                        task_info["jobs"] = sorted(
+                            task_info["jobs"], key=lambda x: x.manifest.job_id
+                        )
+                        include_jobs = [
+                            job
+                            for job in task_info["jobs"]
+                            if job.output.answer
+                            and job.output.answer.lower().strip() != "none"
+                        ]
+
+                        st.markdown(
+                            f"_Processing: {len(task_info['jobs']) - len(include_jobs)} chunks pending, {len(include_jobs)} completed_"
+                        )
+                        # Show a sample of completed jobs
+                        for job in include_jobs[:3]:  # Show first 3 completed jobs
+                            st.markdown(
+                                f"**✅ Job {job.manifest.job_id + 1} (Chunk {job.manifest.chunk_id + 1})**"
+                            )
+                            answer = job.output.answer.replace("$", "\\$")
+                            st.markdown(f"Answer: {answer}")
+
+                elif isinstance(message, dict):
+                    if "content" in message and isinstance(message["content"], (dict, str)):
+                        try:
+                            # Try to parse as JSON if it's a string
+                            content = (
+                                message["content"]
+                                if isinstance(message["content"], dict)
+                                else json.loads(message["content"])
+                            )
+                            st.json(content)
+                        except json.JSONDecodeError:
+                            st.write(message["content"])
+                    else:
+                        st.write(message)
+                elif isinstance(message, str):
+                    message = message.replace("$", "\\$")
+                    st.markdown(message)
+                else:
+                    st.write(str(message))
+        else:
+            # Show working state when no content
+            with placeholder.chat_message(chat_role, avatar=path):
+                st.markdown("**Working...**")
+                if role == "supervisor":
+                    st.markdown(
+                        f"""
+                        <div style="display: flex; justify-content: center;">
+                            <img src="{GRU_GIF}" width="200">
+                        </div>
+                        """,
+                        unsafe_allow_html=True,
+                    )
+                else:
+                    video_html = f"""
+                        <style>
+                        .video-container {{
+                            position: relative;
+                            padding-bottom: 56.25%; /* 16:9 Aspect Ratio */
+                            height: 0;
+                            overflow: hidden;
+                            max-width: 100%;
+                        }}
+                        .video-container iframe {{
+                            position: absolute;
+                            top: 0;
+                            left: 0;
+                            width: 100%;
+                            height: 100%;
+                        }}
+                        </style>
+
+                        <div class="video-container">
+                            <iframe src="{MINION_VIDEO}"
+                            frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>
+                        </div>
+                    """
+                    st.markdown(video_html, unsafe_allow_html=True)
+        
+        st.session_state.placeholder_messages[role] = placeholder
     else:
-        if role in placeholder_messages:
-            placeholder_messages[role].empty()
-            del placeholder_messages[role]
+        # Handle final message - clear placeholder for this role
+        if role in st.session_state.placeholder_messages:
+            try:
+                st.session_state.placeholder_messages[role].empty()
+                del st.session_state.placeholder_messages[role]
+            except Exception as e:
+                # Handle edge case where placeholder might be invalid
+                print(f"Warning: Could not clear placeholder for {role}: {e}")
+                # Remove from dict anyway
+                if role in st.session_state.placeholder_messages:
+                    del st.session_state.placeholder_messages[role]
         with st.chat_message(chat_role, avatar=path):
             # Generate voice if enabled and it's a worker/local message
             if (
@@ -2416,6 +2532,20 @@ else:
     final_answer_placeholder = st.empty()
 
     if user_query:
+        # Clear any existing placeholders when starting a new query
+        if "placeholder_messages" in st.session_state:
+            # First try to properly clear all existing placeholders
+            for role, placeholder in st.session_state.placeholder_messages.items():
+                try:
+                    placeholder.empty()
+                except Exception as e:
+                    print(f"Warning: Could not clear placeholder for {role}: {e}")
+            # Then reset the dictionary
+            st.session_state.placeholder_messages = {}
+        
+        # Initialize query tracking to help with callback management
+        st.session_state.current_query_id = time.time()
+        
         # Validate context description is provided
         if not context_description.strip():
             st.error(

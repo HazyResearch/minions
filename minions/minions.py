@@ -364,7 +364,7 @@ class Minions:
         conversation_log["conversation"][-1]["output"] = advice_response[0]
 
         if self.callback:
-            self.callback("supervisor", supervisor_messages[-1], is_final=True)
+            self.callback("supervisor", supervisor_messages[-1], is_final=False)
         # ---------- END ----------
 
         last_jobs: Optional[List[Job]] = None
@@ -488,7 +488,7 @@ class Minions:
                 conversation_log["conversation"][-1]["output"] = task_response
 
                 if self.callback:
-                    self.callback("supervisor", supervisor_messages[-1], is_final=True)
+                    self.callback("supervisor", supervisor_messages[-1], is_final=False)
 
                 code_block_match = re.search(
                     r"```(?:python)?\s*(.*?)```",
@@ -692,7 +692,7 @@ class Minions:
                 "jobs": jobs,
             }
             if self.callback:
-                self.callback("worker", jobs, is_final=True)
+                self.callback("worker", jobs, is_final=False)
 
             # Update conversation log with worker responses
             conversation_log["conversation"][-1]["output"] = [
@@ -847,7 +847,7 @@ class Minions:
 
                 remote_usage += usage
                 if self.callback:
-                    self.callback("supervisor", step_by_step_response[0])
+                    self.callback("supervisor", step_by_step_response[0], is_final=False)
 
                 supervisor_messages.append(
                     {"role": "assistant", "content": step_by_step_response[0]}
@@ -938,6 +938,11 @@ class Minions:
             if obj["decision"] != "request_additional_info":
                 final_answer = obj.get("answer", None)
                 conversation_log["generated_final_answer"] = final_answer
+                
+                # Send final answer callback
+                if self.callback and final_answer:
+                    self.callback("supervisor", {"role": "assistant", "content": final_answer}, is_final=True)
+                
                 break  # answer was found, so we are done!
             else:
                 feedback = obj.get("explanation", None)

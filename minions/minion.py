@@ -250,7 +250,7 @@ class Minion:
             """
 
             if self.callback:
-                self.callback("worker", output)
+                self.callback("worker", output, is_final=False)
 
             # Initialize message histories based on conversation mode
             if self.is_multi_turn:
@@ -384,7 +384,7 @@ class Minion:
         conversation_log["conversation"][-1]["output"] = supervisor_response[0]
 
         if self.callback:
-            self.callback("supervisor", supervisor_messages[-1])
+            self.callback("supervisor", supervisor_messages[-1], is_final=False)
 
         # Extract first question for worker
         if isinstance(self.remote_client, (OpenAIClient, TogetherClient, GeminiClient)):
@@ -493,7 +493,7 @@ class Minion:
 
                     {worker_response[0]}
                     """
-                    self.callback("worker", output)
+                    self.callback("worker", output, is_final=False)
 
                 worker_privacy_shield_prompt = WORKER_PRIVACY_SHIELD_PROMPT.format(
                     output=worker_response[0],
@@ -515,7 +515,7 @@ class Minion:
 
                     {worker_response[0]}
                     """
-                    self.callback("worker", output)
+                    self.callback("worker", output, is_final=False)
             else:
                 worker_messages.append(
                     {"role": "assistant", "content": worker_response[0]}
@@ -525,7 +525,7 @@ class Minion:
                 conversation_log["conversation"][-1]["output"] = worker_response[0]
 
                 if self.callback:
-                    self.callback("worker", worker_messages[-1])
+                    self.callback("worker", worker_messages[-1], is_final=False)
 
             # Save the local output for conversation history
             local_output = worker_response[0]
@@ -639,7 +639,7 @@ class Minion:
                 {"role": "assistant", "content": supervisor_response[0]}
             )
             if self.callback:
-                self.callback("supervisor", supervisor_messages[-1])
+                self.callback("supervisor", supervisor_messages[-1], is_final=False)
 
             conversation_log["conversation"][-1]["output"] = supervisor_response[0]
 
@@ -655,6 +655,11 @@ class Minion:
             if supervisor_json["decision"] == "provide_final_answer":
                 final_answer = supervisor_json["answer"]
                 conversation_log["generated_final_answer"] = final_answer
+                
+                # Send final answer callback
+                if self.callback:
+                    self.callback("supervisor", {"role": "assistant", "content": final_answer}, is_final=True)
+                
                 break
             else:
                 next_question = supervisor_json["message"]

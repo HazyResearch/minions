@@ -49,14 +49,16 @@ class TestDistributedInferenceClientIntegration(BaseClientIntegrationTest):
         try:
             result = self.client.chat(messages)
             
-            # Distributed inference returns (responses, usage) tuple
+            # Distributed inference returns (responses, usage, done_reasons) tuple
             self.assertIsInstance(result, tuple)
-            self.assertEqual(len(result), 2)
+            self.assertEqual(len(result), 3)
             
-            responses, usage = result
+            responses, usage, done_reasons = result
             self.assertIsInstance(responses, list)
             self.assertGreater(len(responses), 0)
             self.assertIsInstance(responses[0], str)
+            self.assertIsInstance(done_reasons, list)
+            self.assertGreater(len(done_reasons), 0)
             self.assert_response_content(responses, "test successful")
         except Exception as e:
             if "Connection refused" in str(e) or "Failed to establish a new connection" in str(e):
@@ -115,7 +117,7 @@ class TestDistributedInferenceClientIntegration(BaseClientIntegrationTest):
         messages = [{"role": "user", "content": "Say 'model test'"}]
         
         try:
-            responses, usage = client.chat(messages)
+            responses, usage, done_reasons = client.chat(messages)
             self.assert_response_content(responses, "model test")
         except Exception as e:
             if "Connection refused" in str(e) or "Failed to establish a new connection" in str(e):

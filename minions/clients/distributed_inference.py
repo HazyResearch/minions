@@ -98,7 +98,7 @@ class DistributedInferenceClient(MinionsClient):
         response = self._make_request("DELETE", url)
         return response.json()
 
-    def chat(self, messages: List[Dict[str, Any]], **kwargs) -> Tuple[List[str], Usage]:
+    def chat(self, messages: List[Dict[str, Any]], **kwargs) -> Tuple[List[str], Usage, List[str]]:
         """
         Handle chat completions using the Distributed Inference API.
 
@@ -107,7 +107,7 @@ class DistributedInferenceClient(MinionsClient):
             **kwargs: Additional arguments (not used by this API)
 
         Returns:
-            Tuple of (List[str], Usage) containing response strings and token usage
+            Tuple of (List[str], Usage, List[str]) containing response strings, token usage, and done reasons
         """
         assert len(messages) > 0, "Messages cannot be empty."
         
@@ -151,7 +151,10 @@ class DistributedInferenceClient(MinionsClient):
                 completion_tokens=usage_data.get("completion_tokens", 0)
             )
             
-            return [response_text], usage
+            # Extract done reason if available, default to "stop"
+            done_reason = data.get("done_reason", "stop")
+            
+            return [response_text], usage, [done_reason]
             
         except requests.exceptions.HTTPError as e:
             if e.response.status_code == 404:
@@ -191,7 +194,7 @@ class DistributedInferenceClient(MinionsClient):
         
         for prompt in prompts:
             messages = [{"role": "user", "content": prompt}]
-            response, usage = self.chat(messages, **kwargs)
+            response, usage, _ = self.chat(messages, **kwargs)  # Ignore done_reasons
             responses.extend(response)
             total_usage += usage
         

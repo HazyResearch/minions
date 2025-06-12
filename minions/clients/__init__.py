@@ -136,3 +136,13 @@ except ImportError:
         "Warning: cerebras-cloud-sdk is not installed. If you want to use CerebrasClient, "
         "please install it with `pip install cerebras-cloud-sdk`."
     )
+
+try:
+    from minions.clients.modular import ModularClient
+    __all__.append("ModularClient")
+except ImportError:
+    # print warning that modular is not installed
+    print(
+        "Warning: Modular MAX or OpenAI client is not installed. If you want to use ModularClient, "
+        "please install Modular MAX (https://docs.modular.com/max/get-started) and OpenAI client (pip install openai)."
+    )

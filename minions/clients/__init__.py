@@ -16,6 +16,7 @@ from minions.clients.mistral import MistralClient
 from minions.clients.sarvam import SarvamClient
 from minions.clients.docker_model_runner import DockerModelRunnerClient
 from minions.clients.lemonade import LemonadeClient
+from minions.clients.distributed_inference import DistributedInferenceClient
 
 __all__ = [
     "OllamaClient",
@@ -35,6 +36,7 @@ __all__ = [
     "SarvamClient",
     "DockerModelRunnerClient",
     "LemonadeClient",
+    "DistributedInferenceClient",
 ]
 
 try:

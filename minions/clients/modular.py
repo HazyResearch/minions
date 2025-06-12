@@ -118,7 +118,7 @@ class ModularClient(MinionsClient, ServerMixin):
             )
 
             # Extract response content
-            return [choice.message.content for choice in response.choices], usage
+            return [choice.message.content for choice in response.choices], usage, [choice.finish_reason for choice in response.choices]
             
         except Exception as e:
             self.logger.error(f"Error during Modular MAX API call: {e}")

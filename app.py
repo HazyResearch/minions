@@ -517,6 +517,20 @@ def initialize_clients(
                 hf_token=hf_token,
                 do_sample=(local_temperature > 0),
             )
+        elif local_provider == "Modular":
+            # Get Modular configuration from session state
+            modular_model_name = st.session_state.get("modular_model_name", local_model_name)
+            modular_weights_path = st.session_state.get("modular_weights_path", "HuggingFaceTB/SmolLM2-1.7B-Instruct-GGUF/smollm2-1.7b-instruct-q4_k_m.gguf")
+            modular_verbose = st.session_state.get("modular_verbose", False)
+            
+            from minions.clients.modular import ModularClient
+            st.session_state.local_client = ModularClient(
+                model_name=modular_model_name,
+                weights_path=modular_weights_path,
+                temperature=local_temperature,
+                max_tokens=int(local_max_tokens),
+                verbose=modular_verbose,
+            )
         else:  # Ollama
             st.session_state.local_client = OllamaClient(
                 model_name=local_model_name,
@@ -1241,9 +1255,9 @@ with st.sidebar:
             "OpenAI",
             "AzureOpenAI",
             "OpenRouter",
+            "Anthropic",
             "Together",
             "Perplexity",
-            "Anthropic",
             "Groq",
             "DeepSeek",
             "SambaNova",
@@ -1342,10 +1356,15 @@ with st.sidebar:
             st.error(f"**✗ Invalid API key.** {msg}")
             provider_key = None
     else:
-        st.error(
-            f"**✗ Missing API key.** Input your key above or set the environment variable with `export {PROVIDER_TO_ENV_VAR_KEY[selected_provider]}=<your-api-key>`"
-        )
-        provider_key = None
+        # Only show missing API key error for providers that actually need API keys
+        if selected_provider not in ["Secure"]:
+            st.error(
+                f"**✗ Missing API key.** Input your key above or set the environment variable with `export {PROVIDER_TO_ENV_VAR_KEY[selected_provider]}=<your-api-key>`"
+            )
+            provider_key = None
+        else:
+            # For providers that don't need API keys, this shouldn't happen, but handle gracefully
+            provider_key = None
 
     # Add a toggle for OpenAI Responses API with web search when OpenAI is selected
     if selected_provider == "OpenAI":
@@ -1511,6 +1530,15 @@ with st.sidebar:
         local_provider_options.append("Cartesia-MLX")
     if transformers_available:
         local_provider_options.append("Transformers")
+    
+    # Check if ModularClient is available
+    modular_available = False
+    try:
+        from minions.clients.modular import ModularClient
+        modular_available = True
+        local_provider_options.append("Modular")
+    except ImportError:
+        pass
 
     local_provider = st.radio(
         "Select Local Provider",
@@ -1558,6 +1586,40 @@ with st.sidebar:
             st.warning(
                 "No HuggingFace token provided. Gated models may not be accessible."
             )
+
+    if local_provider == "Modular":
+        st.info(
+            "⚠️ Modular MAX requires installation. Please install it following the instructions at https://docs.modular.com/max/packages"
+        )
+
+        # Weights path configuration
+        modular_weights_path = st.text_input(
+            "Weights Path",
+            value=st.session_state.get("modular_weights_path", "HuggingFaceTB/SmolLM2-1.7B-Instruct-GGUF/smollm2-1.7b-instruct-q4_k_m.gguf"),
+            key="modular_weights_path",
+            help="Path to model weights (can be local path or HuggingFace repo path)",
+            placeholder="HuggingFaceTB/SmolLM2-1.7B-Instruct-GGUF/smollm2-1.7b-instruct-q4_k_m.gguf",
+        )
+        
+        # Server configuration
+        modular_verbose = st.toggle(
+            "Verbose Logging",
+            value=st.session_state.get("modular_verbose", False),
+            key="modular_verbose",
+            help="Enable verbose logging for the Modular MAX server"
+        )
+        
+       
+        # Check if MAX CLI is available
+        try:
+            import subprocess
+            result = subprocess.run(['max', '--version'], capture_output=True, text=True, timeout=5)
+            if result.returncode == 0:
+                st.success("**✓ Modular MAX CLI is available.** You're good to go!")
+            else:
+                st.error("**✗ Modular MAX CLI not found.** Please install Modular MAX.")
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            st.error("**✗ Modular MAX CLI not found.** Please install Modular MAX following the instructions at https://docs.modular.com/max/packages")
 
     # Protocol selection
     st.subheader("Protocol")
@@ -1739,6 +1801,15 @@ with st.sidebar:
                 "Llama 3 8B Instruct": "meta-llama/Llama-3.1-8B-Instruct",
                 "Helium-1-2b": "kyutai/helium-1-2b",
                 "Foundation-Sec-8B": "fdtn-ai/Foundation-Sec-8B",
+            }
+        elif local_provider == "Modular":
+            local_model_options = {
+                "HuggingFaceTB/SmolLM2-1.7B-Instruct (Recommended)": "HuggingFaceTB/SmolLM2-1.7B-Instruct",
+                "deepseek-ai/DeepSeek-R1-Distill-Llama-8B": "deepseek-ai/DeepSeek-R1-Distill-Llama-8B",
+                "microsoft/Phi-3-mini-4k-instruct": "microsoft/Phi-3-mini-4k-instruct",
+                "microsoft/Phi-3.5-mini-instruct": "microsoft/Phi-3.5-mini-instruct",
+                "Qwen/Qwen2.5-0.5B-Instruct": "Qwen/Qwen2.5-0.5B-Instruct",
+                "Qwen/Qwen2.5-1.5B-Instruct": "Qwen/Qwen2.5-1.5B-Instruct",
             }
         else:  # Ollama            # Get available Ollama models
             available_ollama_models = OllamaClient.get_available_models()

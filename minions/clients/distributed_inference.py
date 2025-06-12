@@ -111,17 +111,26 @@ class DistributedInferenceClient(MinionsClient):
         """
         assert len(messages) > 0, "Messages cannot be empty."
         
-        # Convert messages to a single query string
-        # The API expects a simple query parameter, so we'll use the last user message
-        query = None
-        for message in reversed(messages):
-            if message.get("role") == "user":
-                query = message.get("content", "")
-                break
-        
-        if not query:
-            # If no user message, concatenate all messages
-            query = " ".join(msg.get("content", "") for msg in messages)
+        # For distributed inference API, we need to combine all messages into a single query
+        # since the API only accepts a simple query parameter
+        if len(messages) == 1 and messages[0].get("role") == "user":
+            # Single user message - use it directly (this preserves full Minions formatting)
+            query = messages[0].get("content", "")
+        else:
+            # Multiple messages - combine them meaningfully
+            query_parts = []
+            for message in messages:
+                role = message.get("role", "")
+                content = message.get("content", "")
+                if role == "system":
+                    query_parts.append(f"System: {content}")
+                elif role == "user":
+                    query_parts.append(f"User: {content}")
+                elif role == "assistant":
+                    query_parts.append(f"Assistant: {content}")
+                else:
+                    query_parts.append(content)
+            query = "\n\n".join(query_parts)
         
         try:
             # Use network coordinator

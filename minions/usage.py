@@ -35,6 +35,9 @@ class Usage:
             cached_prompt_tokens=self.cached_prompt_tokens + other.cached_prompt_tokens,
             seen_prompt_tokens=self.seen_prompt_tokens + other.seen_prompt_tokens,
         )
+
+    def get(self, key, default=None) -> Any:
+        return self.to_dict().get(key, default)
     
     def to_dict(self) -> Dict[str, Any]:
         return {

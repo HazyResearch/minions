@@ -107,12 +107,23 @@ class LemonadeClient(OpenAIClient):
         return [model["id"] for model in models]
     
     def _ensure_model_available(self):
-        available_models = self.get_available_models()
+        """Ensure the specified model is available on the Lemonade server."""
+
+        # Catch any connection issues when fetching available models
+        # as that typically means the Lemonade server is not running.
+        try:
+            available_models = self.get_available_models()
+        except requests.RequestException as e:
+            msg = (f"Failed to fetch available models from Lemonade server."
+                   f"Check if the Lemonade server is running")
+            self.logger.error(msg)
+            raise RuntimeError(msg)
+
         if self.model_name not in available_models:
             self.logger.info("Pulling model: %s", self.model_name)
             try:
                 self.pull_model(self.model_name)
-            except requests.exceptions.HTTPError:
+            except:
                 msg = (f"Model '{self.model_name}' not found on Lemonade server and unable to pull.\n"
                     f"Available models: {available_models}")
                 self.logger.error(msg)

@@ -2,6 +2,7 @@ import logging
 from typing import Any, Dict, List, Optional, Tuple
 import os
 import openai
+import requests
 
 from minions.usage import Usage
 from minions.clients.base import MinionsClient
@@ -62,6 +63,15 @@ class OpenAIClient(MinionsClient):
             self.use_responses_api = use_responses_api
         self.tools = tools
         self.reasoning_effort = reasoning_effort
+
+        # If we are using a local client, we want to check to see if the
+        # local server is running or not
+        if self.local:
+            try:
+                self.check_local_server_health()
+            except requests.exceptions.RequestException as e:
+                raise RuntimeError(("Local OpenAI server at {} is "
+                    "not running or reachable.".format(self.base_url)))
 
     def responses(
         self, messages: List[Dict[str, Any]], **kwargs
@@ -166,3 +176,13 @@ class OpenAIClient(MinionsClient):
                 return [choice.message.content for choice in response.choices], usage, [choice.finish_reason for choice in response.choices]
             else:
                 return [choice.message.content for choice in response.choices], usage
+
+
+    def check_local_server_health(self):
+        """
+        If we are using a local client, we want to be able
+        to check if the local server is running or not
+        """
+        resp = requests.get(f"{self.base_url}/health")
+        resp.raise_for_status()
+        return resp.json()

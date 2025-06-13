@@ -2,11 +2,15 @@ from minions.clients.ollama import OllamaClient
 from minions.clients.openai import OpenAIClient
 from minions.minion import Minion
 
-local_client = OpenAIClient(
-    base_url="http://localhost:8000/api/v0",
-    model_name="DeepSeek-R1-Distill-Llama-8B-Hybrid",
-    local=True,
-)
+try:
+    local_client = OpenAIClient(
+        base_url="http://localhost:8000/api/v0",
+        model_name="DeepSeek-R1-Distill-Llama-8B-Hybrid",
+        local=True,
+    )
+except Exception as e:
+    print("Error:", e)
+    exit(1)
 
 remote_client = OpenAIClient(
         model_name="gpt-4o",
@@ -14,7 +18,6 @@ remote_client = OpenAIClient(
 
 # Instantiate the Minion object with both clients
 minion = Minion(local_client, remote_client)
-
 
 context = """
 Patient John Doe is a 60-year-old male with a history of hypertension. In his latest checkup, his blood pressure was recorded at 160/100 mmHg, and he reported occasional chest discomfort during physical activity.

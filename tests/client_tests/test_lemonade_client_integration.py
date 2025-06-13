@@ -1,6 +1,7 @@
 """Lemonade client integration tests."""
 
 import unittest
+import warnings
 import sys
 import os
 
@@ -29,12 +30,20 @@ class TestLemonadeClientIntegration(BaseClientIntegrationTest):
     def setUp(self):
         """Set up Lemonade client if server URL provided."""
         base_url = "http://localhost:8000/api/v1"
-        self.client = self.CLIENT_CLASS(
-            model_name=self.DEFAULT_MODEL,
-            base_url=base_url,
-            temperature=0.1,
-            max_tokens=50,
-        )
+        try:
+            self.client = self.CLIENT_CLASS(
+                model_name=self.DEFAULT_MODEL,
+                base_url=base_url,
+                temperature=0.1,
+                max_tokens=50,
+            )
+        except Exception as e:
+            warnings.warn(
+                f"Skipping Lemonade tests: Lemonade not available locally. "
+                f"Install and start Lemonade to run these tests. Error: {e}",
+                UserWarning
+            )
+            self.skipTest("Lemonade not available")
 
     def test_basic_chat(self):
         """Test basic chat functionality."""

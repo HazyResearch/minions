@@ -1,5 +1,6 @@
 from minions.clients.base import MinionsClient
 from minions.clients.ollama import OllamaClient
+from minions.clients.lemonade import LemonadeClient
 from minions.clients.openai import OpenAIClient
 from minions.clients.azure_openai import AzureOpenAIClient
 from minions.clients.anthropic import AnthropicClient
@@ -20,6 +21,7 @@ from minions.clients.distributed_inference import DistributedInferenceClient
 
 __all__ = [
     "OllamaClient",
+    "LemonadeClient",
     "OpenAIClient",
     "AzureOpenAIClient",
     "AnthropicClient",

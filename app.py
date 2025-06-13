@@ -598,6 +598,12 @@ def initialize_clients(
                 temperature=local_temperature,
                 max_tokens=int(local_max_tokens),
             )
+        elif local_provider == "Lemonade":
+            st.session_state.local_client = LemonadeClient(
+                model_name=local_model_name,
+                temperature=local_temperature,
+                max_tokens=int(local_max_tokens)
+            )
 
         else:  # Ollama
             st.session_state.local_client = OllamaClient(
@@ -646,6 +652,12 @@ def initialize_clients(
                 temperature=local_temperature,
                 max_tokens=int(local_max_tokens),
                 verbose=modular_verbose,
+            )
+        elif local_provider == "Lemonade":
+            st.session_state.local_client = LemonadeClient(
+                model_name=local_model_name,
+                temperature=local_temperature,
+                max_tokens=int(local_max_tokens)
             )
         else:  # Ollama
             st.session_state.local_client = OllamaClient(
@@ -970,9 +982,15 @@ def run_protocol(
                     and "local_max_tokens" in st.session_state
                     and "api_key" in st.session_state
                 ):
+                    if local_provider == "Lemonade":
+                        st.session_state.local_client = LemonadeClient(
+                            model_name=st.session_state.local_model_name,
+                            temperature=st.session_state.local_temperature,
+                            max_tokens=int(st.session_state.local_max_tokens)
+                        )
 
                     # Reinitialize the local client with the new num_ctx
-                    if local_provider == "Ollama":
+                    elif local_provider == "Ollama":
                         st.session_state.local_client = OllamaClient(
                             model_name=st.session_state.local_model_name,
                             temperature=st.session_state.local_temperature,
@@ -1639,7 +1657,7 @@ with st.sidebar:
 
     # Local model provider selection
     st.subheader("Local Model Provider")
-    local_provider_options = ["Ollama"]
+    local_provider_options = ["Ollama", "Lemonade"]
     if mlx_available:
         local_provider_options.append("MLX")
     if cartesia_available:
@@ -1753,13 +1771,21 @@ with st.sidebar:
         "SambaNova",
         "LlamaAPI",
     ]:  # Added LlamaAPI and Anthropic to the list
-        protocol_options = [
-            "Minion",
-            "Minions",
-            "Minions-MCP",
-            "Minion-CUA",
-            "DeepResearch",
-        ]
+        # Currently Lemonade only supports Minion protocol
+        # TODO: Once more protocol support is added to the
+        # Lemonade client, remove this check
+        if local_provider == "Lemonade":
+            protocol_options = [
+                "Minion"
+            ]
+        else:
+            protocol_options = [
+                "Minion",
+                "Minions",
+                "Minions-MCP",
+                "Minion-CUA",
+                "DeepResearch",
+            ]
         protocol = st.segmented_control(
             "Communication protocol", options=protocol_options, default="Minion"
         )
@@ -1929,6 +1955,27 @@ with st.sidebar:
                 "Qwen/Qwen2.5-0.5B-Instruct": "Qwen/Qwen2.5-0.5B-Instruct",
                 "Qwen/Qwen2.5-1.5B-Instruct": "Qwen/Qwen2.5-1.5B-Instruct",
             }
+        elif local_provider == "Lemonade":
+            lemonade = LemonadeClient()
+            available_lemonade_models = lemonade.get_available_models()
+
+            local_model_options = {
+                "Llama-3.2-3B-Instruct-Hybrid": "Llama-3.2-3B-Instruct-Hybrid",
+                "Qwen2.5-0.5B-Instruct-CPU": "Qwen2.5-0.5B-Instruct-CPU",
+                "Llama-3.2-1B-Instruct-Hybrid": "Llama-3.2-1B-Instruct-Hybrid",
+                "Phi-3-Mini-Instruct-Hybrid": "Phi-3-Mini-Instruct-Hybrid",
+                "Qwen-1.5-7B-Chat-Hybrid": "Qwen-1.5-7B-Chat-Hybrid",
+                "DeepSeek-R1-Distill-Llama-8B-Hybrid": "DeepSeek-R1-Distill-Llama-8B-Hybrid",
+                "DeepSeek-R1-Distill-Qwen-7B-Hybrid": "DeepSeek-R1-Distill-Qwen-7B-Hybrid"
+            }
+
+            # Add any additional available models from Lemonade that aren't in the default list
+            if available_lemonade_models:
+                for model in available_lemonade_models:
+                    model_key = model
+                    # Add the model if it's not already in the options
+                    if model not in local_model_options.values():
+                        local_model_options[model_key] = model
         else:  # Ollama            # Get available Ollama models
             available_ollama_models = OllamaClient.get_available_models()
 

@@ -75,12 +75,16 @@ _note_: for optional Cartesia-MLX install, pip install the basic package and the
 
 **Step 2:** Install a server for running the local model.
 
-We support two servers for running local models: `ollama` and `tokasaurus`. You need to install at least one of these.
+We support three servers for running local models: `lemonade`, `ollama`, and `tokasaurus`. You need to install at least one of these.
 
-- You should use `ollama` if you do not have access to NVIDIA GPUs. Install `ollama` following the instructions [here](https://ollama.com/download). To enable Flash Attention, run
+
+- You should use `ollama` if you do not have access to NVIDIA/AMD GPUs. Install `ollama` following the instructions [here](https://ollama.com/download). To enable Flash Attention, run
   `launchctl setenv OLLAMA_FLASH_ATTENTION 1` and, if on a mac, restart the ollama app.
+- You should use `lemonade` if you have access to local AMD CPUs/GPUs/NPUs. Install `lemonade` following the instructions [here](https://lemonade-server.ai/).
+    - See the following for supported APU configurations: https://ryzenai.docs.amd.com/en/latest/llm/overview.html#supported-configurations
+    - After installing `lemonade` make sure to launch the lemonade server. This can be done via the [one-click Windows GUI](https://lemonade-server.ai/) installer which installs the Lemonade Server as a standalone tool.
+    - Note: Lemonade support is currently experimental and only supports the Minion protocol at this time. 
 - You should use `tokasaurus` if you have access to NVIDIA GPUs and you are running the Minions protocol, which benefits from the high-throughput of `tokasaurus`. Install `tokasaurus` with the following command:
-
 ```
 pip install tokasaurus
 ```

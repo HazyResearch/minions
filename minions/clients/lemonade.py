@@ -18,7 +18,7 @@ class LemonadeClient(OpenAIClient):
 
     def __init__(
         self,
-        model_name: str = "Qwen2.5-0.5B-Instruct-CPU",
+        model_name: str = "Llama-3.2-3B-Instruct-Hybrid",
         api_key: Optional[str] = None,
         temperature: float = 0.0,
         max_tokens: int = 2048,
@@ -38,6 +38,9 @@ class LemonadeClient(OpenAIClient):
         self.session = requests.Session()
         self.base_url = base_url
         self.logger.setLevel(logging.INFO)
+
+        # Validate server connection and model availability
+        self._ensure_model_available()
 
     def chat(self, messages: List[Dict[str, Any]], **kwargs) -> Tuple[List[str], Usage]:
         """
@@ -65,7 +68,6 @@ class LemonadeClient(OpenAIClient):
             )
             response.raise_for_status()
             response_data = response.json()
-
         except Exception as e:
             self.logger.error(f"Error during Lemonade API call: {e}")
             raise
@@ -86,7 +88,9 @@ class LemonadeClient(OpenAIClient):
             completion_tokens=estimated_completion_tokens,
         )
 
-        return responses, usage
+        done_reason = [choice.get("finish_reason", "stop") for choice in choices]
+
+        return responses, usage, done_reason
 
     # ------------------------------------------------------------------
     # Lemonade specific helper APIs
@@ -96,6 +100,34 @@ class LemonadeClient(OpenAIClient):
         resp = self.session.get(f"{self.base_url}/models")
         resp.raise_for_status()
         return resp.json()
+
+    def get_available_models(self) -> List[str]:
+        """Return a list of model names available on the server."""
+        models = self.get_models().get("data", [])
+        return [model["id"] for model in models]
+    
+    def _ensure_model_available(self):
+        """Ensure the specified model is available on the Lemonade server."""
+
+        # Catch any connection issues when fetching available models
+        # as that typically means the Lemonade server is not running.
+        try:
+            available_models = self.get_available_models()
+        except requests.RequestException as e:
+            msg = (f"Failed to fetch available models from Lemonade server."
+                   f"Check if the Lemonade server is running")
+            self.logger.error(msg)
+            raise RuntimeError(msg)
+
+        if self.model_name not in available_models:
+            self.logger.info("Pulling model: %s", self.model_name)
+            try:
+                self.pull_model(self.model_name)
+            except:
+                msg = (f"Model '{self.model_name}' not found on Lemonade server and unable to pull.\n"
+                    f"Available models: {available_models}")
+                self.logger.error(msg)
+                raise RuntimeError(msg)
 
     def pull_model(self, model_name: str) -> Dict[str, Any]:
         """Download and register a model on the server."""

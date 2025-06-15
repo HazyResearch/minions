@@ -21,6 +21,8 @@ class GeminiClient(MinionsClient):
         system_instruction: Optional[str] = None,
         use_openai_api: bool = False,
         thinking_budget: Optional[int] = None,
+        url_context: bool = False,
+        use_search: bool = False,
         **kwargs
     ):
         """Initialize Gemini Client.
@@ -35,6 +37,9 @@ class GeminiClient(MinionsClient):
             tool_calling: Whether to support tool calling.
             system_instruction: Optional system instruction to use for all calls.
             use_openai_api: Whether to use OpenAI-compatible API endpoint for Gemini models.
+            thinking_budget: Optional thinking budget for reasoning models.
+            url_context: Whether to enable URL context retrieval tool.
+            use_search: Whether to enable Google Search tool.
             **kwargs: Additional parameters passed to base class
         """
         super().__init__(
@@ -48,12 +53,14 @@ class GeminiClient(MinionsClient):
         # Client-specific configuration
         self.logger.setLevel(logging.INFO)
 
-        self.api_key = api_key or os.getenv("GOOGLE_API_KEY")
+        self.api_key = api_key or os.getenv("GEMINI_API_KEY")
         self.use_async = use_async
         self.return_tools = tool_calling
         self.system_instruction = system_instruction
         self.use_openai_api = use_openai_api
         self.thinking_budget = thinking_budget
+        self.url_context = url_context
+        self.google_search = use_search
 
         # If we want structured schema output:
         self.format_structured_output = None
@@ -62,6 +69,8 @@ class GeminiClient(MinionsClient):
 
         # Initialize the client based on the chosen API
         if self.use_openai_api:
+            if self.url_context or self.google_search:
+                raise ValueError("URL context and Google Search are not supported with OpenAI-compatible API. Use native Gemini API instead.")
             try:
                 from openai import OpenAI
 
@@ -125,6 +134,40 @@ class GeminiClient(MinionsClient):
 
         return config
 
+    def _create_url_context_tool(self):
+        """Create URL context tool for retrieving content from URLs."""
+        if not self.url_context:
+            return None
+        
+        return self.types.Tool(
+            url_context=self.types.UrlContext()
+        )
+
+    def _create_google_search_tool(self):
+        """Create Google Search tool for web search capabilities."""
+        if not self.google_search:
+            return None
+        
+        return self.types.Tool(
+            google_search=self.types.GoogleSearch()
+        )
+
+    def _prepare_tools(self):
+        """Prepare tools list for generation."""
+        tools = []
+        
+        if self.url_context:
+            url_tool = self._create_url_context_tool()
+            if url_tool:
+                tools.append(url_tool)
+        
+        if self.google_search:
+            search_tool = self._create_google_search_tool()
+            if search_tool:
+                tools.append(search_tool)
+        
+        return tools if tools else None
+
     def _format_content(self, messages: List[Dict[str, Any]]):
         """Format messages for Gemini API using the types module."""
         contents = []
@@ -180,7 +223,7 @@ class GeminiClient(MinionsClient):
         self,
         messages: Union[List[Dict[str, Any]], Dict[str, Any]],
         **kwargs,
-    ) -> Tuple[List[str], List[Usage], List[str]]:
+    ) -> Tuple[List[str], Usage, List[str]]:
         """
         Wrapper for async chat. Runs `asyncio.run()` internally to simplify usage.
         """
@@ -307,25 +350,35 @@ class GeminiClient(MinionsClient):
                 if system_instruction:
                     call_kwargs["system_instruction"] = system_instruction
 
+                # Prepare tools
+                tools = self._prepare_tools()
+                
+                # Create GenerateContentConfig with tools and other settings
+                config_kwargs = {
+                    "temperature": self.temperature,
+                    "max_output_tokens": self.max_tokens,
+                }
+                
+                # Add thinking config if specified
+                if self.thinking_budget is not None:
+                    config_kwargs["thinking_config"] = self.types.ThinkingConfig(
+                        thinking_budget=self.thinking_budget
+                    )
+                
+                # Add tools if available
+                if tools:
+                    config_kwargs["tools"] = tools
+                
+                config = self.types.GenerateContentConfig(**config_kwargs)
+
                 # Run the synchronous API call in a thread pool
                 response = await loop.run_in_executor(
                     None,
                     lambda: self.client.models.generate_content(
                         model=self.model_name,
                         contents=contents,
-                        config=self.types.GenerateContentConfig(
-                            temperature=0,
-                            max_output_tokens=self.max_tokens,
-                            **(
-                                {
-                                    "thinking_config": self.types.ThinkingConfig(
-                                        thinking_budget=self.thinking_budget
-                                    )
-                                }
-                                if self.thinking_budget is not None
-                                else {}
-                            ),
-                        ),
+                        config=config,
+                        system_instruction=system_instruction,
                     ),
                 )
 
@@ -352,6 +405,7 @@ class GeminiClient(MinionsClient):
         texts = []
         usage_total = Usage()
         done_reasons = []
+        url_context_metadata = None
         for r in results:
             texts.append(r["text"])
             usage_total += r["usage"]
@@ -377,7 +431,7 @@ class GeminiClient(MinionsClient):
         responses = []
         usage_total = Usage()
         done_reasons = []
-        tools = []
+        url_context_metadata = None
 
         try:
             if self.use_openai_api:
@@ -425,22 +479,34 @@ class GeminiClient(MinionsClient):
                 if not system_instruction:
                     system_instruction = self.system_instruction
 
-                # Prepare kwargs with generation config
-                call_kwargs = {**kwargs}
-                if generation_config:
-                    call_kwargs["config"] = self.types.GenerationConfig(
-                        **generation_config
+                # Prepare tools
+                tools = self._prepare_tools()
+                
+                # Create GenerateContentConfig with tools and other settings
+                config_kwargs = {
+                    "temperature": self.temperature,
+                    "max_output_tokens": self.max_tokens,
+                }
+                
+                # Add thinking config if specified
+                if self.thinking_budget is not None:
+                    config_kwargs["thinking_config"] = self.types.ThinkingConfig(
+                        thinking_budget=self.thinking_budget
                     )
+                
+                # Add tools if available
+                if tools:
+                    config_kwargs["tools"] = tools
 
-                # Add system instruction if present
-                if system_instruction:
-                    call_kwargs["system_instruction"] = system_instruction
+                config_kwargs["system_instruction"] = system_instruction
+                
+                config = self.types.GenerateContentConfig(**config_kwargs)
 
                 # Make the API call
                 response = self.client.models.generate_content(
                     model=self.model_name,
                     contents=contents,
-                    # **call_kwargs,
+                    config=config,
                 )
 
                 responses.append(response.text)

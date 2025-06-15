@@ -354,7 +354,7 @@ The following models are already in the global scope. **Do NOT redefine or re-im
 - Keep tasks **chunk-local and atomic**.
 - **You** (the supervisor) are responsible for aggregating and interpreting outputs in `transform_outputs()`. 
 
-Now, please provide the code for `prepare_jobs()` and `transform_outputs()`. 
+Now, please provide the code for `prepare_jobs()` and `transform_outputs()`.  They should both be included in a single code block.
 
 
 """
@@ -529,6 +529,8 @@ Follow the steps below:
 - Aggregate results by `task_id` and `chunk_id`. All **multi-chunk integration** or **global reasoning** is your responsibility here.
 - Return one **aggregated string** for supervisor review, incorporating as much relevant information as possible..
 
+Please provide the code for `prepare_jobs()` and `transform_outputs()`.  They should both be included in a single code block.
+
 {ADVANCED_STEPS_INSTRUCTIONS}
 
 ## Relevant Pydantic Models
@@ -568,7 +570,7 @@ The following models are already in the global scope. **Do NOT redefine or re-im
 - Keep tasks **chunk-local and atomic**.
 - **You** (the supervisor) are responsible for aggregating and interpreting outputs in `transform_outputs()`. 
 
-Now, please provide the code for `prepare_jobs()` and `transform_outputs()`. 
+Now, please provide the code for `prepare_jobs()` and `transform_outputs()`.  They should both be included in a single code block.
 
 """
 
@@ -593,6 +595,8 @@ Function #1 (prepare_jobs): will output formatted tasks for a small language mod
 Function #2 (transform_outputs): The second function will aggregate the outputs of the small language models and provide an aggregated string for the supervisor to review.
 -> Filter the jobs based on the output of the small language models (write a custome filter function -- in some steps you might want to filter for a specific keyword, in others you might want to no pass anything back, so you filter out everything!). 
 -> Aggregate the jobs based on the task_id and chunk_id.
+
+Now, please provide the code for `prepare_jobs()` and `transform_outputs()`.  They should both be included in a single code block.
 
 {ADVANCED_STEPS_INSTRUCTIONS}
 
@@ -626,6 +630,9 @@ Function #2 (transform_outputs): The second function will aggregate the outputs 
 
 {retrieval_source}
 ```
+
+
+Now, please provide the code for `prepare_jobs()` and `transform_outputs()`.  They should both be included in a single code block.
 """
 
 DECOMPOSE_TASK_PROMPT_SHORT = """\

@@ -18,7 +18,6 @@ from minions.usage import Usage
 from minions.utils.chunking import (
     chunk_by_section,
     chunk_by_page,
-    chunk_sentences,
     chunk_by_paragraph,
     extract_imports,
     extract_function_header,
@@ -29,17 +28,9 @@ from minions.utils.chunking import (
 
 
 from minions.prompts.minions import (
-    WORKER_PROMPT_TEMPLATE,
-    WORKER_OUTPUT_TEMPLATE,
     WORKER_ICL_EXAMPLES,
     WORKER_PROMPT_SHORT,
     ADVICE_PROMPT,
-    ADVICE_PROMPT_STEPS,
-    DECOMPOSE_TASK_PROMPT,
-    DECOMPOSE_TASK_PROMPT_SHORT_JOB_OUTPUTS,
-    REMOTE_ANSWER_OR_CONTINUE,
-    REMOTE_ANSWER_OR_CONTINUE_SHORT,
-    REMOTE_ANSWER,
     DECOMPOSE_TASK_PROMPT_AGGREGATION_FUNC,
     DECOMPOSE_TASK_PROMPT_AGG_FUNC_LATER_ROUND,
     DECOMPOSE_RETRIEVAL_TASK_PROMPT_AGGREGATION_FUNC,
@@ -51,7 +42,10 @@ from minions.prompts.minions import (
     EMBEDDING_INSTRUCTIONS,
 )
 
-from minions.utils.retrievers import *
+from minions.utils.retrievers import (
+    bm25_retrieve_top_k_chunks,
+    embedding_retrieve_top_k_chunks,
+)
 
 
 def chunk_by_section(
@@ -317,11 +311,30 @@ class Minions:
         local_usage = Usage()
 
         retriever = None
+        embedding_model_instance = None
 
         if use_retrieval:
             if use_retrieval == "bm25":
                 retriever = bm25_retrieve_top_k_chunks
             elif use_retrieval == "embedding":
+                # Import EmbeddingModel here to avoid circular imports
+                from minions.utils.retrievers import EmbeddingModel, BaseEmbeddingModel
+                
+                # Handle retrieval_model parameter - can be model name string or model instance
+                if retrieval_model:
+                    if isinstance(retrieval_model, str):
+                        # If it's a string, treat it as a model name
+                        embedding_model_instance = EmbeddingModel(retrieval_model)
+                    elif isinstance(retrieval_model, BaseEmbeddingModel):
+                        # If it's already a model instance, use it directly
+                        embedding_model_instance = retrieval_model
+                    else:
+                        print(f"Warning: retrieval_model should be a string or BaseEmbeddingModel instance, got {type(retrieval_model)}. Using default model.")
+                        embedding_model_instance = EmbeddingModel()
+                else:
+                    embedding_model_instance = EmbeddingModel()
+                
+                # Store the embedding_model_instance to use later in starting_globals
                 retriever = embedding_retrieve_top_k_chunks
             elif use_retrieval == "multimodal-embedding":
                 retriever = retrieve_chunks_from_chroma
@@ -519,9 +532,13 @@ class Minions:
                 }
 
                 if use_retrieval:
-                    starting_globals[f"{use_retrieval}_retrieve_top_k_chunks"] = (
-                        retriever
-                    )
+                    if use_retrieval == "embedding" and embedding_model_instance:
+                        # Create a partial function that includes the embedding model
+                        def embedding_retriever_with_model(*args, **kwargs):
+                            return embedding_retrieve_top_k_chunks(*args, embedding_model=embedding_model_instance, **kwargs)
+                        starting_globals[f"{use_retrieval}_retrieve_top_k_chunks"] = embedding_retriever_with_model
+                    else:
+                        starting_globals[f"{use_retrieval}_retrieve_top_k_chunks"] = retriever
 
                 fn_kwargs = {
                     "context": context,

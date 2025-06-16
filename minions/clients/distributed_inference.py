@@ -24,6 +24,7 @@ class DistributedInferenceClient(MinionsClient):
         max_tokens: int = 4096,
         base_url: str = "http://localhost:8080",
         timeout: int = 30,
+        structured_output_schema: Optional[Any] = None,
         **kwargs
     ):
         """
@@ -36,6 +37,7 @@ class DistributedInferenceClient(MinionsClient):
             max_tokens: Maximum number of tokens to generate (default: 4096)
             base_url: Network coordinator URL (default: "http://localhost:8080")
             timeout: Request timeout in seconds (default: 30)
+            structured_output_schema: Pydantic model class or JSON Schema dict for structured output
             **kwargs: Additional parameters passed to base class
         """
         # For distributed inference, model_name is optional
@@ -53,6 +55,9 @@ class DistributedInferenceClient(MinionsClient):
         self.api_key = api_key or os.getenv("MINIONS_API_KEY")
         self.timeout = timeout
         
+        # Handle structured output schema
+        self.structured_output_schema = self._prepare_schema(structured_output_schema)
+        
         # Set up headers for authenticated requests
         self.headers = {}
         if self.api_key:
@@ -66,137 +71,32 @@ class DistributedInferenceClient(MinionsClient):
         self.logger.info(f"  - Max tokens: {self.max_tokens}")
         self.logger.info(f"  - Timeout: {self.timeout}")
         self.logger.info(f"  - API key present: {bool(self.api_key)}")
-        self.logger.info(f"  - Headers: {self.headers}")
+        self.logger.info(f"  - Structured output: {bool(self.structured_output_schema)}")
 
-    def _convert_python_to_json(self, response_text: str) -> str:
+    def _prepare_schema(self, schema: Optional[Any]) -> Optional[Dict[str, Any]]:
         """
-        Convert Python object syntax to JSON format.
+        Prepare the structured output schema.
         
-        If the response looks like:
-            JobOutput(explanation="...", citation=None, answer="...")
-        
-        Convert it to:
-            {"explanation": "...", "citation": null, "answer": "..."}
+        Args:
+            schema: Pydantic model class or JSON Schema dict
+            
+        Returns:
+            JSON Schema dict or None
         """
-        response_text = response_text.strip()
-        
-        # Check if this looks like Python object syntax
-        if response_text.startswith(('JobOutput(', 'class JobOutput')):
-            try:
-                self.logger.info(f"DistributedInferenceClient: Converting Python syntax to JSON")
-                
-                # Handle class definition - return error JSON
-                if response_text.startswith('class JobOutput'):
-                    self.logger.warning(f"DistributedInferenceClient: Model returned class definition instead of instance")
-                    return json.dumps({
-                        "explanation": "Model returned class definition instead of instance",
-                        "citation": None,
-                        "answer": None
-                    })
-                
-                # Try to extract JobOutput(...) content
-                import re
-                match = re.search(r'JobOutput\s*\(\s*(.*?)\s*\)$', response_text, re.DOTALL)
-                if match:
-                    content = match.group(1).strip()
-                    self.logger.info(f"DistributedInferenceClient: Extracted content: {repr(content[:100])}")
-                    
-                    # Parse the key-value pairs
-                    result = {}
-                    
-                    # Split by commas that are not inside quotes
-                    # Use a more robust approach to handle nested quotes
-                    parts = []
-                    current_part = ""
-                    paren_depth = 0
-                    quote_char = None
-                    
-                    for char in content:
-                        if quote_char is None:
-                            if char in ['"', "'"]:
-                                quote_char = char
-                            elif char == '(' :
-                                paren_depth += 1
-                            elif char == ')':
-                                paren_depth -= 1
-                            elif char == ',' and paren_depth == 0:
-                                parts.append(current_part.strip())
-                                current_part = ""
-                                continue
-                        else:
-                            if char == quote_char:
-                                quote_char = None
-                        
-                        current_part += char
-                    
-                    if current_part.strip():
-                        parts.append(current_part.strip())
-                    
-                    for part in parts:
-                        if '=' in part:
-                            key, value = part.split('=', 1)
-                            key = key.strip()
-                            value = value.strip()
-                            
-                            # Convert Python None to JSON null
-                            if value == 'None':
-                                result[key] = None
-                            # Handle quoted strings - remove outer quotes
-                            elif (value.startswith('"') and value.endswith('"')) or (value.startswith("'") and value.endswith("'")):
-                                result[key] = value[1:-1]
-                            # Handle other values
-                            else:
-                                # Try to parse as string, handling edge cases
-                                if value != 'None':
-                                    result[key] = value
-                                else:
-                                    result[key] = None
-                    
-                    converted_json = json.dumps(result)
-                    self.logger.info(f"DistributedInferenceClient: Converted to JSON: {repr(converted_json[:100])}")
-                    return converted_json
-                    
-            except Exception as e:
-                self.logger.warning(f"DistributedInferenceClient: Failed to convert Python syntax to JSON: {e}")
-                # Return a safe error response
-                return json.dumps({
-                    "explanation": f"Failed to parse model response: {str(e)}",
-                    "citation": None,
-                    "answer": None
-                })
-        
-        # If it doesn't look like Python syntax, return as-is
-        return response_text
-
-    def _clean_markdown_response(self, response_text: str) -> str:
-        """
-        Clean markdown code blocks from response text.
-        
-        Distributed inference API sometimes wraps JSON in markdown code blocks like:
-        ```json
-        {...}
-        ```
-        or
-        ```
-        {...}
-        ```
-        
-        This method strips those markdown wrappers to get clean JSON.
-        """
-        # Remove leading/trailing whitespace
-        cleaned = response_text.strip()
-        
-        # Pattern to match markdown code blocks with optional language identifier
-        # Matches: ```json\n{...}\n``` or ```\n{...}\n```
-        code_block_pattern = r'^```(?:json)?\s*\n(.*?)\n```$'
-        
-        match = re.match(code_block_pattern, cleaned, re.DOTALL)
-        if match:
-            # Extract the content inside the code blocks
-            return match.group(1).strip()
-        
-        # If no code blocks found, return original
-        return cleaned
+        if schema is None:
+            return None
+            
+        # If it's already a dict, assume it's a JSON Schema
+        if isinstance(schema, dict):
+            return schema
+            
+        # If it's a Pydantic model class, convert to JSON Schema
+        if hasattr(schema, 'model_json_schema'):
+            return schema.model_json_schema()
+            
+        # If it's something else, log warning and ignore
+        self.logger.warning(f"Unsupported schema type: {type(schema)}. Ignoring structured output.")
+        return None
 
     def _make_request(self, method: str, url: str, **kwargs) -> requests.Response:
         """Make HTTP request with error handling."""
@@ -293,27 +193,28 @@ class DistributedInferenceClient(MinionsClient):
         try:
             # Use network coordinator
             url = f"{self.base_url}/chat"
-            params = {"query": query}
+            
+            # Build request body
+            request_body = {"query": query}
             
             # Add model preference if specified and not "auto"
             if self.model_name and self.model_name != "auto":
-                params["model"] = self.model_name
+                request_body["model"] = self.model_name
+            
+            # Add structured output schema if available
+            if self.structured_output_schema:
+                request_body["structured_output_schema"] = self.structured_output_schema
             
             self.logger.info(f"DistributedInferenceClient: Request URL: {url}")
-            self.logger.info(f"DistributedInferenceClient: Request params: {params}")
-            self.logger.info(f"DistributedInferenceClient: Request headers: {self.headers}")
+            self.logger.info(f"DistributedInferenceClient: Request body keys: {list(request_body.keys())}")
+            self.logger.info(f"DistributedInferenceClient: Has schema: {bool(self.structured_output_schema)}")
             
-            response = self._make_request("POST", url, params=params)
+            response = self._make_request("POST", url, json=request_body)
             
             self.logger.info(f"DistributedInferenceClient: Response status: {response.status_code}")
-            self.logger.info(f"DistributedInferenceClient: Response headers: {dict(response.headers)}")
-            
-            raw_response_text = response.text
-            response_preview = raw_response_text[:200] + "..." if len(raw_response_text) > 200 else raw_response_text
-            self.logger.info(f"DistributedInferenceClient: Raw response text preview: {repr(response_preview)} (length: {len(raw_response_text)})")
             
             data = response.json()
-            self.logger.info(f"DistributedInferenceClient: Response contains - response: {bool(data.get('response'))}, usage: {bool(data.get('usage'))}, node_url: {data.get('node_url', 'N/A')}")
+            self.logger.info(f"DistributedInferenceClient: Response contains - response: {bool(data.get('response'))}, parsed_response: {bool(data.get('parsed_response'))}, usage: {bool(data.get('usage'))}, node_url: {data.get('node_url', 'N/A')}")
             
             # Log which node was used
             if "node_url" in data:
@@ -321,18 +222,18 @@ class DistributedInferenceClient(MinionsClient):
             if "model_used" in data:
                 self.logger.info(f"Model used: {data['model_used']}")
             
-            # Extract response and clean any markdown formatting
-            raw_response_text = data.get("response", "")
-            response_preview = raw_response_text[:100] + "..." if len(raw_response_text) > 100 else raw_response_text
-            self.logger.info(f"DistributedInferenceClient: Raw response from API: {repr(response_preview)} (length: {len(raw_response_text)})")
+            # Extract response based on whether schema was used
+            if self.structured_output_schema and "parsed_response" in data:
+                # When using schema, convert parsed response back to JSON string
+                response_text = json.dumps(data["parsed_response"])
+                self.logger.info(f"DistributedInferenceClient: Using parsed_response from structured output")
+            else:
+                # Without schema, use raw response
+                response_text = data.get("response", "")
+                self.logger.info(f"DistributedInferenceClient: Using raw response")
             
-            # Convert Python syntax to JSON if needed
-            converted_response = self._convert_python_to_json(raw_response_text)
-            
-            # Then clean any markdown formatting
-            response_text = self._clean_markdown_response(converted_response)
-            cleaned_preview = response_text[:100] + "..." if len(response_text) > 100 else response_text
-            self.logger.info(f"DistributedInferenceClient: Final response: {repr(cleaned_preview)} (length: {len(response_text)})")
+            response_preview = response_text[:100] + "..." if len(response_text) > 100 else response_text
+            self.logger.info(f"DistributedInferenceClient: Final response: {repr(response_preview)} (length: {len(response_text)})")
             
             # Extract usage information
             usage_data = data.get("usage", {})
@@ -346,22 +247,7 @@ class DistributedInferenceClient(MinionsClient):
             done_reason = data.get("done_reason", "stop")
             self.logger.info(f"DistributedInferenceClient: Done reason: {done_reason}")
             
-            result = ([response_text], usage, [done_reason])
-            self.logger.info(f"DistributedInferenceClient: Final result structure: {result}")
-            self.logger.info(f"DistributedInferenceClient: Response list length: {len(result[0])}")
-            
-            # Validate we have at least one response
-            if not result[0] or not result[0][0]:
-                self.logger.error(f"DistributedInferenceClient: Empty response received from API")
-                # Return a minimal JSON error response that can be parsed as JobOutput
-                error_response = json.dumps({
-                    "explanation": "No response received from distributed inference network",
-                    "citation": None,
-                    "answer": None
-                })
-                return ([error_response], Usage(), ["stop"])
-            
-            return result
+            return ([response_text], usage, [done_reason])
             
         except requests.exceptions.HTTPError as e:
             self.logger.error(f"DistributedInferenceClient: HTTP Error - Status: {e.response.status_code}")
@@ -425,10 +311,14 @@ class DistributedInferenceClient(MinionsClient):
             if self.model_name and self.model_name != "auto":
                 batch_request["model"] = self.model_name
             
+            # Add structured output schema if available
+            if self.structured_output_schema:
+                batch_request["structured_output_schema"] = self.structured_output_schema
+            
             # Optional: Configure concurrency per node (default is 2, max is 10)
             batch_request["max_concurrent_per_node"] = min(len(queries), 5)  # Balance speed vs resource usage
             
-            self.logger.info(f"DistributedInferenceClient: Batch request - {len(queries)} queries, model: {batch_request.get('model', 'auto')}, max_concurrent: {batch_request['max_concurrent_per_node']}")
+            self.logger.info(f"DistributedInferenceClient: Batch request - {len(queries)} queries, model: {batch_request.get('model', 'auto')}, max_concurrent: {batch_request['max_concurrent_per_node']}, has_schema: {bool(self.structured_output_schema)}")
             
             # Submit batch request
             response = self._make_request("POST", url, json=batch_request)
@@ -489,20 +379,20 @@ class DistributedInferenceClient(MinionsClient):
                 self.logger.info(f"DistributedInferenceClient: Processing result {i}: success={result.get('success', False)}")
                 
                 if result.get("success", False):
-                    # Clean markdown formatting from response
-                    raw_response = result.get("response", "")
-                    response_preview = raw_response[:100] + "..." if len(raw_response) > 100 else raw_response
-                    self.logger.info(f"DistributedInferenceClient: Raw response for result {i}: {repr(response_preview)} (length: {len(raw_response)})")
+                    # Extract response based on whether schema was used
+                    if self.structured_output_schema and "parsed_response" in result:
+                        # When using schema, convert parsed response back to JSON string
+                        response_text = json.dumps(result["parsed_response"])
+                        self.logger.info(f"DistributedInferenceClient: Result {i} using parsed_response from structured output")
+                    else:
+                        # Without schema, use raw response
+                        response_text = result.get("response", "")
+                        self.logger.info(f"DistributedInferenceClient: Result {i} using raw response")
                     
-                    # Convert Python syntax to JSON if needed
-                    converted_response = self._convert_python_to_json(raw_response)
+                    response_preview = response_text[:100] + "..." if len(response_text) > 100 else response_text
+                    self.logger.info(f"DistributedInferenceClient: Final response for result {i}: {repr(response_preview)} (length: {len(response_text)})")
                     
-                    # Then clean any markdown formatting
-                    cleaned_response = self._clean_markdown_response(converted_response)
-                    cleaned_preview = cleaned_response[:100] + "..." if len(cleaned_response) > 100 else cleaned_response
-                    self.logger.info(f"DistributedInferenceClient: Final response for result {i}: {repr(cleaned_preview)} (length: {len(cleaned_response)})")
-                    
-                    responses.append(cleaned_response)
+                    responses.append(response_text)
                     
                     # Aggregate usage
                     usage_data = result.get("usage", {})
@@ -514,43 +404,22 @@ class DistributedInferenceClient(MinionsClient):
                     # Collect done reason
                     done_reasons.append(result.get("done_reason", "stop"))
                 else:
-                    # Handle failed queries - return proper JSON for JobOutput parsing
+                    # Handle failed queries
                     error_msg = result.get("error", "Unknown error")
                     self.logger.warning(f"Query {i} failed: {error_msg}")
                     
-                    # Return a JSON response that can be parsed as JobOutput
-                    error_response = json.dumps({
-                        "explanation": f"Error from distributed inference: {error_msg}",
-                        "citation": None,
-                        "answer": None
-                    })
-                    responses.append(error_response)
+                    # Return the raw error message
+                    responses.append(f"Error: {error_msg}")
                     total_usage += Usage(prompt_tokens=0, completion_tokens=0)
                     done_reasons.append("stop")
             
             # Validate we have responses for all queries
             if len(responses) != len(queries):
                 self.logger.warning(f"DistributedInferenceClient: Response count mismatch - expected {len(queries)}, got {len(responses)}")
-                # Pad with proper JSON error messages if needed
+                # Pad with error messages if needed
                 while len(responses) < len(queries):
-                    error_response = json.dumps({
-                        "explanation": "No response received from distributed inference network",
-                        "citation": None,
-                        "answer": None
-                    })
-                    responses.append(error_response)
+                    responses.append("Error: No response received")
                     done_reasons.append("stop")
-            
-            # Ensure we never return empty response list
-            if not responses:
-                self.logger.error(f"DistributedInferenceClient: No responses received for batch of {len(queries)} queries")
-                error_response = json.dumps({
-                    "explanation": "No response received from distributed inference network",
-                    "citation": None,
-                    "answer": None
-                })
-                responses = [error_response] * len(queries)
-                done_reasons = ["stop"] * len(queries)
             
             self.logger.info(f"DistributedInferenceClient: Final batch result summary - responses: {len(responses)}, total_usage: {total_usage}")
             

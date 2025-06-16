@@ -613,6 +613,7 @@ def initialize_clients(
                 timeout=30,
                 temperature=local_temperature,
                 max_tokens=int(local_max_tokens),
+                structured_output_schema=StructuredLocalOutput,
             )
 
         else:  # Ollama
@@ -677,6 +678,7 @@ def initialize_clients(
                 timeout=30,
                 temperature=local_temperature,
                 max_tokens=int(local_max_tokens),
+                structured_output_schema=StructuredLocalOutput,
             )
         else:  # Ollama
             st.session_state.local_client = OllamaClient(
@@ -1015,6 +1017,7 @@ def run_protocol(
                             timeout=30,
                             temperature=st.session_state.local_temperature,
                             max_tokens=int(st.session_state.local_max_tokens),
+                            structured_output_schema=StructuredLocalOutput,
                         )
 
                     # Reinitialize the local client with the new num_ctx

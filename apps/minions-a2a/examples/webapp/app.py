@@ -153,7 +153,7 @@ def agent_card():
 def get_providers():
     """Get available model providers."""
     providers = {
-        "local": ["ollama", "openai", "anthropic"],
+        "local": ["ollama", "distributed_inference", "openai", "anthropic"],
         "remote": ["openai", "anthropic", "ollama"],
         "ollama_available": False
     }
@@ -201,10 +201,12 @@ def calculate_context():
         text_length = data.get('text_length', 0)
         
         if text_length > 0:
-            context_size = calculate_ollama_context_size(text_length)
+            # Simple context size estimation since context calculation is now handled by the A2A server
+            estimated_tokens = int(text_length / 4)
+            context_size = max(4096, estimated_tokens + 2048)  # Add buffer for response
             return jsonify({
                 "text_length": text_length,
-                "estimated_tokens": int(text_length / 4),
+                "estimated_tokens": estimated_tokens,
                 "recommended_context": context_size
             })
         else:

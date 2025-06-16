@@ -54,6 +54,7 @@ class ClientFactory:
         from minions.clients.groq import GroqClient
         from minions.clients.gemini import GeminiClient
         from minions.clients.lemonade import LemonadeClient
+        from minions.clients.distributed_inference import DistributedInferenceClient
         
         # Store references
         self.Minion = Minion
@@ -67,6 +68,7 @@ class ClientFactory:
             ProviderType.GROQ: GroqClient,
             ProviderType.GEMINI: GeminiClient,
             ProviderType.LEMONADE: LemonadeClient,
+            ProviderType.DISTRIBUTED_INFERENCE: DistributedInferenceClient,
         }
         
         # Try to import optional clients
@@ -199,6 +201,12 @@ class ClientFactory:
                     base_config["structured_output_schema"] = StructuredLocalOutput
                 except ImportError:
                     pass
+        
+        elif config.local_provider == ProviderType.DISTRIBUTED_INFERENCE:
+            base_config.update({
+                "base_url": "http://localhost:8080",
+                "timeout": 30,
+            })
         
         return base_config
     

@@ -60,3 +60,5 @@ worker_keys.json
 api_keys.json
 oauth2_clients.json
 minion_logs/
+
+verifier.log

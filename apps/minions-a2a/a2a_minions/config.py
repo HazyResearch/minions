@@ -26,6 +26,7 @@ class ProviderType(str, Enum):
     LEMONADE = "lemonade"
     MLX = "mlx"
     CARTESIA_MLX = "cartesia-mlx"
+    DISTRIBUTED_INFERENCE = "distributed_inference"
 
 
 class MinionsConfig(BaseModel):
@@ -159,6 +160,11 @@ class ConfigManager:
             local_config.update({
                 "num_ctx": config.num_ctx,
                 "use_async": config.protocol == ProtocolType.MINIONS,
+            })
+        elif config.local_provider == ProviderType.DISTRIBUTED_INFERENCE:
+            local_config.update({
+                "base_url": "http://localhost:8080",
+                "timeout": 30,
             })
             
         return {

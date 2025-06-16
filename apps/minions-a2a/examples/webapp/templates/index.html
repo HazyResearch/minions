@@ -165,6 +165,7 @@
                                         <label class="block text-xs text-gray-600 mb-1">Local Provider</label>
                                         <select id="local-provider" class="w-full border border-gray-300 rounded px-2 py-1 text-sm">
                                             <option value="ollama">Ollama (Local)</option>
+                                            <option value="distributed_inference">Distributed Inference</option>
                                             <option value="openai">OpenAI</option>
                                             <option value="anthropic">Anthropic</option>
                                         </select>
@@ -464,6 +465,8 @@
             // Update default models based on provider selection
             if (localProvider === 'ollama' && localModel.value === 'gpt-4o-mini') {
                 localModel.value = 'llama3.2';
+            } else if (localProvider === 'distributed_inference' && (localModel.value === 'gpt-4o-mini' || localModel.value === 'llama3.2')) {
+                localModel.value = 'auto';  // Let distributed inference coordinator select the model
             } else if (localProvider === 'openai' && localModel.value === 'llama3.2') {
                 localModel.value = 'gpt-4o-mini';
             } else if (localProvider === 'anthropic' && localModel.value === 'llama3.2') {

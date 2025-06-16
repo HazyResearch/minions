@@ -62,3 +62,4 @@ oauth2_clients.json
 minion_logs/
 
 verifier.log
+attestation_sdk.log

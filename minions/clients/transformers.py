@@ -212,6 +212,7 @@ class TransformersClient(MinionsClient):
                     torch_dtype=self.dtype,
                     device_map="auto" if use_device_map else None,
                     token=self.hf_token,
+                    trust_remote_code=True,
                 )
 
                 # Resize token embeddings to match the tokenizer
@@ -245,6 +246,7 @@ class TransformersClient(MinionsClient):
                 torch_dtype=self.dtype,
                 device_map="auto" if use_device_map else None,
                 token=self.hf_token,
+                trust_remote_code=True,
             )
 
             # Resize token embeddings to match the tokenizer

@@ -62,32 +62,43 @@ class BaseEmbeddingModel(ABC):
 
 class EmbeddingModel(BaseEmbeddingModel):
     """
-    Singleton implementation of embedding model using SentenceTransformer.
+    Implementation of embedding model using SentenceTransformer.
     """
 
-    _instance = None
-    _model = None
+    _instances = {}  # Dictionary to store instances by model name
     _default_model_name = "intfloat/multilingual-e5-large-instruct"
 
     def __new__(cls, model_name=None):
-        if cls._instance is None:
-            cls._instance = super(EmbeddingModel, cls).__new__(cls)
-            model_name = model_name or cls._default_model_name
-            cls._model = SentenceTransformer(model_name)
+        model_name = model_name or cls._default_model_name
+        
+        # Check if we already have an instance for this model
+        if model_name not in cls._instances:
+            instance = super(EmbeddingModel, cls).__new__(cls)
+            instance.model_name = model_name
+            instance._model = SentenceTransformer(model_name)
             if torch.cuda.is_available():
-                cls._model = cls._model.to(torch.device("cuda"))
-        return cls._instance
+                instance._model = instance._model.to(torch.device("cuda"))
+            cls._instances[model_name] = instance
+        
+        return cls._instances[model_name]
+
+    def get_model(self):
+        return self._model
+
+    def encode(self, texts) -> np.ndarray:
+        return self._model.encode(texts).astype("float32")
 
     @classmethod
-    def get_model(cls, model_name=None):
-        if cls._instance is None:
-            cls._instance = cls(model_name)
-        return cls._model
+    def get_model_by_name(cls, model_name=None):
+        """Get model by name (for backward compatibility)"""
+        instance = cls(model_name)
+        return instance.get_model()
 
     @classmethod
-    def encode(cls, texts, model_name=None) -> np.ndarray:
-        model = cls.get_model(model_name)
-        return model.encode(texts).astype("float32")
+    def encode_by_name(cls, texts, model_name=None) -> np.ndarray:
+        """Encode texts using model by name (for backward compatibility)"""
+        instance = cls(model_name)
+        return instance.encode(texts)
 
 
 def embedding_retrieve_top_k_chunks(
@@ -108,9 +119,23 @@ def embedding_retrieve_top_k_chunks(
     Returns:
         List of top k relevant chunks
     """
+    # Check if FAISS is available
+    if faiss is None:
+        raise ImportError(
+            "FAISS is not installed. Please install it with: pip install faiss-cpu"
+        )
+
+    # Check if SentenceTransformer is available  
+    if SentenceTransformer is None:
+        raise ImportError(
+            "SentenceTransformer is not installed. Please install it with: pip install sentence-transformers"
+        )
 
     # Use the provided embedding model or default to EmbeddingModel
-    model = embedding_model or EmbeddingModel
+    if embedding_model is None:
+        model = EmbeddingModel()
+    else:
+        model = embedding_model
 
     chunk_embeddings = model.encode(chunks).astype("float32")
 

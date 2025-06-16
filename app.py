@@ -17,6 +17,7 @@ voice_generation_available = None
 voice_generator = None
 
 from minions.clients import *
+from minions.clients.distributed_inference import DistributedInferenceClient
 
 import os
 import time
@@ -604,6 +605,15 @@ def initialize_clients(
                 temperature=local_temperature,
                 max_tokens=int(local_max_tokens)
             )
+        elif local_provider == "Distributed Inference":
+            server_url = st.session_state.get("distributed_server_url", "http://localhost:8080")
+            st.session_state.local_client = DistributedInferenceClient(
+                model_name=local_model_name,
+                base_url=server_url,
+                timeout=30,
+                temperature=local_temperature,
+                max_tokens=int(local_max_tokens),
+            )
 
         else:  # Ollama
             st.session_state.local_client = OllamaClient(
@@ -658,6 +668,15 @@ def initialize_clients(
                 model_name=local_model_name,
                 temperature=local_temperature,
                 max_tokens=int(local_max_tokens)
+            )
+        elif local_provider == "Distributed Inference":
+            server_url = st.session_state.get("distributed_server_url", "http://localhost:8080")
+            st.session_state.local_client = DistributedInferenceClient(
+                model_name=local_model_name,
+                base_url=server_url,
+                timeout=30,
+                temperature=local_temperature,
+                max_tokens=int(local_max_tokens),
             )
         else:  # Ollama
             st.session_state.local_client = OllamaClient(
@@ -987,6 +1006,15 @@ def run_protocol(
                             model_name=st.session_state.local_model_name,
                             temperature=st.session_state.local_temperature,
                             max_tokens=int(st.session_state.local_max_tokens)
+                        )
+                    elif local_provider == "Distributed Inference":
+                        server_url = st.session_state.get("distributed_server_url", "http://localhost:8080")
+                        st.session_state.local_client = DistributedInferenceClient(
+                            model_name=st.session_state.local_model_name,
+                            base_url=server_url,
+                            timeout=30,
+                            temperature=st.session_state.local_temperature,
+                            max_tokens=int(st.session_state.local_max_tokens),
                         )
 
                     # Reinitialize the local client with the new num_ctx
@@ -1657,7 +1685,7 @@ with st.sidebar:
 
     # Local model provider selection
     st.subheader("Local Model Provider")
-    local_provider_options = ["Ollama", "Lemonade"]
+    local_provider_options = ["Ollama", "Lemonade", "Distributed Inference"]
     if mlx_available:
         local_provider_options.append("MLX")
     if cartesia_available:
@@ -1754,6 +1782,32 @@ with st.sidebar:
                 st.error("**✗ Modular MAX CLI not found.** Please install Modular MAX.")
         except (FileNotFoundError, subprocess.TimeoutExpired):
             st.error("**✗ Modular MAX CLI not found.** Please install Modular MAX following the instructions at https://docs.modular.com/max/packages")
+
+    if local_provider == "Distributed Inference":
+        st.info(
+            "⚠️ Distributed Inference connects to a remote inference server. "
+            "Make sure your server is running and accessible."
+        )
+        
+        distributed_server_url = st.text_input(
+            "Server URL",
+            value=st.session_state.get("distributed_server_url", "http://localhost:8080"),
+            key="distributed_server_url",
+            help="URL of the distributed inference server (e.g., http://192.168.1.100:8080)",
+            placeholder="http://localhost:8080",
+        )
+        
+        # Optional: Add connection test
+        if st.button("Test Connection", key="test_distributed_connection"):
+            try:
+                import requests
+                response = requests.get(f"{distributed_server_url}/health", timeout=5)
+                if response.status_code == 200:
+                    st.success("✓ Connection successful!")
+                else:
+                    st.error(f"✗ Server responded with status {response.status_code}")
+            except Exception as e:
+                st.error(f"✗ Connection failed: {str(e)}")
 
     # Protocol selection
     st.subheader("Protocol")
@@ -1976,6 +2030,17 @@ with st.sidebar:
                     # Add the model if it's not already in the options
                     if model not in local_model_options.values():
                         local_model_options[model_key] = model
+        elif local_provider == "Distributed Inference":
+            local_model_options = {
+                "auto (Let network choose) (Recommended)": "auto",
+                "llama3.2": "llama3.2",
+                "llama3.1:8b": "llama3.1:8b",
+                "qwen2.5:3b": "qwen2.5:3b",
+                "qwen2.5:7b": "qwen2.5:7b",
+                "deepseek-r1:latest": "deepseek-r1:latest",
+                "gemma3:4b": "gemma3:4b",
+                "phi4": "phi4",
+            }
         else:  # Ollama            # Get available Ollama models
             available_ollama_models = OllamaClient.get_available_models()
 

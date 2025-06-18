@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minions Token Tracker</title>
+    <style>
+        :root {
+            --primary-color: #4a6bfd;
+            --secondary-color: #f5f7ff;
+            --success-color: #28a745;
+            --warning-color: #ffc107;
+            --danger-color: #dc3545;
+            --text-color: #333;
+            --border-radius: 12px;
+            --box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: #f0f2f5;
+            color: var(--text-color);
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        h1 {
+            color: var(--primary-color);
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .subtitle {
+            color: #666;
+            font-size: 1.1rem;
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .card {
+            background: white;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            padding: 1.5rem;
+            transition: transform 0.2s;
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1rem;
+        }
+
+        .card-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #444;
+        }
+
+        .card-icon {
+            width: 40px;
+            height: 40px;
+            background: var(--secondary-color);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+        }
+
+        .metric-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--primary-color);
+            margin-bottom: 0.5rem;
+        }
+
+        .metric-label {
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .sessions-table {
+            background: white;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            overflow: hidden;
+        }
+
+        .table-header {
+            background: var(--secondary-color);
+            padding: 1.5rem;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th {
+            text-align: left;
+            padding: 1rem;
+            font-weight: 600;
+            color: #666;
+            border-bottom: 2px solid #e0e0e0;
+        }
+
+        td {
+            padding: 1rem;
+            border-bottom: 1px solid #f0f0f0;
+        }
+
+        tr:hover {
+            background: #f9f9fb;
+        }
+
+        .model-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            background: var(--secondary-color);
+            color: var(--primary-color);
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 0.5rem;
+            animation: pulse 2s infinite;
+        }
+
+        .status-live {
+            background: var(--success-color);
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .refresh-info {
+            text-align: center;
+            color: #666;
+            font-size: 0.9rem;
+            margin-top: 1rem;
+        }
+
+        .cost-estimate {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-top: 1rem;
+        }
+
+        .chart-container {
+            background: white;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            padding: 1.5rem;
+            margin-top: 2rem;
+            height: 400px;
+        }
+
+        .no-data {
+            text-align: center;
+            color: #999;
+            padding: 3rem;
+            font-style: italic;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
+            }
+
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+
+            table {
+                font-size: 0.9rem;
+            }
+
+            .metric-value {
+                font-size: 1.5rem;
+            }
+        }
+    </style>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🤖 Minions Token Tracker</h1>
+            <p class="subtitle">
+                <span class="status-indicator status-live"></span>
+                Real-time token usage monitoring for Claude Code
+            </p>
+        </header>
+
+        <div class="dashboard-grid">
+            <!-- Total Remote Tokens -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Remote Tokens</h3>
+                    <div class="card-icon">☁️</div>
+                </div>
+                <div class="metric-value" id="remote-total">0</div>
+                <div class="metric-label">Total tokens used by cloud models</div>
+                <div style="margin-top: 1rem; font-size: 0.9rem;">
+                    <div>Prompt: <strong id="remote-prompt">0</strong></div>
+                    <div>Completion: <strong id="remote-completion">0</strong></div>
+                </div>
+            </div>
+
+            <!-- Total Local Tokens -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Local Tokens</h3>
+                    <div class="card-icon">💻</div>
+                </div>
+                <div class="metric-value" id="local-total">0</div>
+                <div class="metric-label">Total tokens used by local models</div>
+                <div style="margin-top: 1rem; font-size: 0.9rem;">
+                    <div>Prompt: <strong id="local-prompt">0</strong></div>
+                    <div>Completion: <strong id="local-completion">0</strong></div>
+                </div>
+            </div>
+
+            <!-- Sessions Count -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Sessions</h3>
+                    <div class="card-icon">📊</div>
+                </div>
+                <div class="metric-value" id="session-count">0</div>
+                <div class="metric-label">Total minion sessions tracked</div>
+            </div>
+
+            <!-- Cost Estimate -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Estimated Cost</h3>
+                    <div class="card-icon">💰</div>
+                </div>
+                <div class="metric-value" id="total-cost">$0.00</div>
+                <div class="metric-label">Based on standard pricing</div>
+                <div class="cost-estimate">
+                    <small>
+                        <strong>Estimates:</strong><br>
+                        Remote: $<span id="remote-cost">0.00</span><br>
+                        Local: $<span id="local-cost">0.00</span>
+                    </small>
+                </div>
+            </div>
+        </div>
+
+        <!-- Token Usage Chart -->
+        <div class="chart-container">
+            <h3 class="card-title" style="margin-bottom: 1rem;">Token Usage Over Time</h3>
+            <canvas id="usage-chart"></canvas>
+        </div>
+
+        <!-- Recent Sessions Table -->
+        <div class="sessions-table">
+            <div class="table-header">
+                <h3 class="card-title">Recent Sessions</h3>
+            </div>
+            <div id="sessions-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Timestamp</th>
+                            <th>Task</th>
+                            <th>Protocol</th>
+                            <th>Models</th>
+                            <th>Remote Tokens</th>
+                            <th>Local Tokens</th>
+                            <th>Rounds</th>
+                        </tr>
+                    </thead>
+                    <tbody id="sessions-tbody">
+                        <tr>
+                            <td colspan="7" class="no-data">No sessions found. Run a minion task to see token usage.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="refresh-info">
+            Auto-refreshing every 5 seconds • Last updated: <span id="last-updated">Never</span>
+        </div>
+    </div>
+
+    <script>
+        // Initialize Chart.js
+        const ctx = document.getElementById('usage-chart').getContext('2d');
+        const usageChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Remote Tokens',
+                    data: [],
+                    borderColor: '#4a6bfd',
+                    backgroundColor: 'rgba(74, 107, 253, 0.1)',
+                    tension: 0.4
+                }, {
+                    label: 'Local Tokens',
+                    data: [],
+                    borderColor: '#28a745',
+                    backgroundColor: 'rgba(40, 167, 69, 0.1)',
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+
+        // Cost estimates (per 1M tokens)
+        const COSTS = {
+            remote: {
+                prompt: 3.00,  // $3/1M tokens (GPT-4 estimate)
+                completion: 15.00  // $15/1M tokens
+            },
+            local: {
+                prompt: 0.00,  // Free (local)
+                completion: 0.00
+            }
+        };
+
+        function formatNumber(num) {
+            return num.toLocaleString();
+        }
+
+        function formatTimestamp(timestamp) {
+            const date = new Date(timestamp);
+            return date.toLocaleString();
+        }
+
+        function calculateCost(usage, type) {
+            const promptCost = (usage.prompt_tokens / 1000000) * COSTS[type].prompt;
+            const completionCost = (usage.completion_tokens / 1000000) * COSTS[type].completion;
+            return promptCost + completionCost;
+        }
+
+        function updateDashboard(data) {
+            // Update totals
+            document.getElementById('remote-total').textContent = formatNumber(data.total_usage.remote.total_tokens);
+            document.getElementById('remote-prompt').textContent = formatNumber(data.total_usage.remote.prompt_tokens);
+            document.getElementById('remote-completion').textContent = formatNumber(data.total_usage.remote.completion_tokens);
+            
+            document.getElementById('local-total').textContent = formatNumber(data.total_usage.local.total_tokens);
+            document.getElementById('local-prompt').textContent = formatNumber(data.total_usage.local.prompt_tokens);
+            document.getElementById('local-completion').textContent = formatNumber(data.total_usage.local.completion_tokens);
+            
+            document.getElementById('session-count').textContent = data.sessions.length;
+
+            // Calculate costs
+            const remoteCost = calculateCost(data.total_usage.remote, 'remote');
+            const localCost = calculateCost(data.total_usage.local, 'local');
+            document.getElementById('remote-cost').textContent = remoteCost.toFixed(2);
+            document.getElementById('local-cost').textContent = localCost.toFixed(2);
+            document.getElementById('total-cost').textContent = '$' + (remoteCost + localCost).toFixed(2);
+
+            // Update sessions table
+            const tbody = document.getElementById('sessions-tbody');
+            if (data.sessions.length > 0) {
+                tbody.innerHTML = data.sessions.slice(0, 10).map(session => `
+                    <tr>
+                        <td>${formatTimestamp(session.timestamp)}</td>
+                        <td>${session.task.substring(0, 50)}${session.task.length > 50 ? '...' : ''}</td>
+                        <td><span class="model-badge">${session.protocol}</span></td>
+                        <td>
+                            <small>Remote: ${session.model.remote}</small><br>
+                            <small>Local: ${session.model.local}</small>
+                        </td>
+                        <td>${formatNumber(session.usage.remote?.total_tokens || 0)}</td>
+                        <td>${formatNumber(session.usage.local?.total_tokens || 0)}</td>
+                        <td>${session.rounds}</td>
+                    </tr>
+                `).join('');
+            }
+
+            // Update chart
+            const chartData = data.sessions.slice(0, 20).reverse();
+            usageChart.data.labels = chartData.map(s => new Date(s.timestamp).toLocaleTimeString());
+            usageChart.data.datasets[0].data = chartData.map(s => s.usage.remote?.total_tokens || 0);
+            usageChart.data.datasets[1].data = chartData.map(s => s.usage.local?.total_tokens || 0);
+            usageChart.update();
+
+            // Update last updated time
+            document.getElementById('last-updated').textContent = new Date().toLocaleTimeString();
+        }
+
+        async function fetchData() {
+            try {
+                const response = await fetch('/api/usage');
+                const data = await response.json();
+                updateDashboard(data);
+            } catch (error) {
+                console.error('Error fetching data:', error);
+            }
+        }
+
+        // Initial fetch and set up auto-refresh
+        fetchData();
+        setInterval(fetchData, 5000);  // Refresh every 5 seconds
+    </script>
+</body>
+</html>

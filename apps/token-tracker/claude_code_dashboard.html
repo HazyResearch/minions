@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Claude Code Token Tracker</title>
+    <style>
+        :root {
+            --primary-color: #6366f1;
+            --secondary-color: #e0e7ff;
+            --success-color: #10b981;
+            --warning-color: #f59e0b;
+            --danger-color: #ef4444;
+            --text-color: #1f2937;
+            --border-radius: 12px;
+            --box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: #f3f4f6;
+            color: var(--text-color);
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        h1 {
+            color: var(--primary-color);
+            font-size: 2.5rem;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        .subtitle {
+            color: #6b7280;
+            font-size: 1.1rem;
+        }
+
+        .dashboard-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .card {
+            background: white;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            padding: 1.5rem;
+            transition: transform 0.2s;
+        }
+
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+        }
+
+        .card-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1rem;
+        }
+
+        .card-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: #4b5563;
+        }
+
+        .card-icon {
+            width: 40px;
+            height: 40px;
+            background: var(--secondary-color);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+        }
+
+        .metric-value {
+            font-size: 2rem;
+            font-weight: 700;
+            color: var(--primary-color);
+            margin-bottom: 0.25rem;
+        }
+
+        .metric-label {
+            color: #6b7280;
+            font-size: 0.875rem;
+        }
+
+        .metric-detail {
+            margin-top: 0.75rem;
+            padding-top: 0.75rem;
+            border-top: 1px solid #e5e7eb;
+            font-size: 0.875rem;
+            color: #6b7280;
+        }
+
+        .model-stats {
+            background: white;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .model-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.75rem 0;
+            border-bottom: 1px solid #f3f4f6;
+        }
+
+        .model-item:last-child {
+            border-bottom: none;
+        }
+
+        .model-name {
+            font-weight: 500;
+            color: #374151;
+        }
+
+        .model-tokens {
+            display: flex;
+            gap: 1rem;
+            font-size: 0.875rem;
+        }
+
+        .sessions-table {
+            background: white;
+            border-radius: var(--border-radius);
+            box-shadow: var(--box-shadow);
+            overflow: hidden;
+        }
+
+        .table-header {
+            background: #f9fafb;
+            padding: 1.5rem;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        th {
+            text-align: left;
+            padding: 1rem;
+            font-weight: 600;
+            color: #6b7280;
+            border-bottom: 2px solid #e5e7eb;
+            font-size: 0.875rem;
+            text-transform: uppercase;
+        }
+
+        td {
+            padding: 1rem;
+            border-bottom: 1px solid #f3f4f6;
+        }
+
+        tr:hover {
+            background: #f9fafb;
+        }
+
+        .model-badge {
+            display: inline-block;
+            padding: 0.25rem 0.75rem;
+            background: var(--secondary-color);
+            color: var(--primary-color);
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 500;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 0.5rem;
+            animation: pulse 2s infinite;
+        }
+
+        .status-live {
+            background: var(--success-color);
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .refresh-info {
+            text-align: center;
+            color: #6b7280;
+            font-size: 0.875rem;
+            margin-top: 2rem;
+        }
+
+        .cost-estimate {
+            background: #fef3c7;
+            border: 1px solid #fde68a;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-top: 1rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .cost-estimate:hover {
+            background: #fef08a;
+            transform: translateY(-1px);
+        }
+
+        .cache-info {
+            background: #dbeafe;
+            border: 1px solid #bfdbfe;
+            border-radius: 8px;
+            padding: 0.75rem;
+            margin-top: 0.75rem;
+            font-size: 0.875rem;
+        }
+
+        .content-preview {
+            color: #6b7280;
+            font-size: 0.875rem;
+            font-style: italic;
+            max-width: 300px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .no-data {
+            text-align: center;
+            color: #9ca3af;
+            padding: 3rem;
+            font-style: italic;
+        }
+
+        /* Modal styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            animation: fadeIn 0.2s;
+        }
+
+        .modal-content {
+            background-color: white;
+            margin: 10% auto;
+            padding: 2rem;
+            border-radius: var(--border-radius);
+            width: 90%;
+            max-width: 600px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+            animation: slideIn 0.3s;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        @keyframes slideIn {
+            from { transform: translateY(-50px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .modal-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--text-color);
+        }
+
+        .close-button {
+            font-size: 1.5rem;
+            color: #9ca3af;
+            cursor: pointer;
+            border: none;
+            background: none;
+            padding: 0.5rem;
+        }
+
+        .close-button:hover {
+            color: var(--text-color);
+        }
+
+        .cost-breakdown-table {
+            width: 100%;
+            margin-top: 1rem;
+        }
+
+        .cost-breakdown-table th,
+        .cost-breakdown-table td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .cost-breakdown-table th {
+            background: #f9fafb;
+            font-weight: 600;
+            color: #6b7280;
+        }
+
+        .cost-breakdown-total {
+            font-size: 1.25rem;
+            font-weight: 700;
+            color: var(--primary-color);
+            margin-top: 1rem;
+            padding-top: 1rem;
+            border-top: 2px solid #e5e7eb;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 1rem;
+            }
+
+            .dashboard-grid {
+                grid-template-columns: 1fr;
+            }
+
+            table {
+                font-size: 0.875rem;
+            }
+
+            .metric-value {
+                font-size: 1.5rem;
+            }
+
+            .content-preview {
+                max-width: 200px;
+            }
+
+            .modal-content {
+                margin: 20% auto;
+                width: 95%;
+                padding: 1.5rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>
+                <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 20V10"/>
+                    <path d="M18 20V4"/>
+                    <path d="M6 20v-4"/>
+                </svg>
+                Claude Code Token Tracker
+            </h1>
+            <p class="subtitle">
+                <span class="status-indicator status-live"></span>
+                Real-time token usage monitoring
+            </p>
+        </header>
+
+        <div class="dashboard-grid">
+            <!-- Total Tokens -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Total Tokens</h3>
+                    <div class="card-icon">📊</div>
+                </div>
+                <div class="metric-value" id="total-tokens">0</div>
+                <div class="metric-label">All-time token usage</div>
+                <div class="metric-detail">
+                    <div>Input: <strong id="total-input">0</strong></div>
+                    <div>Output: <strong id="total-output">0</strong></div>
+                </div>
+            </div>
+
+            <!-- Cache Usage -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Cache Tokens</h3>
+                    <div class="card-icon">💾</div>
+                </div>
+                <div class="metric-value" id="cache-total">0</div>
+                <div class="metric-label">Cached token operations</div>
+                <div class="metric-detail">
+                    <div>Created: <strong id="cache-created">0</strong></div>
+                    <div>Read: <strong id="cache-read">0</strong></div>
+                </div>
+            </div>
+
+            <!-- Messages Count -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Messages</h3>
+                    <div class="card-icon">💬</div>
+                </div>
+                <div class="metric-value" id="message-count">0</div>
+                <div class="metric-label">Total assistant responses</div>
+            </div>
+
+            <!-- Cost Estimate -->
+            <div class="card">
+                <div class="card-header">
+                    <h3 class="card-title">Estimated Cost</h3>
+                    <div class="card-icon">💰</div>
+                </div>
+                <div class="metric-value" id="total-cost">$0.00</div>
+                <div class="metric-label">Based on current pricing</div>
+                <div class="cost-estimate" onclick="showCostBreakdown()">
+                    <small>
+                        <strong>Click for detailed breakdown →</strong><br>
+                        Input: $<span id="input-cost">0.00</span><br>
+                        Output: $<span id="output-cost">0.00</span><br>
+                        <em>Cache reads save costs!</em>
+                    </small>
+                </div>
+            </div>
+        </div>
+
+        <!-- Model Usage Breakdown -->
+        <div class="model-stats">
+            <h3 class="card-title" style="margin-bottom: 1rem;">Token Usage by Model</h3>
+            <div id="model-breakdown">
+                <div class="no-data">No model data available yet</div>
+            </div>
+        </div>
+
+        <!-- Recent Messages Table -->
+        <div class="sessions-table">
+            <div class="table-header">
+                <h3 class="card-title">Recent Messages</h3>
+            </div>
+            <div id="sessions-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Timestamp</th>
+                            <th>Project</th>
+                            <th>Model</th>
+                            <th>Response Preview</th>
+                            <th>Input</th>
+                            <th>Output</th>
+                            <th>Cache</th>
+                        </tr>
+                    </thead>
+                    <tbody id="sessions-tbody">
+                        <tr>
+                            <td colspan="7" class="no-data">No messages found. Start using Claude Code to see token usage.</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="refresh-info">
+            Auto-refreshing every 5 seconds • Last updated: <span id="last-updated">Never</span>
+        </div>
+    </div>
+
+    <!-- Cost Breakdown Modal -->
+    <div id="costModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">💰 Detailed Cost Breakdown</h2>
+                <button class="close-button" onclick="closeCostBreakdown()">&times;</button>
+            </div>
+            <div id="modal-body">
+                <!-- Content will be dynamically populated -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Cost estimates per model (per 1M tokens)
+        const COSTS = {
+            'claude-3-5-sonnet-20241022': { input: 3.00, output: 15.00 },
+            'claude-3-5-haiku-20241022': { input: 1.00, output: 5.00 },
+            'claude-3-opus-20240229': { input: 15.00, output: 75.00 },
+            'claude-opus-4-20250514': { input: 15.00, output: 75.00 },
+            'default': { input: 3.00, output: 15.00 }
+        };
+
+        // Global data storage for modal access
+        let currentData = null;
+
+        function formatNumber(num) {
+            return num.toLocaleString();
+        }
+
+        function formatTimestamp(timestamp) {
+            const date = new Date(timestamp);
+            return date.toLocaleString();
+        }
+
+        function calculateCost(inputTokens, outputTokens, model = 'default') {
+            const costs = COSTS[model] || COSTS.default;
+            const inputCost = (inputTokens / 1000000) * costs.input;
+            const outputCost = (outputTokens / 1000000) * costs.output;
+            return { inputCost, outputCost, total: inputCost + outputCost };
+        }
+
+        function showCostBreakdown() {
+            const modal = document.getElementById('costModal');
+            const modalBody = document.getElementById('modal-body');
+            
+            if (!currentData) return;
+            
+            let html = '<table class="cost-breakdown-table">';
+            html += '<thead><tr><th>Model</th><th>Input Tokens</th><th>Output Tokens</th><th>Input Cost</th><th>Output Cost</th><th>Total Cost</th></tr></thead>';
+            html += '<tbody>';
+            
+            let grandTotalInput = 0;
+            let grandTotalOutput = 0;
+            let grandTotalCost = 0;
+            
+            // Add rows for each model
+            if (currentData.by_model && Object.keys(currentData.by_model).length > 0) {
+                for (const [model, stats] of Object.entries(currentData.by_model)) {
+                    const costs = COSTS[model] || COSTS.default;
+                    const inputCost = (stats.input_tokens / 1000000) * costs.input;
+                    const outputCost = (stats.output_tokens / 1000000) * costs.output;
+                    const totalCost = inputCost + outputCost;
+                    
+                    grandTotalInput += inputCost;
+                    grandTotalOutput += outputCost;
+                    grandTotalCost += totalCost;
+                    
+                    html += `<tr>
+                        <td>${model}</td>
+                        <td>${formatNumber(stats.input_tokens)}</td>
+                        <td>${formatNumber(stats.output_tokens)}</td>
+                        <td>$${inputCost.toFixed(4)}</td>
+                        <td>$${outputCost.toFixed(4)}</td>
+                        <td><strong>$${totalCost.toFixed(4)}</strong></td>
+                    </tr>`;
+                }
+            }
+            
+            html += '</tbody></table>';
+            
+            // Add cache information
+            if (currentData.total_usage.cache_creation_tokens > 0 || currentData.total_usage.cache_read_tokens > 0) {
+                html += '<div style="margin-top: 1.5rem;">';
+                html += '<h3 style="margin-bottom: 0.5rem;">Cache Usage</h3>';
+                html += '<div class="cache-info">';
+                html += `<strong>Cache Creation:</strong> ${formatNumber(currentData.total_usage.cache_creation_tokens)} tokens<br>`;
+                html += `<strong>Cache Reads:</strong> ${formatNumber(currentData.total_usage.cache_read_tokens)} tokens<br>`;
+                html += '<em>Note: Cache reads significantly reduce costs compared to standard input tokens!</em>';
+                html += '</div>';
+                html += '</div>';
+            }
+            
+            html += `<div class="cost-breakdown-total">
+                Total Cost: $${grandTotalCost.toFixed(2)}
+                <div style="font-size: 0.875rem; font-weight: normal; margin-top: 0.5rem;">
+                    Input: $${grandTotalInput.toFixed(2)} • Output: $${grandTotalOutput.toFixed(2)}
+                </div>
+            </div>`;
+            
+            modalBody.innerHTML = html;
+            modal.style.display = 'block';
+        }
+        
+        function closeCostBreakdown() {
+            document.getElementById('costModal').style.display = 'none';
+        }
+        
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('costModal');
+            if (event.target === modal) {
+                closeCostBreakdown();
+            }
+        }
+
+        function updateDashboard(data) {
+            // Store data globally for modal access
+            currentData = data;
+            
+            // Update totals
+            const usage = data.total_usage;
+            document.getElementById('total-tokens').textContent = formatNumber(usage.total_tokens);
+            document.getElementById('total-input').textContent = formatNumber(usage.input_tokens);
+            document.getElementById('total-output').textContent = formatNumber(usage.output_tokens);
+            
+            // Update cache stats
+            const cacheTotal = usage.cache_creation_tokens + usage.cache_read_tokens;
+            document.getElementById('cache-total').textContent = formatNumber(cacheTotal);
+            document.getElementById('cache-created').textContent = formatNumber(usage.cache_creation_tokens);
+            document.getElementById('cache-read').textContent = formatNumber(usage.cache_read_tokens);
+            
+            // Update message count
+            document.getElementById('message-count').textContent = data.sessions.length;
+
+            // Calculate total cost across all models
+            let totalInputCost = 0;
+            let totalOutputCost = 0;
+            
+            if (data.by_model && Object.keys(data.by_model).length > 0) {
+                for (const [model, stats] of Object.entries(data.by_model)) {
+                    const cost = calculateCost(stats.input_tokens, stats.output_tokens, model);
+                    totalInputCost += cost.inputCost;
+                    totalOutputCost += cost.outputCost;
+                }
+            } else {
+                // Fallback to total usage with default pricing
+                const cost = calculateCost(usage.input_tokens, usage.output_tokens);
+                totalInputCost = cost.inputCost;
+                totalOutputCost = cost.outputCost;
+            }
+            
+            document.getElementById('input-cost').textContent = totalInputCost.toFixed(2);
+            document.getElementById('output-cost').textContent = totalOutputCost.toFixed(2);
+            document.getElementById('total-cost').textContent = '$' + (totalInputCost + totalOutputCost).toFixed(2);
+
+            // Update model breakdown
+            const modelBreakdown = document.getElementById('model-breakdown');
+            if (data.by_model && Object.keys(data.by_model).length > 0) {
+                modelBreakdown.innerHTML = Object.entries(data.by_model)
+                    .sort((a, b) => b[1].total_tokens - a[1].total_tokens)
+                    .map(([model, stats]) => {
+                        const total = stats.input_tokens + stats.output_tokens;
+                        return `
+                            <div class="model-item">
+                                <div class="model-name">${model}</div>
+                                <div class="model-tokens">
+                                    <span>Input: ${formatNumber(stats.input_tokens)}</span>
+                                    <span>Output: ${formatNumber(stats.output_tokens)}</span>
+                                    <span><strong>Total: ${formatNumber(total)}</strong></span>
+                                </div>
+                            </div>
+                        `;
+                    }).join('');
+            }
+
+            // Update sessions table
+            const tbody = document.getElementById('sessions-tbody');
+            if (data.sessions.length > 0) {
+                tbody.innerHTML = data.sessions.slice(0, 20).map(session => `
+                    <tr>
+                        <td>${formatTimestamp(session.timestamp)}</td>
+                        <td>${session.project || 'Unknown'}</td>
+                        <td><span class="model-badge">${session.model}</span></td>
+                        <td class="content-preview">${session.content_preview || '—'}</td>
+                        <td>${formatNumber(session.input_tokens)}</td>
+                        <td>${formatNumber(session.output_tokens)}</td>
+                        <td>${session.cache_creation_tokens > 0 ? '✅ Created' : session.cache_read_tokens > 0 ? '📖 Read' : '—'}</td>
+                    </tr>
+                `).join('');
+            }
+
+            // Update last updated time
+            document.getElementById('last-updated').textContent = new Date().toLocaleTimeString();
+        }
+
+        async function fetchData() {
+            try {
+                const response = await fetch('/api/usage');
+                const data = await response.json();
+                updateDashboard(data);
+            } catch (error) {
+                console.error('Error fetching data:', error);
+            }
+        }
+
+        // Initial fetch and set up auto-refresh
+        fetchData();
+        setInterval(fetchData, 5000);  // Refresh every 5 seconds
+    </script>
+</body>
+</html>

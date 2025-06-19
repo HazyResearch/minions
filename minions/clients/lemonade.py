@@ -45,8 +45,6 @@ class LemonadeClient(OpenAIClient):
     def chat(self, messages: List[Dict[str, Any]], **kwargs) -> Tuple[List[str], Usage]:
         """
         Handle chat completions using direct HTTP requests to the lemonade service.
-        
-        Lemonade service doesn't provide token usage information, so we estimate based on content.
         """
         assert len(messages) > 0, "Messages cannot be empty."
 

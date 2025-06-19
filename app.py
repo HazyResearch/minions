@@ -126,6 +126,16 @@ API_PRICES = {
         "sarvam-1b": {"input": 0.10, "cached_input": 0.05, "output": 0.30},
         "sarvam-3b": {"input": 0.30, "cached_input": 0.15, "output": 0.90},
     },
+    # OpenRouter pricing (common models - pricing varies by model)
+    "OpenRouter": {
+        "openai/gpt-4o": {"input": 2.50, "cached_input": 1.25, "output": 10.00},
+        "openai/gpt-4o-mini": {"input": 0.15, "cached_input": 0.075, "output": 0.60},
+        "anthropic/claude-3-5-sonnet": {"input": 3.00, "cached_input": 1.50, "output": 15.00},
+        "anthropic/claude-3-5-haiku": {"input": 0.25, "cached_input": 0.125, "output": 1.25},
+        "meta-llama/llama-3.1-405b-instruct": {"input": 3.50, "cached_input": 1.75, "output": 3.50},
+        "google/gemini-2.0-flash": {"input": 0.35, "cached_input": 0.175, "output": 1.05},
+        "mistralai/mistral-large": {"input": 2.00, "cached_input": 1.00, "output": 6.00},
+    },
 }
 
 PROVIDER_TO_ENV_VAR_KEY = {

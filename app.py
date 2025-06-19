@@ -94,7 +94,11 @@ API_PRICES = {
         "deepseek-reasoner": {"input": 0.27, "cached_input": 0.07, "output": 1.10},
     },
     "Gemini": {
-        "gemini-2.5-pro-exp-06-05": {"input": 1.25, "cached_input": 0.075, "output": 10.0},
+        "gemini-2.5-pro-exp-06-05": {
+            "input": 1.25,
+            "cached_input": 0.075,
+            "output": 10.0,
+        },
         "gemini-2.5-flash": {"input": 0.15, "cached_input": 0.075, "output": 0.60},
         "gemini-2.0-flash": {"input": 0.35, "cached_input": 0.175, "output": 1.05},
         "gemini-2.0-pro": {"input": 3.50, "cached_input": 1.75, "output": 10.50},
@@ -121,6 +125,16 @@ API_PRICES = {
         "sarvam-m": {"input": 0.50, "cached_input": 0.25, "output": 1.50},
         "sarvam-1b": {"input": 0.10, "cached_input": 0.05, "output": 0.30},
         "sarvam-3b": {"input": 0.30, "cached_input": 0.15, "output": 0.90},
+    },
+    # OpenRouter pricing (common models - pricing varies by model)
+    "OpenRouter": {
+        "openai/gpt-4o": {"input": 2.50, "cached_input": 1.25, "output": 10.00},
+        "openai/gpt-4o-mini": {"input": 0.15, "cached_input": 0.075, "output": 0.60},
+        "anthropic/claude-3-5-sonnet": {"input": 3.00, "cached_input": 1.50, "output": 15.00},
+        "anthropic/claude-3-5-haiku": {"input": 0.25, "cached_input": 0.125, "output": 1.25},
+        "meta-llama/llama-3.1-405b-instruct": {"input": 3.50, "cached_input": 1.75, "output": 3.50},
+        "google/gemini-2.0-flash": {"input": 0.35, "cached_input": 0.175, "output": 1.05},
+        "mistralai/mistral-large": {"input": 2.00, "cached_input": 1.00, "output": 6.00},
     },
 }
 
@@ -265,11 +279,11 @@ st.markdown("<hr style='width: 100%;'>", unsafe_allow_html=True)
 def message_callback(role, message, is_final=True):
     """Show messages for both Minion and Minions protocols,
     labeling the local vs remote model clearly."""
-    
+
     # Initialize placeholder_messages in session state if not present
     if "placeholder_messages" not in st.session_state:
         st.session_state.placeholder_messages = {}
-    
+
     # Map supervisor -> Remote, worker -> Local
     chat_role = "Remote" if role == "supervisor" else "Local"
 
@@ -290,13 +304,13 @@ def message_callback(role, message, is_final=True):
                 st.session_state.placeholder_messages[role].empty()
             except Exception as e:
                 print(f"Warning: Could not clear existing placeholder for {role}: {e}")
-        
+
         # Create a placeholder container and store it for later update.
         placeholder = st.empty()
-        
+
         # Check if we have actual content to show or just need to show working state
         has_content = message is not None and message != ""
-        
+
         if has_content:
             # Show intermediate content
             with placeholder.chat_message(chat_role, avatar=path):
@@ -329,8 +343,10 @@ def message_callback(role, message, is_final=True):
                                 if len(message["content"]) > 500
                                 else message["content"]
                             )
-                            audio_base64 = st.session_state.voice_generator.generate_audio(
-                                voice_text
+                            audio_base64 = (
+                                st.session_state.voice_generator.generate_audio(
+                                    voice_text
+                                )
                             )
                             if audio_base64:
                                 st.markdown(
@@ -374,7 +390,9 @@ def message_callback(role, message, is_final=True):
                             st.markdown(f"Answer: {answer}")
 
                 elif isinstance(message, dict):
-                    if "content" in message and isinstance(message["content"], (dict, str)):
+                    if "content" in message and isinstance(
+                        message["content"], (dict, str)
+                    ):
                         try:
                             # Try to parse as JSON if it's a string
                             content = (
@@ -430,7 +448,7 @@ def message_callback(role, message, is_final=True):
                         </div>
                     """
                     st.markdown(video_html, unsafe_allow_html=True)
-        
+
         st.session_state.placeholder_messages[role] = placeholder
     else:
         # Handle final message - clear placeholder for this role
@@ -603,10 +621,12 @@ def initialize_clients(
             st.session_state.local_client = LemonadeClient(
                 model_name=local_model_name,
                 temperature=local_temperature,
-                max_tokens=int(local_max_tokens)
+                max_tokens=int(local_max_tokens),
             )
         elif local_provider == "Distributed Inference":
-            server_url = st.session_state.get("distributed_server_url", "http://localhost:8080")
+            server_url = st.session_state.get(
+                "distributed_server_url", "http://localhost:8080"
+            )
             st.session_state.local_client = DistributedInferenceClient(
                 model_name=local_model_name,
                 base_url=server_url,
@@ -652,11 +672,17 @@ def initialize_clients(
             )
         elif local_provider == "Modular":
             # Get Modular configuration from session state
-            modular_model_name = st.session_state.get("modular_model_name", local_model_name)
-            modular_weights_path = st.session_state.get("modular_weights_path", "HuggingFaceTB/SmolLM2-1.7B-Instruct-GGUF/smollm2-1.7b-instruct-q4_k_m.gguf")
+            modular_model_name = st.session_state.get(
+                "modular_model_name", local_model_name
+            )
+            modular_weights_path = st.session_state.get(
+                "modular_weights_path",
+                "HuggingFaceTB/SmolLM2-1.7B-Instruct-GGUF/smollm2-1.7b-instruct-q4_k_m.gguf",
+            )
             modular_verbose = st.session_state.get("modular_verbose", False)
-            
+
             from minions.clients.modular import ModularClient
+
             st.session_state.local_client = ModularClient(
                 model_name=modular_model_name,
                 weights_path=modular_weights_path,
@@ -668,10 +694,12 @@ def initialize_clients(
             st.session_state.local_client = LemonadeClient(
                 model_name=local_model_name,
                 temperature=local_temperature,
-                max_tokens=int(local_max_tokens)
+                max_tokens=int(local_max_tokens),
             )
         elif local_provider == "Distributed Inference":
-            server_url = st.session_state.get("distributed_server_url", "http://localhost:8080")
+            server_url = st.session_state.get(
+                "distributed_server_url", "http://localhost:8080"
+            )
             st.session_state.local_client = DistributedInferenceClient(
                 model_name=local_model_name,
                 base_url=server_url,
@@ -1007,10 +1035,12 @@ def run_protocol(
                         st.session_state.local_client = LemonadeClient(
                             model_name=st.session_state.local_model_name,
                             temperature=st.session_state.local_temperature,
-                            max_tokens=int(st.session_state.local_max_tokens)
+                            max_tokens=int(st.session_state.local_max_tokens),
                         )
                     elif local_provider == "Distributed Inference":
-                        server_url = st.session_state.get("distributed_server_url", "http://localhost:8080")
+                        server_url = st.session_state.get(
+                            "distributed_server_url", "http://localhost:8080"
+                        )
                         st.session_state.local_client = DistributedInferenceClient(
                             model_name=st.session_state.local_model_name,
                             base_url=server_url,
@@ -1695,11 +1725,12 @@ with st.sidebar:
         local_provider_options.append("Cartesia-MLX")
     if transformers_available:
         local_provider_options.append("Transformers")
-    
+
     # Check if ModularClient is available
     modular_available = False
     try:
         from minions.clients.modular import ModularClient
+
         modular_available = True
         local_provider_options.append("Modular")
     except ImportError:
@@ -1760,50 +1791,60 @@ with st.sidebar:
         # Weights path configuration
         modular_weights_path = st.text_input(
             "Weights Path",
-            value=st.session_state.get("modular_weights_path", "HuggingFaceTB/SmolLM2-1.7B-Instruct-GGUF/smollm2-1.7b-instruct-q4_k_m.gguf"),
+            value=st.session_state.get(
+                "modular_weights_path",
+                "HuggingFaceTB/SmolLM2-1.7B-Instruct-GGUF/smollm2-1.7b-instruct-q4_k_m.gguf",
+            ),
             key="modular_weights_path",
             help="Path to model weights (can be local path or HuggingFace repo path)",
             placeholder="HuggingFaceTB/SmolLM2-1.7B-Instruct-GGUF/smollm2-1.7b-instruct-q4_k_m.gguf",
         )
-        
+
         # Server configuration
         modular_verbose = st.toggle(
             "Verbose Logging",
             value=st.session_state.get("modular_verbose", False),
             key="modular_verbose",
-            help="Enable verbose logging for the Modular MAX server"
+            help="Enable verbose logging for the Modular MAX server",
         )
-        
-       
+
         # Check if MAX CLI is available
         try:
             import subprocess
-            result = subprocess.run(['max', '--version'], capture_output=True, text=True, timeout=5)
+
+            result = subprocess.run(
+                ["max", "--version"], capture_output=True, text=True, timeout=5
+            )
             if result.returncode == 0:
                 st.success("**✓ Modular MAX CLI is available.** You're good to go!")
             else:
                 st.error("**✗ Modular MAX CLI not found.** Please install Modular MAX.")
         except (FileNotFoundError, subprocess.TimeoutExpired):
-            st.error("**✗ Modular MAX CLI not found.** Please install Modular MAX following the instructions at https://docs.modular.com/max/packages")
+            st.error(
+                "**✗ Modular MAX CLI not found.** Please install Modular MAX following the instructions at https://docs.modular.com/max/packages"
+            )
 
     if local_provider == "Distributed Inference":
         st.info(
             "⚠️ Distributed Inference connects to a remote inference server. "
             "Make sure your server is running and accessible."
         )
-        
+
         distributed_server_url = st.text_input(
             "Server URL",
-            value=st.session_state.get("distributed_server_url", "http://localhost:8080"),
+            value=st.session_state.get(
+                "distributed_server_url", "http://localhost:8080"
+            ),
             key="distributed_server_url",
             help="URL of the distributed inference server (e.g., http://192.168.1.100:8080)",
             placeholder="http://localhost:8080",
         )
-        
+
         # Optional: Add connection test
         if st.button("Test Connection", key="test_distributed_connection"):
             try:
                 import requests
+
                 response = requests.get(f"{distributed_server_url}/health", timeout=5)
                 if response.status_code == 200:
                     st.success("✓ Connection successful!")
@@ -1832,9 +1873,7 @@ with st.sidebar:
         # TODO: Once more protocol support is added to the
         # Lemonade client, remove this check
         if local_provider == "Lemonade":
-            protocol_options = [
-                "Minion"
-            ]
+            protocol_options = ["Minion"]
         else:
             protocol_options = [
                 "Minion",
@@ -2023,7 +2062,7 @@ with st.sidebar:
                 "Phi-3-Mini-Instruct-Hybrid": "Phi-3-Mini-Instruct-Hybrid",
                 "Qwen-1.5-7B-Chat-Hybrid": "Qwen-1.5-7B-Chat-Hybrid",
                 "DeepSeek-R1-Distill-Llama-8B-Hybrid": "DeepSeek-R1-Distill-Llama-8B-Hybrid",
-                "DeepSeek-R1-Distill-Qwen-7B-Hybrid": "DeepSeek-R1-Distill-Qwen-7B-Hybrid"
+                "DeepSeek-R1-Distill-Qwen-7B-Hybrid": "DeepSeek-R1-Distill-Qwen-7B-Hybrid",
             }
 
             # Add any additional available models from Lemonade that aren't in the default list
@@ -2148,6 +2187,7 @@ with st.sidebar:
         elif selected_provider == "Gemini":
             model_mapping = {
                 "gemini-2.0-pro-preview-06-05 (Recommended)": "gemini-2.5-pro-exp-06-05",
+                "gemini-2.5-flash-lite": "gemini-2.5-flash-lite-preview-06-17",
                 "gemini-2.5-flash-preview": "gemini-2.5-flash-preview-05-20",
                 "gemini-2.5-pro-preview": "gemini-2.5-pro-preview-05-06",
                 "gemini-2.0-flash": "gemini-2.0-flash",
@@ -2659,10 +2699,10 @@ else:
                     print(f"Warning: Could not clear placeholder for {role}: {e}")
             # Then reset the dictionary
             st.session_state.placeholder_messages = {}
-        
+
         # Initialize query tracking to help with callback management
         st.session_state.current_query_id = time.time()
-        
+
         # Validate context description is provided
         if not context_description.strip():
             st.error(

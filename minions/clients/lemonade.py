@@ -105,6 +105,11 @@ class LemonadeClient(OpenAIClient):
         Accepts a list of message dicts or a single dict.
         Returns (responses, usage_total, done_reasons).
         """
+        if not self.use_async:
+            raise RuntimeError(
+                "This client is not in async mode. Set `use_async=True`."
+            )
+        
         if not AIOHTTP_AVAILABLE:
             raise ImportError("aiohttp is required for async Lemonade client. Please install with: pip install aiohttp")
         import asyncio

@@ -45,8 +45,6 @@ class LemonadeClient(OpenAIClient):
     def chat(self, messages: List[Dict[str, Any]], **kwargs) -> Tuple[List[str], Usage]:
         """
         Handle chat completions using direct HTTP requests to the lemonade service.
-        
-        Lemonade service doesn't provide token usage information, so we estimate based on content.
         """
         assert len(messages) > 0, "Messages cannot be empty."
 
@@ -76,16 +74,12 @@ class LemonadeClient(OpenAIClient):
         choices = response_data.get("choices", [])
         responses = [choice["message"]["content"] for choice in choices if "message" in choice]
 
-        # Estimate token usage since lemonade doesn't provide it
-        # Simple estimation: ~4 characters per token
-        prompt_text = " ".join([msg.get("content", "") for msg in messages])
-        response_text = " ".join(responses)
-        estimated_prompt_tokens = max(1, len(prompt_text) // 4)
-        estimated_completion_tokens = max(1, len(response_text) // 4)
 
-        usage = Usage(
-            prompt_tokens=estimated_prompt_tokens,
-            completion_tokens=estimated_completion_tokens,
+        usage = Usage()
+
+        usage += Usage(
+            prompt_tokens=response_data.get('usage', 0)['prompt_tokens'],
+            completion_tokens=response_data.get('usage', 0)['completion_tokens'],
         )
 
         done_reason = [choice.get("finish_reason", "stop") for choice in choices]

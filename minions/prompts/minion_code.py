@@ -1,12 +1,12 @@
 # Development-focused prompts for DevMinion
 
-RUNBOOK_GENERATION_PROMPT = """You are an expert software architect tasked with breaking down a development task into manageable steps.
+RUNBOOK_GENERATION_PROMPT = """You are an expert software architect tasked with breaking down a development task into manageable steps with comprehensive test specifications.
 
 **Development Task:** {task}
 
 **Requirements/Context:** {requirements}
 
-Create a detailed runbook with numbered steps to complete this task. Each step should be specific and actionable.
+Create a detailed runbook with numbered steps to complete this task. Each step should be specific and actionable, WITH COMPLETE TEST CODE.
 
 Output your response as JSON with the following structure:
 {{
@@ -19,16 +19,29 @@ Output your response as JSON with the following structure:
             "description": ["Subtask 1", "Subtask 2", "Subtask 3", ...],
             "files_to_create": ["list", "of", "files", "to", "create"],
             "files_to_modify": ["list", "of", "existing", "files", "to", "modify"],
-            "tests_needed": ["list", "of", "tests", "to", "write"],
+            "tests": {{
+                "test_files": {{
+                    "test_filename.py": "complete test file content here. Your test files should not require additional data files. If you need to test data samples, create them in the same file as a string or dataframe"
+                }},
+                "test_commands": ["python test_filename.py", "pytest test_filename.py"],
+                "test_documentation": "Description of what tests cover and expected outcomes"
+            }},
             "acceptance_criteria": "What constitutes completion of this step"
         }}
     ],
     "final_testing": "Description of final integration testing needed"
 }}
 
+For each step, provide COMPLETE, EXECUTABLE test code that:
+1. Tests all functionality described in the acceptance criteria
+2. Includes both positive and negative test cases
+3. Tests edge cases and error conditions
+4. Can be run independently to verify the step implementation
+5. Uses appropriate testing frameworks (pytest, unittest, etc.)
+
 Make sure each step is:
 1. Atomic - can be completed independently
-2. Testable - has clear success criteria
+2. Testable - has clear success criteria and complete test code
 3. Incremental - builds on previous steps
 4. Specific - includes exact file names and functionality
 """
@@ -39,7 +52,8 @@ SUBTASK_EXECUTION_PROMPT = """You are a skilled developer working on a specific 
 **Step Description:** {step_description}
 **Files to Create:** {files_to_create}
 **Files to Modify:** {files_to_modify}
-**Tests Needed:** {tests_needed}
+**Predefined Tests:** The following tests have been predefined for this step and will be used to verify your implementation:
+{predefined_tests}
 **Acceptance Criteria:** {acceptance_criteria}
 
 **Current Workspace State:**
@@ -52,7 +66,8 @@ SUBTASK_EXECUTION_PROMPT = """You are a skilled developer working on a specific 
 Your task is to:
 1. Implement the required functionality for this step
 2. Create/modify the specified files
-3. Document your changes in a markdown file
+3. Ensure your implementation will pass the predefined tests
+4. Document your changes in a markdown file
 
 For each file you create or modify, provide:
 - The complete file content
@@ -62,10 +77,11 @@ For each file you create or modify, provide:
 Create a detailed documentation file describing:
 - What you implemented
 - How it works
+- How it satisfies the test requirements
 - Any issues encountered
 - Next steps or recommendations
 
-NOTE: You do NOT need to write tests - the testing will be handled separately by another process.
+NOTE: Tests are already defined in the runbook. Focus on implementing code that will pass these tests.
 
 Output your response as JSON:
 {{

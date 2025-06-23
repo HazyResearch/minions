@@ -12,7 +12,6 @@ from minions.clients import OpenAIClient, TogetherClient, GeminiClient
 from minions.prompts.minion_code import (
     RUNBOOK_GENERATION_PROMPT,
     SUBTASK_EXECUTION_PROMPT,
-    TEST_GENERATION_PROMPT,
     CODE_REVIEW_PROMPT,
     EDIT_REQUEST_PROMPT,
     FINAL_INTEGRATION_PROMPT,
@@ -229,7 +228,12 @@ class DevMinion:
             )
         elif isinstance(self.remote_client, GeminiClient):
             from pydantic import BaseModel
-            from typing import List as TypeList
+            from typing import List as TypeList, Dict as TypeDict
+            
+            class Tests(BaseModel):
+                test_files: TypeDict[str, str]
+                test_commands: TypeList[str]
+                test_documentation: str
             
             class Step(BaseModel):
                 step_number: int
@@ -237,7 +241,7 @@ class DevMinion:
                 description: str
                 files_to_create: TypeList[str]
                 files_to_modify: TypeList[str]
-                tests_needed: TypeList[str]
+                tests: Tests
                 acceptance_criteria: str
             
             class RunbookOutput(BaseModel):
@@ -340,27 +344,26 @@ class DevMinion:
                 changes_applied = self.workspace.apply_file_changes(implementation_result["files"])
                 print(f"    Applied {len(changes_applied)} file changes")
             
-            # Initialize test-related variables
+            # Use predefined tests from runbook
             test_commands = []
             test_results = {}
-
-            step_result["tests_needed"] = []
             
-            # Remote LLM generates tests
-            if step_info.get("tests_needed"):
-                test_generation_result = self._remote_generate_tests(step_info, implementation_result)
-                attempt_result["test_generation"] = test_generation_result["response"]
-                step_result["remote_usage"] += test_generation_result["usage"]
+            # Apply predefined test files from runbook
+            if step_info.get("tests", {}).get("test_files"):
+                test_files = step_info["tests"]["test_files"]
+                # add a folder for the test files
+                test_files_folder = self.workspace.workspace_dir / "test_files"
+                # make sure the test_files_folder exists
+                test_files_folder.mkdir(parents=True, exist_ok=True)
                 
-                # Apply test files to workspace
-                if test_generation_result["test_files"]:
-                    test_changes_applied = self.workspace.apply_file_changes(test_generation_result["test_files"])
-                    print(f"    Applied {len(test_changes_applied)} test files")
+                test_changes_applied = self.workspace.apply_file_changes(test_files)
+                print(f"    Applied {len(test_changes_applied)} predefined test files")
                 
-                # Local LLM runs the tests
-                test_commands = test_generation_result.get("test_commands", [])
+                # Run the predefined tests
+                test_commands = step_info["tests"].get("test_commands", [])
                 if test_commands:
                     test_results = self.workspace.run_tests(test_commands)
+                    print(test_results)
                     attempt_result["test_results"] = test_results
                     print(f"    Test results: {test_results['summary']}")
             
@@ -432,18 +435,48 @@ class DevMinion:
             
             previous_feedback_section += "Please address these issues and incorporate the suggestions in your current implementation.\n"
         
+        # Format predefined tests for display
+        predefined_tests = ""
+        if step_info.get("tests", {}).get("test_files"):
+            predefined_tests = "Test Files:\n"
+            for test_file, test_content in step_info["tests"]["test_files"].items():
+                predefined_tests += f"\n--- {test_file} ---\n{test_content}\n"
+            predefined_tests += f"\nTest Commands: {step_info['tests'].get('test_commands', [])}\n"
+            predefined_tests += f"Test Documentation: {step_info['tests'].get('test_documentation', 'No documentation provided')}\n"
+        else:
+            predefined_tests = "No tests defined for this step."
+
+
+        files_to_create = step_info["files_to_create"]
+        files_to_modify = step_info["files_to_modify"]
+
+        if files_to_create:
+            files_to_create = ", ".join(files_to_create)
+        if files_to_modify:
+            files_to_modify = ", ".join(files_to_modify)        
+        # get files to create and modify
+        if files_to_create:
+            current_file_state = self.workspace.get_file_contents(files_to_create)
+            # append that to the current_workspace
+            current_workspace += f"\n\nCurrent File State:\n{files_to_create}:\n{current_file_state}"
+        if files_to_modify:
+            current_file_state = self.workspace.get_file_contents(files_to_modify)
+            # append that to the current_workspace
+            current_workspace += f"\n\nCurrent File State:\n{files_to_modify}:\n{current_file_state}"
+        
         prompt = SUBTASK_EXECUTION_PROMPT.format(
             step_number=step_info["step_number"],
             step_title=step_info["title"],
             step_description=step_info["description"],
             files_to_create=", ".join(step_info["files_to_create"]),
             files_to_modify=", ".join(step_info["files_to_modify"]),
-            tests_needed=", ".join(step_info["tests_needed"]),
+            predefined_tests=predefined_tests,
             acceptance_criteria=step_info["acceptance_criteria"],
             current_workspace=current_workspace,
             completed_steps=completed_steps_summary,
             previous_feedback_section=previous_feedback_section,
         )
+
 
         messages = [{"role": "user", "content": prompt}]
         
@@ -480,81 +513,7 @@ class DevMinion:
             "usage": usage,
         }
     
-    def _remote_generate_tests(self, step_info: Dict[str, Any], implementation: Dict[str, Any]) -> Dict[str, Any]:
-        """Have remote LLM generate test scripts for the implementation."""
-        current_state = self.workspace.get_current_state()
-        workspace_summary = self._format_workspace_state(current_state)
-        
-        # Format code changes for test generation
-        code_changes = ""
-        for filepath, content in implementation["files"].items():
-            code_changes += f"\n--- {filepath} ---\n{content}\n"
-        
-        prompt = TEST_GENERATION_PROMPT.format(
-            step_number=step_info["step_number"],
-            step_title=step_info["title"],
-            step_description=step_info["description"],
-            tests_needed=", ".join(step_info.get("tests_needed", [])),
-            acceptance_criteria=step_info["acceptance_criteria"],
-            code_changes=code_changes,
-            documentation=implementation["documentation"],
-            workspace_state=workspace_summary,
-        )
-        
-        messages = [{"role": "user", "content": prompt}]
-        
-        if isinstance(self.remote_client, (OpenAIClient, TogetherClient)):
-            response, usage = self.remote_client.chat(
-                messages=messages,
-                response_format={"type": "json_object"}
-            )
-        elif isinstance(self.remote_client, GeminiClient):
-            from pydantic import BaseModel
-            from typing import List as TypeList, Dict as TypeDict
-            
-            class TestOutput(BaseModel):
-                test_files: TypeDict[str, str]
-                test_commands: TypeList[str]
-                test_documentation: str
-                expected_outcomes: str
-            
-            response, usage = self.remote_client.chat(
-                messages=messages,
-                config={
-                    "response_mime_type": "application/json",
-                    "response_schema": TestOutput,
-                }
-            )
-        else:
-            response, usage = self.remote_client.chat(messages=messages, response_format={"type": "json_object"})
-        
-        # Parse test generation response
-        if isinstance(self.remote_client, (OpenAIClient, TogetherClient, GeminiClient)):
-            try:
-                test_data = json.loads(response[0])
-            except:
-                test_data = _extract_json(response[0])
-        else:
-            test_data = _extract_json(response[0])
-        
-        print(f"    🧪 Generated {len(test_data.get('test_files', {}))} test files")
-        print(f"    📋 Test commands: {test_data.get('test_commands', [])}")
-        
-        if self.callback:
-            callback_message = {
-                "role": "assistant",
-                "content": f"Generated tests for step {step_info['step_number']}: {len(test_data.get('test_files', {}))} test files created"
-            }
-            self.callback("supervisor", callback_message, is_final=False)
-        
-        return {
-            "response": response[0],
-            "test_files": test_data.get("test_files", {}),
-            "test_commands": test_data.get("test_commands", []),
-            "test_documentation": test_data.get("test_documentation", ""),
-            "expected_outcomes": test_data.get("expected_outcomes", ""),
-            "usage": usage,
-        }
+
     
     def _remote_review_step(self, step_info: Dict[str, Any], implementation: Dict[str, Any], test_results: Dict[str, Any]) -> Dict[str, Any]:
         """Have remote LLM review the implementation."""
@@ -739,7 +698,7 @@ class DevMinion:
         return formatted
     
     def _format_completed_steps(self) -> str:
-        """Format completed steps summary."""
+        """Format completed steps summary with test results."""
         if not self.completed_steps:
             return "No steps completed yet."
         
@@ -747,6 +706,24 @@ class DevMinion:
         for step in self.completed_steps:
             status = "✅" if step["success"] else "❌"
             summary += f"  {status} Step {step['step_number']}: {step['step_title']}\n"
+            
+            # Include test results if available
+            if step.get("test_results"):
+                test_results = step["test_results"]
+                if isinstance(test_results, dict):
+                    if test_results.get("summary"):
+                        summary += f"    🧪 Test Results: {test_results['summary']}\n"
+                    if test_results.get("passed_tests"):
+                        summary += f"    ✅ Passed: {test_results['passed_tests']}\n"
+                    if test_results.get("failed_tests"):
+                        summary += f"    ❌ Failed: {test_results['failed_tests']}\n"
+                    if test_results.get("details"):
+                        # Truncate details if too long
+                        details = str(test_results['details'])
+                        if len(details) > 200:
+                            details = details[:200] + "..."
+                        summary += f"    📋 Details: {details}\n"
+            summary += "\n"
         
         return summary
     

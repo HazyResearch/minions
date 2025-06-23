@@ -142,13 +142,13 @@ Review the implementation against the following criteria:
 Provide feedback and make a decision. Output as JSON:
 {{
     "overall_score": "score out of 10",
+    "decision": "merge_changes" OR "request_edits" (if overall_score > 7, then merge_changes, otherwise request_edits),
     "feedback": {{
         "strengths": ["list", "of", "positive", "aspects"],
         "issues": ["list", "of", "problems", "found"],
         "suggestions": ["list", "of", "improvement", "suggestions"]
     }},
     "specific_changes_needed": ["if request_edits, list specific changes needed"],
-    "decision": "merge_changes" OR "request_edits" (if score > 7, then merge_changes, otherwise request_edits),
     "approval_notes": "Comments for approval or reasons for rejection",
 }}
 

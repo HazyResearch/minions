@@ -292,6 +292,8 @@ class DevMinion:
         if self.callback:
             self.callback("worker", f"Starting step {step_number}: {step_title}", is_final=False)
         
+
+
         step_result = {
             "step_number": step_number,
             "step_title": step_title,
@@ -341,6 +343,8 @@ class DevMinion:
             # Initialize test-related variables
             test_commands = []
             test_results = {}
+
+            step_result["tests_needed"] = []
             
             # Remote LLM generates tests
             if step_info.get("tests_needed"):
@@ -441,7 +445,6 @@ class DevMinion:
             previous_feedback_section=previous_feedback_section,
         )
 
-        breakpoint()
         messages = [{"role": "user", "content": prompt}]
         
         response, usage  = self.local_client.chat(messages=messages, response_format={"type": "json_object"})

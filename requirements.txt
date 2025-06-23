@@ -26,6 +26,7 @@ cryptography              # crypto utilities
 st-theme                  # Streamlit theming
 mcp                       # Minions control plane (custom lib)
 pyjwt                     # JWT utilities
+gitingest                 # Git repository content ingestion
 
 # --- Backend / server ---
 flask                     # worker server

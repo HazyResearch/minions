@@ -19,6 +19,7 @@ import readline
 from pydantic import BaseModel, Field
 from typing import Dict, List, Optional, Union, Any
 import re
+from gitingest import ingest
 
 # Conditionally import MLXLMClient
 try:
@@ -110,6 +111,34 @@ def extract_text_from_folder(folder_path):
     except Exception as e:
         print(f"Error processing folder: {str(e)}")
         return ""
+
+
+def extract_text_with_gitingest(folder_path):
+    """Extract text from a folder using gitingest for comprehensive code ingestion."""
+    try:
+        # Expand ~ to user's home directory if present
+        folder_path = os.path.expanduser(folder_path)
+
+        if not os.path.isdir(folder_path):
+            raise ValueError(f"'{folder_path}' is not a valid directory")
+
+        print(f"Using gitingest to process: {folder_path}")
+        
+        # Use gitingest to extract repository content
+        summary, tree, content = ingest(folder_path)
+        
+        # Combine summary, tree, and content for comprehensive context
+        combined_text = f"=== REPOSITORY SUMMARY ===\n\n{summary}\n\n"
+        combined_text += f"=== DIRECTORY STRUCTURE ===\n\n{tree}\n\n"
+        combined_text += f"=== FILE CONTENTS ===\n\n{content}"
+        
+        print(f"Successfully processed repository with gitingest ({len(combined_text)} chars)")
+        return combined_text
+
+    except Exception as e:
+        print(f"Error processing folder with gitingest: {str(e)}")
+        print("Falling back to standard folder processing...")
+        return extract_text_from_folder(folder_path)
 
 
 def load_default_medical_context():
@@ -398,6 +427,11 @@ def main():
     parser.add_argument(
         "--doc-metadata", type=str, default="", help="Metadata describing the document"
     )
+    parser.add_argument(
+        "--use-gitingest",
+        action="store_true",
+        help="Use gitingest for comprehensive code repository ingestion (recommended for codebases)",
+    )
     args = parser.parse_args()
 
     # Get model configuration from environment variables
@@ -423,7 +457,10 @@ def main():
         # Check if it's a directory
         if os.path.isdir(context_path):
             print(f"Loading documents from folder: {context_path}")
-            context = extract_text_from_folder(context_path)
+            if args.use_gitingest:
+                context = extract_text_with_gitingest(context_path)
+            else:
+                context = extract_text_from_folder(context_path)
             if not context:
                 print("Error: Could not extract text from the specified folder")
                 return

@@ -36,6 +36,7 @@ setup(
         "nv-local-gpu-verifier",
         "azure-security-attestation",
         "azure-identity",
+	"gitingest",
     ],
     extras_require={
         "mlx": ["mlx-lm"],

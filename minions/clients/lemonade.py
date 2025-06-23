@@ -18,8 +18,8 @@ import asyncio
 
 class LemonadeClient(OpenAIClient):
     """
-    Hybrid client: uses llama-cpp-python backend for forced schema output,
-    otherwise uses Lemonade server API.
+    Uses Lemonade API Server to run local clients in Minion and/or Minions Protocol.
+    Lemonade is still experimental, more protocols will be integrated soon.
     """
 
     def __init__(
@@ -101,8 +101,9 @@ class LemonadeClient(OpenAIClient):
         **kwargs,
     ) -> Tuple[List[str], Usage, List[str]]:
         """
-        Parallel asynchronous chat for Lemonade, matching Ollama's achat.
+        Parallel asynchronous chat for Lemonade.
         Accepts a list of message dicts or a single dict.
+        This is only used for the Minions protocol.
         Returns (responses, usage_total, done_reasons).
         """
         if not self.use_async:

@@ -351,6 +351,7 @@ class SyncMinionsMCP(Minions):
             mcp_tools_info += f"**Usage**: mcp_tools.execute_tool(\"{tool['name']}\", {', '.join([f'{p}={p}' for p in params])})\n\n"
 
         # Run the parent class call with MCP tools info
+        use_retrieval = "bm25" if use_bm25 else None
         result = super().__call__(
             task=task,
             doc_metadata=doc_metadata,
@@ -359,7 +360,7 @@ class SyncMinionsMCP(Minions):
             num_tasks_per_round=num_tasks_per_round,
             num_samples_per_task=num_samples_per_task,
             mcp_tools_info=mcp_tools_info,
-            use_bm25=use_bm25,
+            use_retrieval=use_retrieval,
         )
 
         return result

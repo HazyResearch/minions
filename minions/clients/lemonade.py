@@ -205,6 +205,7 @@ class LemonadeClient(OpenAIClient):
             self.logger.info("Pulling model: %s", self.model_name)
             try:
                 self.pull_model(self.model_name)
+                self.logger.info(f"Successfully pulled model {self.model_name}")
             except:
                 msg = (f"Model '{self.model_name}' not found on Lemonade server and unable to pull.\n"
                     f"Available models: {available_models}")

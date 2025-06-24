@@ -1,3 +1,10 @@
+# Windows requires ProactorEventLoop for subprocesses
+# This allows Minions-MCP to work on Windows machines
+import asyncio
+import sys
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+
 import streamlit as st
 import time
 import traceback
@@ -1882,7 +1889,8 @@ with st.sidebar:
         if local_provider == "Lemonade":
             protocol_options = [
                 "Minion",
-                "Minions"
+                "Minions",
+                "Minions-MCP"
             ]
         else:
             protocol_options = [
@@ -2065,7 +2073,7 @@ with st.sidebar:
             # Check if this is for Minion or Minions - Minions can only use GGUF models
             lemonade = LemonadeClient()
             available_lemonade_models = lemonade.get_available_models()
-            if protocol == "Minions":
+            if protocol == "Minions" or "Minions-MCP":
                 local_model_options = {
                     "Qwen3-8B-GGUF": "Qwen3-8B-GGUF",
                     "Qwen3-4B-GGUF": "Qwen3-4B-GGUF",

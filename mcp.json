@@ -7,6 +7,12 @@
                 "@modelcontextprotocol/server-filesystem",
                 "/Users/avanikanarayan/Developer/Research/minions-development/minions"
             ]
-        }
+        },
+	"calculator": {
+      		"command": "python",
+      		"args": [
+        		"C:\\Users\\Edan\\Downloads\\mcp_calculator.py"
+      		]
+    	}
     }
 }

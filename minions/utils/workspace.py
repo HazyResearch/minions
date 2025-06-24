@@ -78,6 +78,48 @@ class WorkspaceManager:
         
         return state
     
+    def get_file_contents(self, file_path: str) -> Optional[str]:
+        """
+        Get contents of a specific file in the workspace.
+        
+        Args:
+            file_path: Path to the file relative to workspace directory
+            
+        Returns:
+            File contents as string, or None if file doesn't exist or can't be read
+        """
+        full_path = self.workspace_dir / file_path
+        
+        # Check if file exists
+        if not full_path.exists():
+            self.logger.warning(f"File does not exist: {file_path}")
+            return None
+        
+        # Check if path is actually a file
+        if not full_path.is_file():
+            self.logger.warning(f"Path is not a file: {file_path}")
+            return None
+        
+        # Check if file should be ignored
+        if self._is_ignored_file(full_path):
+            self.logger.warning(f"File is ignored: {file_path}")
+            return None
+        
+        try:
+            with open(full_path, 'r', encoding='utf-8') as f:
+                content = f.read()
+                self.logger.info(f"Successfully read file: {file_path}")
+                return content
+        except UnicodeDecodeError as e:
+            self.logger.warning(f"Could not decode file {file_path}: {e}")
+            return None
+        except PermissionError as e:
+            self.logger.warning(f"Permission denied reading file {file_path}: {e}")
+            return None
+        except Exception as e:
+            self.logger.error(f"Unexpected error reading file {file_path}: {e}")
+            return None
+    
     def create_backup(self, label: str = None) -> str:
         """
         Create a backup of the current workspace state.
@@ -118,7 +160,7 @@ class WorkspaceManager:
         self.logger.info(f"Created backup: {backup_path} ({items_copied} items)")
         return str(backup_path)
     
-    def apply_file_changes(self, files: Dict[str, str]) -> Dict[str, str]:
+    def apply_file_changes(self, files: Dict[str, str], sub_dir: str = None) -> Dict[str, str]:
         """
         Apply file changes to the workspace.
         
@@ -131,7 +173,10 @@ class WorkspaceManager:
         changes = {}
         
         for file_path, content in files.items():
-            full_path = self.workspace_dir / file_path
+            if sub_dir:
+                full_path = self.workspace_dir / sub_dir / file_path
+            else:
+                full_path = self.workspace_dir / file_path
             
             # Create parent directories if they don't exist
             full_path.parent.mkdir(parents=True, exist_ok=True)

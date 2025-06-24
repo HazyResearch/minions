@@ -85,4 +85,16 @@ class MLXEmbeddings(BaseEmbeddingModel):
         outputs = model(inputs["input_ids"], attention_mask=inputs["attention_mask"])
         # Get the text embeddings (already normalized if the model does that)
         embeddings = outputs.text_embeds
+        
+        # Convert MLX array to NumPy array for compatibility with existing code
+        if hasattr(embeddings, 'numpy'):
+            # If it's an MLX array with numpy() method
+            embeddings = embeddings.numpy()
+        elif hasattr(embeddings, '__array__'):
+            # If it has __array__ method (for array-like objects)
+            embeddings = np.array(embeddings)
+        else:
+            # Fallback: try to convert directly
+            embeddings = np.array(embeddings)
+        
         return embeddings

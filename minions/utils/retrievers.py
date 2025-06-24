@@ -27,6 +27,10 @@ def bm25_retrieve_top_k_chunks(
     Retrieves top k chunks using BM25 with weighted keywords.
     """
 
+    # Handle case where weights is None
+    if weights is None:
+        weights = {}
+    
     weights = {keyword: weights.get(keyword, 1.0) for keyword in keywords}
     bm25_retriever = BM25Plus(chunks)
 

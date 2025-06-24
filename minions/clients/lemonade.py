@@ -18,7 +18,7 @@ import asyncio
 
 class LemonadeClient(OpenAIClient):
     """
-    Uses Lemonade API Server to run local clients in Minion and/or Minions Protocol.
+    Uses Lemonade API Server to run local clients in Minion, Minions, and Minions-MCP Protocols.
     Lemonade is still experimental, more protocols will be integrated soon.
     """
 
@@ -51,7 +51,7 @@ class LemonadeClient(OpenAIClient):
 
         # Lemonade only supports GGUF models for structured output schemas for now
         if self.structured_output_schema and not "GGUF" in self.model_name.upper():
-            raise TypeError(f"The model used for Minions and Minions-CUA must be GGUF. A GGUF model was not used.")
+            raise TypeError(f"The model used for Minions and Minions-MCP must be GGUF. A GGUF model was not used.")
         # Validate Lemonade server connection and model
         self._ensure_model_available()
 
@@ -103,7 +103,7 @@ class LemonadeClient(OpenAIClient):
         """
         Parallel asynchronous chat for Lemonade.
         Accepts a list of message dicts or a single dict.
-        This is only used for the Minions protocol.
+        This is only used for the Minions and Minions-MCP protocols.
         Returns (responses, usage_total, done_reasons).
         """
         if not self.use_async:
@@ -205,6 +205,7 @@ class LemonadeClient(OpenAIClient):
             self.logger.info("Pulling model: %s", self.model_name)
             try:
                 self.pull_model(self.model_name)
+                self.logger.info(f"Successfully pulled model {self.model_name}")
             except:
                 msg = (f"Model '{self.model_name}' not found on Lemonade server and unable to pull.\n"
                     f"Available models: {available_models}")

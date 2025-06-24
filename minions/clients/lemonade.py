@@ -1,19 +1,25 @@
 import os
 import logging
-from typing import Any, Dict, List, Optional, Tuple
-
+from typing import Any, Dict, List, Optional, Tuple, Union
 import requests
 
 from minions.clients.openai import OpenAIClient
 from minions.usage import Usage
+from pydantic import BaseModel
 
+
+try:
+    import aiohttp
+    AIOHTTP_AVAILABLE = True
+except ImportError:
+    AIOHTTP_AVAILABLE = False
+
+import asyncio
 
 class LemonadeClient(OpenAIClient):
-    """Client for interacting with a local Lemonade inference server.
-
-    This client uses the OpenAI compatible endpoints exposed by Lemonade
-    Server. Additional Lemonade specific endpoints such as ``pull`` and
-    ``load`` are also implemented via simple HTTP requests.
+    """
+    Uses Lemonade API Server to run local clients in Minion and/or Minions Protocol.
+    Lemonade is still experimental, more protocols will be integrated soon.
     """
 
     def __init__(
@@ -23,6 +29,8 @@ class LemonadeClient(OpenAIClient):
         temperature: float = 0.0,
         max_tokens: int = 2048,
         base_url: Optional[str] = None,
+        structured_output_schema: Optional[BaseModel] = None,
+        use_async: bool = False,
         **kwargs: Any,
     ) -> None:
         base_url = base_url or os.getenv("LEMONADE_BASE_URL", "http://localhost:8000/api/v1")
@@ -34,58 +42,138 @@ class LemonadeClient(OpenAIClient):
             base_url=base_url,
             **kwargs,
         )
-        # Session for the custom endpoints
+    
         self.session = requests.Session()
         self.base_url = base_url
         self.logger.setLevel(logging.INFO)
+        self.structured_output_schema = structured_output_schema
+        self.use_async = use_async
 
-        # Validate server connection and model availability
+        # Lemonade only supports GGUF models for structured output schemas for now
+        if self.structured_output_schema and not "GGUF" in self.model_name.upper():
+            raise TypeError(f"The model used for Minions and Minions-CUA must be GGUF. A GGUF model was not used.")
+        # Validate Lemonade server connection and model
         self._ensure_model_available()
 
-    def chat(self, messages: List[Dict[str, Any]], **kwargs) -> Tuple[List[str], Usage]:
+    def chat(self, messages: List[Dict[str, Any]], **kwargs) -> Tuple[List[str], Usage, List[str]]:
         """
-        Handle chat completions using direct HTTP requests to the lemonade service.
+        Main chat method: dispatches to schat or achat depending on use_async.
+        """
+        if self.use_async:
+            return self.achat(messages, **kwargs)
+        else:
+            return self.schat(messages, **kwargs)
+
+    def schat(self, messages: List[Dict[str, Any]], **kwargs) -> Tuple[List[str], Usage, List[str]]:
+        """
+        Synchronous chat: used for Minion. This assumes structured_output_schema is not used here.
         """
         assert len(messages) > 0, "Messages cannot be empty."
+        if self.structured_output_schema is not None:
+            raise TypeError("Lemonade does not currently support this configuration. Forced output schema isn't available in synchronous chats.")
+        payload = {
+            "model": self.model_name,
+            "messages": messages,
+            "max_tokens": self.max_tokens,
+            "temperature": self.temperature,
+            **kwargs,
+        }
+        response = self.session.post(
+            f"{self.base_url.rstrip('/api/v1')}/api/v1/chat/completions",
+            json=payload,
+            headers={"Content-Type": "application/json"}
+        )
+        response.raise_for_status()
+        response_data = response.json()
+        choices = response_data.get("choices", [])
+        responses = [choice["message"]["content"] for choice in choices if "message" in choice]
+        usage = Usage()
+        usage += Usage(
+            prompt_tokens=response_data.get('usage', {}).get('prompt_tokens', 0),
+            completion_tokens=response_data.get('usage', {}).get('completion_tokens', 0),
+        )
+        done_reason = [choice.get("finish_reason", "stop") for choice in choices]
+        return responses, usage, done_reason
 
-        try:
-            # Prepare the request payload for lemonade's OpenAI-compatible endpoint
+    def achat(
+        self,
+        messages: Union[List[Dict[str, Any]], Dict[str, Any]],
+        **kwargs,
+    ) -> Tuple[List[str], Usage, List[str]]:
+        """
+        Parallel asynchronous chat for Lemonade.
+        Accepts a list of message dicts or a single dict.
+        This is only used for the Minions protocol.
+        Returns (responses, usage_total, done_reasons).
+        """
+        if not self.use_async:
+            raise RuntimeError(
+                "This client is not in async mode. Set `use_async=True`."
+            )
+        
+        if not AIOHTTP_AVAILABLE:
+            raise ImportError("aiohttp is required for async Lemonade client. Please install with: pip install aiohttp")
+        import asyncio
+
+        # Accept both a single dict and a list of dicts
+        if isinstance(messages, dict):
+            messages = [messages]
+
+        async def process_one(msg):
             payload = {
                 "model": self.model_name,
-                "messages": messages,
+                "messages": [msg],  # Each request gets its own message
                 "max_tokens": self.max_tokens,
                 "temperature": self.temperature,
                 **kwargs,
             }
-
-            # Make direct HTTP request to lemonade's chat completions endpoint
-            response = self.session.post(
-                f"{self.base_url.rstrip('/api/v1')}/api/v1/chat/completions",
-                json=payload,
-                headers={"Content-Type": "application/json"}
+            if self.structured_output_schema:
+                try:
+                    payload["response_format"] = {
+                        "type": "json_object",
+                        "schema": self.structured_output_schema.model_json_schema()
+                    }
+                except Exception as e:
+                    raise RuntimeError(f"Failed to generate schema for structured_output_schema: {e}")
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    f"{self.base_url.rstrip('/api/v1')}/api/v1/chat/completions",
+                    json=payload,
+                    headers={"Content-Type": "application/json"}
+                ) as response:
+                    response.raise_for_status()
+                    response_data = await response.json()
+            choices = response_data.get("choices", [])
+            content = choices[0]["message"]["content"] if choices and "message" in choices[0] else ""
+            usage = Usage(
+                prompt_tokens=response_data.get('usage', {}).get('prompt_tokens', 0),
+                completion_tokens=response_data.get('usage', {}).get('completion_tokens', 0),
             )
-            response.raise_for_status()
-            response_data = response.json()
-        except Exception as e:
-            self.logger.error(f"Error during Lemonade API call: {e}")
-            raise
+            done_reason = choices[0].get("finish_reason", "stop") if choices else "stop"
+            return content, usage, done_reason
 
-        # Extract responses from the lemonade response
-        choices = response_data.get("choices", [])
-        responses = [choice["message"]["content"] for choice in choices if "message" in choice]
+        async def run_all():
+            results = await asyncio.gather(*(process_one(m) for m in messages))
+            texts, usages, done_reasons = zip(*results)
+            usage_total = Usage()
+            for u in usages:
+                usage_total += u
+            return list(texts), usage_total, list(done_reasons)
 
+        # Handle event loop: support Streamlit/Jupyter
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                import threading, concurrent.futures
+                with concurrent.futures.ThreadPoolExecutor() as executor:
+                    future = executor.submit(lambda: asyncio.new_event_loop().run_until_complete(run_all()))
+                    return future.result()
+            else:
+                return loop.run_until_complete(run_all())
+        except RuntimeError:
+            return asyncio.run(run_all())
 
-        usage = Usage()
-
-        usage += Usage(
-            prompt_tokens=response_data.get('usage', 0)['prompt_tokens'],
-            completion_tokens=response_data.get('usage', 0)['completion_tokens'],
-        )
-
-        done_reason = [choice.get("finish_reason", "stop") for choice in choices]
-
-        return responses, usage, done_reason
-
+        
     # ------------------------------------------------------------------
     # Lemonade specific helper APIs
     # ------------------------------------------------------------------

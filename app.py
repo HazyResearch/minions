@@ -1,5 +1,6 @@
 import streamlit as st
 import time
+import traceback
 
 from minions.minion import Minion
 from minions.minions import Minions
@@ -622,6 +623,8 @@ def initialize_clients(
                 model_name=local_model_name,
                 temperature=local_temperature,
                 max_tokens=int(local_max_tokens),
+                structured_output_schema=StructuredLocalOutput,
+                use_async=use_async,
             )
         elif local_provider == "Distributed Inference":
             server_url = st.session_state.get(
@@ -695,6 +698,8 @@ def initialize_clients(
                 model_name=local_model_name,
                 temperature=local_temperature,
                 max_tokens=int(local_max_tokens),
+                structured_output_schema=None,
+                use_async=use_async,
             )
         elif local_provider == "Distributed Inference":
             server_url = st.session_state.get(
@@ -1036,6 +1041,8 @@ def run_protocol(
                             model_name=st.session_state.local_model_name,
                             temperature=st.session_state.local_temperature,
                             max_tokens=int(st.session_state.local_max_tokens),
+                            structured_output_schema=None,  # Minion protocol doesn't use structured output
+                            use_async=False,  # Minion protocol doesn't use async
                         )
                     elif local_provider == "Distributed Inference":
                         server_url = st.session_state.get(
@@ -1869,11 +1876,14 @@ with st.sidebar:
         "SambaNova",
         "LlamaAPI",
     ]:  # Added LlamaAPI and Anthropic to the list
-        # Currently Lemonade only supports Minion protocol
+        # Currently Lemonade only supports the Minion and Minions protocols
         # TODO: Once more protocol support is added to the
         # Lemonade client, remove this check
         if local_provider == "Lemonade":
-            protocol_options = ["Minion"]
+            protocol_options = [
+                "Minion",
+                "Minions"
+            ]
         else:
             protocol_options = [
                 "Minion",
@@ -2052,26 +2062,43 @@ with st.sidebar:
                 "Qwen/Qwen2.5-1.5B-Instruct": "Qwen/Qwen2.5-1.5B-Instruct",
             }
         elif local_provider == "Lemonade":
+            # Check if this is for Minion or Minions - Minions can only use GGUF models
             lemonade = LemonadeClient()
             available_lemonade_models = lemonade.get_available_models()
-
-            local_model_options = {
-                "Llama-3.2-3B-Instruct-Hybrid": "Llama-3.2-3B-Instruct-Hybrid",
-                "Qwen2.5-0.5B-Instruct-CPU": "Qwen2.5-0.5B-Instruct-CPU",
-                "Llama-3.2-1B-Instruct-Hybrid": "Llama-3.2-1B-Instruct-Hybrid",
-                "Phi-3-Mini-Instruct-Hybrid": "Phi-3-Mini-Instruct-Hybrid",
-                "Qwen-1.5-7B-Chat-Hybrid": "Qwen-1.5-7B-Chat-Hybrid",
-                "DeepSeek-R1-Distill-Llama-8B-Hybrid": "DeepSeek-R1-Distill-Llama-8B-Hybrid",
-                "DeepSeek-R1-Distill-Qwen-7B-Hybrid": "DeepSeek-R1-Distill-Qwen-7B-Hybrid",
-            }
+            if protocol == "Minions":
+                local_model_options = {
+                    "Qwen3-8B-GGUF": "Qwen3-8B-GGUF",
+                    "Qwen3-4B-GGUF": "Qwen3-4B-GGUF",
+                    "Qwen3-1.7B-GGUF": "Qwen3-1.7B-GGUF",
+                    "Qwen3-0.6B-GGUF": "Qwen3-0.6B-GGUF",
+                    "DeepSeek-Qwen3-8B-GGUF": "DeepSeek-Qwen3-8B-GGUF",
+                    "Gemma-3-4b-it-GGUF": "Gemma-3-4b-it-GGUF",
+                    "Qwen2.5-VL-7B-Instruct-GGUF": "Qwen2.5-VL-7B-Instruct-GGUF"
+                }
+            else:
+                local_model_options = {
+                    "Llama-3.2-3B-Instruct-Hybrid": "Llama-3.2-3B-Instruct-Hybrid",
+                    "Qwen2.5-0.5B-Instruct-CPU": "Qwen2.5-0.5B-Instruct-CPU",
+                    "Llama-3.2-1B-Instruct-Hybrid": "Llama-3.2-1B-Instruct-Hybrid",
+                    "Phi-3-Mini-Instruct-Hybrid": "Phi-3-Mini-Instruct-Hybrid",
+                    "Qwen-1.5-7B-Chat-Hybrid": "Qwen-1.5-7B-Chat-Hybrid",
+                    "DeepSeek-R1-Distill-Llama-8B-Hybrid": "DeepSeek-R1-Distill-Llama-8B-Hybrid",
+                    "DeepSeek-R1-Distill-Qwen-7B-Hybrid": "DeepSeek-R1-Distill-Qwen-7B-Hybrid",
+                }
 
             # Add any additional available models from Lemonade that aren't in the default list
             if available_lemonade_models:
                 for model in available_lemonade_models:
                     model_key = model
-                    # Add the model if it's not already in the options
-                    if model not in local_model_options.values():
-                        local_model_options[model_key] = model
+                    # Check if the model must be GGUF to be added to the list
+                    if protocol == "Minions":
+                        # Add the GGUF model if it's not already in the options
+                        if model not in local_model_options.values() and "GGUF" in model.upper():
+                            local_model_options[model_key] = model
+                    else:
+                        # Add the model if it's not already in the options
+                        if model not in local_model_options.values():
+                            local_model_options[model_key] = model
         elif local_provider == "Distributed Inference":
             local_model_options = {
                 "auto (Let network choose) (Recommended)": "auto",
@@ -3078,3 +3105,5 @@ else:
 
             except Exception as e:
                 st.error(f"An error occurred: {str(e)}")
+                traceback.print_exc()
+

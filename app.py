@@ -1883,7 +1883,7 @@ with st.sidebar:
         "SambaNova",
         "LlamaAPI",
     ]:  # Added LlamaAPI and Anthropic to the list
-        # Currently Lemonade only supports the Minion and Minions protocols
+        # Currently Lemonade only supports the Minion, Minions, and Minions-MCP protocols
         # TODO: Once more protocol support is added to the
         # Lemonade client, remove this check
         if local_provider == "Lemonade":

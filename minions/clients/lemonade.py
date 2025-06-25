@@ -18,7 +18,7 @@ import asyncio
 
 class LemonadeClient(OpenAIClient):
     """
-    Uses Lemonade API Server to run local clients in Minion, Minions, and Minions-MCP Protocols.
+    Uses Lemonade API Server to run local clients in Minion, Minions, Minions-MCP, and DeepResearch Protocols.
     Lemonade is still experimental, more protocols will be integrated soon.
     """
 

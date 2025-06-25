@@ -316,6 +316,8 @@ class DeepResearchMinions:
         prompt = FINAL_SYNTHESIS_PROMPT.format(query=query, information=formatted_summaries)
         try: 
             responses, usage, done_reasons = self.local_client.chat([{"role": "user", "content": prompt}])
+            # The Lemonade client must use a structured output schema here that causes this necessary change
+            # To do: remove the "if" statement below once all providers are the same
             final_response = json.loads(responses[0])["explanation"] if isinstance(self.local_client, LemonadeClient) else responses[0]
             return final_response, visited_urls
         except Exception as e:

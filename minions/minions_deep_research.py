@@ -8,7 +8,7 @@ from minions.minions import Minions, chunk_by_section
 from minions.utils.firecrawl_util import scrape_url
 from minions.utils.serpapi_util import get_web_urls
 from minions.prompts.minions_deep_research import WORKER_SUMMARIZE_PROMPT, INITIAL_QUERY_PROMPT, ASSESSMENT_PROMPT, FINAL_SYNTHESIS_PROMPT
-
+from minions.clients import LemonadeClient
 class JobManifest(BaseModel):
     """
     Represents a job manifest for a Minions Deep Researchtask
@@ -316,7 +316,9 @@ class DeepResearchMinions:
         prompt = FINAL_SYNTHESIS_PROMPT.format(query=query, information=formatted_summaries)
         try: 
             responses, usage, done_reasons = self.local_client.chat([{"role": "user", "content": prompt}])
-            return responses[0], visited_urls
+            print(responses[0])
+            final_response = json.loads(responses[0])["explanation"] if isinstance(self.local_client, LemonadeClient) else responses[0]
+            return final_response, visited_urls
         except Exception as e:
             print(f"[Deep Research Minions] [Synthesize Final Response] Error in synthesize_final_response: {e}")
             return "An error occurred while synthesizing the final response.", []

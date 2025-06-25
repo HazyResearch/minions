@@ -153,7 +153,7 @@ class OllamaClient(MinionsClient):
                     continue
                     
                 try:
-                    breakpoint()
+                    
                     result = self.mcp_client.execute_tool(tool_name, **arguments)
                     formatted_result = self.mcp_client.format_output(result)
                     results.append(f"Tool call {i} ({tool_name}):\n{formatted_result}")
@@ -289,7 +289,7 @@ class OllamaClient(MinionsClient):
                     if ollama_tool_calls:
                         # Execute tools
                         tool_results = self._process_ollama_tool_calls(ollama_tool_calls)
-                        breakpoint()
+                        
                         # Add the model's response to conversation
                         working_messages.append({
                             "role": "assistant",
@@ -386,7 +386,7 @@ class OllamaClient(MinionsClient):
                     if ollama_tool_calls:
                         # Execute tools
                         tool_results = self._process_ollama_tool_calls(ollama_tool_calls)
-                        breakpoint()
+                        
                         # Add the model's response to conversation
                         working_messages.append({
                             "role": "assistant", 

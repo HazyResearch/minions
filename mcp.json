@@ -11,7 +11,7 @@
 	"calculator": {
       		"command": "python",
       		"args": [
-        		"C:\\Users\\Edan\\Downloads\\mcp_calculator.py"
+        		"./tests/mcp_server_example/calculator_mcp_server_example.py"
       		]
     	}
     }

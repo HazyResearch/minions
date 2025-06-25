@@ -2,6 +2,8 @@ import asyncio
 import logging
 from pydantic import BaseModel
 from typing import Any, Dict, List, Optional, Union, Tuple
+import json
+import re
 
 from minions.usage import Usage
 from minions.clients.base import MinionsClient
@@ -18,6 +20,8 @@ class OllamaClient(MinionsClient):
         use_async: bool = False,
         tool_calling: bool = False,
         thinking: bool = False,
+        mcp_client=None,
+        max_tool_iterations: int = 5,
         **kwargs
     ):
         """Initialize Ollama Client.
@@ -31,6 +35,8 @@ class OllamaClient(MinionsClient):
             use_async: Whether to use async API calls (default: False)
             tool_calling: Whether to support tool calling (default: False)
             thinking: Whether to enable thinking mode (default: False)
+            mcp_client: Optional MCP client for tool calling (SyncMCPClient)
+            max_tool_iterations: Maximum number of tool calling iterations (default: 5)
             **kwargs: Additional parameters passed to base class
         """
         super().__init__(
@@ -50,6 +56,11 @@ class OllamaClient(MinionsClient):
         self.use_async = use_async
         self.return_tools = tool_calling
         self.thinking = thinking
+        
+        # MCP tooling configuration
+        self.mcp_client = mcp_client
+        self.max_tool_iterations = max_tool_iterations
+        self.mcp_tools_enabled = mcp_client is not None
 
         # If we want structured schema output:
         self.format_structured_output = None
@@ -63,6 +74,9 @@ class OllamaClient(MinionsClient):
 
         # Ensure model is pulled
         self._ensure_model_available()
+
+        # Generate MCP tools in Ollama format
+        self.ollama_tools = self._convert_mcp_tools_to_ollama_format() if self.mcp_tools_enabled else []
 
     @staticmethod
     def get_available_models():
@@ -100,6 +114,55 @@ class OllamaClient(MinionsClient):
                 self.logger.info(f"Successfully pulled model {self.model_name}")
             else:
                 raise
+
+    def _convert_mcp_tools_to_ollama_format(self) -> List[Dict]:
+        """Convert MCP tools to Ollama tools format."""
+        if not self.mcp_client:
+            return []
+            
+        ollama_tools = []
+        for tool in self.mcp_client.available_tools:
+            ollama_tool = {
+                "type": "function",
+                "function": {
+                    "name": tool["name"],
+                    "description": tool["description"],
+                    "parameters": tool["input_schema"]
+                }
+            }
+            ollama_tools.append(ollama_tool)
+        
+        return ollama_tools
+
+    def _process_ollama_tool_calls(self, ollama_tool_calls: List[Dict]) -> str:
+        """Process Ollama tool calls and execute MCP tools."""
+        if not ollama_tool_calls:
+            return ""
+            
+        
+        results = []
+        
+        for i, tool_call in enumerate(ollama_tool_calls, 1):
+            if "function" in tool_call:
+                function_info = tool_call["function"]
+                tool_name = function_info.get("name")
+                arguments = function_info.get("arguments", {})
+                
+                if not tool_name:
+                    results.append(f"Tool call {i}: Missing function name")
+                    continue
+                    
+                try:
+                    breakpoint()
+                    result = self.mcp_client.execute_tool(tool_name, **arguments)
+                    formatted_result = self.mcp_client.format_output(result)
+                    results.append(f"Tool call {i} ({tool_name}):\n{formatted_result}")
+                except Exception as e:
+                    results.append(f"Tool call {i} ({tool_name}) failed: {str(e)}")
+        
+        return "\n\n".join(results)
+
+
 
     def _prepare_options(self):
         """Common chat options for both sync and async calls."""
@@ -177,41 +240,87 @@ class OllamaClient(MinionsClient):
         **kwargs,
     ) -> Tuple[List[str], Usage, List[str]]:
         """
-        Handle async chat with multiple messages in parallel.
+        Handle async chat with MCP tool calling support.
         """
         # If the user provided a single dictionary, wrap it in a list.
         if isinstance(messages, dict):
             messages = [messages]
 
-        # Now we have a list of dictionaries. We'll call them in parallel.
+        # Create a copy of messages to avoid modifying the original
+        working_messages = messages.copy()
+        
         chat_kwargs = self._prepare_options()
+        
+        # Add tools to chat kwargs if MCP is enabled
+        if self.mcp_tools_enabled and self.ollama_tools:
+            chat_kwargs["tools"] = self.ollama_tools
 
         if self.thinking:
             kwargs["think"] = True
 
-       
-        async def process_one(msg):
-            resp = await self.client.chat(
-                model=self.model_name,
-                messages=[msg],  # each call with exactly one message
-                **chat_kwargs,
-                **kwargs,
-            )
-            return resp
-
-        # Run them all in parallel
-        results = await asyncio.gather(*(process_one(m) for m in messages))
-
-        # Gather them back
         texts = []
         usage_total = Usage()
         done_reasons = []
-        for r in results:
-            texts.append(r["message"]["content"])
-            usage_total += Usage(
-                prompt_tokens=r["prompt_eval_count"], completion_tokens=r["eval_count"]
-            )
-            done_reasons.append(r["done_reason"])
+
+        # Tool calling loop
+        iteration = 0
+        while iteration < self.max_tool_iterations:
+            try:
+                resp = await self.client.chat(
+                    model=self.model_name,
+                    messages=working_messages,
+                    **chat_kwargs,
+                    **kwargs,
+                )
+                
+                response_content = resp["message"]["content"]
+                
+                # Track usage
+                usage_total += Usage(
+                    prompt_tokens=resp["prompt_eval_count"], 
+                    completion_tokens=resp["eval_count"]
+                )
+                done_reasons.append(resp["done_reason"])
+
+                # Check if MCP tools are enabled and handle tool calls from Ollama response
+                if self.mcp_tools_enabled and "tool_calls" in resp["message"]:
+                    ollama_tool_calls = resp["message"]["tool_calls"]
+                    
+                    if ollama_tool_calls:
+                        # Execute tools
+                        tool_results = self._process_ollama_tool_calls(ollama_tool_calls)
+                        breakpoint()
+                        # Add the model's response to conversation
+                        working_messages.append({
+                            "role": "assistant",
+                            "content": response_content,
+                            "tool_calls": ollama_tool_calls
+                        })
+                        
+                        # Add tool results as tool message
+                        for i, tool_call in enumerate(ollama_tool_calls):
+                            tool_name = tool_call.get("function", {}).get("name", f"tool_{i}")
+                            working_messages.append({
+                                "role": "tool",
+                                "content": tool_results,
+                                "tool_call_id": f"call_{i}"
+                            })
+                        
+                        iteration += 1
+                        continue  # Continue the loop for another iteration
+                
+                # No tool calls or tools disabled - this is the final response
+                texts.append(response_content)
+                break
+
+            except Exception as e:
+                self.logger.error(f"Error during async Ollama API call: {e}")
+                raise
+
+        # If we completed max iterations without a final response, use fallback
+        if not texts and iteration >= self.max_tool_iterations:
+            texts.append("Maximum tool iterations reached. Unable to provide final response.")
+            done_reasons = ["max_iterations"]
 
         return texts, usage_total, done_reasons
 
@@ -221,9 +330,7 @@ class OllamaClient(MinionsClient):
         **kwargs,
     ) -> Tuple[List[str], Usage, List[str]]:
         """
-        Handle synchronous chat completions. If you pass a list of message dicts,
-        we do one call for that entire conversation. If you pass a single dict,
-        we wrap it in a list so there's no error.
+        Handle synchronous chat completions with optional MCP tool calling.
         """
         import ollama
 
@@ -231,49 +338,90 @@ class OllamaClient(MinionsClient):
         if isinstance(messages, dict):
             messages = [messages]
 
-        # Now messages is a list of dicts, so we can pass it to Ollama in one go
+        # Create a copy of messages to avoid modifying the original
+        working_messages = messages.copy()
+        
         chat_kwargs = self._prepare_options()
-
+        
+        # Add tools to chat kwargs if MCP is enabled
+        if self.mcp_tools_enabled and self.ollama_tools:
+            chat_kwargs["tools"] = self.ollama_tools
         responses = []
         usage_total = Usage()
         done_reasons = []
         tools = []
 
-        try:
-            # We do one single call if you pass the entire conversation:
-            #   messages=[{'role': 'user', 'content': ...},
-            #             {'role': 'system', 'content': ...}, ...]
-            # If you want multiple calls, you can either:
-            #   (a) loop outside of this function, or
-            #   (b) pass a list-of-lists approach that you handle similarly
-            response = ollama.chat(
-                model=self.model_name,
-                messages=messages,
-                **chat_kwargs,
-                **kwargs,
-            )
-            responses.append(response["message"]["content"])
+        # Tool calling loop
+        iteration = 0
+        while iteration < self.max_tool_iterations:
 
-            if "tool_calls" in response["message"]:
-                tools.append(response["message"]["tool_calls"])
             try:
-                usage_total += Usage(
-                    prompt_tokens=response["prompt_eval_count"],
-                    completion_tokens=response["eval_count"],
+                response = ollama.chat(
+                    model=self.model_name,
+                    messages=working_messages,
+                    **chat_kwargs,
+                    **kwargs,
                 )
-            except Exception as e:
-                usage_total = Usage(
-                    prompt_tokens=0,
-                    completion_tokens=0,
-                )
-            try:
-                done_reasons.append(response["done_reason"])
-            except Exception as e:
-                done_reasons.append("stop")
+                
+                response_content = response["message"]["content"]
+                
+                # Track usage
+                try:
+                    usage_total += Usage(
+                        prompt_tokens=response["prompt_eval_count"],
+                        completion_tokens=response["eval_count"],
+                    )
+                except Exception:
+                    usage_total += Usage(prompt_tokens=0, completion_tokens=0)
+                
+                try:
+                    done_reasons.append(response["done_reason"])
+                except Exception:
+                    done_reasons.append("stop")
 
-        except Exception as e:
-            self.logger.error(f"Error during Ollama API call: {e}")
-            raise
+                # Check if MCP tools are enabled and handle tool calls from Ollama response  
+                if self.mcp_tools_enabled and "tool_calls" in response["message"]:
+                    ollama_tool_calls = response["message"]["tool_calls"]
+                    
+                    if ollama_tool_calls:
+                        # Execute tools
+                        tool_results = self._process_ollama_tool_calls(ollama_tool_calls)
+                        breakpoint()
+                        # Add the model's response to conversation
+                        working_messages.append({
+                            "role": "assistant", 
+                            "content": response_content,
+                            "tool_calls": ollama_tool_calls
+                        })
+                        
+                        # Add tool results as tool message
+                        for i, tool_call in enumerate(ollama_tool_calls):
+                            tool_name = tool_call.get("function", {}).get("name", f"tool_{i}")
+                            working_messages.append({
+                                "role": "tool",
+                                "content": tool_results,
+                                "tool_call_id": f"call_{i}"
+                            })
+                        
+                        iteration += 1
+                        continue  # Continue the loop for another iteration
+                
+                # No tool calls or tools disabled - this is the final response
+                responses.append(response_content)
+                
+                if "tool_calls" in response["message"]:
+                    tools.append(response["message"]["tool_calls"])
+                    
+                break
+
+            except Exception as e:
+                self.logger.error(f"Error during Ollama API call: {e}")
+                raise
+
+        # If we completed max iterations without a final response, use the last response
+        if not responses and iteration >= self.max_tool_iterations:
+            responses.append("Maximum tool iterations reached. Unable to provide final response.")
+            done_reasons = ["max_iterations"]
 
         if self.return_tools:
             return responses, usage_total, done_reasons, tools

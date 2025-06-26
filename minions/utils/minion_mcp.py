@@ -23,13 +23,14 @@ def _start_mcp_server(server_name: str, server_config_manager: MCPConfigManager)
 
 def _start_clients() -> tuple[OllamaClient, OpenAIClient]:
     print("Connecting to Ollama and OpenAI... ")
-    local_client = OllamaClient(model_name="phi4-mini")
+    local_client = OllamaClient(model_name="llama3.2:3b")
+    #local_client = OpenAIClient(model_name="gpt-4o")
     remote_client = OpenAIClient(model_name="gpt-4o")
     print("done.")
     return local_client, remote_client
 
 
-def _make_mcp_minion(mcp_server_name: str) -> Minion:
+def _make_mcp_minion(mcp_server_name: str, callback = None) -> Minion:
     """Start MCP server (e.g. 'github' or 'filesystem') and make a Minion with access to it"""
     local_client, remote_client = _start_clients()
 
@@ -38,4 +39,4 @@ def _make_mcp_minion(mcp_server_name: str) -> Minion:
     mcp_client = SyncMCPClient(mcp_server_name, config_manager)
 
     # Instantiate the Minion object with both clients
-    return Minion(local_client, remote_client, mcp_client=mcp_client, log_dir=LOG_DIR)
+    return Minion(local_client, remote_client, mcp_client=mcp_client, log_dir=LOG_DIR, callback=callback)

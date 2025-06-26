@@ -30,7 +30,7 @@ exactly what information you want the small model to convey to you from the tool
 ### MCP Tools Info
 {mcp_tools_info}
 
-Feel free to think step-by-step, but eventually you must provide an output in the format below:
+Think step-by-step. Begin by calling tools which will give you more information about the underlying data, and then progress to calling tools that are more actionable. Eventually, you must provide an output in the format below. 
 
 ```json
 {{

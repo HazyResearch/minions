@@ -24,6 +24,7 @@ from minions.utils.chunking import (
     extract_function,
     chunk_by_code,
     chunk_by_function_and_class,
+    manual_chunk_by_separator,
 )
 
 
@@ -47,18 +48,9 @@ from minions.utils.retrievers import (
     embedding_retrieve_top_k_chunks,
 )
 
-
-def chunk_by_section(
-    doc: str, max_chunk_size: int = 3000, overlap: int = 20
-) -> List[str]:
-    sections = []
-    start = 0
-    while start < len(doc):
-        end = start + max_chunk_size
-        sections.append(doc[start:end])
-        start += max_chunk_size - overlap
-    return sections
-
+class Document(BaseModel):
+    content: str
+    filename: Optional[str] = None
 
 class JobManifest(BaseModel):
     chunk: str  # the actual text for the chunk of the document
@@ -83,14 +75,14 @@ class JobOutput(BaseModel):
 
 
 def prepare_jobs(
-    context: List[str],
+    context: List[Document],
     prev_job_manifests: Optional[List[JobManifest]] = None,
     prev_job_outputs: Optional[List[JobOutput]] = None,
 ) -> List[JobManifest]:
     """
     Args:
-        context (List[str]): A list of documents. Assume each document is greater >100k tokens.
-            Each document can be further chunked using `chunk_pages`.
+        context (List[Document]): A list of documents. Each document can be arbitrarily long.
+            Each document can be further chunked using a selected chunking function.
             If context is empty, use the MCP functions to get information that you need to complete your task: i.e., ```context = mcp_tools.execute_tool(....)```
         prev_job_manifests (Optional[List[JobManifest]]): A list of job manifests from the previous round.
             None if we are on the first round.
@@ -113,6 +105,22 @@ class Job(BaseModel):
     include: Optional[bool] = None
 
 
+# def transform_outputs(
+#     jobs: List[Job],
+# ) -> str:
+#     """
+#     Args:
+#         jobs (List[Job]): A list of jobs from the workers.
+#     Returns:
+#         str: A transformed view of all the job outputs (including answer, citation + explanation) that will be analyzed to make a final decision. Make sure to use **as much** information from the outputs as possible in final aggregated str (output.answer, output.sample, output.explanation, output.citation)
+
+#         Note: Job has following attributes:
+#         - manifest: JobManifest(chunk, task, advice, chunk_id, task_id, job_id)
+#         - sample: entire response from the worker
+#         - output: JobOutput(answer="". explanation="", citation="", raw="")
+#     """
+#     ...
+
 def transform_outputs(
     jobs: List[Job],
 ) -> str:
@@ -120,12 +128,35 @@ def transform_outputs(
     Args:
         jobs (List[Job]): A list of jobs from the workers.
     Returns:
-        str: A transformed view of all the job outputs (including answer, citation + explanation) that will be analyzed to make a final decision. Make sure to use **as much** information from the outputs as possible in final aggregated str (output.answer, output.sample, output.explanation, output.citation)
+        str: A transformed view of all the job outputs that will be analyzed to make a final decision.
 
-        Note: Job has following attributes:
-        - manifest: JobManifest(chunk, task, advice, chunk_id, task_id, job_id)
-        - sample: entire response from the worker
-        - output: JobOutput(answer="". explanation="", citation="", raw="")
+        IMPORTANT - DATA ACCESS PATTERNS:
+        Each job in the list is a Job object with these attributes:
+        - job.manifest: JobManifest object (contains chunk, task, advice, chunk_id, task_id, job_id)
+        - job.output: JobOutput object (contains the worker's response)
+        - job.sample: str (raw response from worker)
+        - job.include: Optional[bool] (filtering flag)
+
+        To access the worker's actual responses, you MUST use:
+        - job.output.answer (NOT job.answer)
+        - job.output.explanation (NOT job.explanation) 
+        - job.output.citation (NOT job.citation)
+
+        CORRECT EXAMPLE:
+        ```python
+        for job in jobs:
+            if job.output.answer:  # ✓ Correct
+                result = job.output.answer
+                source = job.output.citation
+        ```
+
+        INCORRECT EXAMPLE:
+        ```python
+        for job in jobs:
+            if job.answer:  # ✗ Wrong! This will cause AttributeError
+                result = job.answer
+        ```
+
     """
     ...
 
@@ -142,7 +173,6 @@ USEFUL_IMPORTS = {
     "BaseModel": BaseModel,
     "field_validator": field_validator,
 }
-
 
 class Minions:
     def __init__(
@@ -216,8 +246,8 @@ class Minions:
             "extract_function": extract_function,
             "chunk_by_code": chunk_by_code,
             "chunk_by_function_and_class": chunk_by_function_and_class,
+            "manual_chunk_by_separator": manual_chunk_by_separator,
         }
-        self.chunking_fn = chunk_by_section
         # Create log directory if it doesn't exist
         os.makedirs(log_dir, exist_ok=True)
 
@@ -245,7 +275,7 @@ class Minions:
         self,
         task: str,
         doc_metadata: str,
-        context: List[str],
+        context: List[Document],
         max_rounds=None,
         max_jobs_per_round=None,
         num_tasks_per_round=3,
@@ -256,6 +286,7 @@ class Minions:
         logging_id=None,
         retrieval_model=None,
         chunk_fn="chunk_by_section",
+        chunk_params=None,
     ):
         """Run the minions protocol to answer a task using local and remote models.
 
@@ -265,16 +296,35 @@ class Minions:
             context: List of context strings
             max_rounds: Override default max_rounds if provided
             max_jobs_per_round: Override default max_jobs_per_round if provided
-            retrieval: Retrieval strategy to use. Options:
+            num_tasks_per_round: Number of tasks to create per round
+            num_samples_per_task: Number of samples per task
+            mcp_tools_info: Information about MCP tools
+            use_retrieval: Retrieval strategy to use. Options:
                 - None: Don't use retrieval
                 - "bm25": Use BM25 keyword-based retrieval
                 - "embedding": Use embedding-based retrieval
+                - "multimodal-embedding": Use multimodal embedding retrieval
             log_path: Optional path to save conversation logs
+            logging_id: Optional ID for logging
+            retrieval_model: Model to use for embedding retrieval
+            chunk_fn: Chunking function to use. Options:
+                - "chunk_by_section": Split by fixed-size sections
+                - "chunk_by_page": Split by page boundaries
+                - "chunk_by_paragraph": Split by paragraphs
+                - "chunk_by_code": Split code by functions
+                - "chunk_by_function_and_class": Split code by functions and classes
+                - "manual_chunk_by_separator": Split by custom separator
+            chunk_params: Parameters for the chunking function. For manual_chunk_by_separator,
+                         this should be the separator string (e.g., "---DOC_SEPARATOR---")
 
         Returns:
             Dict containing final_answer and conversation histories
         """
 
+        # Validate chunk_fn exists in available functions
+        if chunk_fn not in self.chunking_fns:
+            raise ValueError(f"Unknown chunking function: {chunk_fn}. Available: {list(self.chunking_fns.keys())}")
+        
         self.chunking_fn = self.chunking_fns[chunk_fn]
 
         # Initialize timing metrics
@@ -396,7 +446,7 @@ class Minions:
                 )
             except:
                 # compute characters in context
-                total_chars = sum(len(doc) for doc in context)
+                total_chars = sum(len(doc.content) for doc in context)
 
             retrieval_source = ""
             retrieval_instructions = ""
@@ -415,7 +465,9 @@ class Minions:
                 num_samples=self.num_samples,
                 ADVANCED_STEPS_INSTRUCTIONS="",
                 manifest_source=getsource(JobManifest),
+                document_source=getsource(Document),
                 output_source=getsource(JobOutput),
+                job_source=getsource(Job),
                 signature_source=getsource(prepare_jobs),
                 transform_signature_source=getsource(transform_outputs),
                 # read_file_source=getsource(read_folder),
@@ -524,12 +576,21 @@ class Minions:
                 # prepare the inputs for the code execution
                 starting_globals = {
                     **USEFUL_IMPORTS,
-                    "chunk_by_section": chunk_by_section,
-                    f"{chunk_fn}": self.chunking_fn,
+                    # "chunk_by_section": chunk_by_section,
                     "JobManifest": JobManifest,
                     "JobOutput": JobOutput,
+                    "Document": Document,
                     "Job": Job,
                 }
+
+                # Handle chunking function with optional parameters
+                if chunk_params and chunk_fn == "manual_chunk_by_separator":
+                    # Create a partial function that includes the separator
+                    def manual_chunk_with_separator(doc, **kwargs):
+                        return self.chunking_fn(doc, sep=chunk_params, **kwargs)
+                    starting_globals[f"{chunk_fn}"] = manual_chunk_with_separator
+                else:
+                    starting_globals[f"{chunk_fn}"] = self.chunking_fn
 
                 if use_retrieval:
                     if use_retrieval == "embedding" and embedding_model_instance:
@@ -726,9 +787,19 @@ class Minions:
             ]
 
             try:
-                # Model generated Filter + Aggregation code
-                for job in jobs:
-                    print(job.output.answer)
+                # Pretty print worker outputs
+                print(f"\n========== WORKER OUTPUTS (Round {round_idx + 1}) ==========")
+                for i, job in enumerate(jobs):
+                    print(f"\n--- Worker {i}/{len(jobs)} (Job ID: {job.manifest.job_id}) ---")
+                    print(f"Task ID: {job.manifest.task_id} | Chunk ID: {job.manifest.chunk_id}")
+                    print(f"Task: {job.manifest.task[:100]}{'...' if len(job.manifest.task) > 100 else ''}")
+                    print(f"Chunk Preview: {job.manifest.chunk[:100]}{'...' if len(job.manifest.chunk) > 100 else ''}")
+                    print(f"Answer: {job.output.answer}")
+                    print(f"Explanation: {job.output.explanation}")
+                    if job.output.citation:
+                        print(f"Citation: {job.output.citation}")
+                    print("-" * 50)
+                print(f"========== END WORKER OUTPUTS (Round {round_idx + 1}) ==========\n")
 
                 aggregated_str, code_block = self._execute_code(
                     code_block,

@@ -165,7 +165,7 @@ Follow the ANSWER GUIDELINES in the conversational history above.
 "decision": "…",
 "explanation": "…",
 "answer": "… or None",
-"missing_info": "… or None"
+"feedback": "… or None"
 }}
 ```
 """
@@ -188,7 +188,7 @@ Here is the template for your JSON response (with no extra text outside the JSON
 "decision": "…",
 "explanation": "…",
 "answer": "… or None",
-"missing_info": "… or None"
+"feedback": "… or None"
 }}
 ```
 """
@@ -203,9 +203,7 @@ We need to answer the following question based on {metadata}.:
 
 Please provide succinct advice on the critical information we need to extract from the {metadata} to answer this question. 
 
-Also consider the following constraints:
-- In your response do NOT use numbered lists.
-- Do NOT structure your response as a sequence of steps.
+Constraints: reply as plain sentences (no bullet or numbered lists).
 """
 
 # ADVICE_PROMPT = """\
@@ -240,75 +238,42 @@ I.e.,
 - Reformat tasks that are not yet complete.
 - Make your `advice` more concrete. 
 """
-
 DECOMPOSE_TASK_PROMPT = """\
-# Decomposition Round #{step_number}
+# Decomposition Round #{step_number}
 
-You do not have access to the raw document(s), but instead can assign tasks to small and less capable language models that can access chunks of the document(s).
-Note that the document(s) can be very long, so each task should be performed only over a small chunk of text. 
-The small language model can only access one chunk of the document(s) at a time, so do not assign tasks that require integration of information from multiple chunks.
+You (the supervisor) cannot directly read the document(s), but you may delegate small, **atomic** tasks to a lighter worker model.  
+Each worker sees only the *text you pass in its `chunk` field* — this can be the whole document **or** a slice that you create in code.
 
-Write a Python function that will output formatted tasks for a small language model.
-Make sure that NONE of the tasks require multiple steps. Each task should be atomic! 
-Consider using nested for-loops to apply a set of tasks to a set of chunks.
-The same `task_id` should be applied to multiple chunks. DO NOT instantiate a new `task_id` for each combination of task and chunk.
-Use the conversational history to inform what chunking strategy has already been applied.
+## Your job
+Write a Python function that returns a list of `JobManifest` objects for the next round.
+
+### Guidelines
+- **Segment only when helpful.** If the document is shorter than your target size *or* the task is global (e.g., “extract the title”), skip segmentation and pass the full text.
+- If you *do* segment, pick an appropriate helper (`chunk_by_section`, `chunk_by_paragraph`, etc.) and justify the choice in a short code comment.
+- Every job must be **atomic** (single‑step, single‑segment).  
+  Multi‑segment reasoning belongs in `transform_outputs()`, not in worker tasks.
+- Re‑use the same `task_id` across segments when the instruction is identical.
+- Do not exceed **{num_tasks_per_round} jobs** in this round.
 
 {ADVANCED_STEPS_INSTRUCTIONS}
 
-Assume a Pydantic model called `JobManifest(BaseModel)` is already in global scope. For your reference, here is the model:
-```
-{manifest_source}
-```
-Assume a Pydantic model called `JobOutput(BaseModel)` is already in global scope. For your reference, here is the model:
-```
-{output_source}
-```
-DO NOT rewrite or import the model in your code.
-
-The function signature will look like:
-```
-{signature_source}
-```
-
-
-You can assume you have access to the following chunking function(s). Do not reimplement the function, just use it.
-```
-{chunking_source}
-```
-
-Here is an example
-```
-task_id = 1  # Unique identifier for the task
-for doc_id, document in enumerate(context):
-    # if you need to chunk the document into sections
-    chunks = chunk_by_section(document)
-
-    for chunk_id, chunk in enumerate(chunks):
-        # Create a task for extracting mentions of specific keywords
-        task = (
-            "Extract all mentions of the following keywords: "
-            "'Ca19-9', 'tumor marker', 'September 2021', 'U/ml', 'Mrs. Anderson'."
-        )
-        job_manifest = JobManifest(
-            chunk=chunk,
-            task=task,
-            advice="Focus on extracting the specific keywords related to Mrs. Anderson's tumor marker levels."
-        )
-        job_manifests.append(job_manifest)
-```
+### Reference models
+`JobManifest`, `JobOutput` and the function signature appear below; do **not** redefine them.
 """
 
 DECOMPOSE_TASK_PROMPT_AGGREGATION_FUNC = """\
 # Decomposition Round #{step_number}
 
-You (the supervisor) cannot directly read the document(s). Instead, you can assign small, isolated tasks to a less capable worker model that sees only a single chunk of text at a time. Any cross-chunk or multi-document reasoning must be handled by you.
+You (the supervisor) cannot directly read the document(s). Instead, may delegate **atomic** tasks to a less capable worker model.
+The worker sees only the text you place in its `chunk` field — this can be the *entire* document **or** a chunk that you create.  
+Any multi-chunk or multi-document reasoning remains your responsibility.
 
 ## Your Job: Write Two Python Functions
 
 ### FUNCTION #1: `prepare_jobs(context, prev_job_manifests, prev_job_outputs) -> List[JobManifest]`
-- Break the document(s) into chunks (using the provided chunking function, if needed). Determine the chunk size yourself according to the task: simple information extraction tasks can benefit from smaller chunks, while summarization tasks can benefit from larger chunks.
-- Each job must be **atomic** and require only information from the **single chunk** provided to the worker.
+- **Important:** `context` is a `List[Document]`.
+- If you chunk, choose an appropriate helper (`chunk_by_section`, `chunk_by_paragraph`, etc.) and note the reason in a short code comment.
+- Each job must be **atomic** and require only information from the text provided in the `chunk` field.
 - If you need to repeat the same task on multiple chunks, **re-use** the same `task_id`. Do **not** create a separate `task_id` for each chunk.
 - If tasks must happen **in sequence**, do **not** include them all in this round; move to a subsequent round to handle later steps.
 - In this round, limit yourself to **up to {num_tasks_per_round} tasks** total.
@@ -317,7 +282,7 @@ You (the supervisor) cannot directly read the document(s). Instead, you can assi
 ### FUNCTION #2: `transform_outputs(jobs) -> str`
 - Accepts the worker outputs for the tasks you assigned.
 - First, apply any **filtering logic** (e.g., drop irrelevant or empty results).
-- Then **aggregate outputs** by `task_id` and `chunk_id`. All **multi-chunk integration** or **global reasoning** is your responsibility here.
+- Then **aggregate outputs** by `task_id` and `chunk_id`. All **multi-segment integration** or **global reasoning** is your responsibility here.
 - Return one **aggregated string** suitable for further supervisor inspection.
 
 {ADVANCED_STEPS_INSTRUCTIONS}
@@ -325,6 +290,11 @@ You (the supervisor) cannot directly read the document(s). Instead, you can assi
 ## Relevant Pydantic Models
 
 The following models are already in the global scope. **Do NOT redefine or re-import them.**
+
+### Document Model
+```
+{document_source}
+```
 
 ### JobManifest Model
 ```
@@ -334,6 +304,11 @@ The following models are already in the global scope. **Do NOT redefine or re-im
 ### JobOutput Model
 ```
 {output_source}
+```
+
+### Job Model
+```
+{job_source}
 ```
 
 ## Function Signatures
@@ -350,40 +325,25 @@ The following models are already in the global scope. **Do NOT redefine or re-im
 ```
 
 ## Important Reminders:
-- **DO NOT** assign tasks that require reading multiple chunks or referencing entire documents.
+- **DO NOT** assign tasks that require reading multiple separate chunks.
 - Keep tasks **chunk-local and atomic**.
 - **You** (the supervisor) are responsible for aggregating and interpreting outputs in `transform_outputs()`. 
 
 Now, please provide the code for `prepare_jobs()` and `transform_outputs()`.  They should both be included in a single code block.
-
 
 """
 
 DECOMPOSE_TASK_PROMPT_AGG_FUNC_LATER_ROUND = """\
 # Decomposition Round #{step_number}
 
-You do not have access to the raw document(s), but instead can assign tasks to small and less capable language models that can read the document(s).
-Note that the document(s) can be very long, so each task should be performed only over a small chunk of text. 
-
-
-# Your job is to write two Python functions:
-
-Function #1 (prepare_jobs): will output formatted tasks for a small language model.
--> Make sure that NONE of the tasks require multiple steps. Each task should be atomic! 
--> Consider using nested for-loops to apply a set of tasks to a set of chunks.
--> The same `task_id` should be applied to multiple chunks. DO NOT instantiate a new `task_id` for each combination of task and chunk.
--> Use the conversational history to inform what chunking strategy has already been applied.
--> You are provided access to the outputs of the previous jobs (see prev_job_outputs). 
--> If its helpful, you can reason over the prev_job_outputs vs. the original context.
--> If tasks should be done sequentially, do not run them all in this round. Wait for the next round to run sequential tasks.
-
-Function #2 (transform_outputs): The second function will aggregate the outputs of the small language models and provide an aggregated string for the supervisor to review.
--> Filter the jobs based on the output of the small language models (write a custome filter function -- in some steps you might want to filter for a specific keyword, in others you might want to no pass anything back, so you filter out everything!). 
--> Aggregate the jobs based on the task_id and chunk_id.
-
-{ADVANCED_STEPS_INSTRUCTIONS}
+Based on the previous job outputs, write two Python functions to continue the analysis: `prepare_jobs` and `transform_outputs`.
 
 # Misc. Information
+
+* Assume a Pydantic model called `Document(BaseModel)` is already in global scope. For your reference, here is the model:
+```
+{document_source}
+```
 
 * Assume a Pydantic model called `JobManifest(BaseModel)` is already in global scope. For your reference, here is the model:
 ```
@@ -415,11 +375,12 @@ Function #2 (transform_outputs): The second function will aggregate the outputs 
 # Here is an example
 ```python
 def prepare_jobs(
-    context: List[str],
+    context: List[Document],
     prev_job_manifests: Optional[List[JobManifest]] = None,
     prev_job_outputs: Optional[List[JobOutput]] = None,
 ) -> List[JobManifest]:
     task_id = 1  # Unique identifier for the task
+    job_manifests = []
 
     # iterate over the previous job outputs because \"scratchpad\" tells me they contain useful information
     for job_id, output in enumerate(prev_job_outputs):
@@ -513,6 +474,8 @@ Note that the document(s) can be very long, so each task should be performed onl
 ### FUNCTION #1: `prepare_jobs(context, prev_job_manifests, prev_job_outputs) -> List[JobManifest]`
 Goal: this function should return a list of atomic jobs to be performed on chunks of the context.
 Follow the steps below:
+- **Important:** `context` is a `List[Document]`.
+- Loop over each `Document` in the context list and apply chunking to `document.content` separately
 - Break the document(s) into chunks, adjusting size based on task specificity (broader tasks: ~3000 chars, specific tasks: ~1500 chars).
 - Even if there are multiple documents as context, they will all be joined together under `context[0]`.
 {retrieval_instructions}
@@ -536,6 +499,11 @@ Please provide the code for `prepare_jobs()` and `transform_outputs()`.  They sh
 ## Relevant Pydantic Models
 
 The following models are already in the global scope. **Do NOT redefine or re-import them.**
+
+### Document Model
+```
+{document_source}
+```
 
 ### JobManifest Model
 ```
@@ -602,6 +570,11 @@ Now, please provide the code for `prepare_jobs()` and `transform_outputs()`.  Th
 
 # Misc. Information
 
+* Assume a Pydantic model called `Document(BaseModel)` is already in global scope. For your reference, here is the model:
+```
+{document_source}
+```
+
 * Assume a Pydantic model called `JobManifest(BaseModel)` is already in global scope. For your reference, here is the model:
 ```
 {manifest_source}
@@ -665,9 +638,16 @@ Additionally,
 ```
 ```
 task_id = 1  # Unique identifier for the task
+job_manifests = []
+THRESHOLD = 3000  # characters; override per task if needed
+DO_CHUNK = len(document.content) > THRESHOLD # or set to False if for some reason you don't want to chunk the documents
+
 for doc_id, document in enumerate(context):
-    # if you need to chunk the document into sections
-    chunks = chunk_by_section(document)
+    if DO_CHUNK:
+        # Apply chunking to each document's content separately
+        chunks = chunk_fn(document.content, max_chunk_size=THRESHOLD, overlap=20) # chunk_fn is one of the provided helpers; default is chunk_by_section
+    else:
+        chunks = [document.content]
 
     for chunk_id, chunk in enumerate(chunks):
         # Create a task for extracting mentions of specific keywords
@@ -681,6 +661,8 @@ for doc_id, document in enumerate(context):
             advice="Focus on extracting the specific keywords related to Mrs. Anderson's tumor marker levels."
         )
         job_manifests.append(job_manifest)
+
+return job_manifests
 ```
 
 """

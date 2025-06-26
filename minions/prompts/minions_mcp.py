@@ -309,9 +309,11 @@ You can assume you have access to the following chunking function(s). Do not rei
 Here is an example
 ```
 task_id = 1  # Unique identifier for the task
+job_manifests = []
+
 for doc_id, document in enumerate(context):
-    # if you need to chunk the document into sections
-    chunks = chunk_by_section(document)
+    # Apply chunking to each document's content separately
+    chunks = chunk_by_section(document.content, max_chunk_size=3000, overlap=20)
 
     for chunk_id, chunk in enumerate(chunks):
         # Create a task for extracting mentions of specific keywords
@@ -325,6 +327,8 @@ for doc_id, document in enumerate(context):
             advice="Focus on extracting the specific keywords related to Mrs. Anderson's tumor marker levels."
         )
         job_manifests.append(job_manifest)
+
+return job_manifests
 ```
 """
 
@@ -336,6 +340,8 @@ You (the supervisor) cannot directly read the document(s). Instead, you can assi
 ## Your Job: Write Two Python Functions
 
 ### FUNCTION #1: `prepare_jobs(context, prev_job_manifests, prev_job_outputs) -> List[JobManifest]`
+- **Important:** `context` is a `List[Document]` where each `Document` has `content: str` and `metadata: Dict[str, Any]`
+- Loop over each `Document` in the context list and apply chunking to `document.content` separately
 - Break the document(s) into chunks (using the provided chunking function, if needed). Determine the chunk size yourself according to the task: simple information extraction tasks can benefit from smaller chunks, while summarization tasks can benefit from larger chunks.
 - Each job must be **atomic** and require only information from the **single chunk** provided to the worker.
 - If you need to repeat the same task on multiple chunks, **re-use** the same `task_id`. Do **not** create a separate `task_id` for each chunk.
@@ -602,11 +608,12 @@ Function #2 (transform_outputs): The second function will aggregate the outputs 
 # Here is an example
 ```python
 def prepare_jobs(
-    context: List[str],
+    context: List[Document],
     prev_job_manifests: Optional[List[JobManifest]] = None,
     prev_job_outputs: Optional[List[JobOutput]] = None,
 ) -> List[JobManifest]:
     task_id = 1  # Unique identifier for the task
+    job_manifests = []
 
     # iterate over the previous job outputs because \"scratchpad\" tells me they contain useful information
     for job_id, output in enumerate(prev_job_outputs):

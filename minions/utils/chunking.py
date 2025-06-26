@@ -224,3 +224,19 @@ def chunk_by_function_and_class(doc: str) -> List[str]:
             class_structure = "\n".join(class_lines)
             chunks.append(import_lines + class_structure)
     return chunks
+
+
+def manual_chunk_by_separator(context: str, sep: str) -> List[str]:
+    """
+    Manually chunk text by searching for a separator and breaking content accordingly.
+    
+    Args:
+        context: The text content to chunk
+        sep: The separator string to search for (e.g., "\n---\n", "\n===\n", "###")
+    
+    Returns:
+        List of text chunks split by the separator.
+    """
+    if not sep:
+        return [context]
+    return context.split(sep)

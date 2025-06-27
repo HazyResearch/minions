@@ -194,14 +194,15 @@ Here is the template for your JSON response (with no extra text outside the JSON
 """
 
 ADVICE_PROMPT = """\
-We need to answer the following question based on {metadata}.: 
+We need to answer the following question for the document(s) described by the following metadata: 
+{metadata}
 
 ## Question
 {query}
 
 ---
 
-Please provide succinct advice on the critical information we need to extract from the {metadata} to answer this question. 
+Please provide succinct advice on the critical information we need to extract from the document(s) to answer this question. 
 
 Constraints: reply as plain sentences (no bullet or numbered lists).
 """

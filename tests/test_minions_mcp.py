@@ -12,7 +12,7 @@ class StructuredLocalOutput(BaseModel):
     answer: str | None
 
 
-test_lemonade = False
+test_lemonade = True
 
 if test_lemonade:
     # Option 1: Lemonade
@@ -33,7 +33,7 @@ else:
 remote_client = OpenAIClient(model_name="gpt-4o", temperature=0.0)
 
 # Get MCP config path from environment or use default
-mcp_config_path = "C:\\Users\\Edan\\minions\\mcp.json"
+mcp_config_path = "..\\..\\mcp.json"
 
 try:
     # Create SyncMinionsMCP instance

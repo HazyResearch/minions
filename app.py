@@ -17,6 +17,7 @@ from minions.utils.app_utils import render_deep_research_ui
 from minions.utils.firecrawl_util import scrape_url
 from minions.minion_cua import MinionCUA, KEYSTROKE_ALLOWED_APPS, SAFE_WEBSITE_DOMAINS
 from minions.utils.inference_estimator import InferenceEstimator
+from minions.minions_deep_research import JobOutput as DeepResearchJobOutput
 
 
 # Instead of trying to import at startup, set voice_generation_available to None
@@ -701,11 +702,12 @@ def initialize_clients(
                 verbose=modular_verbose,
             )
         elif local_provider == "Lemonade":
+            structured_output_schema = DeepResearchJobOutput if protocol == "DeepResearch" else None
             st.session_state.local_client = LemonadeClient(
                 model_name=local_model_name,
                 temperature=local_temperature,
                 max_tokens=int(local_max_tokens),
-                structured_output_schema=None,
+                structured_output_schema=structured_output_schema,
                 use_async=use_async,
             )
         elif local_provider == "Distributed Inference":
@@ -1883,14 +1885,15 @@ with st.sidebar:
         "SambaNova",
         "LlamaAPI",
     ]:  # Added LlamaAPI and Anthropic to the list
-        # Currently Lemonade only supports the Minion, Minions, and Minions-MCP protocols
-        # TODO: Once more protocol support is added to the
+        # Currently Lemonade does not support Minion-CUA
+        # TODO: Once the protocol support is added to the
         # Lemonade client, remove this check
         if local_provider == "Lemonade":
             protocol_options = [
                 "Minion",
                 "Minions",
-                "Minions-MCP"
+                "Minions-MCP",
+                "DeepResearch"
             ]
         else:
             protocol_options = [
@@ -2073,7 +2076,7 @@ with st.sidebar:
             # Check if this is for Minion or Minions - Minions can only use GGUF models
             lemonade = LemonadeClient()
             available_lemonade_models = lemonade.get_available_models()
-            if protocol == "Minions" or "Minions-MCP":
+            if protocol in ("Minions", "Minions-MCP", "DeepResearch"):
                 local_model_options = {
                     "Qwen3-8B-GGUF": "Qwen3-8B-GGUF",
                     "Qwen3-4B-GGUF": "Qwen3-4B-GGUF",
@@ -2099,7 +2102,7 @@ with st.sidebar:
                 for model in available_lemonade_models:
                     model_key = model
                     # Check if the model must be GGUF to be added to the list
-                    if protocol == "Minions":
+                    if protocol in ("Minions", "Minions-MCP", "DeepResearch"):
                         # Add the GGUF model if it's not already in the options
                         if model not in local_model_options.values() and "GGUF" in model.upper():
                             local_model_options[model_key] = model

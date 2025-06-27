@@ -18,7 +18,7 @@ import asyncio
 
 class LemonadeClient(OpenAIClient):
     """
-    Uses Lemonade API Server to run local clients in Minion, Minions, and Minions-MCP Protocols.
+    Uses Lemonade API Server to run local clients in Minion, Minions, Minions-MCP, and DeepResearch Protocols.
     Lemonade is still experimental, more protocols will be integrated soon.
     """
 
@@ -66,11 +66,9 @@ class LemonadeClient(OpenAIClient):
 
     def schat(self, messages: List[Dict[str, Any]], **kwargs) -> Tuple[List[str], Usage, List[str]]:
         """
-        Synchronous chat: used for Minion. This assumes structured_output_schema is not used here.
+        Synchronous chat: used for Minion and DeepResearch.
         """
         assert len(messages) > 0, "Messages cannot be empty."
-        if self.structured_output_schema is not None:
-            raise TypeError("Lemonade does not currently support this configuration. Forced output schema isn't available in synchronous chats.")
         payload = {
             "model": self.model_name,
             "messages": messages,
@@ -78,6 +76,15 @@ class LemonadeClient(OpenAIClient):
             "temperature": self.temperature,
             **kwargs,
         }
+        # Check if there is a structured output - for DeepResearch only
+        if self.structured_output_schema:
+            try:
+                payload["response_format"] = {
+                    "type": "json_object",
+                    "schema": self.structured_output_schema.model_json_schema()
+                }
+            except Exception as e:
+                raise RuntimeError(f"Failed to generate schema for structured_output_schema: {e}")
         response = self.session.post(
             f"{self.base_url.rstrip('/api/v1')}/api/v1/chat/completions",
             json=payload,

@@ -748,6 +748,7 @@ class Minions:
                 worker_chats, worker_response, job_manifests, done_reasons
             ):
                 if done_reason == "length":
+                    print(f"Worker {worker_messages['content']} returned a truncated response. Please try again.")
                     job_output = JobOutput(
                         answer=None,
                         explanation="The model returned a truncated response. Please try again.",
@@ -755,6 +756,7 @@ class Minions:
                     )
                     continue
                 elif done_reason == "stop":
+                    print(f"Worker {worker_messages['content']} returned a complete response.")
                     job_output = extract_job_output(response=sample)
                 else:
                     raise ValueError(f"Unknown done reason: {done_reason}")

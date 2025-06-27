@@ -272,6 +272,7 @@ Any multi-chunk or multi-document reasoning remains your responsibility.
 
 ### FUNCTION #1: `prepare_jobs(context, prev_job_manifests, prev_job_outputs) -> List[JobManifest]`
 - **Important:** `context` is a `List[Document]`.
+- DO NOT CHUNK short texts (e.g., `len(Document.content) < 3000`).
 - If you chunk, choose an appropriate helper (`chunk_by_section`, `chunk_by_paragraph`, etc.) and note the reason in a short code comment.
 - Each job must be **atomic** and require only information from the text provided in the `chunk` field.
 - If you need to repeat the same task on multiple chunks, **re-use** the same `task_id`. Do **not** create a separate `task_id` for each chunk.
@@ -466,16 +467,17 @@ EMBEDDING_INSTRUCTIONS = """\
 DECOMPOSE_RETRIEVAL_TASK_PROMPT_AGGREGATION_FUNC = """\
 # Decomposition Round #{step_number}
 
-You do not have access to the raw document(s), but instead can assign tasks to small and less capable language models that can read the document(s).
-Note that the document(s) can be very long, so each task should be performed only over a small chunk of text. 
+You (the supervisor) cannot directly read the document(s). Instead, may delegate **atomic** tasks to a less capable worker model.
+The worker sees only the text you place in its `chunk` field — this can be the *entire* document **or** a chunk that you create.  
+Any multi-chunk or multi-document reasoning remains your responsibility.
 
 ## Your Job: Write Two Python Functions
 
 ### FUNCTION #1: `prepare_jobs(context, prev_job_manifests, prev_job_outputs) -> List[JobManifest]`
-Goal: this function should return a list of atomic jobs to be performed on chunks of the context.
-Follow the steps below:
 - **Important:** `context` is a `List[Document]`.
-- Loop over each `Document` in the context list and apply chunking to `document.content` separately
+- **DO NOT CHUNK short texts** (e.g., `len(Document.content) < 3000`).
+- If you chunk, choose an appropriate helper (`chunk_by_section`, `chunk_by_paragraph`, etc.) and note the reason in a short code comment.
+- Loop over each `Document` in the context list and apply chunking to `document.content` separately.
 - Break the document(s) into chunks, adjusting size based on task specificity (broader tasks: ~3000 chars, specific tasks: ~1500 chars).
 - Even if there are multiple documents as context, they will all be joined together under `context[0]`.
 {retrieval_instructions}
@@ -483,7 +485,7 @@ Follow the steps below:
 - Assign **atomic** jobs to the retrieved chunks, ensuring each task relies only on its assigned chunk.
 - **Re-use** `task_id` for repeated tasks across chunks.
 - Do **not** assign tasks requiring sequential processing in this round—save them for later rounds.
-- Limit this round to **{num_tasks_per_round} tasks maximum**.
+- Limit this round to **{num_tasks_per_round} tasks** maximum.
 - If you need multiple samples per task, replicate the `JobManifest` accordingly (e.g., `job_manifests.extend([job_manifest]*n)`).
 
 ### FUNCTION #2: `transform_outputs(jobs) -> str`
@@ -491,8 +493,6 @@ Follow the steps below:
 - First, filter out irrelevant or empty worker outputs.
 - Aggregate results by `task_id` and `chunk_id`. All **multi-chunk integration** or **global reasoning** is your responsibility here.
 - Return one **aggregated string** for supervisor review, incorporating as much relevant information as possible..
-
-Please provide the code for `prepare_jobs()` and `transform_outputs()`.  They should both be included in a single code block.
 
 {ADVANCED_STEPS_INSTRUCTIONS}
 
@@ -528,7 +528,7 @@ The following models are already in the global scope. **Do NOT redefine or re-im
 {chunking_source}
 ```
 
-## Retrieval Function Signature (BM25Plus)
+## Retrieval Function Signature
 ```
 {retrieval_source}
 ```
@@ -569,20 +569,35 @@ Now, please provide the code for `prepare_jobs()` and `transform_outputs()`.  Th
 {ADVANCED_STEPS_INSTRUCTIONS}
 
 # Misc. Information
+Assume the following models are already in global scope. **Do NOT redefine them.**
 
-* Assume a Pydantic model called `Document(BaseModel)` is already in global scope. For your reference, here is the model:
+* `Document(BaseModel)`:
 ```
 {document_source}
 ```
 
-* Assume a Pydantic model called `JobManifest(BaseModel)` is already in global scope. For your reference, here is the model:
+* `JobManifest(BaseModel)`:
 ```
 {manifest_source}
 ```
 
-* Assume a Pydantic model called `JobOutput(BaseModel)` is already in global scope. For your reference, here is the model:
+* `JobOutput(BaseModel)`:
 ```
 {output_source}
+```
+
+* `Job(BaseModel)`:
+```
+{job_source}
+```
+* Chunking function:
+```
+{chunking_source}
+```
+
+* Retrieval function:
+```
+{retrieval_source}
 ```
 
 * DO NOT rewrite or import the model in your code.
@@ -595,13 +610,6 @@ Now, please provide the code for `prepare_jobs()` and `transform_outputs()`.  Th
 * Function #2 signature will look like:
 ```
 {transform_signature_source}
-```
-
-* You can assume you have access to the following chunking and retrieval function. Do not reimplement the function, just use it.
-```
-{chunking_source}
-
-{retrieval_source}
 ```
 
 

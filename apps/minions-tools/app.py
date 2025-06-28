@@ -364,7 +364,7 @@ def display_metrics(metrics: Dict[str, Any], method_name: str):
 
 def main():
     # Main header
-    st.markdown('<h1 class="main-header">Minions Tools Comparison</h1>', unsafe_allow_html=True)
+    st.markdown('<h1 class="main-header">Minions ❤️ MCP </h1>', unsafe_allow_html=True)
     
     
     # Sidebar configuration

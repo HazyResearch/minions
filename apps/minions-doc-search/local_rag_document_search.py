@@ -12,10 +12,10 @@ Supported retrievers:
 - multimodal: ChromaDB + Ollama embeddings
 
 Usage:
-  python bm25_document_search.py --retriever bm25
-  python bm25_document_search.py --retriever embedding
-  python bm25_document_search.py --retriever mlx
-  python bm25_document_search.py --retriever multimodal
+  python local_rag_document_search.py --retriever bm25
+  python local_rag_document_search.py --retriever embedding
+  python local_rag_document_search.py --retriever mlx
+  python local_rag_document_search.py --retriever multimodal
 """
 
 import os
@@ -26,7 +26,7 @@ from pathlib import Path
 from typing import List, Tuple, Dict
 
 # Add the minions directory to the path
-sys.path.append(os.path.join(os.path.dirname(__file__), 'minions'))
+sys.path.append(os.path.join(os.path.dirname(__file__), '../../minions'))
 
 from minions.utils.retrievers import bm25_retrieve_top_k_chunks, embedding_retrieve_top_k_chunks, EmbeddingModel
 from minions.utils.mlx_embeddings import MLXEmbeddings
@@ -390,10 +390,10 @@ def parse_arguments():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python bm25_document_search.py --retriever bm25
-  python bm25_document_search.py --retriever embedding
-  python bm25_document_search.py --retriever mlx
-  python bm25_document_search.py --retriever multimodal
+  python local_rag_document_search.py --retriever bm25
+  python local_rag_document_search.py --retriever embedding
+  python local_rag_document_search.py --retriever mlx
+  python local_rag_document_search.py --retriever multimodal
         """
     )
     

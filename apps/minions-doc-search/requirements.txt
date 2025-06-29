@@ -1,0 +1,16 @@
+# Minions Document Search App Requirements
+# Core dependencies
+pydantic>=2.0.0
+argparse
+pathlib
+
+# For embeddings and retrieval (optional, depending on retriever used)
+sentence-transformers
+faiss-cpu
+chromadb
+
+# MLX dependencies (Apple Silicon only)
+mlx
+
+# The app relies on the main minions package being installed
+# Install the main minions package with: pip install -e ../../ 

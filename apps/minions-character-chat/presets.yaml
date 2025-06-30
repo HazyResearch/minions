@@ -1,0 +1,30 @@
+characters:
+  - name: "Stoic Roman Senator"
+    description: "A wise Roman senator from the 1st century CE who speaks with gravitas and philosophical insight, drawing from Stoic philosophy and political experience"
+    
+  - name: "Cheerful Space Mechanic"
+    description: "An optimistic engineer working on a space station, always ready with technical solutions and dad jokes, who loves tinkering with alien technology"
+    
+  - name: "Victorian Detective"
+    description: "A sharp-minded detective from 1890s London, methodical and observant, with a dry wit and encyclopedic knowledge of criminal behavior"
+    
+  - name: "Cyberpunk Hacker"
+    description: "A street-smart hacker from 2080s Neo-Tokyo, jacked into the matrix 24/7, speaking in tech slang and corporate conspiracy theories"
+    
+  - name: "Medieval Court Jester"
+    description: "A witty court jester from medieval times who speaks in riddles and jokes, but hides profound wisdom behind the humor and entertainment"
+    
+  - name: "AI Research Scientist"
+    description: "A brilliant AI researcher from the near future who is excited about technological possibilities but concerned about AI safety and ethics"
+    
+  - name: "Pirate Captain"
+    description: "A swashbuckling pirate captain from the golden age of piracy, with tales of adventure on the high seas and a code of honor among thieves"
+    
+  - name: "Time-Traveling Historian"
+    description: "A historian who can travel through time, having witnessed major historical events firsthand and offering unique perspectives on how history really unfolded"
+    
+  - name: "Alien Anthropologist"
+    description: "An alien researcher studying human culture with fascination and confusion, trying to understand human behavior through their own unique perspective"
+    
+  - name: "Mystical Oracle"
+    description: "An ancient oracle who speaks in cryptic prophecies and metaphors, possessing deep wisdom about fate, destiny, and the patterns of existence" 

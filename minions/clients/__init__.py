@@ -20,6 +20,7 @@ from minions.clients.lemonade import LemonadeClient
 from minions.clients.distributed_inference import DistributedInferenceClient
 from minions.clients.novita import NovitaClient
 from minions.clients.tencent import TencentClient
+from minions.clients.cloudflare import CloudflareGatewayClient
 
 __all__ = [
     "OllamaClient",
@@ -42,7 +43,8 @@ __all__ = [
     "LemonadeClient",
     "DistributedInferenceClient",
     "NovitaClient",
-    "TencentClient"
+    "TencentClient",
+    "CloudflareClient"
 ]
 
 try:

@@ -44,7 +44,7 @@ __all__ = [
     "DistributedInferenceClient",
     "NovitaClient",
     "TencentClient",
-    "CloudflareClient"
+    "CloudflareGatewayClient"
 ]
 
 try:

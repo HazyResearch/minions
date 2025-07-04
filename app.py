@@ -204,7 +204,7 @@ def extract_text_from_image(path_to_file):
     try:
         # set up ollama client with model name="granite3.2-vision"
         client = OllamaClient(
-            model_name="granite3.2-vision",
+            model_name="gemma3:4b",
             use_async=False,
             num_ctx=131072,
         )

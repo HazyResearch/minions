@@ -1,0 +1,8 @@
+streamlit>=1.28.0
+openai>=1.0.0
+ollama>=0.1.0
+together>=0.2.0
+pydantic>=2.0.0
+typing-extensions>=4.0.0
+pillow>=9.0.0
+requests>=2.25.0 

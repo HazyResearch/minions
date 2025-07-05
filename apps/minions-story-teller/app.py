@@ -313,6 +313,7 @@ class StoryTellerApp:
                 'title': title,
                 'chapters': chapters
             }
+
             
             # Validate the structure
             if not validate_story_structure(story_data):

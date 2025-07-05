@@ -377,7 +377,8 @@ Format: Just return the image prompt as a single paragraph, no extra formatting.
         for chapter in story_structure["chapters"]:
             final_story["chapters"].append({
                 "title": chapter["title"],
-                "content": chapter["content"]
+                "content": chapter["content"],
+                "image_prompt": chapter["image_prompt"]
             })
         
         # Create result
@@ -409,6 +410,7 @@ Format: Just return the image prompt as a single paragraph, no extra formatting.
         print("Chapters created:")
         for i, chapter in enumerate(final_story['chapters'], 1):
             print(f"  {i}. {chapter['title']} ({len(chapter['content'])} chars)")
+            print(f"     Image prompt: {chapter['image_prompt'][:60]}{'...' if len(chapter['image_prompt']) > 60 else ''}")
         
         return result
     

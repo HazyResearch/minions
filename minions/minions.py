@@ -317,22 +317,22 @@ class Minions:
             if use_retrieval == "bm25":
                 retriever = bm25_retrieve_top_k_chunks
             elif use_retrieval == "embedding":
-                # Import EmbeddingModel here to avoid circular imports
-                from minions.utils.retrievers import EmbeddingModel, BaseEmbeddingModel
+                # Import SentenceTransformerEmbeddings here to avoid circular imports
+                from minions.utils.retrievers import SentenceTransformerEmbeddings, BaseEmbeddingModel
                 
                 # Handle retrieval_model parameter - can be model name string or model instance
                 if retrieval_model:
                     if isinstance(retrieval_model, str):
                         # If it's a string, treat it as a model name
-                        embedding_model_instance = EmbeddingModel(retrieval_model)
+                        embedding_model_instance = SentenceTransformerEmbeddings(retrieval_model)
                     elif isinstance(retrieval_model, BaseEmbeddingModel):
                         # If it's already a model instance, use it directly
                         embedding_model_instance = retrieval_model
                     else:
                         print(f"Warning: retrieval_model should be a string or BaseEmbeddingModel instance, got {type(retrieval_model)}. Using default model.")
-                        embedding_model_instance = EmbeddingModel()
+                        embedding_model_instance = SentenceTransformerEmbeddings()
                 else:
-                    embedding_model_instance = EmbeddingModel()
+                    embedding_model_instance = SentenceTransformerEmbeddings()
                 
                 # Store the embedding_model_instance to use later in starting_globals
                 retriever = embedding_retrieve_top_k_chunks

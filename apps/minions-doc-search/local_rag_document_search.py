@@ -28,8 +28,7 @@ from typing import List, Tuple, Dict
 # Add the minions directory to the path
 sys.path.append(os.path.join(os.path.dirname(__file__), '../../minions'))
 
-from minions.utils.retrievers import bm25_retrieve_top_k_chunks, embedding_retrieve_top_k_chunks, EmbeddingModel
-from minions.utils.mlx_embeddings import MLXEmbeddings
+from minions.utils.retrievers import bm25_retrieve_top_k_chunks, embedding_retrieve_top_k_chunks, SentenceTransformerEmbeddings, MLXEmbeddings
 from minions.utils.multimodal_retrievers import retrieve_chunks_from_chroma
 from minions.clients.ollama import OllamaClient
 from pydantic import BaseModel
@@ -429,7 +428,6 @@ Examples:
     parser.add_argument(
         "--documents-path",
         type=str,
-        default="/Users/biderman/Dropbox/Stanford/Dan/minions/data/meeting_summaries",
         help="Path to directory containing markdown files"
     )
     

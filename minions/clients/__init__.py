@@ -40,7 +40,6 @@ __all__ = [
     "MistralClient",
     "SarvamClient",
     "DockerModelRunnerClient",
-    "LemonadeClient",
     "DistributedInferenceClient",
     "NovitaClient",
     "TencentClient",
@@ -58,16 +57,6 @@ except ImportError:
     )
 
 try:
-    from minions.clients.mlx_lm import MLXLMClient
-
-    __all__.append("MLXLMClient")
-except ImportError:
-    # print warning that mlx_lm is not installed
-    print(
-        "Warning: mlx_lm is not installed. If you want to use mlx_lm, please install it with `pip install mlx-lm`."
-    )
-
-try:
     from .cartesia_mlx import CartesiaMLXClient
 
     __all__.append("CartesiaMLXClient")
@@ -75,17 +64,6 @@ except ImportError:
     # If cartesia_mlx is not installed, skip it
     print(
         "Warning: cartesia_mlx is not installed. If you want to use cartesia_mlx, please follow the instructions in the README to install it."
-    )
-
-
-try:
-    from .mlx_omni import MLXOmniClient
-
-    __all__.append("MLXOmniClient")
-except ImportError:
-    # print warning that mlx_omni is not installed
-    print(
-        "Warning: mlx_omni is not installed. If you want to use mlx_omni, please install it with `pip install mlx-omni-server`"
     )
 
 try:
@@ -98,34 +76,46 @@ except ImportError:
         "Warning: huggingface inference client is not installed. If you want to use huggingface inference client, please install it with `pip install huggingface-hub`"
     )
 
+# Import all MLX clients from the consolidated file
 try:
-    from .mlx_audio import MLXAudioClient
-
-    __all__.append("MLXAudioClient")
+    from .mlx_clients import MLXLMClient, MLXOmniClient, MLXAudioClient, MLXParallmClient
+    __all__.extend(["MLXLMClient", "MLXOmniClient", "MLXAudioClient", "MLXParallmClient"])
 except ImportError:
-    # print warning that mlx_audio is not installed
-    print(
-        "Warning: mlx_audio is not installed. If you want to use mlx_audio, please install it with `pip install mlx-audio`"
-    )
+    # Individual client imports with their specific dependencies
+    try:
+        from .mlx_clients import MLXLMClient
+        __all__.append("MLXLMClient")
+    except ImportError:
+        print(
+            "Warning: mlx_lm is not installed. If you want to use mlx_lm, please install it with `pip install mlx-lm`."
+        )
 
-try:
-    from .mlx_parallm_model import MLXParallmClient
-except ImportError:
-    # This allows the package to be imported even if mlx_parallm is not installed
-    print(
-        "Warning: mlx_parallm is not installed. If you want to use mlx_parallm, please install it with `pip install mlx-parallm`"
-    )
+    try:
+        from .mlx_clients import MLXOmniClient
+        __all__.append("MLXOmniClient")
+    except ImportError:
+        print(
+            "Warning: mlx_omni is not installed. If you want to use mlx_omni, please install it with `pip install mlx-omni-server`"
+        )
+
+    try:
+        from .mlx_clients import MLXAudioClient
+        __all__.append("MLXAudioClient")
+    except ImportError:
+        print(
+            "Warning: mlx_audio is not installed. If you want to use mlx_audio, please install it with `pip install mlx-audio`"
+        )
+
+    try:
+        from .mlx_clients import MLXParallmClient
+        __all__.append("MLXParallmClient")
+    except ImportError:
+        print(
+            "Warning: mlx_parallm is not installed. If you want to use mlx_parallm, please install it with `pip install mlx-parallm`"
+        )
 
 
-try:
-    from .transformers import TransformersClient
-
-    __all__.append("TransformersClient")
-except ImportError:
-    # print warning that transformers is not installed
-    print(
-        "WARNING: Transformers is not installed. Please install it with `pip install transformers`."
-    )
+# Duplicate import removed - TransformersClient is already imported above
 
 try:
     from minions.clients.secure import SecureClient

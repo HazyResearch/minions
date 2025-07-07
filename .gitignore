@@ -63,3 +63,10 @@ minion_logs/
 
 verifier.log
 attestation_sdk.log
+
+minions-secure-attestation/
+
+CLAUDE.md
+
+*.csv
+*.png

@@ -358,17 +358,232 @@ To run Minion/Minions in a notebook, checkout `minions.ipynb`.
 ### Build the Docker Image
 
 ```bash
-docker build -t minions .
+docker build -t minions-docker .
 ```
 
-### Run the container
+### Run the Container
+
+**Note:** The container automatically starts an Ollama service in the background for local model inference. This allows you to use models like `llama3.2:3b` without additional setup.
 
 ```bash
-#without GPU support
-docker run -p 8501:8501 --env OPENAI_API_KEY=<your-openai-api-key> --env DEEPSEEK_API_KEY=<your-deepseek-api-key> minions
-#with GPU support
-docker run --gpus all -p 8501:8501 --env OPENAI_API_KEY=<your-openai-api-key> --env DEEPSEEK_API_KEY=<your-deepseek-api-key> minions
+# Basic usage (includes Ollama service)
+docker run -i minions-docker
+
+# With Docker socket mounted (for Docker Model Runner)
+docker run -i -v /var/run/docker.sock:/var/run/docker.sock minions-docker
+
+# With API keys for remote models
+docker run -i -e OPENAI_API_KEY=your_key -e ANTHROPIC_API_KEY=your_key minions-docker
+
+# With custom Ollama host
+docker run -i -e OLLAMA_HOST=0.0.0.0:11434 minions-docker
+
+# For Streamlit app (legacy usage)
+docker run -p 8501:8501 --env OPENAI_API_KEY=<your-openai-api-key> --env DEEPSEEK_API_KEY=<your-deepseek-api-key> minions-docker
 ```
+
+### Docker Minion Protocol Usage
+
+The Docker container supports a stdin/stdout interface for running various minion protocols. It expects JSON input with the following structure:
+
+```json
+{
+  "local_client": {
+    "type": "ollama",
+    "model_name": "llama3.2:3b",
+    "port": 11434,
+    "kwargs": {}
+  },
+  "remote_client": {
+    "type": "openai",
+    "model_name": "gpt-4o",
+    "kwargs": {
+      "api_key": "your_openai_key"
+    }
+  },
+  "protocol": {
+    "type": "minion",
+    "max_rounds": 3,
+    "log_dir": "minion_logs",
+    "kwargs": {}
+  },
+  "call_params": {
+    "task": "Your task here",
+    "context": ["Context string 1", "Context string 2"],
+    "max_rounds": 2
+  }
+}
+```
+
+#### Usage Examples
+
+**Basic Minion Protocol:**
+```bash
+echo '{
+  "local_client": {
+    "type": "ollama",
+    "model_name": "llama3.2:3b"
+  },
+  "remote_client": {
+    "type": "openai",
+    "model_name": "gpt-4o"
+  },
+  "protocol": {
+    "type": "minion",
+    "max_rounds": 3
+  },
+  "call_params": {
+    "task": "Analyze the patient data and provide a diagnosis",
+    "context": ["Patient John Doe is a 60-year-old male with hypertension. Blood pressure: 160/100 mmHg. LDL cholesterol: 170 mg/dL."]
+  }
+}' | docker run -i -e OPENAI_API_KEY=$OPENAI_API_KEY minions-docker
+```
+
+**Minions (Parallel) Protocol:**
+```bash
+echo '{
+  "local_client": {
+    "type": "ollama",
+    "model_name": "llama3.2:3b"
+  },
+  "remote_client": {
+    "type": "openai",
+    "model_name": "gpt-4o"
+  },
+  "protocol": {
+    "type": "minions"
+  },
+  "call_params": {
+    "task": "Analyze the financial data and extract key insights",
+    "doc_metadata": "Financial report",
+    "context": ["Revenue increased by 15% year-over-year. Operating expenses rose by 8%. Net profit margin improved to 12%."]
+  }
+}' | docker run -i -e OPENAI_API_KEY=$OPENAI_API_KEY minions-docker
+```
+
+
+
+#### Supported Client Types
+
+**Local Clients:**
+- `ollama`: Uses Ollama for local inference (included in container)
+- `docker_model_runner`: Uses Docker Model Runner for local inference
+
+**Remote Clients:**
+- `openai`: OpenAI API
+- `anthropic`: Anthropic API
+
+#### Supported Protocol Types
+
+- `minion`: Single conversation protocol
+- `minions`: Parallel processing protocol
+
+#### Output Format
+
+The container outputs JSON with the following structure:
+
+```json
+{
+  "success": true,
+  "result": {
+    "final_answer": "The analysis result...",
+    "supervisor_messages": [...],
+    "worker_messages": [...],
+    "remote_usage": {...},
+    "local_usage": {...}
+  },
+  "error": null
+}
+```
+
+Or on error:
+
+```json
+{
+  "success": false,
+  "result": null,
+  "error": "Error message"
+}
+```
+
+#### Environment Variables
+
+- `OPENAI_API_KEY`: OpenAI API key
+- `ANTHROPIC_API_KEY`: Anthropic API key
+- `OLLAMA_HOST`: Ollama service host (set to 0.0.0.0:11434 by default)
+- `PYTHONPATH`: Python path (set to /app by default)
+- `PYTHONUNBUFFERED`: Unbuffered output (set to 1 by default)
+
+#### Tips and Advanced Usage
+
+1. **Ollama Models**: The container will automatically pull models on first use (e.g., `llama3.2:3b`)
+2. **Docker Model Runner**: Ensure Docker is running and accessible from within the container
+3. **API Keys**: Pass API keys as environment variables for security
+4. **Volumes**: Mount volumes for persistent workspaces or logs
+5. **Networking**: Use `--network host` if you need to access local services
+
+**With Custom Volumes:**
+```bash
+docker run -i \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -v $(pwd)/logs:/app/minion_logs \
+  -v $(pwd)/workspace:/app/workspace \
+  -e OPENAI_API_KEY=$OPENAI_API_KEY \
+  minions-docker
+```
+
+**Interactive Mode:**
+```bash
+docker run -it \
+  -e OPENAI_API_KEY=$OPENAI_API_KEY \
+  minions-docker bash
+```
+
+Then you can run the interface manually:
+```bash
+python minion_stdin_interface.py 
+```
+
+#### Persistent Container Usage
+
+For running multiple queries without restarting the container and Ollama service each time:
+
+**1. Start a persistent container:**
+```bash
+docker run -d --name minions-container -e OPENAI_API_KEY="$OPENAI_API_KEY" minions-docker
+```
+
+**2. Send queries to the running container:**
+```bash
+echo '{
+  "local_client": {"type": "ollama", "model_name": "llama3.2:3b"},
+  "remote_client": {"type": "openai", "model_name": "gpt-4o"},
+  "protocol": {"type": "minion", "max_rounds": 1},
+  "call_params": {"task": "How many times did Roger Federer end the year as No.1?"}
+}' | docker exec -i minions-container /app/start_minion.sh
+```
+
+**3. Send additional queries (fast, no restart delay):**
+```bash
+echo '{
+  "local_client": {"type": "ollama", "model_name": "llama3.2:3b"},
+  "remote_client": {"type": "openai", "model_name": "gpt-4o"},
+  "protocol": {"type": "minion", "max_rounds": 1},
+  "call_params": {"task": "What is the capital of France?"}
+}' | docker exec -i minions-container /app/start_minion.sh
+```
+
+**4. Clean up when done:**
+```bash
+docker stop minions-container
+docker rm minions-container
+```
+
+**Advantages of persistent containers:**
+- ✅ **Ollama stays running** - no restart delays between queries
+- ✅ **Models stay loaded** - faster subsequent queries  
+- ✅ **Resource efficient** - one container handles multiple queries
+- ✅ **Automatic model pulling** - models are downloaded on first use
 
 ## CLI
 

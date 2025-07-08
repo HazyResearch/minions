@@ -3,6 +3,7 @@ import logging
 from pydantic import BaseModel
 from typing import Any, Dict, List, Optional, Union, Tuple
 import os
+import re
 
 from minions.usage import Usage
 from minions.clients.base import MinionsClient
@@ -61,6 +62,7 @@ class GeminiClient(MinionsClient):
         self.thinking_budget = thinking_budget
         self.url_context = url_context
         self.google_search = use_search
+        self.last_url_context_metadata = None
 
         # If we want structured schema output:
         self.format_structured_output = None
@@ -140,7 +142,7 @@ class GeminiClient(MinionsClient):
             return None
         
         return self.types.Tool(
-            url_context=self.types.UrlContext()
+            url_context=self.types.UrlContext
         )
 
     def _create_google_search_tool(self):
@@ -152,11 +154,39 @@ class GeminiClient(MinionsClient):
             google_search=self.types.GoogleSearch()
         )
 
-    def _prepare_tools(self):
+    def _detect_urls_in_messages(self, messages: List[Dict[str, Any]]) -> bool:
+        """
+        Detect if there are URLs in the message content.
+        
+        Args:
+            messages: List of message dictionaries
+            
+        Returns:
+            bool: True if URLs are found, False otherwise
+        """
+        # URL pattern to match http/https URLs
+        url_pattern = r'https?://[^\s<>"{}|\\^`\[\]]+[^\s<>"{}|\\^`\[\].,;:!?]'
+        
+        for msg in messages:
+            if isinstance(msg, dict) and 'content' in msg:
+                content = msg['content']
+                if isinstance(content, str) and re.search(url_pattern, content):
+                    return True
+        return False
+
+    def _prepare_tools(self, messages: Optional[List[Dict[str, Any]]] = None):
         """Prepare tools list for generation."""
         tools = []
         
-        if self.url_context:
+        # Check if we should enable URL context automatically
+        should_enable_url_context = self.url_context
+        if not should_enable_url_context and messages:
+            # Auto-detect URLs and enable URL context if found
+            should_enable_url_context = self._detect_urls_in_messages(messages)
+            if should_enable_url_context:
+                self.logger.info("URLs detected in messages, automatically enabling URL context tool")
+        
+        if should_enable_url_context:
             url_tool = self._create_url_context_tool()
             if url_tool:
                 tools.append(url_tool)
@@ -351,7 +381,7 @@ class GeminiClient(MinionsClient):
                     call_kwargs["system_instruction"] = system_instruction
 
                 # Prepare tools
-                tools = self._prepare_tools()
+                tools = self._prepare_tools(messages=msg)
                 
                 # Create GenerateContentConfig with tools and other settings
                 config_kwargs = {
@@ -392,10 +422,18 @@ class GeminiClient(MinionsClient):
                     ),
                 )
 
+                # Extract URL context metadata if available
+                url_context_metadata = None
+                if hasattr(response, 'candidates') and response.candidates:
+                    candidate = response.candidates[0]
+                    if hasattr(candidate, 'url_context_metadata'):
+                        url_context_metadata = candidate.url_context_metadata
+
                 return {
                     "text": response.text,
                     "usage": usage,
                     "finish_reason": "stop",  # Gemini doesn't provide this directly
+                    "url_context_metadata": url_context_metadata,
                 }
 
         # Run them all in parallel
@@ -410,7 +448,13 @@ class GeminiClient(MinionsClient):
             texts.append(r["text"])
             usage_total += r["usage"]
             done_reasons.append(r["finish_reason"])
+            # Collect URL context metadata if available
+            if r.get("url_context_metadata"):
+                url_context_metadata = r["url_context_metadata"]
 
+        # Store URL context metadata for later retrieval
+        self.last_url_context_metadata = url_context_metadata
+        
         return texts, usage_total, done_reasons
 
     def schat(
@@ -480,7 +524,7 @@ class GeminiClient(MinionsClient):
                     system_instruction = self.system_instruction
 
                 # Prepare tools
-                tools = self._prepare_tools()
+                tools = self._prepare_tools(messages=messages)
                 
                 # Create GenerateContentConfig with tools and other settings
                 config_kwargs = {
@@ -511,6 +555,13 @@ class GeminiClient(MinionsClient):
 
                 responses.append(response.text)
 
+                # Extract URL context metadata if available
+                if hasattr(response, 'candidates') and response.candidates:
+                    candidate = response.candidates[0]
+                    if hasattr(candidate, 'url_context_metadata'):
+                        url_context_metadata = candidate.url_context_metadata
+                        self.logger.info(f"URL context metadata: {url_context_metadata}")
+
                 # Extract usage information
                 usage_total += Usage(
                     prompt_tokens=response.usage_metadata.total_token_count
@@ -522,7 +573,19 @@ class GeminiClient(MinionsClient):
             self.logger.error(f"Error during API call: {e}")
             raise
 
+        # Store URL context metadata for later retrieval
+        self.last_url_context_metadata = url_context_metadata
+        
         return responses, usage_total, done_reasons
+
+    def get_url_context_metadata(self) -> Optional[Dict[str, Any]]:
+        """
+        Get URL context metadata from the last response.
+        
+        Returns:
+            Optional[Dict[str, Any]]: URL context metadata if available, None otherwise
+        """
+        return self.last_url_context_metadata
 
     def chat(
         self,
@@ -531,6 +594,19 @@ class GeminiClient(MinionsClient):
     ) -> Tuple[List[str], Usage, List[str]]:
         """
         Handle chat completions, routing to async or sync implementation.
+        
+        The client will automatically detect URLs in the message content and enable
+        URL context retrieval if URLs are found (unless explicitly disabled).
+        
+        After completion, you can retrieve URL context metadata using:
+        get_url_context_metadata()
+        
+        Args:
+            messages: List of message dictionaries or single message dictionary
+            **kwargs: Additional keyword arguments
+            
+        Returns:
+            Tuple[List[str], Usage, List[str]]: Response texts, usage info, and finish reasons
         """
         if self.use_async:
             return self.achat(messages, **kwargs)

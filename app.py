@@ -2039,6 +2039,7 @@ with st.sidebar:
         # Show different model options based on local provider selection
         if local_provider == "MLX":
             local_model_options = {
+                "SmolLM3-3B-8bit (Recommended)": "mlx-community/SmolLM3-3B-8bit",
                 "Llama-3.2-3B-Instruct-4bit (Recommended)": "mlx-community/Llama-3.2-3B-Instruct-4bit",
                 "gemma-3-4b-it-qat-bf16": "mlx-community/gemma-3-4b-it-qat-bf16",
                 "gemma-3-1b-it-qat-bf16": "mlx-community/gemma-3-1b-it-qat-bf16",

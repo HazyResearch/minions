@@ -298,11 +298,11 @@ def message_callback(role, message, is_final=True):
 
     if role == "supervisor":
         chat_role = "Remote"
-        path = "assets/gru.jpg"
+        path = "assets/gru_test.png"
         # path = GRU_GIF
     else:
         chat_role = "Local"
-        path = "assets/minion.png"
+        path = "assets/minion_test.png"
         # path = MINION_GIF
 
     # If we are not final, handle intermediate content or show working state
@@ -2034,7 +2034,7 @@ with st.sidebar:
     # Local model settings
     with local_col:
         st.markdown("### Local Model")
-        st.image("assets/minion_resized.jpg", use_container_width=True)
+        st.image("assets/minion_test.png", use_container_width=True)
 
         # Show different model options based on local provider selection
         if local_provider == "MLX":
@@ -2200,7 +2200,7 @@ with st.sidebar:
     # Remote model settings
     with remote_col:
         st.markdown("### Remote Model")
-        st.image("assets/gru_resized.jpg", use_container_width=True)
+        st.image("assets/gru_test.png", use_container_width=True)
 
         # If MLX is selected, use the same models for remote
         if selected_provider == "OpenAI":

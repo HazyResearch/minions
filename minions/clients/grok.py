@@ -9,7 +9,7 @@ import openai
 class GrokClient(MinionsClient):
     def __init__(
         self,
-        model_name: str = "grok-3-beta",
+        model_name: str = "grok-4",
         api_key: Optional[str] = None,
         temperature: float = 0.0,
         max_tokens: int = 4096,

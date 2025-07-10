@@ -96,6 +96,14 @@ API_PRICES = {
         "o3": {"input": 10.0, "cached_input": 2.50, "output": 40.00},
         "o4-mini": {"input": 1.10, "cached_input": 0.275, "output": 4.40},
     },
+    # Grok (xAI) model pricing per 1M tokens
+    "Grok": {
+        "grok-2": {"input": 2.00, "cached_input": 1.00, "output": 10.00},
+        "grok-3": {"input": 3.00, "cached_input": 1.50, "output": 15.00},
+        "grok-3-fast": {"input": 5.00, "cached_input": 2.50, "output": 25.00},
+        "grok-3-mini": {"input": 0.30, "cached_input": 0.15, "output": 0.50},
+        "grok-4-0709": {"input": 4.00, "cached_input": 2.00, "output": 20.00},
+    },
     # DeepSeek model pricing per 1M tokens
     "DeepSeek": {
         # Let's assume 1 dollar = 7.25 RMB and
@@ -155,6 +163,7 @@ PROVIDER_TO_ENV_VAR_KEY = {
     "Together": "TOGETHER_API_KEY",
     "Perplexity": "PERPLEXITY_API_KEY",
     "Groq": "GROQ_API_KEY",
+    "Grok": "XAI_API_KEY",
     "DeepSeek": "DEEPSEEK_API_KEY",
     "Firecrawl": "FIRECRAWL_API_KEY",
     "SERP": "SERPAPI_API_KEY",
@@ -832,6 +841,14 @@ def initialize_clients(
             max_tokens=int(remote_max_tokens),
             api_key=api_key,
         )
+    elif provider == "Grok":
+        from minions.clients.grok import GrokClient
+        st.session_state.remote_client = GrokClient(
+            model_name=remote_model_name,
+            temperature=remote_temperature,
+            max_tokens=int(remote_max_tokens),
+            api_key=api_key,
+        )
     elif provider == "DeepSeek":
         st.session_state.remote_client = DeepSeekClient(
             model_name=remote_model_name,
@@ -1345,6 +1362,22 @@ def validate_groq_key(api_key):
         return False, str(e)
 
 
+def validate_grok_key(api_key):
+    try:
+        from minions.clients.grok import GrokClient
+        client = GrokClient(
+            model_name="grok-3-beta",  # Use a common model for testing
+            api_key=api_key,
+            temperature=0.0,
+            max_tokens=1,
+        )
+        messages = [{"role": "user", "content": "Say yes"}]
+        client.chat(messages)
+        return True, ""
+    except Exception as e:
+        return False, str(e)
+
+
 def validate_deepseek_key(api_key):
     try:
         client = DeepSeekClient(
@@ -1470,6 +1503,7 @@ with st.sidebar:
             "Together",
             "Perplexity",
             "Groq",
+            "Grok",
             "DeepSeek",
             "SambaNova",
             "Gemini",
@@ -1484,7 +1518,7 @@ with st.sidebar:
         )  # Set OpenAI as default (index 0)
 
     # API key handling for remote provider
-    env_var_name = f"{selected_provider.upper()}_API_KEY"
+    env_var_name = PROVIDER_TO_ENV_VAR_KEY.get(selected_provider, f"{selected_provider.upper()}_API_KEY")
     env_key = os.getenv(env_var_name)
     with key_col:
         # For secure client, we don't need an API key
@@ -1529,6 +1563,8 @@ with st.sidebar:
             is_valid, msg = validate_perplexity_key(api_key)
         elif selected_provider == "Groq":
             is_valid, msg = validate_groq_key(api_key)
+        elif selected_provider == "Grok":
+            is_valid, msg = validate_grok_key(api_key)
         elif selected_provider == "DeepSeek":
             is_valid, msg = validate_deepseek_key(api_key)
         elif selected_provider == "SambaNova":
@@ -1570,7 +1606,7 @@ with st.sidebar:
         # Only show missing API key error for providers that actually need API keys
         if selected_provider not in ["Secure"]:
             st.error(
-                f"**✗ Missing API key.** Input your key above or set the environment variable with `export {PROVIDER_TO_ENV_VAR_KEY[selected_provider]}=<your-api-key>`"
+                f"**✗ Missing API key.** Input your key above or set the environment variable with `export {env_var_name}=<your-api-key>`"
             )
             provider_key = None
         else:
@@ -2306,6 +2342,15 @@ with st.sidebar:
                 "llama-3.3-70b-specdec": "llama-3.3-70b-specdec",
                 "deepseek-r1-distill-llama-70b-specdec": "deepseek-r1-distill-llama-70b-specdec",
                 "qwen-2.5-32b": "qwen-2.5-32b",
+            }
+            default_model_index = 0
+        elif selected_provider == "Grok":
+            model_mapping = {
+                "grok-4-0709 (Recommended)": "grok-4-0709",
+                "grok-3": "grok-3",
+                "grok-3-fast": "grok-3-fast",
+                "grok-3-mini": "grok-3-mini",
+                "grok-2": "grok-2",
             }
             default_model_index = 0
         elif selected_provider == "DeepSeek":

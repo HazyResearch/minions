@@ -47,6 +47,7 @@ class LlamaCppClient(MinionsClient):
         mul_mat_q: bool = True,
         offload_kqv: bool = True,
         flash_attn: bool = False,
+        local: bool = True,
         **kwargs,
     ):
         """Initialize LlamaCpp Client with a simpler interface.
@@ -104,6 +105,7 @@ class LlamaCppClient(MinionsClient):
             mul_mat_q=mul_mat_q,
             offload_kqv=offload_kqv,
             flash_attn=flash_attn,
+            local=local,
             **kwargs
         )
         
@@ -279,7 +281,10 @@ class LlamaCppClient(MinionsClient):
         if self.return_tools:
             return responses, usage_total, done_reasons, tools
         else:
-            return responses, usage_total, done_reasons
+            if self.local:
+                return responses, usage_total, done_reasons
+            else:
+                return responses, usage_total
 
     def complete(
         self, prompts: Union[str, List[str]], **kwargs
@@ -334,7 +339,10 @@ class LlamaCppClient(MinionsClient):
             self.logger.error(f"Error in text completion: {e}")
             raise
 
-        return responses, usage_total, done_reasons
+        if self.local:
+            return responses, usage_total, done_reasons
+        else:
+            return responses, usage_total
 
     def embed(self, content: Union[str, List[str]], **kwargs) -> List[List[float]]:
         """Generate embeddings for the given content.

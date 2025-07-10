@@ -14,6 +14,7 @@ class SambanovaClient(MinionsClient):
         temperature: float = 0.0,
         max_tokens: int = 4096,
         base_url: str = "https://api.sambanova.ai/v1",
+        local: bool = False,
         **kwargs
     ):
         """
@@ -33,6 +34,7 @@ class SambanovaClient(MinionsClient):
             temperature=temperature,
             max_tokens=max_tokens,
             base_url=base_url,
+            local=local,
             **kwargs
         )
         
@@ -80,5 +82,11 @@ class SambanovaClient(MinionsClient):
             completion_tokens=response.usage.completion_tokens,
         )
 
+        # Extract finish reasons
+        finish_reasons = [choice.finish_reason for choice in response.choices]
+        
         # Extract content from response
-        return [choice.message.content for choice in response.choices], usage
+        if self.local:
+            return [choice.message.content for choice in response.choices], usage, finish_reasons
+        else:
+            return [choice.message.content for choice in response.choices], usage

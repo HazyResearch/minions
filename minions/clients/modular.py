@@ -26,6 +26,7 @@ class ModularClient(MinionsClient, ServerMixin):
         capture_output: bool = False,
         base_url: Optional[str] = None,
         verbose: bool = False,
+        local: bool = False,
         **kwargs
     ):
         """
@@ -47,6 +48,7 @@ class ModularClient(MinionsClient, ServerMixin):
             max_tokens=max_tokens,
             base_url=base_url,
             verbose=verbose,
+            local=local,
             **kwargs
         )
         
@@ -117,8 +119,12 @@ class ModularClient(MinionsClient, ServerMixin):
                 completion_tokens=response.usage.completion_tokens if response.usage else 0,
             )
 
-            # Extract response content
-            return [choice.message.content for choice in response.choices], usage, [choice.finish_reason for choice in response.choices]
+            if self.local:
+                # Extract response content
+                return [choice.message.content for choice in response.choices], usage, [choice.finish_reason for choice in response.choices]
+            else:
+                # Extract response content
+                return [choice.message.content for choice in response.choices], usage
             
         except Exception as e:
             self.logger.error(f"Error during Modular MAX API call: {e}")

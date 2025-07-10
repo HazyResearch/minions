@@ -14,6 +14,7 @@ class TogetherClient(MinionsClient):
         api_key: Optional[str] = None,
         temperature: float = 0.0,
         max_tokens: int = 2048,
+        local: bool = False,
         **kwargs
     ):
         """
@@ -31,6 +32,7 @@ class TogetherClient(MinionsClient):
             api_key=api_key,
             temperature=temperature,
             max_tokens=max_tokens,
+            local=local,
             **kwargs
         )
         
@@ -73,5 +75,7 @@ class TogetherClient(MinionsClient):
         
         # Extract done reasons (finish_reason in OpenAI-compatible APIs)
         done_reasons = [choice.finish_reason for choice in response.choices]
-
-        return [choice.message.content for choice in response.choices], usage, done_reasons 
+        if self.local:
+            return [choice.message.content for choice in response.choices], usage, done_reasons 
+        else:
+            return [choice.message.content for choice in response.choices], usage

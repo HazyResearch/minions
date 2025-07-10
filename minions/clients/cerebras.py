@@ -20,6 +20,7 @@ class CerebrasClient:
         temperature: float = 0.0,
         max_tokens: int = 4096,
         base_url: Optional[str] = None,
+        local: bool = False,
     ):
         '''
         Initialize the Cerebras client.
@@ -37,6 +38,7 @@ class CerebrasClient:
         self.logger.setLevel(logging.INFO)
         self.temperature = temperature
         self.max_tokens = max_tokens
+        self.local = local
         
         # Initialize the Cerebras client
         client_kwargs = {}
@@ -80,5 +82,11 @@ class CerebrasClient:
             completion_tokens=response.usage.completion_tokens
         )
 
+        # Extract finish reasons
+        finish_reasons = ["stop"] * len(response.choices)
+        
         # Extract response content
-        return [choice.message.content for choice in response.choices], usage 
+        if self.local:
+            return [choice.message.content for choice in response.choices], usage, finish_reasons
+        else:
+            return [choice.message.content for choice in response.choices], usage 

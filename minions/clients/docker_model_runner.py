@@ -10,8 +10,8 @@ from minions.clients.base import MinionsClient
 from minions.usage import Usage
 
 class DockerModelRunnerClient(MinionsClient):
-    def __init__(self, model_name: str, port: int = 12434, timeout: int = 60, **kwargs):
-        super().__init__(model_name=model_name, **kwargs)
+    def __init__(self, model_name: str, port: int = 12434, timeout: int = 60, local: bool = True, **kwargs):
+        super().__init__(model_name=model_name, local=local, **kwargs)
         
         # Check if Docker is installed before proceeding
         self._check_docker_installation()
@@ -134,7 +134,10 @@ class DockerModelRunnerClient(MinionsClient):
             message_content = choice["message"]["content"]
             finish_reason = choice.get("finish_reason", "stop")
             
-            return [message_content], usage, [finish_reason]
+            if self.local:
+                return [message_content], usage, [finish_reason]
+            else:
+                return [message_content], usage
         else:
             raise RuntimeError(f"Unexpected response format from Docker Model Runner: {result}")
     
@@ -188,7 +191,10 @@ class DockerModelRunnerClient(MinionsClient):
             finish_reason = choice.get("finish_reason", "stop")
             
             # Return format matches OllamaClient.achat - note List[Usage] instead of Usage
-            return [message_content], [usage], [finish_reason]
+            if self.local:
+                return [message_content], [usage], [finish_reason]
+            else:
+                return [message_content], [usage]
         else:
             raise RuntimeError(f"Unexpected response format from Docker Model Runner: {result}")
 

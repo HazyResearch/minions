@@ -16,6 +16,7 @@ class MistralClient(MinionsClient):
         max_tokens: int = 2048,
         websearch_agent: bool = False,
         websearch_premium: bool = False,
+        local: bool = False,
         **kwargs
     ):
         """
@@ -35,6 +36,7 @@ class MistralClient(MinionsClient):
             api_key=api_key,
             temperature=temperature,
             max_tokens=max_tokens,
+            local=local,
             **kwargs
         )
         
@@ -117,7 +119,10 @@ class MistralClient(MinionsClient):
         # Extract done reasons (finish_reason in Mistral API)
         done_reasons = [choice.finish_reason for choice in response.choices]
 
-        return [choice.message.content for choice in response.choices], usage, done_reasons
+        if self.local:
+            return [choice.message.content for choice in response.choices], usage, done_reasons
+        else:
+            return [choice.message.content for choice in response.choices], usage
 
     def _chat_with_websearch_agent(self, messages: List[Dict[str, Any]], **kwargs) -> Tuple[List[str], Usage, List[str]]:
         """

@@ -47,6 +47,7 @@ class TransformersClient(MinionsClient):
         tool_calling: bool = False,
         embedding_model: Optional[str] = None,
         enable_thinking: bool = False,  # for qwen models
+        local: bool = True,
         **kwargs
     ):
         """
@@ -69,6 +70,7 @@ class TransformersClient(MinionsClient):
             model_name=model_name,
             temperature=temperature,
             max_tokens=max_tokens,
+            local=local,
             **kwargs
         )
         
@@ -491,7 +493,10 @@ class TransformersClient(MinionsClient):
         if self.return_tools:
             return responses, usage, done_reasons, tools
         else:
-            return responses, usage, done_reasons
+            if self.local:
+                return responses, usage, done_reasons
+            else:
+                return responses, usage
 
     def embed(self, content: Union[str, List[str]], **kwargs) -> List[List[float]]:
         """

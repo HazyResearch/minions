@@ -22,6 +22,7 @@ class OllamaClient(MinionsClient):
         thinking: bool = False,
         mcp_client=None,
         max_tool_iterations: int = 5,
+        local: bool = True,
         **kwargs
     ):
         """Initialize Ollama Client.
@@ -43,6 +44,7 @@ class OllamaClient(MinionsClient):
             model_name=model_name,
             temperature=temperature,
             max_tokens=max_tokens,
+            local=local,
             **kwargs
         )
         
@@ -322,7 +324,10 @@ class OllamaClient(MinionsClient):
             texts.append("Maximum tool iterations reached. Unable to provide final response.")
             done_reasons = ["max_iterations"]
 
-        return texts, usage_total, done_reasons
+        if self.local:
+            return texts, usage_total, done_reasons
+        else:
+            return texts, usage_total
 
     def schat(
         self,
@@ -426,7 +431,10 @@ class OllamaClient(MinionsClient):
         if self.return_tools:
             return responses, usage_total, done_reasons, tools
         else:
-            return responses, usage_total, done_reasons
+            if self.local:
+                return responses, usage_total, done_reasons
+            else:
+                return responses, usage_total
 
     def chat(
         self,

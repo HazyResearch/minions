@@ -24,6 +24,7 @@ class GeminiClient(MinionsClient):
         thinking_budget: Optional[int] = None,
         url_context: bool = False,
         use_search: bool = False,
+        local: bool = False,
         **kwargs
     ):
         """Initialize Gemini Client.
@@ -48,6 +49,7 @@ class GeminiClient(MinionsClient):
             temperature=temperature,
             max_tokens=max_tokens,
             api_key=api_key,
+            local=local,
             **kwargs
         )
         
@@ -455,7 +457,10 @@ class GeminiClient(MinionsClient):
         # Store URL context metadata for later retrieval
         self.last_url_context_metadata = url_context_metadata
         
-        return texts, usage_total, done_reasons
+        if self.local:
+            return texts, usage_total, done_reasons
+        else:
+            return texts, usage_total
 
     def schat(
         self,
@@ -576,7 +581,10 @@ class GeminiClient(MinionsClient):
         # Store URL context metadata for later retrieval
         self.last_url_context_metadata = url_context_metadata
         
-        return responses, usage_total, done_reasons
+        if self.local:
+            return responses, usage_total, done_reasons
+        else:
+            return responses, usage_total
 
     def get_url_context_metadata(self) -> Optional[Dict[str, Any]]:
         """

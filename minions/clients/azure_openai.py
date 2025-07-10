@@ -18,6 +18,7 @@ class AzureOpenAIClient(MinionsClient):
         azure_endpoint: Optional[str] = None,
         temperature: float = 0.0,
         max_tokens: int = 4096,
+        local: bool = False,
         **kwargs
     ):
         """
@@ -37,6 +38,7 @@ class AzureOpenAIClient(MinionsClient):
             api_key=api_key,
             temperature=temperature,
             max_tokens=max_tokens,
+            local=local,
             **kwargs
         )
         

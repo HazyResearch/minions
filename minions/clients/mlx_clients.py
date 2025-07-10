@@ -15,6 +15,7 @@ class MLXParallmClient(MinionsClient):
         temperature: float = 0.0,
         max_tokens: int = 100,
         verbose: bool = False,
+        local: bool = True,
         **kwargs
     ):
         """
@@ -32,6 +33,7 @@ class MLXParallmClient(MinionsClient):
             temperature=temperature,
             max_tokens=max_tokens,
             verbose=verbose,
+            local=local,
             **kwargs
         )
         
@@ -97,7 +99,10 @@ class MLXParallmClient(MinionsClient):
 
         usage = Usage(prompt_tokens=prompt_tokens, completion_tokens=completion_tokens)
 
-        return [response], usage, "END_OF_TEXT"
+        if self.local:
+            return [response], usage, "END_OF_TEXT"
+        else:
+            return [response], usage
 
 
 class MLXLMClient(MinionsClient):
@@ -109,6 +114,7 @@ class MLXLMClient(MinionsClient):
         verbose: bool = False,
         use_async: bool = False,
         enable_thinking: bool = False,
+        local: bool = True,
         **kwargs
     ):
         """
@@ -128,6 +134,7 @@ class MLXLMClient(MinionsClient):
             temperature=temperature,
             max_tokens=max_tokens,
             verbose=verbose,
+            local=local,
             **kwargs
         )
         
@@ -238,7 +245,10 @@ class MLXLMClient(MinionsClient):
                 completion_tokens=completion_tokens,
             )
 
-            return [response], usage, ["stop"]
+            if self.local:
+                return [response], usage, ["stop"]
+            else:
+                return [response], usage
 
         except Exception as e:
             self.logger.error(f"Error during MLX LM generation: {e}")
@@ -364,7 +374,10 @@ class MLXLMClient(MinionsClient):
             )
             done_reasons.append("stop")
 
-        return texts, usage_total, done_reasons
+        if self.local:
+            return texts, usage_total, done_reasons
+        else:
+            return texts, usage_total
 
 
 class MLXOmniClient(MinionsClient):
@@ -381,6 +394,7 @@ class MLXOmniClient(MinionsClient):
         temperature: float = 0.0,
         max_tokens: int = 2048,
         use_test_client: bool = True,
+        local: bool = True,
         **kwargs
     ):
         """
@@ -397,6 +411,7 @@ class MLXOmniClient(MinionsClient):
             model_name=model_name,
             temperature=temperature,
             max_tokens=max_tokens,
+            local=local,
             **kwargs
         )
         
@@ -515,7 +530,10 @@ class MLXOmniClient(MinionsClient):
             # Extract finish reasons
             done_reasons = [choice.finish_reason for choice in response.choices]
 
-            return texts, usage, done_reasons
+            if self.local:
+                return texts, usage, done_reasons
+            else:
+                return texts, usage
 
         except Exception as e:
             self.logger.error(f"Error during MLX Omni API call: {e}")

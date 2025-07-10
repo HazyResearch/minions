@@ -31,6 +31,7 @@ Secure Minions Chat Blogpost: https://hazyresearch.stanford.edu/blog/2025-05-12-
 - [Command Line Interface](#cli)
 - [Secure Minions Local-Remote Protocol](#secure-minions-local-remote-protocol)
 - [Secure Minions Chat](#secure-minions-chat)
+- [Apps](#apps)
 - [Inference Estimator](#inference-estimator)
   - [Command Line Usage](#command-line-usage)
   - [Python API Usage](#python-api-usage)
@@ -670,6 +671,17 @@ pip install -e ".[secure]"
 ```
 
 See the [Secure Minions Chat README](secure/README.md) for additional details on how to setup clients and run the secure chat protocol.
+
+## Apps
+
+The `apps/` directory contains specialized applications demonstrating various use cases:
+
+- 📊 **[A2A-Minions](apps/minions-a2a/)** - Agent-to-Agent integration server
+- 🎭 **[Character Chat](apps/minions-character-chat/)** - Role-playing with AI personas
+- 🔍 **[Document Search](apps/minions-doc-search/)** - Multi-method document retrieval
+- 📚 **[Story Teller](apps/minions-story-teller/)** - Creative storytelling with illustrations
+- 🛠️ **[Tools Comparison](apps/minions-tools/)** - MCP tools performance comparison
+- 🌐 **[WebGPU App](apps/minions-webgpu/)** - Browser-based Minions protocol
 
 ## Inference Estimator
 

@@ -16,6 +16,7 @@ class CartesiaMLXClient(MinionsClient):
         max_tokens: int = 100,
         verbose: bool = False,
         dtype: str = "float32",
+        local: bool = True,
         **kwargs
     ):
         """
@@ -34,6 +35,7 @@ class CartesiaMLXClient(MinionsClient):
             temperature=temperature,
             max_tokens=max_tokens,
             verbose=verbose,
+            local=local,
             **kwargs
         )
         
@@ -135,4 +137,7 @@ class CartesiaMLXClient(MinionsClient):
             completion_tokens=completion_tokens,
         )
 
-        return [output_text], usage, "stop"
+        if self.local:
+            return [output_text], usage, "stop"
+        else:
+            return [output_text], usage

@@ -18,6 +18,7 @@ class TokasaurusClient(MinionsClient, ServerMixin):
         port: Optional[int] = None,
         capture_output: bool = False,
         base_url: Optional[str] = None,
+        local: bool = True,
         **kwargs
     ):
         """
@@ -37,6 +38,7 @@ class TokasaurusClient(MinionsClient, ServerMixin):
             temperature=temperature,
             max_tokens=max_tokens,
             base_url=base_url,
+            local=local,
             **kwargs
         )
         
@@ -96,5 +98,11 @@ class TokasaurusClient(MinionsClient, ServerMixin):
             completion_tokens=response.usage.completion_tokens
         )
 
+        # Extract finish reasons
+        finish_reasons = [choice.finish_reason for choice in response.choices]
+
         # The content is now nested under message
-        return [choice.message.content for choice in response.choices], usage, ""
+        if self.local:
+            return [choice.message.content for choice in response.choices], usage, finish_reasons
+        else:
+            return [choice.message.content for choice in response.choices], usage

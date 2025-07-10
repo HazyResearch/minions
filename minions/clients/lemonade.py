@@ -31,6 +31,7 @@ class LemonadeClient(OpenAIClient):
         base_url: Optional[str] = None,
         structured_output_schema: Optional[BaseModel] = None,
         use_async: bool = False,
+        local: bool = True,
         **kwargs: Any,
     ) -> None:
         base_url = base_url or os.getenv("LEMONADE_BASE_URL", "http://localhost:8000/api/v1")
@@ -40,6 +41,7 @@ class LemonadeClient(OpenAIClient):
             temperature=temperature,
             max_tokens=max_tokens,
             base_url=base_url,
+            local=local,
             **kwargs,
         )
     
@@ -100,7 +102,10 @@ class LemonadeClient(OpenAIClient):
             completion_tokens=response_data.get('usage', {}).get('completion_tokens', 0),
         )
         done_reason = [choice.get("finish_reason", "stop") for choice in choices]
-        return responses, usage, done_reason
+        if self.local:
+            return responses, usage, done_reason
+        else:
+            return responses, usage
 
     def achat(
         self,
@@ -165,7 +170,10 @@ class LemonadeClient(OpenAIClient):
             usage_total = Usage()
             for u in usages:
                 usage_total += u
-            return list(texts), usage_total, list(done_reasons)
+            if self.local:
+                return list(texts), usage_total, list(done_reasons)
+            else:
+                return list(texts), usage_total
 
         # Handle event loop: support Streamlit/Jupyter
         try:

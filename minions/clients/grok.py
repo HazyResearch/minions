@@ -14,6 +14,7 @@ class GrokClient(MinionsClient):
         temperature: float = 0.0,
         max_tokens: int = 4096,
         base_url: str = "https://api.x.ai/v1",
+        local: bool = False,
         **kwargs
     ):
         """
@@ -33,6 +34,7 @@ class GrokClient(MinionsClient):
             temperature=temperature,
             max_tokens=max_tokens,
             base_url=base_url,
+            local=local,
             **kwargs
         )
         
@@ -79,5 +81,11 @@ class GrokClient(MinionsClient):
             completion_tokens=response.usage.completion_tokens,
         )
 
+        # Extract finish reasons
+        finish_reasons = [choice.finish_reason for choice in response.choices]
+
         # The content is now nested under message
-        return [choice.message.content for choice in response.choices], usage
+        if self.local:
+            return [choice.message.content for choice in response.choices], usage, finish_reasons
+        else:
+            return [choice.message.content for choice in response.choices], usage

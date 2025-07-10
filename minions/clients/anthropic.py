@@ -18,6 +18,7 @@ class AnthropicClient(MinionsClient):
         include_search_queries: bool = False,
         use_caching: bool = False,
         use_code_interpreter: bool = False,
+        local: bool = False,
         **kwargs
     ):
         """
@@ -39,6 +40,7 @@ class AnthropicClient(MinionsClient):
             api_key=api_key,
             temperature=temperature,
             max_tokens=max_tokens,
+            local=local,
             **kwargs
         )
         
@@ -180,7 +182,11 @@ class AnthropicClient(MinionsClient):
             if citations_parts:
                 result_text += "\n\n" + "\n".join(citations_parts)
 
-            return [result_text], usage
+            if self.local:
+                # For web search, we can use "stop" as finish reason
+                return [result_text], usage, ["stop"]
+            else:
+                return [result_text], usage
                 
         else:
             # Standard response handling for non-web-search or simple responses
@@ -191,12 +197,21 @@ class AnthropicClient(MinionsClient):
             ):
                 if hasattr(response.content[0], "text"):
                     print(response.content[-1].text)
-                    return [response.content[-1].text], usage
+                    if self.local:
+                        return [response.content[-1].text], usage, ["stop"]
+                    else:
+                        return [response.content[-1].text], usage
                 else:
                     self.logger.warning(
                         "Unexpected response format - missing text attribute"
                     )
-                    return [str(response.content)], usage
+                    if self.local:
+                        return [str(response.content)], usage, ["stop"]
+                    else:
+                        return [str(response.content)], usage
             else:
                 self.logger.warning("Unexpected response format - missing content list")
-                return [str(response)], usage
+                if self.local:
+                    return [str(response)], usage, ["stop"]
+                else:
+                    return [str(response)], usage

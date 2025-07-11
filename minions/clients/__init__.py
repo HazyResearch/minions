@@ -9,6 +9,7 @@ from minions.clients.perplexity import PerplexityAIClient
 from minions.clients.openrouter import OpenRouterClient
 from minions.clients.groq import GroqClient
 from minions.clients.deepseek import DeepSeekClient
+from minions.clients.qwen import QwenClient
 from minions.clients.sambanova import SambanovaClient
 from minions.clients.gemini import GeminiClient
 from minions.clients.grok import GrokClient
@@ -33,6 +34,7 @@ __all__ = [
     "OpenRouterClient",
     "GroqClient",
     "DeepSeekClient",
+    "QwenClient",
     "SambanovaClient",
     "GeminiClient",
     "GrokClient",

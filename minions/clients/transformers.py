@@ -42,6 +42,8 @@ class TransformersClient(MinionsClient):
         temperature: float = 0.0,
         max_tokens: int = 1024,
         top_p: float = 1.0,
+        min_p: float = 0.0,
+        repetition_penalty: float = 1.0,
         do_sample: bool = False,
         hf_token: Optional[str] = None,
         tool_calling: bool = False,
@@ -59,6 +61,8 @@ class TransformersClient(MinionsClient):
             temperature: Sampling temperature for generation (default: 0.0)
             max_tokens: Maximum number of tokens to generate (default: 1024)
             top_p: Top-p sampling parameter (default: 1.0)
+            min_p: Minimum probability threshold for sampling (default: 0.0)
+            repetition_penalty: Penalty for repeated tokens (default: 1.0)
             do_sample: Whether to use sampling for generation (default: False)
             hf_token: Optional Hugging Face token for accessing gated models
             tool_calling: Whether to support tool calling (default: False)
@@ -76,6 +80,8 @@ class TransformersClient(MinionsClient):
         
         # Client-specific configuration
         self.top_p = top_p
+        self.min_p = min_p
+        self.repetition_penalty = repetition_penalty
         self.do_sample = do_sample
         self.hf_token = hf_token or os.environ.get("HF_TOKEN")
         self.return_tools = tool_calling
@@ -308,19 +314,31 @@ class TransformersClient(MinionsClient):
                 max_tokens = kwargs.get("max_completion_tokens", self.max_tokens)
                 temperature = kwargs.get("temperature", self.temperature)
                 top_p = kwargs.get("top_p", self.top_p)
+                min_p = kwargs.get("min_p", self.min_p)
+                repetition_penalty = kwargs.get("repetition_penalty", self.repetition_penalty)
                 do_sample = kwargs.get("do_sample", self.do_sample)
 
                 # Generate completion
                 with torch.no_grad():
+                    generation_kwargs = {
+                        "max_new_tokens": max_tokens,
+                        "pad_token_id": self.tokenizer.pad_token_id,
+                        "do_sample": do_sample,
+                        "temperature": temperature,
+                        "top_p": top_p,
+                        "return_dict_in_generate": True,
+                        "output_logits": True,
+                    }
+                    
+                    # Only add min_p and repetition_penalty if they're not default values
+                    if min_p > 0.0:
+                        generation_kwargs["min_p"] = min_p
+                    if repetition_penalty != 1.0:
+                        generation_kwargs["repetition_penalty"] = repetition_penalty
+                    
                     gen_out = self.model.generate(
                         input_ids,
-                        max_new_tokens=max_tokens,
-                        pad_token_id=self.tokenizer.pad_token_id,
-                        do_sample=do_sample,
-                        temperature=temperature,
-                        top_p=top_p,
-                        return_dict_in_generate=True,
-                        output_logits=True,
+                        **generation_kwargs
                     )
 
                     # Extract token IDs for the completion
@@ -408,19 +426,31 @@ class TransformersClient(MinionsClient):
             max_tokens = kwargs.get("max_completion_tokens", self.max_tokens)
             temperature = kwargs.get("temperature", self.temperature)
             top_p = kwargs.get("top_p", self.top_p)
+            min_p = kwargs.get("min_p", self.min_p)
+            repetition_penalty = kwargs.get("repetition_penalty", self.repetition_penalty)
             do_sample = kwargs.get("do_sample", self.do_sample)
 
             # Generate response
             with torch.no_grad():
+                generation_kwargs = {
+                    "max_new_tokens": max_tokens,
+                    "pad_token_id": self.tokenizer.pad_token_id,
+                    "do_sample": do_sample,
+                    "temperature": temperature,
+                    "top_p": top_p,
+                    "return_dict_in_generate": True,
+                    "output_logits": True,
+                }
+                
+                # Only add min_p and repetition_penalty if they're not default values
+                if min_p > 0.0:
+                    generation_kwargs["min_p"] = min_p
+                if repetition_penalty != 1.0:
+                    generation_kwargs["repetition_penalty"] = repetition_penalty
+                
                 gen_out = self.model.generate(
                     input_ids,
-                    max_new_tokens=max_tokens,
-                    pad_token_id=self.tokenizer.pad_token_id,
-                    do_sample=do_sample,
-                    temperature=temperature,
-                    top_p=top_p,
-                    return_dict_in_generate=True,
-                    output_logits=True,
+                    **generation_kwargs
                 )
 
                 # Extract token IDs for the completion

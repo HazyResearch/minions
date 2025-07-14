@@ -94,6 +94,8 @@ python run_server.py
 
 ## Quick Start
 
+> **💡 Want a simple frontend UI?** For easier setup and testing, check out the web interface at [`examples/webapp`](examples/webapp/) - it provides a user-friendly way to interact with the A2A-Minions server without needing to work with JSON-RPC directly!
+
 ### 1. Start the Server
 
 ```bash

@@ -16,6 +16,7 @@ serpapi                   # Google Search via SerpAPI
 google_search_results     # SerpAPI helper
 firecrawl-py              # URL scraping / crawling
 rank_bm25                 # BM25 ranking for retrieval
+torch
 
 # --- Data handling & utilities ---
 tiktoken                  # token counting

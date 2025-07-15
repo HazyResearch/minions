@@ -1,0 +1,80 @@
+FROM python:3.11-slim
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONDONTWRITEBYTECODE=1
+
+# Set working directory
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    wget \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements from the repository root
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Install additional Flask dependencies
+RUN pip install flask gunicorn
+
+# Copy the minions package from the repository root
+COPY minions/ ./minions/
+
+# Copy the Docker app files
+COPY apps/minions-docker/ ./apps/minions-docker/
+
+# Set the working directory to the Docker app
+WORKDIR /app/apps/minions-docker
+
+# Create log directory
+RUN mkdir -p minion_logs
+
+# Expose port
+EXPOSE 5000
+
+# Environment variables with defaults
+ENV REMOTE_MODEL_NAME="gpt-4o-mini"
+ENV LOCAL_MODEL_NAME="ai/smollm2"
+ENV LOCAL_BASE_URL="http://model-runner.docker.internal"
+ENV REMOTE_BASE_URL="http://model-runner.docker.internal/engines/openai/v1"
+ENV MAX_ROUNDS="3"
+ENV LOG_DIR="minion_logs"
+ENV TIMEOUT="60"
+ENV HOST="0.0.0.0"
+ENV PORT="5000"
+
+# Add the app root to Python path so minions package can be imported
+ENV PYTHONPATH="/app:$PYTHONPATH"
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:5000/health || exit 1
+
+# Create entrypoint script
+RUN echo '#!/bin/bash\n\
+echo "Starting Minion HTTP Server..."\n\
+echo "Configuration:"\n\
+echo "  REMOTE_MODEL_NAME: $REMOTE_MODEL_NAME"\n\
+echo "  LOCAL_MODEL_NAME: $LOCAL_MODEL_NAME"\n\
+echo "  LOCAL_BASE_URL: $LOCAL_BASE_URL"\n\
+echo "  REMOTE_BASE_URL: $REMOTE_BASE_URL"\n\
+echo "  MAX_ROUNDS: $MAX_ROUNDS"\n\
+echo "  TIMEOUT: $TIMEOUT"\n\
+echo "  HOST: $HOST"\n\
+echo "  PORT: $PORT"\n\
+echo "  LOG_DIR: $LOG_DIR"\n\
+echo ""\n\
+if [ "$PRODUCTION" = "true" ]; then\n\
+    echo "Running in production mode with gunicorn..."\n\
+    exec gunicorn --bind $HOST:$PORT --workers 1 --timeout $TIMEOUT --worker-class sync minion_http_server:app\n\
+else\n\
+    echo "Running in development mode with Flask..."\n\
+    exec python minion_http_server.py\n\
+fi' > /app/apps/minions-docker/entrypoint.sh && chmod +x /app/apps/minions-docker/entrypoint.sh
+
+# Use the entrypoint script
+ENTRYPOINT ["/app/apps/minions-docker/entrypoint.sh"] 

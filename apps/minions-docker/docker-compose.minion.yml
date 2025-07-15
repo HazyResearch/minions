@@ -1,0 +1,44 @@
+services:
+  minion-server:
+    build:
+      context: ../../
+      dockerfile: apps/minions-docker/Dockerfile.minion
+    ports:
+      - "5000:5000"
+    environment:
+      # OpenAI Configuration
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - REMOTE_MODEL_NAME=${REMOTE_MODEL_NAME:-gpt-4o-mini}
+      - REMOTE_BASE_URL=${REMOTE_BASE_URL:-http://model-runner.docker.internal/engines/openai/v1}
+      
+      # Local Model Configuration
+      - LOCAL_MODEL_NAME=${LOCAL_MODEL_NAME:-llama3.2:1b}
+      - LOCAL_BASE_URL=${LOCAL_BASE_URL:-http://model-runner.docker.internal}
+      
+      # Server Configuration
+      - MAX_ROUNDS=${MAX_ROUNDS:-3}
+      - TIMEOUT=${TIMEOUT:-60}
+      - HOST=0.0.0.0
+      - PORT=5000
+      - LOG_DIR=minion_logs
+      - DEBUG=${DEBUG:-false}
+      - PRODUCTION=${PRODUCTION:-false}
+    volumes:
+      - ./minion_logs:/app/apps/minions-docker/minion_logs
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - minion-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+    restart: unless-stopped
+
+volumes:
+  minion-logs:
+
+networks:
+  minion-network:
+    driver: bridge 

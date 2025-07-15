@@ -10,18 +10,27 @@ from minions.clients.base import MinionsClient
 from minions.usage import Usage
 
 class DockerModelRunnerClient(MinionsClient):
-    def __init__(self, model_name: str, port: int = 12434, timeout: int = 60, local: bool = True, **kwargs):
+    def __init__(self, model_name: str, port: int = 12434, timeout: int = 60, local: bool = True, base_url: str = None, **kwargs):
         super().__init__(model_name=model_name, local=local, **kwargs)
         
         # Check if Docker is installed before proceeding
-        self._check_docker_installation()
+        #self._check_docker_installation()
         self.model_name = model_name
         self.port = port
-        self.base_url = f"http://localhost:{port}"
+        self.base_url = base_url or f"http://localhost:{port}"
         self.timeout = timeout
 
         # Check if model is available and pull if needed
-        self._ensure_model_available()
+        #self._ensure_model_available()
+
+    @staticmethod
+    def _raise_docker_not_installed():
+        """Raise an exception with Docker installation instructions."""
+        raise RuntimeError(
+            "Docker is not installed or not found in PATH. "
+            "Please install Docker Desktop from https://www.docker.com/products/docker-desktop/ "
+            "and ensure it's running."
+        )
 
     @staticmethod
     def _check_docker_installation():

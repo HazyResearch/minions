@@ -30,7 +30,7 @@ minion_instance: Optional[Minion] = None
 config = {
     "remote_model_name": os.getenv("REMOTE_MODEL_NAME", "gpt-4o-mini"),
     "openai_api_key": os.getenv("OPENAI_API_KEY"),
-    "local_model_name": os.getenv("LOCAL_MODEL_NAME", "llama3.2:1b"),
+    "local_model_name": os.getenv("LOCAL_MODEL_NAME", "ai/smollm2"),
     "local_base_url": os.getenv("LOCAL_BASE_URL", "http://model-runner.docker.internal"),
     "remote_base_url": os.getenv("REMOTE_BASE_URL", "http://model-runner.docker.internal/engines/openai/v1"),
     "max_rounds": int(os.getenv("MAX_ROUNDS", "3")),

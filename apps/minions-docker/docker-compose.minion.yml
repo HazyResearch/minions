@@ -12,7 +12,7 @@ services:
       - REMOTE_BASE_URL=${REMOTE_BASE_URL:-http://model-runner.docker.internal/engines/openai/v1}
       
       # Local Model Configuration
-      - LOCAL_MODEL_NAME=${LOCAL_MODEL_NAME:-llama3.2:1b}
+      - LOCAL_MODEL_NAME=${LOCAL_MODEL_NAME:-ai/smollm2}
       - LOCAL_BASE_URL=${LOCAL_BASE_URL:-http://model-runner.docker.internal}
       
       # Server Configuration

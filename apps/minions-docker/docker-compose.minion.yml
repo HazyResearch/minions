@@ -4,7 +4,7 @@ services:
       context: ../../
       dockerfile: apps/minions-docker/Dockerfile.minion
     ports:
-      - "5000:5000"
+      - "127.0.0.1:5000:5000"
     environment:
       # OpenAI Configuration
       - OPENAI_API_KEY=${OPENAI_API_KEY}

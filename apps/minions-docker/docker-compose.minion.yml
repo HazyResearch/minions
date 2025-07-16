@@ -4,7 +4,7 @@ services:
       context: ../../
       dockerfile: apps/minions-docker/Dockerfile.minion
     ports:
-      - "5000:5000"
+      - "127.0.0.1:5000:5000"
     environment:
       # OpenAI Configuration
       - OPENAI_API_KEY=${OPENAI_API_KEY}
@@ -13,7 +13,7 @@ services:
       
       # Local Model Configuration
       - LOCAL_MODEL_NAME=${LOCAL_MODEL_NAME:-ai/smollm2}
-      - LOCAL_BASE_URL=${LOCAL_BASE_URL:-http://model-runner.docker.internal}
+      - LOCAL_BASE_URL=${LOCAL_BASE_URL:-http://model-runner.docker.internal/engines/llama.cpp/v1}
       
       # Server Configuration
       - MAX_ROUNDS=${MAX_ROUNDS:-3}

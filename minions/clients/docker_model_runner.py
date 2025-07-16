@@ -55,7 +55,7 @@ class DockerModelRunnerClient(MinionsClient):
     def _check_model_available(self) -> bool:
         """Check if the model is available in Docker Model Runner."""
         try:
-            response = requests.get(f"{self.base_url}/engines/llama.cpp/v1/models", timeout=10)
+            response = requests.get(f"{self.base_url}/models", timeout=10)
             if response.status_code == 200:
                 models_data = response.json()
                 available_models = [model["id"] for model in models_data.get("data", [])]
@@ -116,7 +116,7 @@ class DockerModelRunnerClient(MinionsClient):
             payload["max_tokens"] = max_tokens
         
         try:
-            resp = requests.post(f"{self.base_url}/engines/llama.cpp/v1/chat/completions", json=payload, timeout=30)
+            resp = requests.post(f"{self.base_url}/chat/completions", json=payload, timeout=30)
             if resp.ok:
                 return resp.json()
             else:
@@ -163,7 +163,7 @@ class DockerModelRunnerClient(MinionsClient):
         try:
             timeout = aiohttp.ClientTimeout(total=30)
             async with aiohttp.ClientSession(timeout=timeout) as session:
-                async with session.post(f"{self.base_url}/engines/llama.cpp/v1/chat/completions", json=payload) as resp:
+                async with session.post(f"{self.base_url}/chat/completions", json=payload) as resp:
                     if resp.status == 200:
                         return await resp.json()
                     else:

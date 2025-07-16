@@ -37,7 +37,7 @@ Set these environment variables or pass them via the `/start_protocol` endpoint:
 - `OPENAI_API_KEY` - Your OpenAI API key (required)
 - `REMOTE_MODEL_NAME` - OpenAI model name (default: "gpt-4o-mini")
 - `LOCAL_MODEL_NAME` - Local model name (default: "ai/smollm2")
-- `LOCAL_BASE_URL` - Local model base URL (default: "http://model-runner.docker.internal")
+- `LOCAL_BASE_URL` - Local model base URL (default: "http://model-runner.docker.internal/engines/llama.cpp/v1")
 - `REMOTE_BASE_URL` - Remote model base URL (default: "http://model-runner.docker.internal/engines/openai/v1")
 - `MAX_ROUNDS` - Maximum conversation rounds (default: 3)
 - `TIMEOUT` - Request timeout in seconds (default: 60)
@@ -57,7 +57,7 @@ curl -X POST http://localhost:5000/start_protocol \
     "openai_api_key": "YOUR-API-KEY",
     "remote_model_name": "gpt-4o-mini",
     "local_model_name": "ai/smollm2",
-    "local_base_url": "http://model-runner.docker.internal",
+    "local_base_url": "http://model-runner.docker.internal/engines/llama.cpp/v1",
     "remote_base_url": "http://model-runner.docker.internal/engines/openai/v1"
   }'
 ```

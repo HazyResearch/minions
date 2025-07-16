@@ -39,7 +39,7 @@ EXPOSE 5000
 # Environment variables with defaults
 ENV REMOTE_MODEL_NAME="gpt-4o-mini"
 ENV LOCAL_MODEL_NAME="ai/smollm2"
-ENV LOCAL_BASE_URL="http://model-runner.docker.internal"
+ENV LOCAL_BASE_URL="http://model-runner.docker.internal/engines/llama.cpp/v1"
 ENV REMOTE_BASE_URL="http://model-runner.docker.internal/engines/openai/v1"
 ENV MAX_ROUNDS="3"
 ENV LOG_DIR="minion_logs"

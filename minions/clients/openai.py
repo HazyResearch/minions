@@ -183,6 +183,6 @@ class OpenAIClient(MinionsClient):
         If we are using a local client, we want to be able
         to check if the local server is running or not
         """
-        resp = requests.get(f"{self.base_url}/health")
+        resp = requests.get(f"{self.base_url}/health") if "api" in self.base_url else requests.get(f"{self.base_url}/models")
         resp.raise_for_status()
         return resp.json()

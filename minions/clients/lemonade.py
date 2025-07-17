@@ -44,15 +44,14 @@ class LemonadeClient(OpenAIClient):
             local=local,
             **kwargs,
         )
-    
         self.session = requests.Session()
         self.base_url = base_url
         self.logger.setLevel(logging.INFO)
         self.structured_output_schema = structured_output_schema
         self.use_async = use_async
-
+        self.is_gguf = "GGUF" in self.model_name.upper()
         # Lemonade only supports GGUF models for structured output schemas for now
-        if self.structured_output_schema and not "GGUF" in self.model_name.upper():
+        if self.structured_output_schema and not self.is_gguf:
             raise TypeError(f"The model used for Minions and Minions-MCP must be GGUF. A GGUF model was not used.")
         # Validate Lemonade server connection and model
         self._ensure_model_available()
@@ -87,8 +86,11 @@ class LemonadeClient(OpenAIClient):
                 }
             except Exception as e:
                 raise RuntimeError(f"Failed to generate schema for structured_output_schema: {e}")
+            
+        final_url = f"{self.base_url.rstrip('/api/v1')}/api/v1/chat/completions" if "api" in self.base_url else f"{self.base_url.rstrip('/api/v1')}/v1/chat/completions"
+        
         response = self.session.post(
-            f"{self.base_url.rstrip('/api/v1')}/api/v1/chat/completions",
+            final_url,
             json=payload,
             headers={"Content-Type": "application/json"}
         )
@@ -148,8 +150,11 @@ class LemonadeClient(OpenAIClient):
                 except Exception as e:
                     raise RuntimeError(f"Failed to generate schema for structured_output_schema: {e}")
             async with aiohttp.ClientSession() as session:
+
+                final_url = f"{self.base_url.rstrip('/api/v1')}/api/v1/chat/completions" if "api" in self.base_url else f"{self.base_url.rstrip('/api/v1')}/v1/chat/completions"
+
                 async with session.post(
-                    f"{self.base_url.rstrip('/api/v1')}/api/v1/chat/completions",
+                    final_url,
                     json=payload,
                     headers={"Content-Type": "application/json"}
                 ) as response:

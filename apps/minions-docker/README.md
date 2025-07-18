@@ -46,12 +46,12 @@ Set these environment variables or pass them via the `/start_protocol` endpoint:
 
 #### Check Health
 ```bash
-curl http://localhost:5000/health
+curl http://127.0.0.1:5000/health
 ```
 
 #### Initialize Protocol
 ```bash
-curl -X POST http://localhost:5000/start_protocol \
+curl -X POST http://127.0.0.1:5000/start_protocol \
   -H "Content-Type: application/json" \
   -d '{
     "openai_api_key": "YOUR-API-KEY",
@@ -64,7 +64,7 @@ curl -X POST http://localhost:5000/start_protocol \
 
 #### Run Query
 ```bash
-curl -X POST http://localhost:5000/run \
+curl -X POST http://127.0.0.1:5000/run \
   -H "Content-Type: application/json" \
   -d '{
     "query": "What is the main topic of this text?",
@@ -75,10 +75,10 @@ curl -X POST http://localhost:5000/run \
 #### Get/Update Configuration
 ```bash
 # Get current configuration
-curl http://localhost:5000/config
+curl http://127.0.0.1:5000/config
 
 # Update configuration
-curl -X POST http://localhost:5000/config \
+curl -X POST http://127.0.0.1:5000/config \
   -H "Content-Type: application/json" \
   -d '{
     "max_rounds": 5,

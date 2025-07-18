@@ -66,7 +66,11 @@ class MinionsClient(ABC):
         self, 
         messages: List[Dict[str, Any]], 
         **kwargs
-    ) -> Tuple[List[str], Usage, ...]:
+    ) -> Union[
+            Tuple[List[str], Usage],
+            Tuple[List[str], Usage, List[str]],
+            Tuple[List[str], Usage, List[str], List[Any]]
+        ]:
         """
         Primary chat interface that all clients must implement.
         

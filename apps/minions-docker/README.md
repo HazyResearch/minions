@@ -112,7 +112,7 @@ docker rmi minion-http-server
 ## Notes
 
 - The container must be built from the repository root directory to access the `minions` package
-- The working directory inside the container is `/app/apps/minions-docker`
+- The working directory inside the container is `/app`
 - Logs are stored in the `minion_logs` directory inside the container
 - The server runs on port 5000 by default
 

@@ -9,6 +9,8 @@ from minions.usage import Usage
 from minions.utils.workspace import WorkspaceManager
 from minions.clients import OpenAIClient, TogetherClient, GeminiClient
 
+from pydantic import BaseModel
+
 from minions.prompts.minion_code import (
     RUNBOOK_GENERATION_PROMPT,
     SUBTASK_EXECUTION_PROMPT,
@@ -17,6 +19,10 @@ from minions.prompts.minion_code import (
     FINAL_INTEGRATION_PROMPT,
 )
 
+class StructuredLocalOutput(BaseModel):
+    explanation: str
+    citation: str | None
+    answer: str | None
 
 def _extract_json(text: str) -> Dict[str, Any]:
     """Extract JSON from text that may be wrapped in markdown code blocks."""
@@ -479,8 +485,8 @@ class DevMinion:
 
 
         messages = [{"role": "user", "content": prompt}]
-        
-        response, usage  = self.local_client.chat(messages=messages, response_format={"type": "json_object"})
+
+        response, usage, _  = self.local_client.chat(messages=messages, format=StructuredLocalOutput.model_json_schema(), )
         
         # Parse the JSON response
         try:

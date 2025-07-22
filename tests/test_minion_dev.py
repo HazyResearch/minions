@@ -1,9 +1,18 @@
-from minions.clients.ollama import OllamaClient
+from minions.clients.lemonade import LemonadeClient
 from minions.clients.openai import OpenAIClient
 from minions.minion_code import DevMinion   # DevMinion lives here
 
+from typing import Dict, List
+from pydantic import BaseModel
+
+class StructuredLocalOutput(BaseModel):
+    files: Dict[str, str]  # filename
+    documentation: str
+    setup_instructions: List[str]
+    completion_notes: str
+
 # 1️⃣  pick your models
-local_client  = OllamaClient(model_name="llama3.2")
+local_client  = LemonadeClient(model_name="Qwen3-8B-GGUF", structured_output_schema=StructuredLocalOutput)
 remote_client = OpenAIClient(model_name="gpt-4o")
 
 # 2️⃣  create a workspace (it’s auto‑made if missing)
@@ -16,11 +25,9 @@ dev = DevMinion(
 
 # 3️⃣  launch a job
 result = dev(
-    task="Build a tiny Flask API that echoes JSON",
+    task="Build a function that finds the next prime number after a passed in value.",
     requirements="""
-        * Use Flask 3.x
-        * Expose POST /echo
-        * Include Dockerfile & unit tests
+        * Use Python
     """
 )
 

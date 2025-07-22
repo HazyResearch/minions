@@ -2298,6 +2298,7 @@ with st.sidebar:
             default_model_index = 0
         elif selected_provider == "OpenRouter":
             model_mapping = {
+                "Qwen3 235B A22B 2507": "qwen/qwen3-235b-a22b-07-25:free",
                 "Claude 3.5 Sonnet (Recommended)": "anthropic/claude-3.5-sonnet",
                 "claude 3.7 Sonnet Latest": "anthropic/claude-3-7-sonnet-latest",
                 "Claude 3 Opus": "anthropic/claude-3-opus",

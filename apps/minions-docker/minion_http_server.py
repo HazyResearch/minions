@@ -286,6 +286,39 @@ def update_config():
             "message": str(e)
         }), 500
 
+@app.route('/models', methods=['GET'])
+def list_models():
+    """
+    List available models from the remote OpenAI client.
+    
+    Returns:
+        JSON response containing the list of available models
+    """
+    global minion_instance
+    
+    try:
+        # Check if minion is initialized
+        if minion_instance is None:
+            return jsonify({
+                "error": "Minion protocol not initialized",
+                "message": "Call /start_protocol first to initialize the minion"
+            }), 400
+        
+        # Get models from the remote client
+        models_data = minion_instance.remote_client.list_models()
+        
+        logger.info(f"Retrieved {len(models_data.get('data', []))} models from remote client")
+        
+        return jsonify(models_data)
+        
+    except Exception as e:
+        logger.error(f"Error listing models: {str(e)}")
+        logger.error(traceback.format_exc())
+        return jsonify({
+            "error": "Failed to list models",
+            "message": str(e)
+        }), 500
+
 @app.errorhandler(404)
 def not_found(error):
     return jsonify({
@@ -295,7 +328,8 @@ def not_found(error):
             "POST /start_protocol",
             "POST /run",
             "GET /config",
-            "POST /config"
+            "POST /config",
+            "GET /models"
         ]
     }), 404
 

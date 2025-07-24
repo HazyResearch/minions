@@ -172,6 +172,7 @@ PROVIDER_TO_ENV_VAR_KEY = {
     "HuggingFace": "HF_TOKEN",
     "LlamaAPI": "LLAMA_API_KEY",
     "Sarvam": "SARVAM_API_KEY",
+    "Qwen": "DASHSCOPE_API_KEY",
 }
 
 
@@ -885,6 +886,14 @@ def initialize_clients(
             max_tokens=int(remote_max_tokens),
             api_key=api_key,
         )
+    elif provider == "Qwen":
+        from minions.clients.qwen import QwenClient
+        st.session_state.remote_client = QwenClient(
+            model_name=remote_model_name,
+            temperature=remote_temperature,
+            max_tokens=int(remote_max_tokens),
+            api_key=api_key,
+        )
     elif provider == "Secure":
         # Get secure endpoint URL from session state or environment
         secure_endpoint_url = st.session_state.get("secure_endpoint_url") or os.getenv(
@@ -1448,6 +1457,22 @@ def validate_sarvam_key(api_key):
         return False, str(e)
 
 
+def validate_qwen_key(api_key):
+    try:
+        from minions.clients.qwen import QwenClient
+        client = QwenClient(
+            model_name="qwen-plus",
+            api_key=api_key,
+            temperature=0.0,
+            max_tokens=1,
+        )
+        messages = [{"role": "user", "content": "Say yes"}]
+        client.chat(messages)
+        return True, ""
+    except Exception as e:
+        return False, str(e)
+
+
 def validate_secure_endpoint(endpoint_url):
     """Validate secure endpoint by checking if it uses HTTPS and is reachable."""
     try:
@@ -1509,6 +1534,7 @@ with st.sidebar:
             "Gemini",
             "LlamaAPI",
             "Sarvam",
+            "Qwen",
             "Secure",
         ]
         selected_provider = st.selectbox(
@@ -1575,6 +1601,8 @@ with st.sidebar:
             is_valid, msg = validate_llama_api_key(api_key)
         elif selected_provider == "Sarvam":
             is_valid, msg = validate_sarvam_key(api_key)
+        elif selected_provider == "Qwen":
+            is_valid, msg = validate_qwen_key(api_key)
         elif selected_provider == "Secure":
             # For secure client, validate the endpoint instead of API key
             secure_endpoint_url = st.session_state.get(
@@ -2373,6 +2401,15 @@ with st.sidebar:
                 "sarvam-m (Recommended)": "sarvam-m",
                 "sarvam-1b": "sarvam-1b",
                 "sarvam-3b": "sarvam-3b",
+            }
+            default_model_index = 0
+        elif selected_provider == "Qwen":
+            model_mapping = {
+                "qwen-plus (Recommended)": "qwen-plus",
+                "qwen3-coder-plus": "qwen3-coder-plus",
+                "qwen-max": "qwen-max",
+                "qwen3-235b-a22b-instruct-2507": "qwen3-235b-a22b-instruct-2507",
+                
             }
             default_model_index = 0
         elif selected_provider == "Secure":

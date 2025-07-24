@@ -6,6 +6,7 @@ Flask HTTP server for the Minion protocol using DockerModelRunner and OpenAI cli
 import os
 import logging
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 from typing import Dict, Any, Optional, List
 import json
 import traceback
@@ -22,6 +23,16 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
+
+# Configure CORS
+CORS(app, origins=[
+    "http://localhost:8080",
+    "http://127.0.0.1:8080", 
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000"
+])
 
 # Global minion instance
 minion_instance: Optional[Minion] = None
@@ -91,67 +102,18 @@ def health_check():
         }
     })
 
-@app.route('/start_protocol', methods=['POST'])
-def start_protocol():
-    """
-    Initialize the minion protocol with the given configuration.
+def initialize_minion_on_startup():
+    """Initialize minion instance on startup if API key is available."""
+    global minion_instance
     
-    Expected JSON body (all optional, will use environment variables/defaults):
-    {
-        "remote_model_name": "gpt-4o-mini",
-        "openai_api_key": "sk-...",
-        "local_model_name": "llama3.2:1b",
-        "local_base_url": "http://model-runner.docker.internal/engines/llama.cpp/v1",
-        "remote_base_url": "http://model-runner.docker.internal/engines/openai/v1",
-        "max_rounds": 3,
-        "log_dir": "minion_logs",
-        "timeout": 60
-    }
-    """
-    global minion_instance, config
-    
-    try:
-        # Parse request body
-        data = request.get_json() or {}
-        
-        # Update configuration with request data
-        for key in config.keys():
-            if key in data:
-                if key in ["max_rounds", "timeout"]:
-                    config[key] = int(data[key])
-                else:
-                    config[key] = data[key]
-        
-        # Validate required parameters
-        if not config["openai_api_key"]:
-            return jsonify({
-                "error": "OpenAI API key is required",
-                "message": "Provide via 'openai_api_key' in request body or OPENAI_API_KEY environment variable"
-            }), 400
-        
-        # Create minion instance
-        minion_instance = create_minion_instance()
-        
-        return jsonify({
-            "message": "Minion protocol initialized successfully",
-            "config": {
-                "remote_model_name": config["remote_model_name"],
-                "local_model_name": config["local_model_name"],
-                "local_base_url": config["local_base_url"],
-                "remote_base_url": config["remote_base_url"],
-                "max_rounds": config["max_rounds"],
-                "log_dir": config["log_dir"],
-                "timeout": config["timeout"]
-            }
-        })
-        
-    except Exception as e:
-        logger.error(f"Error initializing minion protocol: {str(e)}")
-        logger.error(traceback.format_exc())
-        return jsonify({
-            "error": "Failed to initialize minion protocol",
-            "message": str(e)
-        }), 500
+    if config["openai_api_key"] and not minion_instance:
+        try:
+            logger.info("Auto-initializing minion instance on startup...")
+            minion_instance = create_minion_instance()
+            logger.info("Minion instance initialized successfully on startup")
+        except Exception as e:
+            logger.error(f"Failed to auto-initialize minion on startup: {str(e)}")
+            logger.error(traceback.format_exc())
 
 @app.route('/run', methods=['POST'])
 def run_minion():
@@ -174,12 +136,21 @@ def run_minion():
     global minion_instance
     
     try:
-        # Check if minion is initialized
+        # Initialize minion if not already done
         if minion_instance is None:
-            return jsonify({
-                "error": "Minion protocol not initialized",
-                "message": "Call /start_protocol first to initialize the minion"
-            }), 400
+            if not config["openai_api_key"]:
+                return jsonify({
+                    "error": "OpenAI API key not configured",
+                    "message": "Set OPENAI_API_KEY environment variable"
+                }), 400
+            
+            try:
+                minion_instance = create_minion_instance()
+            except Exception as e:
+                return jsonify({
+                    "error": "Failed to initialize minion",
+                    "message": str(e)
+                }), 500
         
         # Parse request body
         data = request.get_json()
@@ -325,7 +296,6 @@ def not_found(error):
         "error": "Endpoint not found",
         "available_endpoints": [
             "GET /health",
-            "POST /start_protocol",
             "POST /run",
             "GET /config",
             "POST /config",
@@ -345,7 +315,7 @@ if __name__ == '__main__':
     
     # Validate required environment variables
     if not config["openai_api_key"]:
-        logger.warning("OPENAI_API_KEY not set. Will need to provide via /start_protocol endpoint.")
+        logger.warning("OPENAI_API_KEY not set. Minion will be initialized on first request.")
     
     logger.info("Configuration:")
     for key, value in config.items():
@@ -357,6 +327,9 @@ if __name__ == '__main__':
     # Create log directory
     os.makedirs(config["log_dir"], exist_ok=True)
     
+    # Try to initialize minion on startup
+    initialize_minion_on_startup()
+    
     # Start Flask app
     port = int(os.getenv("PORT", "5000"))
     host = os.getenv("HOST", "0.0.0.0")
@@ -367,4 +340,4 @@ if __name__ == '__main__':
         host=host,
         port=port,
         debug=os.getenv("DEBUG", "false").lower() == "true"
-    ) 
+    )

@@ -1,19 +1,27 @@
-# Minion HTTP Server Docker App
+# Minions Docker Setup
 
-This Docker app provides an HTTP server interface for the Minion protocol using DockerModelRunner and OpenAI clients.
+This directory contains a complete Docker setup for the Minions protocol, including both the HTTP backend server and a web interface.
 
-## Build and Run
+## 🚀 Quick Start
 
-### Option 1: Using Docker Compose (Recommended)
-
-From the repository root directory:
+### **Complete Setup (Backend + Frontend)**
 
 ```bash
-# Build and run with docker-compose
-docker-compose -f docker-compose.minion.yml up --build
+# From apps/minions-docker/ directory
+OPENAI_API_KEY=sk-your-key docker compose up
 
-# Run in background
-docker-compose -f docker-compose.minion.yml up -d --build
+# Access web interface: http://localhost:8080
+# Access API directly: http://127.0.0.1:5000
+```
+
+### **Backend Only**
+
+```bash
+# Start just the backend service
+docker compose up minion-server
+
+# Or run in background
+docker compose up -d minion-server
 ```
 
 ### Option 2: Manual Docker Build
@@ -133,4 +141,3 @@ docker rmi minion-http-server
 - The working directory inside the container is `/app`
 - Logs are stored in the `minion_logs` directory inside the container
 - The server runs on port 5000 by default
-

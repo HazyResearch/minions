@@ -1,3 +1,8 @@
+models:
+  # declare LLM models to pull and use
+  worker:
+    model: ai/smollm2
+    context_size: 131000 # 7.6 GB VRAM
 services:
   minion-server:
     build:
@@ -9,11 +14,7 @@ services:
       # OpenAI Configuration
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - REMOTE_MODEL_NAME=${REMOTE_MODEL_NAME:-gpt-4o-mini}
-      - REMOTE_BASE_URL=${REMOTE_BASE_URL:-http://model-runner.docker.internal/engines/openai/v1}
-      
-      # Local Model Configuration
-      - LOCAL_MODEL_NAME=${LOCAL_MODEL_NAME:-ai/smollm2}
-      - LOCAL_BASE_URL=${LOCAL_BASE_URL:-http://model-runner.docker.internal/engines/llama.cpp/v1}
+      - REMOTE_BASE_URL=${REMOTE_BASE_URL:-https://api.openai.com/v1}
       
       # Server Configuration
       - MAX_ROUNDS=${MAX_ROUNDS:-3}
@@ -35,6 +36,10 @@ services:
       retries: 3
       start_period: 10s
     restart: unless-stopped
+    models:
+      worker:
+        endpoint_var: LOCAL_BASE_URL
+        model_var: LOCAL_MODEL_NAME
 
 volumes:
   minion-logs:

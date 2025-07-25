@@ -111,12 +111,13 @@ API_PRICES = {
         "deepseek-reasoner": {"input": 0.27, "cached_input": 0.07, "output": 1.10},
     },
     "Gemini": {
-        "gemini-2.5-pro-exp-06-05": {
+        "gemini-2.5-pro": {
             "input": 1.25,
             "cached_input": 0.075,
             "output": 10.0,
         },
         "gemini-2.5-flash": {"input": 0.15, "cached_input": 0.075, "output": 0.60},
+        "gemini-2.5-flash-lite": {"input": 0.075, "cached_input": 0.0375, "output": 0.30},
         "gemini-2.0-flash": {"input": 0.35, "cached_input": 0.175, "output": 1.05},
         "gemini-2.0-pro": {"input": 3.50, "cached_input": 1.75, "output": 10.50},
         "gemini-1.5-pro": {"input": 3.50, "cached_input": 1.75, "output": 10.50},
@@ -2290,15 +2291,38 @@ with st.sidebar:
             }
             default_model_index = 0
         elif selected_provider == "Gemini":
+            # Get available Gemini models dynamically
+            available_gemini_models = GeminiClient.get_available_models()
+            
+            # Default recommended models list
+            recommended_models = ["gemini-2.5-pro", "gemini-2.5-flash", "gemini-2.5-flash-lite"]
+            
+            # Initialize with default model options
             model_mapping = {
-                "gemini-2.0-pro-preview-06-05 (Recommended)": "gemini-2.5-pro-exp-06-05",
-                "gemini-2.5-flash-lite": "gemini-2.5-flash-lite-preview-06-17",
-                "gemini-2.5-flash-preview": "gemini-2.5-flash-preview-05-20",
-                "gemini-2.5-pro-preview": "gemini-2.5-pro-preview-05-06",
+                "gemini-2.5-pro (Recommended)": "gemini-2.5-pro",
+                "gemini-2.5-flash (Recommended)": "gemini-2.5-flash",
+                "gemini-2.5-flash-lite (Most cost-efficient)": "gemini-2.5-flash-lite",
                 "gemini-2.0-flash": "gemini-2.0-flash",
+                "gemini-2.0-pro": "gemini-2.0-pro", 
                 "gemini-1.5-pro": "gemini-1.5-pro",
                 "gemini-1.5-flash": "gemini-1.5-flash",
             }
+            
+            # Add any additional available models from Gemini API that aren't in the default list
+            if available_gemini_models:
+                for model in available_gemini_models:
+                    model_key = model
+                    if model in recommended_models:
+                        # If it's a recommended model but not in defaults, add with (Recommended)
+                        if model not in model_mapping.values():
+                            if "flash-lite" in model:
+                                model_key = f"{model} (Most cost-efficient)"
+                            else:
+                                model_key = f"{model} (Recommended)"
+                    # Add the model if it's not already in the options
+                    if model not in model_mapping.values():
+                        model_mapping[model_key] = model
+            
             default_model_index = 0
         elif selected_provider == "SambaNova":
             model_mapping = {

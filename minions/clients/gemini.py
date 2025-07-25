@@ -115,15 +115,65 @@ class GeminiClient(MinionsClient):
         try:
             from google import genai
 
-            client = genai.Client()
+            # Try to use API key from environment if available
+            api_key = os.getenv("GOOGLE_API_KEY")
+            if not api_key:
+                logging.warning("No GOOGLE_API_KEY found in environment variables")
+                # Return default models if no API key
+                return [
+                    "gemini-2.5-pro",
+                    "gemini-2.5-flash",
+                    "gemini-2.5-flash-lite",
+                    "gemini-2.0-flash",
+                    "gemini-2.0-pro",
+                    "gemini-1.5-pro",
+                    "gemini-1.5-flash",
+                ]
+
+            client = genai.Client(api_key=api_key)
             models = client.list_models()
-            # Extract model names from the list
-            model_names = [model.name for model in models if "gemini" in model.name]
-            return model_names
+            
+            # Extract model names and filter for Gemini models
+            model_names = []
+            for model in models:
+                model_name = model.name
+                # Remove the 'models/' prefix if present
+                if model_name.startswith('models/'):
+                    model_name = model_name[7:]
+                
+                # Only include Gemini models that support text generation
+                if "gemini" in model_name.lower():
+                    # Check if the model supports generateContent
+                    supported_methods = getattr(model, 'supported_generation_methods', [])
+                    if 'generateContent' in supported_methods or not supported_methods:
+                        model_names.append(model_name)
+            
+            # Sort models with newest versions first
+            model_names.sort(reverse=True)
+            
+            # If we got models from API, return them
+            if model_names:
+                return model_names
+            
+            # Fallback to default models if API returned empty
+            return [
+                "gemini-2.5-pro",
+                "gemini-2.5-flash", 
+                "gemini-2.5-flash-lite",
+                "gemini-2.0-flash",
+                "gemini-2.0-pro",
+                "gemini-1.5-pro",
+                "gemini-1.5-flash",
+            ]
+            
         except Exception as e:
             logging.error(f"Failed to get Gemini model list: {e}")
+            # Return default models including the new Flash-Lite
             return [
-                "gemini-2.0-flash",
+                "gemini-2.5-pro",
+                "gemini-2.5-flash",
+                "gemini-2.5-flash-lite",
+                "gemini-2.0-flash", 
                 "gemini-2.0-pro",
                 "gemini-1.5-pro",
                 "gemini-1.5-flash",

@@ -149,7 +149,7 @@ class MLXLMClient(MinionsClient):
             self.load = load
         except ImportError:
             raise ImportError(
-                "mlx_lm is not installed. Please install it using 'pip install mlx-lm'."
+                "mlx_lm is not installed. Please install it using 'pip install mlx_lm'."
             )
 
         # Load the model and tokenizer

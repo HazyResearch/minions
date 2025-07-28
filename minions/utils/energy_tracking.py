@@ -5,6 +5,7 @@ import re
 import os
 
 
+
 class PowerMonitor:
     def __init__(self, mode="auto", interval=1.0):
         """
@@ -496,6 +497,83 @@ def cloud_inference_energy_estimate_w_model_attributes(
         "total_energy_wh": (prefill_energy_joules + decode_energy_joules) / 3600,
         "total_flops": total_flops,
     }
+
+
+def compute_transformer_flops(
+    model_name,
+    batch_size=1,
+    max_seq_length=128,
+    access_token=None,
+    return_detailed=False
+):
+    """
+    Compute FLOPs, MACs, and parameters for transformer models using the calflops package.
+    
+    Args:
+        model_name (str): HuggingFace model name (e.g., "meta-llama/Llama-2-7b")
+        batch_size (int): Batch size for computation (default: 1)
+        max_seq_length (int): Maximum sequence length (default: 128)
+        access_token (str, optional): HuggingFace access token for gated models
+        return_detailed (bool): If True, returns detailed breakdown; if False, returns summary
+        
+    Returns:
+        dict: Dictionary containing FLOPs, MACs, parameters, and optionally detailed breakdown
+        
+    Raises:
+        ImportError: If calflops package is not installed
+        Exception: If model computation fails
+    """
+    try:
+        from calflops import calculate_flops_hf
+        CALFLOPS_AVAILABLE = True
+    except ImportError:
+        CALFLOPS_AVAILABLE = False
+
+
+    if not CALFLOPS_AVAILABLE:
+        raise ImportError(
+            "calflops package is not installed. Install it with: pip install calflops"
+        )
+    
+    try:
+        input_shape = (batch_size, max_seq_length)
+        
+        # Calculate FLOPs using calflops
+        flops, macs, params = calculate_flops_hf(
+            model_name=model_name,
+            access_token=access_token,
+            input_shape=input_shape
+        )
+        
+        result = {
+            "model_name": model_name,
+            "batch_size": batch_size,
+            "max_seq_length": max_seq_length,
+            "input_shape": input_shape,
+            "flops": flops,
+            "macs": macs,
+            "params": params,
+            "flops_per_token": flops / (batch_size * max_seq_length) if max_seq_length > 0 else 0,
+            "macs_per_token": macs / (batch_size * max_seq_length) if max_seq_length > 0 else 0,
+        }
+        
+        if return_detailed:
+            # Add formatted versions for readability
+            result.update({
+                "flops_formatted": f"{flops:,}",
+                "macs_formatted": f"{macs:,}",
+                "params_formatted": f"{params:,}",
+                "flops_per_token_formatted": f"{result['flops_per_token']:,.2f}",
+                "macs_per_token_formatted": f"{result['macs_per_token']:,.2f}",
+            })
+        
+        return result
+        
+    except Exception as e:
+        raise Exception(f"Failed to compute FLOPs for model {model_name}: {str(e)}")
+
+
+
 
 
 class PowerMonitorContext:

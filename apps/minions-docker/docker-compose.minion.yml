@@ -2,7 +2,6 @@ models:
   # declare LLM models to pull and use
   worker:
     model: ai/smollm2
-    context_size: 131000 # 7.6 GB VRAM
 services:
   minion-server:
     build:

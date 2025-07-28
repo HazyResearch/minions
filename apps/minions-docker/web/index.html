@@ -1,0 +1,405 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Minions Docker Web Interface</title>
+    <style>
+      :root {
+        --primary-color: #4a6bfd;
+        --secondary-color: #f5f7ff;
+        --success-color: #28a745;
+        --warning-color: #ffc107;
+        --danger-color: #dc3545;
+        --text-color: #333;
+        --border-radius: 12px;
+        --box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+      }
+
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        margin: 0;
+        padding: 0;
+        background-color: #f9f9fb;
+        color: var(--text-color);
+        line-height: 1.6;
+      }
+
+      .container {
+        max-width: 920px;
+        margin: 0 auto;
+        padding: 2.5rem 2rem;
+      }
+
+      header {
+        margin-bottom: 2.5rem;
+        text-align: center;
+      }
+
+      h1 {
+        color: var(--primary-color);
+        margin: 0;
+        font-size: 2.2rem;
+        font-weight: 600;
+      }
+
+      .subtitle {
+        color: #666;
+        margin-top: 0.5rem;
+        font-size: 1.1rem;
+      }
+
+      .card {
+        background: white;
+        border-radius: var(--border-radius);
+        padding: 1.8rem;
+        margin-bottom: 2rem;
+        box-shadow: var(--box-shadow);
+        border: 1px solid rgba(0, 0, 0, 0.03);
+      }
+
+      .status-card {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        padding: 1rem 1.5rem;
+        margin-bottom: 1rem;
+        border-radius: var(--border-radius);
+        font-weight: 500;
+      }
+
+      .status-healthy {
+        background-color: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+      }
+
+      .status-error {
+        background-color: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+      }
+
+      .status-warning {
+        background-color: #fff3cd;
+        color: #856404;
+        border: 1px solid #ffeaa7;
+      }
+
+      label {
+        display: block;
+        font-weight: 600;
+        margin-bottom: 0.75rem;
+        color: var(--primary-color);
+        font-size: 1.25rem;
+      }
+
+      textarea {
+        width: 100%;
+        height: 120px;
+        padding: 1rem;
+        border: 1px solid #e0e0e0;
+        border-radius: var(--border-radius);
+        font-family: inherit;
+        resize: vertical;
+        margin-bottom: 0.5rem;
+        box-sizing: border-box;
+        font-size: 1rem;
+        line-height: 1.5;
+        transition: border-color 0.2s;
+      }
+
+      textarea:focus {
+        outline: none;
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 2px rgba(74, 107, 253, 0.2);
+      }
+
+      input[type="text"],
+      input[type="password"],
+      input[type="url"] {
+        width: 100%;
+        padding: 1rem;
+        border: 1px solid #e0e0e0;
+        border-radius: var(--border-radius);
+        font-family: inherit;
+        margin-bottom: 0.5rem;
+        box-sizing: border-box;
+        font-size: 1rem;
+        line-height: 1.5;
+        transition: border-color 0.2s;
+      }
+
+      input[type="text"]:focus,
+      input[type="password"]:focus,
+      input[type="url"]:focus {
+        outline: none;
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 2px rgba(74, 107, 253, 0.2);
+      }
+
+      select {
+        width: 100%;
+        padding: 1rem;
+        border: 1px solid #e0e0e0;
+        border-radius: var(--border-radius);
+        font-family: inherit;
+        margin-bottom: 0.5rem;
+        box-sizing: border-box;
+        font-size: 1rem;
+        line-height: 1.5;
+        transition: border-color 0.2s;
+        background-color: white;
+        cursor: pointer;
+      }
+
+      select:focus {
+        outline: none;
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 2px rgba(74, 107, 253, 0.2);
+      }
+
+      button {
+        background-color: var(--primary-color);
+        color: white;
+        border: none;
+        padding: 0.9rem 2rem;
+        border-radius: var(--border-radius);
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+        font-size: 1.1rem;
+        margin-bottom: 1rem;
+        margin-right: 1rem;
+      }
+
+      button:hover:not(:disabled) {
+        background-color: #3655d8;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(74, 107, 253, 0.25);
+      }
+
+      button:active {
+        transform: translateY(0);
+      }
+
+      button:disabled {
+        background-color: #ccc;
+        cursor: not-allowed;
+        transform: none;
+      }
+
+      .button-secondary {
+        background-color: #6c757d;
+      }
+
+      .button-secondary:hover:not(:disabled) {
+        background-color: #545b62;
+      }
+
+      .button-success {
+        background-color: var(--success-color);
+      }
+
+      .button-success:hover:not(:disabled) {
+        background-color: #218838;
+      }
+
+      .log-container {
+        background: white;
+        border-radius: var(--border-radius);
+        box-shadow: var(--box-shadow);
+        padding: 1.8rem;
+        border: 1px solid rgba(0, 0, 0, 0.03);
+      }
+
+      h2 {
+        color: #333;
+        margin-top: 0;
+        margin-bottom: 1.2rem;
+        font-weight: 600;
+        font-size: 1.5rem;
+      }
+
+      pre {
+        background: var(--secondary-color);
+        padding: 1.5rem;
+        border-radius: 8px;
+        overflow: auto;
+        white-space: pre-wrap;
+        font-family: monospace;
+        box-shadow: inset 0 0 6px rgba(0, 0, 0, 0.05);
+        min-height: 100px;
+        font-size: 0.95rem;
+        line-height: 1.5;
+        max-height: 400px;
+      }
+
+      .config-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+      }
+
+      .config-item {
+        display: flex;
+        flex-direction: column;
+      }
+
+      .config-item label {
+        font-size: 1rem;
+        margin-bottom: 0.5rem;
+      }
+
+      .spinner {
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        border: 3px solid rgba(255,255,255,.3);
+        border-radius: 50%;
+        border-top-color: #fff;
+        animation: spin 1s ease-in-out infinite;
+        margin-right: 0.5rem;
+      }
+
+      @keyframes spin {
+        to { transform: rotate(360deg); }
+      }
+
+      .hidden {
+        display: none;
+      }
+
+      .metrics {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin: 1rem 0;
+      }
+
+      .metric-item {
+        background: var(--secondary-color);
+        padding: 1rem;
+        border-radius: 8px;
+        text-align: center;
+        overflow: scroll;
+      }
+
+      .metric-value {
+        font-size: 1.5rem;
+        font-weight: bold;
+        color: var(--primary-color);
+      }
+
+      .metric-label {
+        font-size: 0.9rem;
+        color: #666;
+        margin-top: 0.5rem;
+      }
+
+      @media (max-width: 768px) {
+        .container {
+          padding: 1.5rem 1rem;
+        }
+
+        h1 {
+          font-size: 1.8rem;
+        }
+
+        .card,
+        .log-container {
+          padding: 1.2rem;
+        }
+
+        .config-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .metrics {
+          grid-template-columns: 1fr 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <header>
+        <h1>Minions Docker Web Interface</h1>
+        <p class="subtitle">Connect to your optimized Minions HTTP backend</p>
+      </header>
+
+      <!-- Backend Status -->
+      <div id="status-card" class="status-card status-warning">
+        <span>🔄</span>
+        <span>Checking backend status...</span>
+      </div>
+
+      <!-- Execution Configuration -->
+      <div class="card">
+        <label>Execution Configuration:</label>
+        <div class="config-grid">
+          <div class="config-item">
+            <label for="max_rounds">Max Rounds:</label>
+            <select id="max_rounds">
+              <option value="3">3 (Default)</option>
+              <option value="5">5</option>
+              <option value="7">7</option>
+              <option value="10">10</option>
+            </select>
+          </div>
+          <div class="config-item">
+            <label for="timeout">Timeout (seconds):</label>
+            <select id="timeout">
+              <option value="60">60 (Default)</option>
+              <option value="120">120</option>
+              <option value="180">180</option>
+              <option value="300">300</option>
+            </select>
+          </div>
+        </div>
+        <small style="display: block; margin-top: 1rem; color: #777">
+          Backend URL: <span id="backend-url-display">Auto-detected</span>
+        </small>
+        <button id="check_status" class="button-secondary">Check Backend Status</button>
+      </div>
+
+      <!-- Task Input -->
+      <div class="card">
+        <label for="task">Task:</label>
+        <textarea id="task" placeholder="Enter your task or question here...">
+Summarize the key points from the provided context</textarea>
+      </div>
+
+      <!-- Context Input -->
+      <div class="card">
+        <label for="context">Context:</label>
+        <textarea id="context" placeholder="Enter the context or documents for the task...">
+Artificial Intelligence (AI) is transforming industries worldwide. Machine learning algorithms can now process vast amounts of data to identify patterns and make predictions. Deep learning, a subset of machine learning, uses neural networks to solve complex problems. AI applications include natural language processing, computer vision, and autonomous systems.</textarea>
+      </div>
+
+      <!-- Control Buttons -->
+      <div class="card">
+        <button id="start" disabled>Start Minion Protocol</button>
+        <button id="clear_log" class="button-secondary">Clear Log</button>
+      </div>
+
+      <!-- Results Display -->
+      <div class="log-container">
+        <h2>Execution Log</h2>
+        <pre id="log">Ready to connect to your minions-docker backend...</pre>
+      </div>
+
+      <!-- Metrics Display -->
+      <div id="metrics-container" class="hidden">
+        <div class="card">
+          <h2>Execution Metrics</h2>
+          <div class="metrics" id="metrics">
+            <!-- Metrics will be populated here -->
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <script type="module" src="main.js"></script>
+  </body>
+</html>

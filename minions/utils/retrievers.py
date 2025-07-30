@@ -1,4 +1,3 @@
-import torch
 from typing import List, Dict, Union
 from rank_bm25 import BM25Plus
 from abc import ABC, abstractmethod
@@ -55,6 +54,11 @@ class SentenceTransformerEmbeddings(BaseEmbeddingModel):
     def __new__(cls, model_name=None):
         model_name = model_name or cls._default_model_name
         print(f"Using SentenceTransformer model: {model_name}")
+
+        try:
+            import torch 
+        except ImportError:
+            print("torch not installed")
         
         # Check if we already have an instance for this model
         if model_name not in cls._instances:
@@ -233,6 +237,8 @@ def embedding_retrieve_top_k_chunks(
         raise ImportError(
             "FAISS is not installed. Please install it with: pip install faiss-cpu"
         )
+
+        
 
     # Check if SentenceTransformer is available  
     if SentenceTransformer is None:

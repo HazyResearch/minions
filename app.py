@@ -2,6 +2,7 @@
 # This allows Minions-MCP to work on Windows machines
 import asyncio
 import sys
+
 if sys.platform == "win32":
     asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
@@ -111,12 +112,17 @@ API_PRICES = {
         "deepseek-reasoner": {"input": 0.27, "cached_input": 0.07, "output": 1.10},
     },
     "Gemini": {
-        "gemini-2.5-pro-exp-06-05": {
+        "gemini-2.5-pro": {
             "input": 1.25,
             "cached_input": 0.075,
             "output": 10.0,
         },
         "gemini-2.5-flash": {"input": 0.15, "cached_input": 0.075, "output": 0.60},
+        "gemini-2.5-flash-lite": {
+            "input": 0.075,
+            "cached_input": 0.0375,
+            "output": 0.30,
+        },
         "gemini-2.0-flash": {"input": 0.35, "cached_input": 0.175, "output": 1.05},
         "gemini-2.0-pro": {"input": 3.50, "cached_input": 1.75, "output": 10.50},
         "gemini-1.5-pro": {"input": 3.50, "cached_input": 1.75, "output": 10.50},
@@ -147,11 +153,31 @@ API_PRICES = {
     "OpenRouter": {
         "openai/gpt-4o": {"input": 2.50, "cached_input": 1.25, "output": 10.00},
         "openai/gpt-4o-mini": {"input": 0.15, "cached_input": 0.075, "output": 0.60},
-        "anthropic/claude-3-5-sonnet": {"input": 3.00, "cached_input": 1.50, "output": 15.00},
-        "anthropic/claude-3-5-haiku": {"input": 0.25, "cached_input": 0.125, "output": 1.25},
-        "meta-llama/llama-3.1-405b-instruct": {"input": 3.50, "cached_input": 1.75, "output": 3.50},
-        "google/gemini-2.0-flash": {"input": 0.35, "cached_input": 0.175, "output": 1.05},
-        "mistralai/mistral-large": {"input": 2.00, "cached_input": 1.00, "output": 6.00},
+        "anthropic/claude-3-5-sonnet": {
+            "input": 3.00,
+            "cached_input": 1.50,
+            "output": 15.00,
+        },
+        "anthropic/claude-3-5-haiku": {
+            "input": 0.25,
+            "cached_input": 0.125,
+            "output": 1.25,
+        },
+        "meta-llama/llama-3.1-405b-instruct": {
+            "input": 3.50,
+            "cached_input": 1.75,
+            "output": 3.50,
+        },
+        "google/gemini-2.0-flash": {
+            "input": 0.35,
+            "cached_input": 0.175,
+            "output": 1.05,
+        },
+        "mistralai/mistral-large": {
+            "input": 2.00,
+            "cached_input": 1.00,
+            "output": 6.00,
+        },
     },
 }
 
@@ -172,6 +198,7 @@ PROVIDER_TO_ENV_VAR_KEY = {
     "HuggingFace": "HF_TOKEN",
     "LlamaAPI": "LLAMA_API_KEY",
     "Sarvam": "SARVAM_API_KEY",
+    "Qwen": "DASHSCOPE_API_KEY",
 }
 
 
@@ -711,7 +738,9 @@ def initialize_clients(
                 verbose=modular_verbose,
             )
         elif local_provider == "Lemonade":
-            structured_output_schema = DeepResearchJobOutput if protocol == "DeepResearch" else None
+            structured_output_schema = (
+                DeepResearchJobOutput if protocol == "DeepResearch" else None
+            )
             st.session_state.local_client = LemonadeClient(
                 model_name=local_model_name,
                 temperature=local_temperature,
@@ -843,6 +872,7 @@ def initialize_clients(
         )
     elif provider == "Grok":
         from minions.clients.grok import GrokClient
+
         st.session_state.remote_client = GrokClient(
             model_name=remote_model_name,
             temperature=remote_temperature,
@@ -880,6 +910,15 @@ def initialize_clients(
         )
     elif provider == "Sarvam":
         st.session_state.remote_client = SarvamClient(
+            model_name=remote_model_name,
+            temperature=remote_temperature,
+            max_tokens=int(remote_max_tokens),
+            api_key=api_key,
+        )
+    elif provider == "Qwen":
+        from minions.clients.qwen import QwenClient
+
+        st.session_state.remote_client = QwenClient(
             model_name=remote_model_name,
             temperature=remote_temperature,
             max_tokens=int(remote_max_tokens),
@@ -1365,6 +1404,7 @@ def validate_groq_key(api_key):
 def validate_grok_key(api_key):
     try:
         from minions.clients.grok import GrokClient
+
         client = GrokClient(
             model_name="grok-3-beta",  # Use a common model for testing
             api_key=api_key,
@@ -1448,6 +1488,23 @@ def validate_sarvam_key(api_key):
         return False, str(e)
 
 
+def validate_qwen_key(api_key):
+    try:
+        from minions.clients.qwen import QwenClient
+
+        client = QwenClient(
+            model_name="qwen-plus",
+            api_key=api_key,
+            temperature=0.0,
+            max_tokens=1,
+        )
+        messages = [{"role": "user", "content": "Say yes"}]
+        client.chat(messages)
+        return True, ""
+    except Exception as e:
+        return False, str(e)
+
+
 def validate_secure_endpoint(endpoint_url):
     """Validate secure endpoint by checking if it uses HTTPS and is reachable."""
     try:
@@ -1509,6 +1566,7 @@ with st.sidebar:
             "Gemini",
             "LlamaAPI",
             "Sarvam",
+            "Qwen",
             "Secure",
         ]
         selected_provider = st.selectbox(
@@ -1518,7 +1576,9 @@ with st.sidebar:
         )  # Set OpenAI as default (index 0)
 
     # API key handling for remote provider
-    env_var_name = PROVIDER_TO_ENV_VAR_KEY.get(selected_provider, f"{selected_provider.upper()}_API_KEY")
+    env_var_name = PROVIDER_TO_ENV_VAR_KEY.get(
+        selected_provider, f"{selected_provider.upper()}_API_KEY"
+    )
     env_key = os.getenv(env_var_name)
     with key_col:
         # For secure client, we don't need an API key
@@ -1575,6 +1635,8 @@ with st.sidebar:
             is_valid, msg = validate_llama_api_key(api_key)
         elif selected_provider == "Sarvam":
             is_valid, msg = validate_sarvam_key(api_key)
+        elif selected_provider == "Qwen":
+            is_valid, msg = validate_qwen_key(api_key)
         elif selected_provider == "Secure":
             # For secure client, validate the endpoint instead of API key
             secure_endpoint_url = st.session_state.get(
@@ -1925,12 +1987,7 @@ with st.sidebar:
         # TODO: Once the protocol support is added to the
         # Lemonade client, remove this check
         if local_provider == "Lemonade":
-            protocol_options = [
-                "Minion",
-                "Minions",
-                "Minions-MCP",
-                "DeepResearch"
-            ]
+            protocol_options = ["Minion", "Minions", "Minions-MCP", "DeepResearch"]
         else:
             protocol_options = [
                 "Minion",
@@ -2076,6 +2133,9 @@ with st.sidebar:
         if local_provider == "MLX":
             local_model_options = {
                 "SmolLM3-3B-8bit (Recommended)": "mlx-community/SmolLM3-3B-8bit",
+                "Qwen3-0.6B-MLX-4bit": "Qwen/Qwen3-0.6B-MLX-4bit",
+                "Qwen3-1.7B-MLX-bf16": "Qwen/Qwen3-1.7B-MLX-bf16",
+                "Qwen3-14B-MLX-8bit": "Qwen/Qwen3-14B-MLX-8bit",
                 "Llama-3.2-3B-Instruct-4bit (Recommended)": "mlx-community/Llama-3.2-3B-Instruct-4bit",
                 "gemma-3-4b-it-qat-bf16": "mlx-community/gemma-3-4b-it-qat-bf16",
                 "gemma-3-1b-it-qat-bf16": "mlx-community/gemma-3-1b-it-qat-bf16",
@@ -2093,6 +2153,7 @@ with st.sidebar:
         elif local_provider == "Transformers":
             local_model_options = {
                 "MedGemma 4B (Recommended)": "google/medgemma-4b-it",
+                "SmallThinker-4BA0.6B-Instruct": "PowerInfer/SmallThinker-4BA0.6B-Instruct",
                 "MiniCPM4-8B": "openbmb/MiniCPM4-8B",
                 "MiniCPM4-0.5B": "openbmb/MiniCPM4-0.5B",
                 "Mistral 7B Instruct v0.2 (Recommended)": "mistralai/Mistral-7B-Instruct-v0.2",
@@ -2121,7 +2182,7 @@ with st.sidebar:
                     "Qwen3-0.6B-GGUF": "Qwen3-0.6B-GGUF",
                     "DeepSeek-Qwen3-8B-GGUF": "DeepSeek-Qwen3-8B-GGUF",
                     "Gemma-3-4b-it-GGUF": "Gemma-3-4b-it-GGUF",
-                    "Qwen2.5-VL-7B-Instruct-GGUF": "Qwen2.5-VL-7B-Instruct-GGUF"
+                    "Qwen2.5-VL-7B-Instruct-GGUF": "Qwen2.5-VL-7B-Instruct-GGUF",
                 }
             else:
                 local_model_options = {
@@ -2141,7 +2202,10 @@ with st.sidebar:
                     # Check if the model must be GGUF to be added to the list
                     if protocol in ("Minions", "Minions-MCP", "DeepResearch"):
                         # Add the GGUF model if it's not already in the options
-                        if model not in local_model_options.values() and "GGUF" in model.upper():
+                        if (
+                            model not in local_model_options.values()
+                            and "GGUF" in model.upper()
+                        ):
                             local_model_options[model_key] = model
                     else:
                         # Add the model if it's not already in the options
@@ -2262,15 +2326,42 @@ with st.sidebar:
             }
             default_model_index = 0
         elif selected_provider == "Gemini":
+            # Get available Gemini models dynamically
+            available_gemini_models = GeminiClient.get_available_models()
+
+            # Default recommended models list
+            recommended_models = [
+                "gemini-2.5-pro",
+                "gemini-2.5-flash",
+                "gemini-2.5-flash-lite",
+            ]
+
+            # Initialize with default model options
             model_mapping = {
-                "gemini-2.0-pro-preview-06-05 (Recommended)": "gemini-2.5-pro-exp-06-05",
-                "gemini-2.5-flash-lite": "gemini-2.5-flash-lite-preview-06-17",
-                "gemini-2.5-flash-preview": "gemini-2.5-flash-preview-05-20",
-                "gemini-2.5-pro-preview": "gemini-2.5-pro-preview-05-06",
+                "gemini-2.5-pro (Recommended)": "gemini-2.5-pro",
+                "gemini-2.5-flash (Recommended)": "gemini-2.5-flash",
+                "gemini-2.5-flash-lite (Most cost-efficient)": "gemini-2.5-flash-lite",
                 "gemini-2.0-flash": "gemini-2.0-flash",
+                "gemini-2.0-pro": "gemini-2.0-pro",
                 "gemini-1.5-pro": "gemini-1.5-pro",
                 "gemini-1.5-flash": "gemini-1.5-flash",
             }
+
+            # Add any additional available models from Gemini API that aren't in the default list
+            if available_gemini_models:
+                for model in available_gemini_models:
+                    model_key = model
+                    if model in recommended_models:
+                        # If it's a recommended model but not in defaults, add with (Recommended)
+                        if model not in model_mapping.values():
+                            if "flash-lite" in model:
+                                model_key = f"{model} (Most cost-efficient)"
+                            else:
+                                model_key = f"{model} (Recommended)"
+                    # Add the model if it's not already in the options
+                    if model not in model_mapping.values():
+                        model_mapping[model_key] = model
+
             default_model_index = 0
         elif selected_provider == "SambaNova":
             model_mapping = {
@@ -2298,6 +2389,7 @@ with st.sidebar:
             default_model_index = 0
         elif selected_provider == "OpenRouter":
             model_mapping = {
+                "Qwen3 235B A22B 2507": "qwen/qwen3-235b-a22b-07-25:free",
                 "Claude 3.5 Sonnet (Recommended)": "anthropic/claude-3.5-sonnet",
                 "claude 3.7 Sonnet Latest": "anthropic/claude-3-7-sonnet-latest",
                 "Claude 3 Opus": "anthropic/claude-3-opus",
@@ -2372,6 +2464,14 @@ with st.sidebar:
                 "sarvam-m (Recommended)": "sarvam-m",
                 "sarvam-1b": "sarvam-1b",
                 "sarvam-3b": "sarvam-3b",
+            }
+            default_model_index = 0
+        elif selected_provider == "Qwen":
+            model_mapping = {
+                "qwen-plus (Recommended)": "qwen-plus",
+                "qwen3-coder-plus": "qwen3-coder-plus",
+                "qwen-max": "qwen-max",
+                "qwen3-235b-a22b-instruct-2507": "qwen3-235b-a22b-instruct-2507",
             }
             default_model_index = 0
         elif selected_provider == "Secure":
@@ -3165,4 +3265,3 @@ else:
             except Exception as e:
                 st.error(f"An error occurred: {str(e)}")
                 traceback.print_exc()
-

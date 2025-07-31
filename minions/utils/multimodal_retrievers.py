@@ -1,4 +1,7 @@
-from minions.clients import OllamaClient
+try:
+    from minions.clients.ollama import OllamaClient
+except:
+    print("OllamaClient is not installed. Please install it using `pip install ollama`.")
 
 try:
     import chromadb

@@ -186,3 +186,20 @@ class OpenAIClient(MinionsClient):
         resp = requests.get(f"{self.base_url}/health") if "api" in self.base_url else requests.get(f"{self.base_url}/models")
         resp.raise_for_status()
         return resp.json()
+
+    def list_models(self):
+        """
+        List available models from the OpenAI API.
+        
+        Returns:
+            Dict containing the models data from the OpenAI API response
+        """
+        try:
+            response = self.client.models.list()
+            return {
+                "object": "list",
+                "data": [model.model_dump() for model in response.data]
+            }
+        except Exception as e:
+            self.logger.error(f"Error listing models: {e}")
+            raise

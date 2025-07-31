@@ -1,4 +1,4 @@
-# Multi-stage build for minimal Docker image
+# Multi-stage build for minions client with core functionality
 FROM python:3.11-alpine AS builder
 
 # Set environment variables
@@ -8,27 +8,34 @@ ENV PYTHONDONTWRITEBYTECODE=1
 # Install build dependencies including Rust for tiktoken
 RUN apk add --no-cache \
     gcc \
+    g++ \
     musl-dev \
     libffi-dev \
     openssl-dev \
     git \
     rust \
-    cargo
+    cargo \
+    linux-headers
 
 # Set working directory
 WORKDIR /app
 
-# Upgrade pip and install minimal Python dependencies
+# Upgrade pip and install Python dependencies needed for minions
 RUN pip install --upgrade pip && \
     pip install --no-cache-dir --user \
+    # Core dependencies from original Dockerfile.minion
     flask>=2.0.0 \
     flask-cors>=3.0.0 \
     gunicorn>=20.0.0 \
     requests>=2.25.0 \
     openai>=1.0.0 \
+    anthropic>=0.25.0 \
     tiktoken>=0.4.0 \
     mcp>=1.0.0 \
-    aiohttp>=3.8.0
+    aiohttp>=3.8.0 \
+    # Additional dependencies for minions functionality
+    rank_bm25>=0.2.2 \
+    numpy>=1.24.0
 
 # Runtime stage
 FROM python:3.11-alpine AS runtime
@@ -39,7 +46,11 @@ ENV PYTHONDONTWRITEBYTECODE=1
 ENV PATH="/root/.local/bin:$PATH"
 
 # Install runtime dependencies including libgcc for tiktoken
-RUN apk add --no-cache curl libgcc
+RUN apk add --no-cache \
+    curl \
+    libgcc \
+    libstdc++ \
+    libgomp
 
 # Set working directory
 WORKDIR /app
@@ -47,30 +58,28 @@ WORKDIR /app
 # Copy Python packages from builder stage
 COPY --from=builder /root/.local /root/.local
 
-# Copy only the necessary minions modules
+
+
+# Copy the complete minions module for full functionality
 COPY minions/__init__.py ./minions/
 COPY minions/usage.py ./minions/
-COPY minions/minion.py ./minions/
+COPY minions/minions.py ./minions/
 COPY minions/clients/base.py ./minions/clients/
 COPY minions/clients/docker_model_runner.py ./minions/clients/
 COPY minions/clients/openai.py ./minions/clients/
 COPY minions/prompts/__init__.py ./minions/prompts/
-COPY minions/prompts/minion.py ./minions/prompts/
-COPY minions/prompts/minion_mcp.py ./minions/prompts/
-COPY minions/prompts/multi_turn.py ./minions/prompts/
+COPY minions/prompts/minions.py ./minions/prompts/
 COPY minions/utils/__init__.py ./minions/utils/
+COPY minions/utils/chunking.py ./minions/utils/ 
+COPY minions/utils/retrievers.py ./minions/utils/
+COPY minions/utils/multimodal_retrievers.py ./minions/utils/
 COPY minions/utils/conversation_history.py ./minions/utils/
 
-# Copy minimal clients __init__.py with only the clients we need
+# Replace the clients __init__.py with simplified version
 COPY apps/minions-docker/clients_init_minimal.py ./minions/clients/__init__.py
 
-# Create stub files for optional MCP functionality
-RUN mkdir -p ./minions && \
-    echo "# Stub for MCP functionality - not available in minimal build" > ./minions/minions_mcp.py && \
-    echo "class SyncMCPClient: pass" >> ./minions/minions_mcp.py
-
 # Copy the Docker app files
-COPY apps/minions-docker/minion_http_server.py ./
+COPY apps/minions-docker/minions_http_server.py ./
 
 # Create log directory
 RUN mkdir -p minion_logs
@@ -88,6 +97,9 @@ ENV LOG_DIR="minion_logs"
 ENV TIMEOUT="60"
 ENV HOST="0.0.0.0"
 ENV PORT="5000"
+ENV USE_RETRIEVAL="false"
+ENV REMOTE_PROVIDER="openai"
+ENV LOCAL_PROVIDER="docker"
 
 # Add the app root to Python path so minions package can be imported
 ENV PYTHONPATH="/app:$PYTHONPATH"
@@ -98,7 +110,7 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 
 # Create entrypoint script
 RUN printf '#!/bin/sh\n\
-echo "Starting Minion HTTP Server..."\n\
+echo "Starting Minions Server with Core Functionality..."\n\
 echo "Configuration:"\n\
 echo "  REMOTE_MODEL_NAME: $REMOTE_MODEL_NAME"\n\
 echo "  LOCAL_MODEL_NAME: $LOCAL_MODEL_NAME"\n\
@@ -109,14 +121,23 @@ echo "  TIMEOUT: $TIMEOUT"\n\
 echo "  HOST: $HOST"\n\
 echo "  PORT: $PORT"\n\
 echo "  LOG_DIR: $LOG_DIR"\n\
+echo "  USE_RETRIEVAL: $USE_RETRIEVAL"\n\
+echo "  REMOTE_PROVIDER: $REMOTE_PROVIDER"\n\
+echo "  LOCAL_PROVIDER: $LOCAL_PROVIDER"\n\
+echo ""\n\
+echo "Available Features:"\n\
+echo "  - Full Minions Protocol Support"\n\
+echo "  - OpenAI and Docker Client Support"\n\
+echo "  - BM25 Retrieval (rank_bm25)"\n\
+echo "  - Basic Document Processing"\n\
 echo ""\n\
 if [ "$PRODUCTION" = "true" ]; then\n\
     echo "Running in production mode with gunicorn..."\n\
-    exec gunicorn --bind $HOST:$PORT --workers 1 --timeout $TIMEOUT --worker-class sync minion_http_server:app\n\
+    exec gunicorn --bind $HOST:$PORT --workers 1 --timeout $TIMEOUT --worker-class sync minions_http_server:app\n\
 else\n\
     echo "Running in development mode with Flask..."\n\
-    exec python minion_http_server.py\n\
+    exec python minions_http_server.py\n\
 fi\n' > /app/entrypoint.sh && chmod +x /app/entrypoint.sh
 
 # Use the entrypoint script
-ENTRYPOINT ["/app/entrypoint.sh"]
+ENTRYPOINT ["/app/entrypoint.sh"] 

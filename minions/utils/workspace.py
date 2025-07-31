@@ -352,7 +352,8 @@ class WorkspaceManager:
             "main_files": [],
             "documentation_files": [],
             "test_files": [],
-            "config_files": []
+            "config_files": [],
+            "files": state["files"]
         }
         
         # Categorize files
@@ -398,10 +399,12 @@ class WorkspaceManager:
         if "Makefile" in state["files"] and "test" in state["files"]["Makefile"]:
             commands.append("make test")
         
-        # Fallback - just try to run main files to see if they work
+        # Fallback - just try to run main files to see if they work (only works if it's not an app since not all have --help)
+        # FIX
         for file_path in state["structure"]:
             if file_path.lower() in ["main.py", "app.py"]:
-                commands.append(f"python {file_path} --help")  # Basic syntax check
+                #commands.append(f"python {file_path} --help")  # Basic syntax check
+                continue
         
         return commands if commands else ["echo 'No tests detected'"]
     

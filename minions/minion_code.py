@@ -507,7 +507,7 @@ class DevMinion:
             files_to_create=", ".join(step_info["files_to_create"]),
             files_to_modify=", ".join(step_info["files_to_modify"]),
             predefined_tests=predefined_tests,
-            acceptance_criteria=step_info["acceptance_criteria"],
+            acceptance_criteria=step_info.get("acceptance_criteria", "Default: Complete all requirements as described in this step"),
             current_workspace=current_workspace,
             completed_steps=completed_steps_summary,
             previous_feedback_section=previous_feedback_section,
@@ -565,7 +565,7 @@ class DevMinion:
         prompt = CODE_REVIEW_PROMPT.format(
             step_number=step_info["step_number"],
             step_title=step_info["title"],
-            acceptance_criteria=step_info["acceptance_criteria"],
+            acceptance_criteria=step_info.get("acceptance_criteria", "Default: Complete all requirements as described in this step"),
             code_changes=code_changes,
             documentation=implementation["documentation"],
             test_results=json.dumps(test_results, indent=2),

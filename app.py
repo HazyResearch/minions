@@ -153,6 +153,7 @@ API_PRICES = {
     "OpenRouter": {
         "openai/gpt-4o": {"input": 2.50, "cached_input": 1.25, "output": 10.00},
         "openai/gpt-4o-mini": {"input": 0.15, "cached_input": 0.075, "output": 0.60},
+        "openrouter/horizon-beta": {"input": 0.0, "cached_input": 0.0, "output": 0.0},
         "anthropic/claude-3-5-sonnet": {
             "input": 3.00,
             "cached_input": 1.50,
@@ -2390,6 +2391,7 @@ with st.sidebar:
         elif selected_provider == "OpenRouter":
             model_mapping = {
                 "Qwen3 235B A22B 2507": "qwen/qwen3-235b-a22b-07-25:free",
+                "Horizon Beta": "openrouter/horizon-beta",
                 "Claude 3.5 Sonnet (Recommended)": "anthropic/claude-3.5-sonnet",
                 "claude 3.7 Sonnet Latest": "anthropic/claude-3-7-sonnet-latest",
                 "Claude 3 Opus": "anthropic/claude-3-opus",

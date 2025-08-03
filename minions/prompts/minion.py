@@ -162,3 +162,43 @@ Otherwise, if the task is not complete, request the small language model to do a
 ```
 
 """
+
+TASK_ROUTER_PROMPT = """You are an expert at analyzing task complexity and routing decisions between language models. Your goal is to determine whether a given task requires a more powerful remote model or can be handled by a local model. Assume that both models have equal access to the task context. The local model is {local_model_name} and the remote model is {remote_model_name}.
+
+Consider the following aspects when making your decision:
+1. Task complexity and reasoning requirements
+2. Domain knowledge needed
+3. Potential for errors or hallucinations
+4. Need for up-to-date or specialized knowledge
+5. Multi-step reasoning or computation requirements
+
+Current task: {task}
+Current conversation round: {round_num} out of {max_rounds}
+Previous context length: {context_length} characters
+Description of the context: {doc_metadata}
+
+Rate each factor on a scale of 1-5 and provide your final routing decision.
+
+Output your analysis in the following JSON format:
+{{
+    "complexity_analysis": {{
+        "reasoning_complexity": <1-5>,
+        "domain_knowledge": <1-5>,
+        "error_risk": <1-5>,
+        "knowledge_recency": <1-5>,
+        "computation_steps": <1-5>
+    }},
+    "average_complexity": <float>,
+    "routing_decision": <"remote" or "local">,
+    "explanation": <string explaining the decision>
+}}
+
+IMPORTANT: Be conservative with remote routing - only route to remote ({remote_model_name}) if the task truly requires it."""
+
+
+COST_CONSCIOUSNESS_LEVELS = {
+    "uber": "Run everything locally for maximum cost savings",
+    "high": "Follow standard minion protocol",
+    "medium": "Make per-turn decisions between local and remote models",
+    "low": "Run everything remotely for maximum quality"
+}

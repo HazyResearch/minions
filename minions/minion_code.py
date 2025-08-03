@@ -17,26 +17,62 @@ from minions.prompts.minion_code import (
     FINAL_INTEGRATION_PROMPT,
 )
 
-
 def _extract_json(text: str) -> Dict[str, Any]:
     """Extract JSON from text that may be wrapped in markdown code blocks."""
     import re
     
-    block_matches = list(re.finditer(r"```(?:json)?\s*(.*?)```", text, re.DOTALL))
-    bracket_matches = list(re.finditer(r"\{.*?\}", text, re.DOTALL))
-
+    # First try to find JSON in markdown code blocks
+    block_matches = list(re.finditer(r"``````", text, re.DOTALL))
     if block_matches:
         json_str = block_matches[-1].group(1).strip()
-    elif bracket_matches:
-        json_str = bracket_matches[-1].group(0)
-    else:
-        json_str = text
-
+        try:
+            return json.loads(json_str)
+        except json.JSONDecodeError:
+            pass
+    
+    # Fallback: Extract complete JSON object with balanced braces
+    json_str = _extract_balanced_json(text)
+    
     try:
         return json.loads(json_str)
     except json.JSONDecodeError:
         print(f"Failed to parse JSON: {json_str}")
         raise
+
+def _extract_balanced_json(text: str) -> str:
+    """Extract a complete JSON object by counting balanced braces."""
+    start_idx = text.find('{')
+    if start_idx == -1:
+        return text
+    
+    brace_count = 0
+    in_string = False
+    escape_next = False
+    
+    for i, char in enumerate(text[start_idx:], start_idx):
+        if escape_next:
+            escape_next = False
+            continue
+            
+        if char == '\\':
+            escape_next = True
+            continue
+            
+        if char == '"' and not escape_next:
+            in_string = not in_string
+            continue
+            
+        if not in_string:
+            if char == '{':
+                brace_count += 1
+            elif char == '}':
+                brace_count -= 1
+                if brace_count == 0:
+                    return text[start_idx:i+1]
+    
+    # If we get here, braces weren't balanced - return original text
+    return text
+
 
 
 class DevMinion:
@@ -471,7 +507,7 @@ class DevMinion:
             files_to_create=", ".join(step_info["files_to_create"]),
             files_to_modify=", ".join(step_info["files_to_modify"]),
             predefined_tests=predefined_tests,
-            acceptance_criteria=step_info["acceptance_criteria"],
+            acceptance_criteria=step_info.get("acceptance_criteria", "Default: Complete all requirements as described in this step"),
             current_workspace=current_workspace,
             completed_steps=completed_steps_summary,
             previous_feedback_section=previous_feedback_section,
@@ -479,16 +515,15 @@ class DevMinion:
 
 
         messages = [{"role": "user", "content": prompt}]
-        
-        response, usage  = self.local_client.chat(messages=messages, response_format={"type": "json_object"})
-        
+
+        response, usage, _  = self.local_client.chat(messages=messages)
         # Parse the JSON response
         try:
             try:
                 implementation_data = json.loads(response[0])
-            except:
+            except Exception as e:
                 implementation_data = _extract_json(response[0])
-        except:
+        except Exception as e:
             # Fallback if JSON parsing fails
             implementation_data = {
                 "files": {},
@@ -530,7 +565,7 @@ class DevMinion:
         prompt = CODE_REVIEW_PROMPT.format(
             step_number=step_info["step_number"],
             step_title=step_info["title"],
-            acceptance_criteria=step_info["acceptance_criteria"],
+            acceptance_criteria=step_info.get("acceptance_criteria", "Default: Complete all requirements as described in this step"),
             code_changes=code_changes,
             documentation=implementation["documentation"],
             test_results=json.dumps(test_results, indent=2),

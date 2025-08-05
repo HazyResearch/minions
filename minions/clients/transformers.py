@@ -48,7 +48,7 @@ class TransformersClient(MinionsClient):
         hf_token: Optional[str] = None,
         tool_calling: bool = False,
         embedding_model: Optional[str] = None,
-        enable_thinking: bool = False,  # for qwen models
+        enable_thinking: bool = False,  # for qwen and hunyuan models
         local: bool = True,
         **kwargs
     ):
@@ -58,6 +58,7 @@ class TransformersClient(MinionsClient):
         Args:
             model_name: The Hugging Face model identifier or local path.
                 E.g., "EleutherAI/gpt-neox-20b", "/local/path/to/checkpoint", or "hf://mistralai/Mistral-7B-v0.1"
+                For Hunyuan models (e.g., "tencent/Hunyuan-1.8B-Instruct"), special thinking mode is supported.
             temperature: Sampling temperature for generation (default: 0.0)
             max_tokens: Maximum number of tokens to generate (default: 1024)
             top_p: Top-p sampling parameter (default: 1.0)
@@ -67,7 +68,9 @@ class TransformersClient(MinionsClient):
             hf_token: Optional Hugging Face token for accessing gated models
             tool_calling: Whether to support tool calling (default: False)
             embedding_model: Optional separate model for embeddings (default: None, uses main model)
-            enable_thinking: Whether to enable thinking mode for qwen models (default: False)
+            enable_thinking: Whether to enable thinking mode for qwen and hunyuan models (default: False)
+                For Hunyuan models, this enables Chain-of-Thought reasoning with <think> and <answer> tags.
+                Use get_thinking_content() to access the thinking process separately.
             **kwargs: Additional parameters passed to base class
         """
         super().__init__(
@@ -105,7 +108,60 @@ class TransformersClient(MinionsClient):
         if self.embedding_model_name:
             self._load_embedding_model()
 
+        # Store last Hunyuan thinking content for access via get_thinking_content()
+        self._last_hunyuan_thinking = ""
+
         self.logger.info(f"Loaded Hugging Face model: {self.model_name}")
+
+    def _is_hunyuan_model(self) -> bool:
+        """
+        Check if the current model is a Hunyuan model.
+        
+        Returns:
+            bool: True if the model is a Hunyuan model, False otherwise
+        """
+        return "hunyuan" in self.model_name.lower()
+
+    def _parse_hunyuan_response(self, completion_text: str) -> Dict[str, str]:
+        """
+        Parse Hunyuan model response to extract thinking content and answer content.
+        
+        Args:
+            completion_text: Raw completion text from the model
+            
+        Returns:
+            Dict containing 'thinking', 'answer', and 'full_response' keys
+        """
+        import re
+        
+        result = {
+            'thinking': '',
+            'answer': '',
+            'full_response': completion_text
+        }
+        
+        # Extract thinking content
+        think_pattern = r'<think>(.*?)</think>'
+        think_matches = re.findall(think_pattern, completion_text, re.DOTALL)
+        if think_matches:
+            result['thinking'] = think_matches[0].strip()
+        
+        # Extract answer content
+        answer_pattern = r'<answer>(.*?)</answer>'
+        answer_matches = re.findall(answer_pattern, completion_text, re.DOTALL)
+        if answer_matches:
+            result['answer'] = answer_matches[0].strip()
+        
+        return result
+
+    def get_thinking_content(self) -> str:
+        """
+        Get the thinking content from the last Hunyuan model response.
+        
+        Returns:
+            str: The thinking content extracted from <think> tags, empty string if none
+        """
+        return self._last_hunyuan_thinking
 
     def _get_device_and_dtype(self):
         """
@@ -377,9 +433,14 @@ class TransformersClient(MinionsClient):
     ) -> Tuple[List[str], Usage, List[str]]:
         """
         Handle chat completions using the Transformers model.
+        
+        For Hunyuan models with enable_thinking=True, responses are automatically parsed to extract
+        the answer from <answer> tags, while thinking content from <think> tags is stored and can
+        be accessed via get_thinking_content().
 
         Args:
             messages: List of message dictionaries with 'role' and 'content' keys or a single message dictionary
+                For Hunyuan models, you can add "/think" or "/no_think" prefixes to force thinking behavior.
             **kwargs: Additional arguments to pass to model.generate
 
         Returns:
@@ -480,6 +541,20 @@ class TransformersClient(MinionsClient):
 
                 # If we're left with nothing after removing prefixes, use the original text
                 completion_text = cleaned_text if cleaned_text else completion_text
+                
+                # Handle Hunyuan model special thinking format
+                hunyuan_parsed = None
+                if self._is_hunyuan_model() and self.enable_thinking:
+                    hunyuan_parsed = self._parse_hunyuan_response(completion_text)
+                    # Store thinking content for later access
+                    self._last_hunyuan_thinking = hunyuan_parsed['thinking']
+                    # Use the answer content as the main response if available
+                    if hunyuan_parsed['answer']:
+                        completion_text = hunyuan_parsed['answer']
+                    # If there's thinking content but no answer tags, use the full response
+                    elif hunyuan_parsed['thinking'] and not hunyuan_parsed['answer']:
+                        # This might happen if the model only outputs thinking without answer tags
+                        completion_text = completion_text
 
                 # Parse tool calls if present in the completion
                 if self.return_tools:

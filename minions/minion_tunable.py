@@ -92,7 +92,8 @@ class CostAwareMinion(Minion):
             messages = [{"role": "user", "content": router_prompt}]
             decision_response, _ = self.remote_client.chat(messages, response_format={"type": "json_object"})
             decision_json = json.loads(decision_response[0])
-            print(f"🚗 Routing Decision: ")
+            print(f"🔄 SUBTASK: {task}")
+            print(f"🚗 ROUTING DECISION: ")
             pprint.pprint(decision_json)
 
             # Update current round after decision
@@ -412,6 +413,8 @@ class CostAwareMinion(Minion):
                 timing["remote_call_time"] += time.time() - remote_start_time
                 remote_usage += worker_usage
                 local_output = worker_response[0]
+
+            print(f"🔄 Worker response: {local_output}")
 
             worker_messages.append(
                 {"role": "assistant", "content": local_output}

@@ -2258,6 +2258,7 @@ with st.sidebar:
                 "deepseek-r1:1.5b": "deepseek-r1:1.5b",
                 "deepseek-r1:7b": "deepseek-r1:7b",
                 "deepseek-r1:8b": "deepseek-r1:8b",
+                "gpt-oss-20b": "gpt-oss:20b",
             }
 
             # Add any additional available models from Ollama that aren't in the default list

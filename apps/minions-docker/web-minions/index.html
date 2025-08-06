@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minions Docker - Advanced Protocol Interface</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .status-card {
+            margin: 20px;
+            padding: 15px 20px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .status-healthy {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+
+        .status-warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+
+        .status-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+
+        .main-content {
+            padding: 30px;
+        }
+
+        .form-section {
+            margin-bottom: 30px;
+        }
+
+        .form-section h3 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 600;
+            color: #555;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e1e8ed;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s ease;
+            font-family: inherit;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #4facfe;
+            box-shadow: 0 0 0 3px rgba(79, 172, 254, 0.1);
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 120px;
+        }
+
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .form-row-3 {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 15px;
+        }
+
+        .advanced-section {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+        }
+
+        .advanced-toggle {
+            background: none;
+            border: none;
+            color: #4facfe;
+            font-weight: 600;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            margin-bottom: 15px;
+        }
+
+        .advanced-toggle:hover {
+            text-decoration: underline;
+        }
+
+        .advanced-content {
+            display: none;
+        }
+
+        .advanced-content.show {
+            display: block;
+        }
+
+        .button-group {
+            display: flex;
+            gap: 15px;
+            margin-top: 30px;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+        }
+
+        .btn-primary:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(79, 172, 254, 0.4);
+        }
+
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+        .spinner {
+            width: 16px;
+            height: 16px;
+            border: 2px solid transparent;
+            border-top: 2px solid currentColor;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+
+        .log-section {
+            margin-top: 30px;
+        }
+
+        .log-container {
+            background: #1e1e1e;
+            color: #f8f8f2;
+            border-radius: 10px;
+            padding: 20px;
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+            font-size: 13px;
+            line-height: 1.5;
+            max-height: 400px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+        }
+
+        .metrics-container {
+            margin-top: 30px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 20px;
+        }
+
+        .metrics-container.hidden {
+            display: none;
+        }
+
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .metric-item {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .metric-value {
+            font-size: 1.5em;
+            font-weight: 700;
+            color: #4facfe;
+            margin-bottom: 5px;
+        }
+
+        .metric-label {
+            font-size: 0.9em;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .info-text {
+            font-size: 0.9em;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .backend-info {
+            background: #e3f2fd;
+            border: 1px solid #bbdefb;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+
+        .backend-info strong {
+            color: #1976d2;
+        }
+
+        @media (max-width: 768px) {
+            .form-row,
+            .form-row-3 {
+                grid-template-columns: 1fr;
+            }
+            
+            .button-group {
+                flex-direction: column;
+            }
+            
+            .header h1 {
+                font-size: 2em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🤖 Minions Protocol</h1>
+            <p>Advanced Multi-Agent Document Processing System</p>
+        </div>
+
+        <div id="status-card" class="status-card status-warning">
+            <span>🔄</span>
+            <span>Checking backend status...</span>
+        </div>
+
+        <div class="main-content">
+            <div class="backend-info">
+                <strong>Backend URL:</strong> <span id="backend-url-display">Detecting...</span>
+            </div>
+
+            <form id="minions-form">
+                <!-- Task Section -->
+                <div class="form-section">
+                    <h3>📝 Task Configuration</h3>
+                    
+                    <div class="form-group">
+                        <label for="task">Task Description *</label>
+                        <textarea id="task" placeholder="Describe what you want the minions to accomplish with the provided context..." required></textarea>
+                        <div class="info-text">Provide a clear, specific task for the minions to work on</div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="doc_metadata">Document Metadata</label>
+                        <input type="text" id="doc_metadata" placeholder="e.g., Research paper, Legal document, Technical manual..." value="Document">
+                        <div class="info-text">Brief description of the type of document being processed</div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="context">Context/Documents</label>
+                        <textarea id="context" placeholder="Paste your document content, data, or context here..."></textarea>
+                        <div class="info-text">Provide the documents or context that the minions should analyze</div>
+                    </div>
+                </div>
+
+                <!-- Basic Configuration -->
+                <div class="form-section">
+                    <h3>⚙️ Basic Configuration</h3>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="max_rounds">Max Rounds</label>
+                            <input type="number" id="max_rounds" min="1" max="10" value="3">
+                            <div class="info-text">Number of processing rounds</div>
+                        </div>
+                        
+                        <div class="form-group">
+                            <label for="logging_id">Logging ID</label>
+                            <input type="text" id="logging_id" placeholder="Optional custom identifier">
+                            <div class="info-text">Custom identifier for this task</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Advanced Configuration -->
+                <div class="form-section">
+                    <div class="advanced-section">
+                        <button type="button" class="advanced-toggle" id="advanced-toggle">
+                            <span id="advanced-arrow">▶</span> Advanced Options
+                        </button>
+                        
+                        <div class="advanced-content" id="advanced-content">
+                            <div class="form-row-3">
+                                <div class="form-group">
+                                    <label for="max_jobs_per_round">Max Jobs/Round</label>
+                                    <input type="number" id="max_jobs_per_round" min="1" max="4096" value="2048">
+                                    <div class="info-text">Maximum jobs per round</div>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="num_tasks_per_round">Tasks/Round</label>
+                                    <input type="number" id="num_tasks_per_round" min="1" max="10" value="3">
+                                    <div class="info-text">Number of tasks per round</div>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="num_samples_per_task">Samples/Task</label>
+                                    <input type="number" id="num_samples_per_task" min="1" max="5" value="1">
+                                    <div class="info-text">Samples per task</div>
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="use_retrieval">Retrieval Method</label>
+                                    <select id="use_retrieval">
+                                        <option value="false">No Retrieval</option>
+                                        <option value="bm25">BM25 Retrieval</option>
+                                    </select>
+                                    <div class="info-text">Document retrieval strategy</div>
+                                </div>
+                                
+                                <div class="form-group">
+                                    <label for="chunk_fn">Chunking Strategy</label>
+                                    <select id="chunk_fn">
+                                        <option value="chunk_by_section">By Section</option>
+                                        <option value="chunk_by_page">By Page</option>
+                                        <option value="chunk_by_paragraph">By Paragraph</option>
+                                        <option value="chunk_by_code">By Code</option>
+                                        <option value="chunk_by_function_and_class">By Function/Class</option>
+                                    </select>
+                                    <div class="info-text">How to split documents</div>
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="retrieval_model">Retrieval Model</label>
+                                <input type="text" id="retrieval_model" value="all-MiniLM-L6-v2" placeholder="all-MiniLM-L6-v2">
+                                <div class="info-text">Model used for document retrieval</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="button-group">
+                    <button type="button" id="check_status" class="btn btn-secondary">
+                        🔍 Check Status
+                    </button>
+                    <button type="submit" id="start" class="btn btn-primary" disabled>
+                        🚀 Start Minions Protocol
+                    </button>
+                    <button type="button" id="clear_log" class="btn btn-secondary">
+                        🗑️ Clear Log
+                    </button>
+                </div>
+            </form>
+
+            <!-- Log Section -->
+            <div class="log-section">
+                <h3>📋 Execution Log</h3>
+                <div class="log-container" id="log">Welcome to Minions Protocol Interface
+Click "Check Status" to verify backend connection.
+</div>
+            </div>
+
+            <!-- Metrics Section -->
+            <div class="metrics-container hidden" id="metrics-container">
+                <h3>📊 Execution Metrics</h3>
+                <div class="metrics-grid" id="metrics"></div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="main.js"></script>
+</body>
+</html>

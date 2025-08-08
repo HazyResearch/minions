@@ -87,8 +87,24 @@ class OpenRouterClient(OpenAIClient):
         Handle chat completions using the OpenRouter API.
 
         Args:
-            messages: List of message dictionaries with 'role' and 'content' keys
+            messages: List of message dictionaries with 'role' and 'content' keys.
+                     For file inputs, content should be a list of dictionaries with:
+                     - text messages: {"type": "text", "text": "your message"}
+                     - file messages: {
+                         "type": "file",
+                         "file": {
+                             "filename": "document.pdf",
+                             "file_data": "https://example.com/path/to/document.pdf"
+                         }
+                     }
             **kwargs: Additional arguments to pass to openai.chat.completions.create
+                     For PDF processing, you can specify:
+                     plugins=[{
+                         "id": "file-parser",
+                         "pdf": {
+                             "engine": "pdf-text" # or "mistral-ocr" or "native"
+                         }
+                     }]
 
         Returns:
             Tuple of (List[str], Usage) containing response strings and token usage
@@ -124,8 +140,20 @@ class OpenRouterClient(OpenAIClient):
                 completion_tokens=response.usage.completion_tokens,
             )
 
-        # Return response content
-        return [choice.message.content for choice in response.choices], usage
+        # Return response content and any file annotations if present
+        responses = []
+        for choice in response.choices:
+            content = choice.message.content
+            # If there are file annotations, include them in the response
+            if hasattr(choice.message, 'annotations'):
+                responses.append({
+                    'content': content,
+                    'annotations': choice.message.annotations
+                })
+            else:
+                responses.append(content)
+
+        return responses, usage
 
     @staticmethod
     def get_available_models() -> List[str]:
@@ -159,6 +187,7 @@ class OpenRouterClient(OpenAIClient):
             return [
                 "openai/gpt-4o",
                 "openai/gpt-4o-mini",
+                "openrouter/horizon-beta",
                 "anthropic/claude-3-5-sonnet",
                 "anthropic/claude-3-5-haiku",
                 "meta-llama/llama-3.1-405b-instruct",

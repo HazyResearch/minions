@@ -121,7 +121,7 @@ class DockerModelRunnerClient(MinionsClient):
         if max_tokens:
             payload["max_tokens"] = max_tokens
         if self.format_structured_output:
-            payload["format"] = self.format_structured_output
+            payload["json_schema"] = self.format_structured_output
         
         try:
             resp = requests.post(f"{self.base_url}/chat/completions", json=payload, timeout=30)
@@ -168,7 +168,7 @@ class DockerModelRunnerClient(MinionsClient):
         if max_tokens:
             payload["max_tokens"] = max_tokens
         if self.format_structured_output:
-            payload["format"] = self.format_structured_output
+            payload["json_schema"] = self.format_structured_output
         
         try:
             timeout = aiohttp.ClientTimeout(total=30)

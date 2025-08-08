@@ -5,12 +5,13 @@ import shutil
 import platform
 import json
 from pathlib import Path
-from typing import List, Dict, Any, Tuple
+from typing import List, Dict, Any, Tuple, Optional
+from pydantic import BaseModel
 from minions.clients.base import MinionsClient  
 from minions.usage import Usage
 
 class DockerModelRunnerClient(MinionsClient):
-    def __init__(self, model_name: str, port: int = 12434, timeout: int = 60, local: bool = True, base_url: str = None, **kwargs):
+    def __init__(self, model_name: str, port: int = 12434, timeout: int = 60, local: bool = True, base_url: str = None, structured_output_schema: Optional[BaseModel] = None, **kwargs):
         super().__init__(model_name=model_name, local=local, **kwargs)
         
         # Check if Docker is installed before proceeding
@@ -19,6 +20,11 @@ class DockerModelRunnerClient(MinionsClient):
         self.port = port
         self.base_url = base_url or f"http://localhost:{port}"
         self.timeout = timeout
+        
+        # Structured output formatting support
+        self.format_structured_output = None
+        if structured_output_schema is not None:
+            self.format_structured_output = structured_output_schema.model_json_schema()
 
         # Check if model is available and pull if needed
         #self._ensure_model_available()
@@ -114,6 +120,8 @@ class DockerModelRunnerClient(MinionsClient):
         }
         if max_tokens:
             payload["max_tokens"] = max_tokens
+        if self.format_structured_output:
+            payload["format"] = self.format_structured_output
         
         try:
             resp = requests.post(f"{self.base_url}/chat/completions", json=payload, timeout=30)
@@ -159,6 +167,8 @@ class DockerModelRunnerClient(MinionsClient):
         }
         if max_tokens:
             payload["max_tokens"] = max_tokens
+        if self.format_structured_output:
+            payload["format"] = self.format_structured_output
         
         try:
             timeout = aiohttp.ClientTimeout(total=30)

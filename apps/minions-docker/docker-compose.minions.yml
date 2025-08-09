@@ -1,7 +1,7 @@
 models:
   # declare LLM models to pull and use
   worker:
-    model: ai/smollm2
+    model: ai/llama3.2
 
 services:
   minions-server:
@@ -15,7 +15,6 @@ services:
       - OPENAI_API_KEY=${OPENAI_API_KEY}
       - REMOTE_MODEL_NAME=${REMOTE_MODEL_NAME:-gpt-4o-mini}
       - REMOTE_BASE_URL=${REMOTE_BASE_URL:-https://api.openai.com/v1}
-      
 
       
       # Server Configuration
@@ -56,19 +55,24 @@ services:
       retries: 3
       start_period: 10s
     restart: unless-stopped
+    models:
+      worker:
+        endpoint_var: LOCAL_BASE_URL
+        model_var: LOCAL_MODEL_NAME
 
   minions-frontend:
     build:
       context: ../../
-      dockerfile: apps/minions-docker/web/Dockerfile
+      dockerfile: apps/minions-docker/web-minions/Dockerfile
     ports:
       - "127.0.0.1:8080:8080"
     environment:
       - BACKEND_URL=http://minions-server:5000
       - NODE_ENV=development
-      # Enhanced frontend features
+      # Enhanced frontend features for advanced minions protocol
       - ENABLE_RETRIEVAL_UI=${ENABLE_RETRIEVAL_UI:-true}
       - ENABLE_ADVANCED_OPTIONS=${ENABLE_ADVANCED_OPTIONS:-true}
+      - MINIONS_PROTOCOL_VERSION=advanced
     networks:
       - minions-network
     depends_on:
@@ -89,4 +93,4 @@ volumes:
 
 networks:
   minions-network:
-    driver: bridge 
+    driver: bridge

@@ -116,6 +116,9 @@ API_PRICES = {
         "deepseek-chat": {"input": 0.27, "cached_input": 0.07, "output": 1.10},
         "deepseek-reasoner": {"input": 0.27, "cached_input": 0.07, "output": 1.10},
     },
+    "Anthropic": {
+        "claude-opus-4-1-20250805": {"input": 15.00, "cached_input": 1.50, "output": 75.00},
+    },
     "Gemini": {
         "gemini-2.5-pro": {
             "input": 1.25,
@@ -2415,6 +2418,7 @@ with st.sidebar:
         elif selected_provider == "Anthropic":
             model_mapping = {
                 "Claude 4 Opus (Recommended)": "claude-opus-4-20250514",
+                "Claude 4.1 Opus": "claude-opus-4-1-20250805",
                 "Claude 4 Sonnet (Recommended)": "claude-sonnet-4-20250514",
                 "claude-3-7-sonnet-latest (Recommended for web search)": "claude-3-7-sonnet-latest",
                 "claude-3-5-sonnet-latest": "claude-3-5-sonnet-latest",
@@ -3105,7 +3109,7 @@ else:
                     # Display cost information for OpenAI models
                     if (
                         selected_provider
-                        in ["OpenAI", "AzureOpenAI", "DeepSeek", "LlamaAPI"]
+                        in ["OpenAI", "AzureOpenAI", "Anthropic", "DeepSeek", "LlamaAPI"]
                         and remote_model_name in API_PRICES[selected_provider]
                     ):
                         st.header("Remote Model Cost")

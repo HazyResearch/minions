@@ -1,14 +1,42 @@
 # Minions Docker Setup
 
-This directory contains a complete Docker setup for the Minions protocol, including both the HTTP backend server and a web interface.
+This directory contains a complete Docker setup for the Minions protocol, including both HTTP backend servers and web interfaces.
+
+## 🎯 Two Available Setups
+
+This project provides **two distinct setups** for different use cases:
+
+### 1. **Basic Minion Setup** (`docker-compose.minion.yml`)
+- **Backend:** Single minion protocol (`minion_http_server.py`)
+- **Frontend:** Simple web interface (`web/`)
+- **Use case:** Straightforward document processing tasks
+- **API Endpoint:** `/run`
+
+### 2. **Advanced Minions Setup** (`docker-compose.minions.yml`)
+- **Backend:** Full minions protocol (`minions_http_server.py`)
+- **Frontend:** Advanced web interface (`web-minions/`)
+- **Use case:** Complex multi-agent processing with retrieval
+- **API Endpoint:** `/minions`
+
+📖 **See [FRONTEND_COMPARISON.md](./FRONTEND_COMPARISON.md) for detailed differences**
 
 ## 🚀 Quick Start
 
-### **Complete Setup (Backend + Frontend)**
+### **Basic Minion Setup (Simple)**
 
 ```bash
 # From apps/minions-docker/ directory
-OPENAI_API_KEY=sk-your-key docker compose up
+OPENAI_API_KEY=sk-your-key docker-compose -f docker-compose.minion.yml up
+
+# Access web interface: http://localhost:8080
+# Access API directly: http://127.0.0.1:5000
+```
+
+### **Advanced Minions Setup (Full Protocol)**
+
+```bash
+# From apps/minions-docker/ directory
+OPENAI_API_KEY=sk-your-key docker-compose -f docker-compose.minions.yml up
 
 # Access web interface: http://localhost:8080
 # Access API directly: http://127.0.0.1:5000

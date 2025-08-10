@@ -13,6 +13,7 @@ import json
 import traceback
 import time
 from datetime import datetime
+from pydantic import BaseModel
 
 # Import the full Minions class and core clients
 from minions.minions import Minions
@@ -118,8 +119,6 @@ def create_minions_instance() -> Minions:
     logger.info(f"  Use retrieval: {config['use_retrieval']}")
     logger.info(f"  Retrieval model: {config['retrieval_model']}")
     
-    from pydantic import BaseModel
-
     class StructuredLocalOutput(BaseModel):
         explanation: str
         citation: str | None
@@ -545,4 +544,4 @@ if __name__ == '__main__':
         host=host,
         port=port,
         debug=os.getenv("DEBUG", "false").lower() == "true"
-    ) 
+    )

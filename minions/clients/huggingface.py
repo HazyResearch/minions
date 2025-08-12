@@ -9,6 +9,7 @@ import io
 import soundfile as sf
 import numpy as np
 from huggingface_hub import InferenceClient, AsyncInferenceClient
+import openai
 
 from minions.usage import Usage
 from minions.clients.base import MinionsClient
@@ -22,6 +23,7 @@ class HuggingFaceClient(MinionsClient):
         temperature: float = 0.2,
         max_tokens: int = 2048,
         api_token: Optional[str] = None,
+        use_router: bool = False,
         **kwargs
     ):
         """
@@ -32,6 +34,7 @@ class HuggingFaceClient(MinionsClient):
             temperature: Sampling temperature (default: 0.2)
             max_tokens: Maximum number of tokens to generate (default: 2048)
             api_token: HuggingFace API token (optional, falls back to HF_TOKEN environment variable)
+            use_router: Whether to use HuggingFace Router instead of Inference API (default: False)
             **kwargs: Additional parameters passed to base class
         """
         super().__init__(
@@ -46,43 +49,53 @@ class HuggingFaceClient(MinionsClient):
 
         # Get API token from parameter or environment variable
         self.api_token = api_token or os.getenv("HF_TOKEN")
+        self.use_router = use_router
 
-        self.client = InferenceClient(model=self.model_name, token=self.api_token)
-        self.async_client = AsyncInferenceClient(
-            model=self.model_name, token=self.api_token
-        )
+        if self.use_router:
+            # Initialize OpenAI client for HuggingFace Router
+            self.router_client = openai.OpenAI(
+                base_url="https://router.huggingface.co/v1",
+                api_key=self.api_token,
+            )
+            self.logger.info(f"Using HuggingFace Router for model: {model_name}")
+        else:
+            # Initialize regular HuggingFace clients
+            self.client = InferenceClient(model=self.model_name, token=self.api_token)
+            self.async_client = AsyncInferenceClient(
+                model=self.model_name, token=self.api_token
+            )
 
-        if model_name.startswith("Qwen/Qwen2.5-Omni"):
-            try:
-                # Import required libraries for multimodal processing
-                from transformers import Qwen2_5OmniModel
+            if model_name.startswith("Qwen/Qwen2.5-Omni"):
+                try:
+                    # Import required libraries for multimodal processing
+                    from transformers import Qwen2_5OmniModel
 
-                self.logger.info(f"Loading Qwen2.5-Omni model: {model_name}")
+                    self.logger.info(f"Loading Qwen2.5-Omni model: {model_name}")
 
-                # Load model and processor
-                self.client = Qwen2_5OmniModel.from_pretrained(
-                    self.model_name,
-                    torch_dtype="auto",
-                    device_map="auto",
-                    attn_implementation="flash_attention_2",
-                )
+                    # Load model and processor
+                    self.client = Qwen2_5OmniModel.from_pretrained(
+                        self.model_name,
+                        torch_dtype="auto",
+                        device_map="auto",
+                        attn_implementation="flash_attention_2",
+                    )
 
-                self.logger.info(
-                    f"Successfully loaded Qwen2.5-Omni model: {model_name}"
-                )
-            except ImportError:
-                self.logger.warning(
-                    "Required packages for Qwen2.5-Omni not installed. "
-                    "Please install with: pip install transformers qwen-omni-utils[decord]"
-                )
-            except Exception as e:
-                self.logger.error(f"Error loading Qwen2.5-Omni model: {e}")
+                    self.logger.info(
+                        f"Successfully loaded Qwen2.5-Omni model: {model_name}"
+                    )
+                except ImportError:
+                    self.logger.warning(
+                        "Required packages for Qwen2.5-Omni not installed. "
+                        "Please install with: pip install transformers qwen-omni-utils[decord]"
+                    )
+                except Exception as e:
+                    self.logger.error(f"Error loading Qwen2.5-Omni model: {e}")
 
     def chat(
         self, messages: List[Dict[str, Any]], **kwargs
     ) -> Tuple[List[str], Usage, str]:
         """
-        Handle chat completions using the HuggingFace Inference API.
+        Handle chat completions using the HuggingFace Inference API or Router.
 
         Args:
             messages: List of message dictionaries with 'role' and 'content' keys
@@ -97,39 +110,71 @@ class HuggingFaceClient(MinionsClient):
         if self.model_name.startswith("Qwen/Qwen2.5-Omni"):
             return self.multimodal_chat(messages, **kwargs)
 
-        try:
-            # Set default parameters if not provided in kwargs
-            if "temperature" not in kwargs:
-                kwargs["temperature"] = self.temperature
+        if self.use_router:
+            # Use HuggingFace Router (OpenAI-compatible API)
+            try:
+                # Set default parameters if not provided in kwargs
+                if "temperature" not in kwargs:
+                    kwargs["temperature"] = self.temperature
 
-            if "max_tokens" not in kwargs:
-                kwargs["max_tokens"] = self.max_tokens
+                if "max_tokens" not in kwargs:
+                    kwargs["max_tokens"] = self.max_tokens
 
-            response = self.client.chat_completion(
-                messages=messages,
-                **kwargs,
+                response = self.router_client.chat.completions.create(
+                    model=self.model_name,
+                    messages=messages,
+                    **kwargs,
+                )
+
+                # Extract usage information if available
+                usage = Usage(
+                    prompt_tokens=response.usage.prompt_tokens if response.usage else 0,
+                    completion_tokens=response.usage.completion_tokens if response.usage else 0,
+                )
+
+                # Extract the content from the response
+                content = response.choices[0].message.content
+
+                return [content], usage, self.model_name
+
+            except Exception as e:
+                self.logger.error(f"Error during HuggingFace Router API call: {e}")
+                raise
+        else:
+            # Use regular HuggingFace Inference API
+            try:
+                # Set default parameters if not provided in kwargs
+                if "temperature" not in kwargs:
+                    kwargs["temperature"] = self.temperature
+
+                if "max_tokens" not in kwargs:
+                    kwargs["max_tokens"] = self.max_tokens
+
+                response = self.client.chat_completion(
+                    messages=messages,
+                    **kwargs,
+                )
+            except Exception as e:
+                self.logger.error(f"Error during HuggingFace API call: {e}")
+                raise
+
+            # HuggingFace doesn't provide token usage information in the same way as OpenAI
+            # We'll create a placeholder Usage object
+            usage = Usage(
+                prompt_tokens=0,  # Not provided by HuggingFace API
+                completion_tokens=0,  # Not provided by HuggingFace API
             )
-        except Exception as e:
-            self.logger.error(f"Error during HuggingFace API call: {e}")
-            raise
 
-        # HuggingFace doesn't provide token usage information in the same way as OpenAI
-        # We'll create a placeholder Usage object
-        usage = Usage(
-            prompt_tokens=0,  # Not provided by HuggingFace API
-            completion_tokens=0,  # Not provided by HuggingFace API
-        )
+            # Extract the content from the response
+            content = response.choices[0].message.content
 
-        # Extract the content from the response
-        content = response.choices[0].message.content
-
-        return [content], usage, self.model_name
+            return [content], usage, self.model_name
 
     async def achat(
         self, messages: List[Dict[str, Any]], stream: bool = False, **kwargs
     ) -> Tuple[List[str], Usage, str] | AsyncIterator[str]:
         """
-        Asynchronously handle chat completions using the HuggingFace Inference API.
+        Asynchronously handle chat completions using the HuggingFace Inference API or Router.
 
         Args:
             messages: List of message dictionaries with 'role' and 'content' keys
@@ -149,45 +194,90 @@ class HuggingFaceClient(MinionsClient):
         if "max_tokens" not in kwargs:
             kwargs["max_tokens"] = self.max_tokens
 
-        if stream:
-            try:
-                stream_response = await self.async_client.chat_completion(
-                    messages=messages,
-                    stream=True,
-                    **kwargs,
-                )
+        if self.use_router:
+            # Use HuggingFace Router (OpenAI-compatible API)
+            if stream:
+                try:
+                    stream_response = await self.router_client.chat.completions.create(
+                        model=self.model_name,
+                        messages=messages,
+                        stream=True,
+                        **kwargs,
+                    )
 
-                async def response_generator():
-                    async for chunk in stream_response:
-                        if chunk.choices and chunk.choices[0].delta.content:
-                            yield chunk.choices[0].delta.content
+                    async def response_generator():
+                        async for chunk in stream_response:
+                            if chunk.choices and chunk.choices[0].delta.content:
+                                yield chunk.choices[0].delta.content
 
-                return response_generator()
-            except Exception as e:
-                self.logger.error(
-                    f"Error during async streaming HuggingFace API call: {e}"
-                )
-                raise
+                    return response_generator()
+                except Exception as e:
+                    self.logger.error(
+                        f"Error during async streaming HuggingFace Router API call: {e}"
+                    )
+                    raise
+            else:
+                try:
+                    response = await self.router_client.chat.completions.create(
+                        model=self.model_name,
+                        messages=messages,
+                        **kwargs,
+                    )
+
+                    # Extract usage information if available
+                    usage = Usage(
+                        prompt_tokens=response.usage.prompt_tokens if response.usage else 0,
+                        completion_tokens=response.usage.completion_tokens if response.usage else 0,
+                    )
+
+                    # Extract the content from the response
+                    content = response.choices[0].message.content
+
+                    return [content], usage, self.model_name
+                except Exception as e:
+                    self.logger.error(f"Error during async HuggingFace Router API call: {e}")
+                    raise
         else:
-            try:
-                response = await self.async_client.chat_completion(
-                    messages=messages,
-                    **kwargs,
-                )
+            # Use regular HuggingFace Inference API
+            if stream:
+                try:
+                    stream_response = await self.async_client.chat_completion(
+                        messages=messages,
+                        stream=True,
+                        **kwargs,
+                    )
 
-                # HuggingFace doesn't provide token usage information in the same way as OpenAI
-                usage = Usage(
-                    prompt_tokens=0,  # Not provided by HuggingFace API
-                    completion_tokens=0,  # Not provided by HuggingFace API
-                )
+                    async def response_generator():
+                        async for chunk in stream_response:
+                            if chunk.choices and chunk.choices[0].delta.content:
+                                yield chunk.choices[0].delta.content
 
-                # Extract the content from the response
-                content = response.choices[0].message.content
+                    return response_generator()
+                except Exception as e:
+                    self.logger.error(
+                        f"Error during async streaming HuggingFace API call: {e}"
+                    )
+                    raise
+            else:
+                try:
+                    response = await self.async_client.chat_completion(
+                        messages=messages,
+                        **kwargs,
+                    )
 
-                return [content], usage, self.model_name
-            except Exception as e:
-                self.logger.error(f"Error during async HuggingFace API call: {e}")
-                raise
+                    # HuggingFace doesn't provide token usage information in the same way as OpenAI
+                    usage = Usage(
+                        prompt_tokens=0,  # Not provided by HuggingFace API
+                        completion_tokens=0,  # Not provided by HuggingFace API
+                    )
+
+                    # Extract the content from the response
+                    content = response.choices[0].message.content
+
+                    return [content], usage, self.model_name
+                except Exception as e:
+                    self.logger.error(f"Error during async HuggingFace API call: {e}")
+                    raise
 
     def _process_media_file(self, file_path_or_url: str) -> Tuple[str, bytes]:
         """

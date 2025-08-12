@@ -628,6 +628,7 @@ def initialize_clients(
     multi_turn_mode=False,
     max_history_turns=0,
     context_description=None,
+    verbosity="medium",
 ):
     """Initialize the local and remote clients outside of the run_protocol function."""
     # Store model parameters in session state for potential reinitialization
@@ -835,6 +836,7 @@ def initialize_clients(
             temperature=remote_temperature,
             max_tokens=int(remote_max_tokens),
             api_key=api_key,
+            verbosity=verbosity,
         )
     elif provider == "Anthropic":
         # Get web search settings directly from session state
@@ -2567,10 +2569,23 @@ with st.sidebar:
                 help="Controls how much effort the model puts into reasoning",
                 key="reasoning_effort",
             )
+            
+            # Add verbosity parameter for OpenRouter
+            if provider == "OpenRouter":
+                verbosity = st.selectbox(
+                    "Verbosity",
+                    options=["low", "medium", "high"],
+                    index=1,  # Default to "medium"
+                    help="Controls the verbosity and length of the model response",
+                    key="openrouter_verbosity",
+                )
+            else:
+                verbosity = "medium"  # Default for non-OpenRouter providers
         else:
             remote_temperature = 0.0
             remote_max_tokens = 4096
             reasoning_effort = "medium"  # Default reasoning effort
+            verbosity = "medium"  # Default verbosity
 
     voice_generation_enabled = False
 
@@ -2710,6 +2725,7 @@ if protocol == "DeepResearch":
             provider_key,
             num_ctx=4096,
             reasoning_effort=reasoning_effort,
+            verbosity=verbosity,
         )
 
         # Update session state
@@ -2977,6 +2993,7 @@ else:
                         reasoning_effort=reasoning_effort,
                         multi_turn_mode=multi_turn_mode,
                         max_history_turns=max_history_turns,
+                        verbosity=verbosity,
                     )
                     # Store the current protocol and local provider in session state
                     st.session_state.current_protocol = protocol

@@ -418,6 +418,145 @@ def run_minions():
             "traceback": traceback.format_exc() if os.getenv("DEBUG", "false").lower() == "true" else None
         }), 500
 
+@app.route('/remote-only', methods=['POST'])
+def run_remote_only():
+    """
+    Run the task using only the remote model (no minions protocol).
+    This demonstrates the cost difference compared to the minions approach.
+    
+    Expected JSON body: Same as /minions endpoint
+    """
+    global minions_instance
+    
+    try:
+        # Initialize minions if not already done (we need the remote client)
+        if minions_instance is None:
+            has_remote_key = config["openai_api_key"]
+            
+            if not has_remote_key:
+                return jsonify({
+                    "error": "No API key configured",
+                    "message": "Set OPENAI_API_KEY environment variable"
+                }), 400
+            
+            try:
+                minions_instance = create_minions_instance()
+            except Exception as e:
+                return jsonify({
+                    "error": "Failed to initialize remote client",
+                    "message": str(e)
+                }), 500
+        
+        # Parse request body
+        data = request.get_json()
+        if not data:
+            return jsonify({
+                "error": "Invalid request",
+                "message": "JSON body required"
+            }), 400
+        
+        # Extract required parameters
+        task = data.get("task")
+        doc_metadata = data.get("doc_metadata", "Unknown document type")
+        context = data.get("context", [])
+        
+        if not task:
+            return jsonify({
+                "error": "Missing required parameter",
+                "message": "'task' is required"
+            }), 400
+        
+        if not isinstance(context, list):
+            return jsonify({
+                "error": "Invalid parameter type",
+                "message": "'context' must be a list of strings"
+            }), 400
+        
+        logger.info(f"Running remote-only processing with task: {task[:100]}...")
+        logger.info(f"Context length: {len(context)} items")
+        
+        # Prepare the prompt for direct remote processing
+        context_text = "\n\n".join(context) if context else ""
+        
+        # Create a comprehensive prompt that includes all the context
+        prompt = f"""You are an AI assistant tasked with analyzing the following document and answering a specific question.
+
+Document Type: {doc_metadata}
+
+Document Content:
+{context_text}
+
+Task: {task}
+
+Please provide a comprehensive and accurate answer based on the document content provided above. If the document doesn't contain enough information to fully answer the question, please indicate what information is missing."""
+
+        # Run the remote model directly
+        start_time = time.time()
+        
+        # Get the remote client from the minions instance
+        remote_client = minions_instance.remote_client
+        
+        # Make the direct call to the remote model using the correct method
+        response_texts, usage = remote_client.chat(
+            messages=[{"role": "user", "content": prompt}],
+            max_completion_tokens=2000,
+            temperature=0.1
+        )
+        
+        end_time = time.time()
+        
+        # Extract the answer from the response
+        final_answer = response_texts[0] if response_texts else "No response generated"
+        
+        # Get actual usage information
+        remote_usage = {
+            "prompt_tokens": usage.prompt_tokens,
+            "completion_tokens": usage.completion_tokens,
+            "total_tokens": usage.total_tokens
+        }
+        
+        # Prepare response
+        response_data = {
+            "success": True,
+            "final_answer": final_answer,
+            "log_file": None,  # No log file for remote-only processing
+            "usage": {
+                "remote": remote_usage,
+                "local": None  # No local usage in remote-only mode
+            },
+            "timing": {
+                "total_time": end_time - start_time,
+                "remote_time": end_time - start_time,
+                "local_time": 0
+            },
+            "execution_time": end_time - start_time,
+            "parameters_used": {
+                "processing_mode": "remote_only",
+                "max_rounds": 1,  # Only one round for remote-only
+                "max_jobs_per_round": 1,
+                "num_tasks_per_round": 1,
+                "num_samples_per_task": 1,
+                "use_retrieval": False,
+                "retrieval_model": None,
+                "chunk_fn": None
+            }
+        }
+        
+        logger.info(f"Remote-only processing completed successfully. Final answer length: {len(final_answer)}")
+        logger.info(f"Execution time: {end_time - start_time:.2f} seconds")
+        logger.info(f"Estimated token usage: {remote_usage['total_tokens']} tokens")
+        
+        return jsonify(response_data)
+        
+    except Exception as e:
+        logger.error(f"Error running remote-only processing: {str(e)}")
+        logger.error(traceback.format_exc())
+        return jsonify({
+            "error": "Failed to run remote-only processing",
+            "message": str(e),
+            "traceback": traceback.format_exc() if os.getenv("DEBUG", "false").lower() == "true" else None
+        }), 500
+
 @app.route('/upload-pdf', methods=['POST'])
 def upload_pdf():
     """
@@ -641,6 +780,7 @@ def not_found(error):
             "GET /health",
             "GET /status",
             "POST /minions",
+            "POST /remote-only",
             "POST /upload-pdf",
             "GET /config",
             "POST /config",

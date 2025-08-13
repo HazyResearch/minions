@@ -434,6 +434,92 @@
             z-index: 2;
         }
 
+        /* Radio Group Styles */
+        .radio-group {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-top: 10px;
+        }
+
+        .radio-option {
+            position: relative;
+        }
+
+        .radio-option input[type="radio"] {
+            position: absolute;
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .radio-label {
+            display: block;
+            padding: 20px;
+            border: 2px solid #e1e8ed;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: #fafbfc;
+            position: relative;
+        }
+
+        .radio-label:hover {
+            border-color: #4facfe;
+            background: #f0f8ff;
+        }
+
+        .radio-option input[type="radio"]:checked + .radio-label {
+            border-color: #4facfe;
+            background: #e3f2fd;
+            box-shadow: 0 0 0 3px rgba(79, 172, 254, 0.1);
+        }
+
+        .radio-option input[type="radio"]:checked + .radio-label::before {
+            content: '✓';
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            width: 24px;
+            height: 24px;
+            background: #4facfe;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .radio-title {
+            font-size: 1.1em;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 8px;
+        }
+
+        .radio-description {
+            font-size: 0.95em;
+            color: #666;
+            margin-bottom: 10px;
+            line-height: 1.4;
+        }
+
+        .radio-benefits {
+            font-size: 0.85em;
+            color: #555;
+            font-weight: 500;
+        }
+
+        .radio-option input[type="radio"]:checked + .radio-label .radio-title {
+            color: #1976d2;
+        }
+
+        .radio-option input[type="radio"]:checked + .radio-label .radio-benefits {
+            color: #1976d2;
+        }
+
         @media (max-width: 768px) {
             .form-row,
             .form-row-3 {
@@ -536,6 +622,34 @@
                         
                         <textarea id="context" placeholder="Paste your document content, data, or context here..."></textarea>
                         <div class="info-text">Provide the documents or context that the minions should analyze</div>
+                    </div>
+                </div>
+
+                <!-- Processing Mode Selection -->
+                <div class="form-section">
+                    <h3>🔄 Processing Mode</h3>
+                    
+                    <div class="form-group">
+                        <label>Choose Processing Method</label>
+                        <div class="radio-group">
+                            <div class="radio-option">
+                                <input type="radio" id="mode_minions" name="processing_mode" value="minions" checked>
+                                <label for="mode_minions" class="radio-label">
+                                    <div class="radio-title">🤖 Minions Protocol (Recommended)</div>
+                                    <div class="radio-description">Uses local processing + selective remote calls for cost-effective analysis</div>
+                                    <div class="radio-benefits">✅ Lower cost • ✅ Faster processing • ✅ Better accuracy</div>
+                                </label>
+                            </div>
+                            <div class="radio-option">
+                                <input type="radio" id="mode_remote" name="processing_mode" value="remote">
+                                <label for="mode_remote" class="radio-label">
+                                    <div class="radio-title">☁️ Remote Model Only</div>
+                                    <div class="radio-description">Sends entire document directly to remote model (higher cost)</div>
+                                    <div class="radio-benefits">⚠️ Higher cost • ⚠️ Token limits • ⚠️ Less efficient</div>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="info-text">Compare the efficiency and cost-effectiveness of both approaches</div>
                     </div>
                 </div>
 

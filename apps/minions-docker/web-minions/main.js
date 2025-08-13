@@ -52,6 +52,10 @@ class MinionsAdvancedClient {
       pdfStats: document.getElementById('pdf-stats'),
       removePdf: document.getElementById('remove-pdf'),
       
+      // Processing mode
+      processingModeMinions: document.getElementById('mode_minions'),
+      processingModeRemote: document.getElementById('mode_remote'),
+      
       // Basic configuration
       maxRounds: document.getElementById('max_rounds'),
       loggingId: document.getElementById('logging_id'),
@@ -111,8 +115,15 @@ class MinionsAdvancedClient {
     // Auto-generate logging ID when task changes
     this.elements.task.onblur = () => this.autoGenerateLoggingId();
 
+    // Processing mode change listeners
+    this.elements.processingModeMinions.onchange = () => this.updateProcessingMode();
+    this.elements.processingModeRemote.onchange = () => this.updateProcessingMode();
+
     // PDF upload event listeners
     this.attachPdfEventListeners();
+    
+    // Initialize processing mode
+    this.updateProcessingMode();
   }
 
   toggleAdvancedOptions() {
@@ -152,6 +163,17 @@ class MinionsAdvancedClient {
   updateStartButtonState() {
     const task = this.elements.task.value.trim();
     this.elements.startBtn.disabled = !task;
+  }
+
+  updateProcessingMode() {
+    const isMinionsMode = this.elements.processingModeMinions.checked;
+    const startBtn = this.elements.startBtn;
+    
+    if (isMinionsMode) {
+      startBtn.innerHTML = '🚀 Start Minions Protocol';
+    } else {
+      startBtn.innerHTML = '☁️ Start Remote Processing';
+    }
   }
 
   logMessage(message, type = 'info') {
@@ -300,6 +322,7 @@ class MinionsAdvancedClient {
 
   async startMinions() {
     const formData = this.collectFormData();
+    const isMinionsMode = this.elements.processingModeMinions.checked;
 
     if (!formData.task) {
       this.logMessage('Task description is required', 'error');
@@ -309,12 +332,22 @@ class MinionsAdvancedClient {
 
     // Disable start button and show loading state
     this.elements.startBtn.disabled = true;
-    this.elements.startBtn.innerHTML = '<span class="spinner"></span>Running Minions Protocol...';
+    const loadingText = isMinionsMode ? 
+      '<span class="spinner"></span>Running Minions Protocol...' : 
+      '<span class="spinner"></span>Processing with Remote Model...';
+    this.elements.startBtn.innerHTML = loadingText;
 
     const startTime = Date.now();
 
     try {
-      this.logMessage('Starting advanced minions protocol...', 'info');
+      if (isMinionsMode) {
+        this.logMessage('Starting advanced minions protocol...', 'info');
+        this.logMessage(`Mode: Minions Protocol (cost-effective multi-agent processing)`, 'info');
+      } else {
+        this.logMessage('Starting remote model processing...', 'info');
+        this.logMessage(`Mode: Remote Model Only (direct processing, higher cost)`, 'warning');
+      }
+      
       this.logMessage(`Task: ${formData.task}`, 'info');
       this.logMessage(`Document Type: ${formData.doc_metadata}`, 'info');
       
@@ -322,13 +355,18 @@ class MinionsAdvancedClient {
         this.logMessage(`Context length: ${formData.context[0].length} characters`, 'info');
       }
       
-      this.logMessage(`Configuration: ${formData.max_rounds} rounds, ${formData.num_tasks_per_round} tasks/round`, 'debug');
-      
-      if (formData.use_retrieval && formData.use_retrieval !== 'false') {
-        this.logMessage(`Using ${formData.use_retrieval} retrieval with ${formData.chunk_fn}`, 'debug');
+      if (isMinionsMode) {
+        this.logMessage(`Configuration: ${formData.max_rounds} rounds, ${formData.num_tasks_per_round} tasks/round`, 'debug');
+        
+        if (formData.use_retrieval && formData.use_retrieval !== 'false') {
+          this.logMessage(`Using ${formData.use_retrieval} retrieval with ${formData.chunk_fn}`, 'debug');
+        }
       }
 
-      const data = await this.makeRequest('/minions', {
+      // Choose endpoint based on processing mode
+      const endpoint = isMinionsMode ? '/minions' : '/remote-only';
+      
+      const data = await this.makeRequest(endpoint, {
         method: 'POST',
         body: JSON.stringify(formData)
       });
@@ -336,24 +374,33 @@ class MinionsAdvancedClient {
       const endTime = Date.now();
       const executionTime = (endTime - startTime) / 1000;
 
-      this.logMessage('Minions protocol completed successfully!', 'success');
+      const successMessage = isMinionsMode ? 
+        'Minions protocol completed successfully!' : 
+        'Remote model processing completed!';
+      
+      this.logMessage(successMessage, 'success');
       this.logMessage('='.repeat(60), 'info');
       this.logMessage('FINAL ANSWER:', 'success');
       this.logMessage(data.final_answer, 'info');
       this.logMessage('='.repeat(60), 'info');
 
-      // Display metrics
+      // Display metrics with processing mode context
       this.displayMetrics({
         executionTime: data.execution_time || executionTime,
         remoteUsage: data.usage?.remote,
         localUsage: data.usage?.local,
         timing: data.timing,
         logFile: data.log_file,
-        parametersUsed: data.parameters_used
+        parametersUsed: data.parameters_used,
+        processingMode: isMinionsMode ? 'Minions Protocol' : 'Remote Only'
       });
 
     } catch (error) {
-      this.logMessage(`Minions execution failed: ${error.message}`, 'error');
+      const errorMessage = isMinionsMode ? 
+        `Minions execution failed: ${error.message}` : 
+        `Remote processing failed: ${error.message}`;
+      
+      this.logMessage(errorMessage, 'error');
       
       // Try to parse error details if available
       try {
@@ -367,7 +414,7 @@ class MinionsAdvancedClient {
       }
     } finally {
       this.elements.startBtn.disabled = false;
-      this.elements.startBtn.innerHTML = '🚀 Start Minions Protocol';
+      this.updateProcessingMode(); // This will set the correct button text
       this.updateStartButtonState();
     }
   }
@@ -378,6 +425,11 @@ class MinionsAdvancedClient {
     
     // Clear previous metrics
     metricsElement.innerHTML = '';
+    
+    // Processing mode
+    if (metrics.processingMode) {
+      this.addMetric('Processing Mode', metrics.processingMode, metricsElement);
+    }
     
     // Execution time
     this.addMetric('Execution Time', `${metrics.executionTime.toFixed(2)}s`, metricsElement);

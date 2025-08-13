@@ -9,12 +9,17 @@
     "preview": "vite preview",
     "serve": "vite preview --port 8080 --host 0.0.0.0"
   },
-  "keywords": ["minions", "docker", "web", "interface", "ai"],
+  "keywords": [
+    "minions",
+    "docker",
+    "web",
+    "interface",
+    "ai"
+  ],
   "author": "Minions Team",
   "license": "MIT",
   "devDependencies": {
-    "vite": "^4.4.5",
-    "terser": "^5.19.2"
-  },
-  "dependencies": {}
+    "terser": "^5.43.1",
+    "vite": "^4.4.5"
+  }
 }

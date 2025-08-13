@@ -134,42 +134,6 @@
             gap: 20px;
         }
 
-        .form-row-3 {
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
-            gap: 15px;
-        }
-
-        .advanced-section {
-            background: #f8f9fa;
-            border-radius: 10px;
-            padding: 20px;
-            margin-top: 20px;
-        }
-
-        .advanced-toggle {
-            background: none;
-            border: none;
-            color: #4facfe;
-            font-weight: 600;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 5px;
-            margin-bottom: 15px;
-        }
-
-        .advanced-toggle:hover {
-            text-decoration: underline;
-        }
-
-        .advanced-content {
-            display: none;
-        }
-
-        .advanced-content.show {
-            display: block;
-        }
 
         .button-group {
             display: flex;
@@ -637,7 +601,7 @@
                                 <label for="mode_minions" class="radio-label">
                                     <div class="radio-title">🤖 Minions Protocol (Recommended)</div>
                                     <div class="radio-description">Uses local processing + selective remote calls for cost-effective analysis</div>
-                                    <div class="radio-benefits">✅ Lower cost • ✅ Faster processing • ✅ Better accuracy</div>
+                                    <div class="radio-benefits">✅ Lower cost</div>
                                 </label>
                             </div>
                             <div class="radio-option">
@@ -645,7 +609,7 @@
                                 <label for="mode_remote" class="radio-label">
                                     <div class="radio-title">☁️ Remote Model Only</div>
                                     <div class="radio-description">Sends entire document directly to remote model (higher cost)</div>
-                                    <div class="radio-benefits">⚠️ Higher cost • ⚠️ Token limits • ⚠️ Less efficient</div>
+                                    <div class="radio-benefits">⚠️ Higher cost</div>
                                 </label>
                             </div>
                         </div>
@@ -668,66 +632,6 @@
                             <label for="logging_id">Logging ID</label>
                             <input type="text" id="logging_id" placeholder="Optional custom identifier">
                             <div class="info-text">Custom identifier for this task</div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Advanced Configuration -->
-                <div class="form-section">
-                    <div class="advanced-section">
-                        <button type="button" class="advanced-toggle" id="advanced-toggle">
-                            <span id="advanced-arrow">▶</span> Advanced Options
-                        </button>
-                        
-                        <div class="advanced-content" id="advanced-content">
-                            <div class="form-row-3">
-                                <div class="form-group">
-                                    <label for="max_jobs_per_round">Max Jobs/Round</label>
-                                    <input type="number" id="max_jobs_per_round" min="1" max="4096" value="2048">
-                                    <div class="info-text">Maximum jobs per round</div>
-                                </div>
-                                
-                                <div class="form-group">
-                                    <label for="num_tasks_per_round">Tasks/Round</label>
-                                    <input type="number" id="num_tasks_per_round" min="1" max="10" value="3">
-                                    <div class="info-text">Number of tasks per round</div>
-                                </div>
-                                
-                                <div class="form-group">
-                                    <label for="num_samples_per_task">Samples/Task</label>
-                                    <input type="number" id="num_samples_per_task" min="1" max="5" value="1">
-                                    <div class="info-text">Samples per task</div>
-                                </div>
-                            </div>
-
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label for="use_retrieval">Retrieval Method</label>
-                                    <select id="use_retrieval">
-                                        <option value="false">No Retrieval</option>
-                                        <option value="bm25">BM25 Retrieval</option>
-                                    </select>
-                                    <div class="info-text">Document retrieval strategy</div>
-                                </div>
-                                
-                                <div class="form-group">
-                                    <label for="chunk_fn">Chunking Strategy</label>
-                                    <select id="chunk_fn">
-                                        <option value="chunk_by_section">By Section</option>
-                                        <option value="chunk_by_page">By Page</option>
-                                        <option value="chunk_by_paragraph">By Paragraph</option>
-                                        <option value="chunk_by_code">By Code</option>
-                                        <option value="chunk_by_function_and_class">By Function/Class</option>
-                                    </select>
-                                    <div class="info-text">How to split documents</div>
-                                </div>
-                            </div>
-
-                            <div class="form-group">
-                                <label for="retrieval_model">Retrieval Model</label>
-                                <input type="text" id="retrieval_model" value="all-MiniLM-L6-v2" placeholder="all-MiniLM-L6-v2">
-                                <div class="info-text">Model used for document retrieval</div>
-                            </div>
                         </div>
                     </div>
                 </div>

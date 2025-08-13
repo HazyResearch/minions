@@ -30,66 +30,55 @@ class MinionsAdvancedClient {
     return 'http://127.0.0.1:5000';
   }
 
-  initializeElements() {
-    // Get DOM elements
-    this.elements = {
-      statusCard: document.getElementById('status-card'),
-      form: document.getElementById('minions-form'),
-      
-      // Task configuration
-      task: document.getElementById('task'),
-      docMetadata: document.getElementById('doc_metadata'),
-      context: document.getElementById('context'),
-      
-      // PDF upload elements
-      pdfSelectBtn: document.getElementById('pdf-select-btn'),
-      pdfFileInput: document.getElementById('pdf-file-input'),
-      uploadProgress: document.getElementById('upload-progress'),
-      progressFill: document.getElementById('progress-fill'),
-      progressText: document.getElementById('progress-text'),
-      pdfInfo: document.getElementById('pdf-info'),
-      pdfFilename: document.getElementById('pdf-filename'),
-      pdfStats: document.getElementById('pdf-stats'),
-      removePdf: document.getElementById('remove-pdf'),
-      
-      // Processing mode
-      processingModeMinions: document.getElementById('mode_minions'),
-      processingModeRemote: document.getElementById('mode_remote'),
-      
-      // Basic configuration
-      maxRounds: document.getElementById('max_rounds'),
-      loggingId: document.getElementById('logging_id'),
-      
-      // Advanced configuration
-      advancedToggle: document.getElementById('advanced-toggle'),
-      advancedArrow: document.getElementById('advanced-arrow'),
-      advancedContent: document.getElementById('advanced-content'),
-      maxJobsPerRound: document.getElementById('max_jobs_per_round'),
-      numTasksPerRound: document.getElementById('num_tasks_per_round'),
-      numSamplesPerTask: document.getElementById('num_samples_per_task'),
-      useRetrieval: document.getElementById('use_retrieval'),
-      chunkFn: document.getElementById('chunk_fn'),
-      retrievalModel: document.getElementById('retrieval_model'),
-      
-      // Buttons
-      checkStatusBtn: document.getElementById('check_status'),
-      startBtn: document.getElementById('start'),
-      clearLogBtn: document.getElementById('clear_log'),
-      
-      // Output
-      log: document.getElementById('log'),
-      metricsContainer: document.getElementById('metrics-container'),
-      metrics: document.getElementById('metrics')
-    };
+    initializeElements() {
+        // Get DOM elements
+        this.elements = {
+            statusCard: document.getElementById('status-card'),
+            form: document.getElementById('minions-form'),
+            
+            // Task configuration
+            task: document.getElementById('task'),
+            docMetadata: document.getElementById('doc_metadata'),
+            context: document.getElementById('context'),
+            
+            // PDF upload elements
+            pdfSelectBtn: document.getElementById('pdf-select-btn'),
+            pdfFileInput: document.getElementById('pdf-file-input'),
+            uploadProgress: document.getElementById('upload-progress'),
+            progressFill: document.getElementById('progress-fill'),
+            progressText: document.getElementById('progress-text'),
+            pdfInfo: document.getElementById('pdf-info'),
+            pdfFilename: document.getElementById('pdf-filename'),
+            pdfStats: document.getElementById('pdf-stats'),
+            removePdf: document.getElementById('remove-pdf'),
+            
+            // Processing mode
+            processingModeMinions: document.getElementById('mode_minions'),
+            processingModeRemote: document.getElementById('mode_remote'),
+            
+            // Basic configuration
+            maxRounds: document.getElementById('max_rounds'),
+            loggingId: document.getElementById('logging_id'),
+            
+            // Buttons
+            checkStatusBtn: document.getElementById('check_status'),
+            startBtn: document.getElementById('start'),
+            clearLogBtn: document.getElementById('clear_log'),
+            
+            // Output
+            log: document.getElementById('log'),
+            metricsContainer: document.getElementById('metrics-container'),
+            metrics: document.getElementById('metrics')
+        };
 
-    // Initialize PDF upload state
-    this.pdfData = {
-      filename: null,
-      text: null,
-      pages: 0,
-      characters: 0
-    };
-  }
+        // Initialize PDF upload state
+        this.pdfData = {
+            filename: null,
+            text: null,
+            pages: 0,
+            characters: 0
+        };
+    }
 
   attachEventListeners() {
     // Button event listeners
@@ -106,8 +95,6 @@ class MinionsAdvancedClient {
       this.startMinions();
     };
     
-    // Advanced options toggle
-    this.elements.advancedToggle.onclick = () => this.toggleAdvancedOptions();
     
     // Update start button state when task changes
     this.elements.task.oninput = () => this.updateStartButtonState();
@@ -126,18 +113,6 @@ class MinionsAdvancedClient {
     this.updateProcessingMode();
   }
 
-  toggleAdvancedOptions() {
-    const content = this.elements.advancedContent;
-    const arrow = this.elements.advancedArrow;
-    
-    if (content.classList.contains('show')) {
-      content.classList.remove('show');
-      arrow.textContent = '▶';
-    } else {
-      content.classList.add('show');
-      arrow.textContent = '▼';
-    }
-  }
 
   autoGenerateLoggingId() {
     if (!this.elements.loggingId.value.trim() && this.elements.task.value.trim()) {
@@ -234,28 +209,10 @@ class MinionsAdvancedClient {
         this.updateStatus('healthy', `Backend is healthy${modelInfo}`, '✅');
         this.isInitialized = data.config?.minions_initialized || true;
         
-        // Update configuration from backend if available
+        // Update basic configuration from backend if available
         if (data.config) {
           if (data.config.max_rounds) {
             this.elements.maxRounds.value = data.config.max_rounds.toString();
-          }
-          if (data.config.max_jobs_per_round) {
-            this.elements.maxJobsPerRound.value = data.config.max_jobs_per_round.toString();
-          }
-          if (data.config.num_tasks_per_round) {
-            this.elements.numTasksPerRound.value = data.config.num_tasks_per_round.toString();
-          }
-          if (data.config.num_samples_per_task) {
-            this.elements.numSamplesPerTask.value = data.config.num_samples_per_task.toString();
-          }
-          if (data.config.use_retrieval) {
-            this.elements.useRetrieval.value = data.config.use_retrieval;
-          }
-          if (data.config.chunking_function) {
-            this.elements.chunkFn.value = data.config.chunking_function;
-          }
-          if (data.config.retrieval_model) {
-            this.elements.retrievalModel.value = data.config.retrieval_model;
           }
         }
         
@@ -297,13 +254,13 @@ class MinionsAdvancedClient {
     const maxRounds = parseInt(this.elements.maxRounds.value) || 3;
     const loggingId = this.elements.loggingId.value.trim() || null;
     
-    // Advanced configuration
-    const maxJobsPerRound = parseInt(this.elements.maxJobsPerRound.value) || 2048;
-    const numTasksPerRound = parseInt(this.elements.numTasksPerRound.value) || 3;
-    const numSamplesPerTask = parseInt(this.elements.numSamplesPerTask.value) || 1;
-    const useRetrieval = this.elements.useRetrieval.value === 'false' ? false : this.elements.useRetrieval.value;
-    const chunkFn = this.elements.chunkFn.value || 'chunk_by_section';
-    const retrievalModel = this.elements.retrievalModel.value.trim() || 'all-MiniLM-L6-v2';
+    // Simplified configuration with fixed values
+    const maxJobsPerRound = 2048;
+    const numTasksPerRound = 3;
+    const numSamplesPerTask = 1;
+    const useRetrieval = false; // Disable retrieval for simplicity
+    const chunkFn = 'chunk_by_section';
+    const retrievalModel = 'all-MiniLM-L6-v2';
     
     return {
       task,
@@ -426,62 +383,55 @@ class MinionsAdvancedClient {
     // Clear previous metrics
     metricsElement.innerHTML = '';
     
-    // Processing mode
-    if (metrics.processingMode) {
-      this.addMetric('Processing Mode', metrics.processingMode, metricsElement);
-    }
-    
-    // Execution time
-    this.addMetric('Execution Time', `${metrics.executionTime.toFixed(2)}s`, metricsElement);
-    
-    // Remote usage
-    if (metrics.remoteUsage) {
-      this.addMetric('Remote Total Tokens', metrics.remoteUsage.total_tokens || 'N/A', metricsElement);
-      this.addMetric('Remote Prompt Tokens', metrics.remoteUsage.prompt_tokens || 'N/A', metricsElement);
-      this.addMetric('Remote Completion Tokens', metrics.remoteUsage.completion_tokens || 'N/A', metricsElement);
-    }
-    
-    // Local usage
-    if (metrics.localUsage) {
-      this.addMetric('Local Total Tokens', metrics.localUsage.total_tokens || 'N/A', metricsElement);
-      this.addMetric('Local Prompt Tokens', metrics.localUsage.prompt_tokens || 'N/A', metricsElement);
-      this.addMetric('Local Completion Tokens', metrics.localUsage.completion_tokens || 'N/A', metricsElement);
-    }
-    
-    // Timing information
-    if (metrics.timing) {
-      Object.entries(metrics.timing).forEach(([key, value]) => {
-        if (typeof value === 'number') {
-          this.addMetric(
-            key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()), 
-            `${value.toFixed(2)}s`, 
-            metricsElement
-          );
-        }
-      });
-    }
-    
-    // Parameters used
-    if (metrics.parametersUsed) {
-      this.addMetric('Max Rounds', metrics.parametersUsed.max_rounds || 'N/A', metricsElement);
-      this.addMetric('Tasks/Round', metrics.parametersUsed.num_tasks_per_round || 'N/A', metricsElement);
-      this.addMetric('Samples/Task', metrics.parametersUsed.num_samples_per_task || 'N/A', metricsElement);
-      
-      if (metrics.parametersUsed.use_retrieval && metrics.parametersUsed.use_retrieval !== 'false') {
-        this.addMetric('Retrieval Method', metrics.parametersUsed.use_retrieval, metricsElement);
-        this.addMetric('Chunk Function', metrics.parametersUsed.chunk_fn || 'N/A', metricsElement);
-      }
-    }
-    
-    // Log file
-    if (metrics.logFile) {
-      this.addMetric('Log File', metrics.logFile, metricsElement);
-    }
+    // Create token comparison section with only the 3 key metrics
+    this.createTokenComparisonSection(metrics, metricsElement);
     
     // Show metrics container
     metricsContainer.classList.remove('hidden');
     
     this.logMessage('Execution metrics displayed below', 'info');
+  }
+
+  createTokenComparisonSection(metrics, container) {
+    // Calculate total tokens from prompt + completion tokens
+    const remotePromptTokens = metrics.remoteUsage?.prompt_tokens || 0;
+    const remoteCompletionTokens = metrics.remoteUsage?.completion_tokens || 0;
+    const remoteTokens = remotePromptTokens + remoteCompletionTokens;
+    
+    const localPromptTokens = metrics.localUsage?.prompt_tokens || 0;
+    const localCompletionTokens = metrics.localUsage?.completion_tokens || 0;
+    const localTokens = localPromptTokens + localCompletionTokens;
+    
+    const totalTime = metrics.executionTime || 0;
+    
+    const comparisonSection = document.createElement('div');
+    comparisonSection.className = 'token-comparison';
+    
+    comparisonSection.innerHTML = `
+      <h4>💰 Token Usage Comparison</h4>
+      <div class="token-comparison-grid">
+        <div class="token-metric remote">
+          <div class="token-metric-value">${remoteTokens.toLocaleString()}</div>
+          <div class="token-metric-label">Remote Tokens</div>
+          <div class="token-metric-sublabel">Expensive API calls</div>
+        </div>
+        <div class="vs-divider">VS</div>
+        <div class="token-metric local">
+          <div class="token-metric-value">${localTokens.toLocaleString()}</div>
+          <div class="token-metric-label">Local Tokens</div>
+          <div class="token-metric-sublabel">Cost-effective processing</div>
+        </div>
+      </div>
+      <div style="text-align: center; margin-top: 20px;">
+        <div class="token-metric" style="display: inline-block; margin: 0;">
+          <div class="token-metric-value" style="color: #4facfe;">${totalTime.toFixed(2)}s</div>
+          <div class="token-metric-label">Total Time</div>
+          <div class="token-metric-sublabel">Complete execution</div>
+        </div>
+      </div>
+    `;
+    
+    container.appendChild(comparisonSection);
   }
 
   addMetric(label, value, container) {

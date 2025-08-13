@@ -32,12 +32,8 @@ from minions.minions import Minions
 from minions.clients.docker_model_runner import DockerModelRunnerClient
 from minions.clients.openai import OpenAIClient
 
-# Import BM25 retrieval support
-try:
-    from minions.utils.retrievers import bm25_retrieve_top_k_chunks
-    BM25_AVAILABLE = True
-except ImportError:
-    BM25_AVAILABLE = False
+# no retrieval support
+BM25_AVAILABLE = False
 
 
 # Configure logging
@@ -193,21 +189,6 @@ def health_check():
         }
     })
 
-@app.route('/status', methods=['GET'])
-def get_status():
-    """Get detailed server status and configuration."""
-    return jsonify({
-        "server": {
-            "status": "running",
-            "timestamp": datetime.now().isoformat(),
-            "minions_initialized": minions_instance is not None
-        },
-        "configuration": config,
-        "available_providers": {
-            "openai": True,
-            "docker": True
-        }
-    })
 
 def extract_text_from_pdf(pdf_bytes):
     """Extract text from a PDF file using PyMuPDF or pypdf as fallback."""
@@ -660,117 +641,6 @@ def upload_pdf():
             "message": str(e)
         }), 500
 
-@app.route('/config', methods=['GET'])
-def get_config():
-    """Get current configuration."""
-    # Hide sensitive API keys in response
-    safe_config = config.copy()
-    for key in safe_config:
-        if "api_key" in key.lower() and safe_config[key]:
-            safe_config[key] = "*" * 10
-    
-    return jsonify({
-        "config": safe_config,
-        "minions_initialized": minions_instance is not None,
-        "available_chunking_functions": [
-            "chunk_by_section",
-            "chunk_by_page", 
-            "chunk_by_paragraph",
-            "chunk_by_code",
-            "chunk_by_function_and_class"
-        ],
-        "available_retrieval_methods": [
-            "bm25"
-        ],
-        "available_providers": {
-            "local": ["docker", "openai"],
-            "remote": ["openai", "anthropic", "together", "groq", "gemini", "mistral"]
-        }
-    })
-
-@app.route('/config', methods=['POST'])
-def update_config():
-    """Update configuration and reinitialize minions if needed."""
-    global config, minions_instance
-    
-    try:
-        data = request.get_json() or {}
-        config_changed = False
-        
-        # Update configuration
-        for key in config.keys():
-            if key in data:
-                old_value = config[key]
-                if key in ["max_rounds", "timeout", "max_jobs_per_round", "num_tasks_per_round", "num_samples_per_task"]:
-                    config[key] = int(data[key])
-                else:
-                    config[key] = data[key]
-                
-                if config[key] != old_value:
-                    config_changed = True
-                    logger.info(f"Config updated: {key} = {config[key]}")
-        
-        # If provider-related config changed, reinitialize minions
-        provider_keys = ["remote_provider", "local_provider", "remote_model_name", "local_model_name"]
-        api_key_keys = [k for k in config.keys() if "api_key" in k]
-        
-        if any(key in data for key in provider_keys + api_key_keys) and minions_instance:
-            logger.info("Provider configuration changed, reinitializing minions...")
-            minions_instance = None
-            try:
-                minions_instance = create_minions_instance()
-                logger.info("Minions reinitialized successfully")
-            except Exception as e:
-                logger.error(f"Failed to reinitialize minions: {e}")
-                return jsonify({
-                    "error": "Failed to reinitialize minions with new configuration",
-                    "message": str(e)
-                }), 500
-        
-        # Hide sensitive information in response
-        safe_config = config.copy()
-        for key in safe_config:
-            if "api_key" in key.lower() and safe_config[key]:
-                safe_config[key] = "*" * 10
-        
-        return jsonify({
-            "message": "Configuration updated successfully",
-            "config": safe_config,
-            "minions_reinitialized": config_changed and minions_instance is not None
-        })
-        
-    except Exception as e:
-        logger.error(f"Error updating configuration: {str(e)}")
-        return jsonify({
-            "error": "Failed to update configuration",
-            "message": str(e)
-        }), 500
-
-@app.route('/providers', methods=['GET'])
-def get_providers():
-    """Get information about available providers and their status."""
-    providers_status = {}
-    
-    # Check each provider
-    providers_status["openai"] = {
-        "available": True,
-        "configured": bool(config.get("openai_api_key")),
-        "models": []  # Could be expanded to list available models per provider
-    }
-    
-    providers_status["docker"] = {
-        "available": True,
-        "configured": True,
-        "models": []
-    }
-    
-    return jsonify({
-        "providers": providers_status,
-        "current_selection": {
-            "remote": config["remote_provider"],
-            "local": config["local_provider"]
-        }
-    })
 
 @app.errorhandler(404)
 def not_found(error):
@@ -778,13 +648,9 @@ def not_found(error):
         "error": "Endpoint not found",
         "available_endpoints": [
             "GET /health",
-            "GET /status",
             "POST /minions",
             "POST /remote-only",
-            "POST /upload-pdf",
-            "GET /config",
-            "POST /config",
-            "GET /providers"
+            "POST /upload-pdf"
         ]
     }), 404
 

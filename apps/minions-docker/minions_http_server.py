@@ -14,6 +14,18 @@ import traceback
 import time
 from datetime import datetime
 from pydantic import BaseModel
+# Try to import PyMuPDF first, fallback to pypdf
+try:
+    import fitz  # PyMuPDF for PDF processing
+    PDF_LIBRARY = 'pymupdf'
+except ImportError:
+    try:
+        from pypdf import PdfReader
+        PDF_LIBRARY = 'pypdf'
+        fitz = None
+    except ImportError:
+        PDF_LIBRARY = None
+        fitz = None
 
 # Import the full Minions class and core clients
 from minions.minions import Minions
@@ -197,6 +209,38 @@ def get_status():
         }
     })
 
+def extract_text_from_pdf(pdf_bytes):
+    """Extract text from a PDF file using PyMuPDF or pypdf as fallback."""
+    try:
+        if PDF_LIBRARY == 'pymupdf' and fitz:
+            # Use PyMuPDF
+            doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+            text = ""
+            for page_num in range(len(doc)):
+                page = doc[page_num]
+                text += page.get_text()
+                if page_num < len(doc) - 1:
+                    text += "\n\n"  # Page separator
+            doc.close()
+            return text
+        elif PDF_LIBRARY == 'pypdf':
+            # Use pypdf as fallback
+            import io
+            pdf_file = io.BytesIO(pdf_bytes)
+            reader = PdfReader(pdf_file)
+            text = ""
+            for page_num, page in enumerate(reader.pages):
+                text += page.extract_text()
+                if page_num < len(reader.pages) - 1:
+                    text += "\n\n"  # Page separator
+            return text
+        else:
+            logger.error("No PDF processing library available")
+            return None
+    except Exception as e:
+        logger.error(f"Error processing PDF with {PDF_LIBRARY}: {str(e)}")
+        return None
+
 def initialize_minions_on_startup():
     """Initialize minions instance on startup if possible."""
     global minions_instance
@@ -374,6 +418,109 @@ def run_minions():
             "traceback": traceback.format_exc() if os.getenv("DEBUG", "false").lower() == "true" else None
         }), 500
 
+@app.route('/upload-pdf', methods=['POST'])
+def upload_pdf():
+    """
+    Upload and process a PDF file to extract text content.
+    
+    Expected: multipart/form-data with 'pdf' file field
+    
+    Returns:
+    {
+        "success": true,
+        "text": "Extracted text content...",
+        "filename": "document.pdf",
+        "pages": 5,
+        "characters": 1234
+    }
+    """
+    try:
+        # Check if file is present in request
+        if 'pdf' not in request.files:
+            return jsonify({
+                "error": "No file provided",
+                "message": "PDF file is required in 'pdf' field"
+            }), 400
+        
+        file = request.files['pdf']
+        
+        # Check if file was selected
+        if file.filename == '':
+            return jsonify({
+                "error": "No file selected",
+                "message": "Please select a PDF file"
+            }), 400
+        
+        # Validate file type
+        if not file.filename.lower().endswith('.pdf'):
+            return jsonify({
+                "error": "Invalid file type",
+                "message": "Only PDF files are supported"
+            }), 400
+        
+        # Read file content
+        pdf_bytes = file.read()
+        
+        # Validate file size (10MB limit)
+        max_size = 10 * 1024 * 1024  # 10MB
+        if len(pdf_bytes) > max_size:
+            return jsonify({
+                "error": "File too large",
+                "message": f"PDF file must be smaller than {max_size // (1024*1024)}MB"
+            }), 400
+        
+        # Validate that it's actually a PDF
+        if not pdf_bytes.startswith(b'%PDF'):
+            return jsonify({
+                "error": "Invalid PDF file",
+                "message": "File does not appear to be a valid PDF"
+            }), 400
+        
+        logger.info(f"Processing PDF upload: {file.filename} ({len(pdf_bytes)} bytes)")
+        
+        # Extract text from PDF
+        extracted_text = extract_text_from_pdf(pdf_bytes)
+        
+        if extracted_text is None:
+            return jsonify({
+                "error": "PDF processing failed",
+                "message": "Could not extract text from PDF. The file may be corrupted or contain only images."
+            }), 400
+        
+        # Count pages by opening the PDF again (for metadata)
+        try:
+            if PDF_LIBRARY == 'pymupdf' and fitz:
+                doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+                page_count = len(doc)
+                doc.close()
+            elif PDF_LIBRARY == 'pypdf':
+                import io
+                pdf_file = io.BytesIO(pdf_bytes)
+                reader = PdfReader(pdf_file)
+                page_count = len(reader.pages)
+            else:
+                page_count = 0
+        except:
+            page_count = 0
+        
+        logger.info(f"PDF processed successfully: {len(extracted_text)} characters extracted from {page_count} pages")
+        
+        return jsonify({
+            "success": True,
+            "text": extracted_text,
+            "filename": file.filename,
+            "pages": page_count,
+            "characters": len(extracted_text)
+        })
+        
+    except Exception as e:
+        logger.error(f"Error processing PDF upload: {str(e)}")
+        logger.error(traceback.format_exc())
+        return jsonify({
+            "error": "PDF processing failed",
+            "message": str(e)
+        }), 500
+
 @app.route('/config', methods=['GET'])
 def get_config():
     """Get current configuration."""
@@ -494,6 +641,7 @@ def not_found(error):
             "GET /health",
             "GET /status",
             "POST /minions",
+            "POST /upload-pdf",
             "GET /config",
             "POST /config",
             "GET /providers"

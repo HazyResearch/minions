@@ -268,6 +268,7 @@
             border-radius: 8px;
             text-align: center;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            overflow: scroll;
         }
 
         .metric-value {
@@ -302,6 +303,137 @@
             color: #1976d2;
         }
 
+        /* PDF Upload Section Styles */
+        .pdf-upload-section {
+            margin-bottom: 15px;
+        }
+
+        .pdf-select-container {
+            text-align: center;
+            padding: 20px;
+            background: #fafbfc;
+            border: 1px solid #e1e8ed;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+
+        .pdf-select-btn {
+            margin-bottom: 10px;
+        }
+
+        .upload-info {
+            font-size: 0.9em;
+            color: #666;
+            margin: 0;
+        }
+
+        .upload-progress {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .progress-bar {
+            width: 200px;
+            height: 6px;
+            background: #e1e8ed;
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4facfe, #00f2fe);
+            width: 0%;
+            transition: width 0.3s ease;
+            border-radius: 3px;
+        }
+
+        .progress-text {
+            font-size: 0.9em;
+            color: #666;
+            margin: 0;
+        }
+
+        .pdf-info {
+            background: #e8f5e8;
+            border: 1px solid #c3e6cb;
+            border-radius: 8px;
+            padding: 15px;
+        }
+
+        .pdf-details {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .pdf-icon {
+            font-size: 2em;
+        }
+
+        .pdf-meta {
+            flex: 1;
+            text-align: left;
+        }
+
+        .pdf-filename {
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 5px;
+        }
+
+        .pdf-stats {
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        .remove-pdf {
+            background: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            cursor: pointer;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.3s ease;
+        }
+
+        .remove-pdf:hover {
+            background: #c82333;
+        }
+
+        .context-divider {
+            text-align: center;
+            margin: 20px 0;
+            position: relative;
+            color: #888;
+            font-weight: 600;
+        }
+
+        .context-divider::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: #e1e8ed;
+            z-index: 1;
+        }
+
+        .context-divider span {
+            background: white;
+            padding: 0 15px;
+            position: relative;
+            z-index: 2;
+        }
+
         @media (max-width: 768px) {
             .form-row,
             .form-row-3 {
@@ -314,6 +446,20 @@
             
             .header h1 {
                 font-size: 2em;
+            }
+
+            .pdf-upload-zone {
+                padding: 30px 15px;
+            }
+
+            .upload-icon {
+                font-size: 2.5em;
+            }
+
+            .pdf-details {
+                flex-direction: column;
+                text-align: center;
+                gap: 10px;
             }
         }
     </style>
@@ -354,6 +500,40 @@
 
                     <div class="form-group">
                         <label for="context">Context/Documents</label>
+                        
+                        <!-- PDF Upload Section -->
+                        <div class="pdf-upload-section" id="pdf-upload-section">
+                            <div class="pdf-select-container">
+                                <button type="button" class="btn btn-primary pdf-select-btn" id="pdf-select-btn">
+                                    📄 Choose PDF File
+                                </button>
+                                <input type="file" id="pdf-file-input" accept=".pdf" hidden>
+                                <div class="upload-info">Maximum file size: 10MB</div>
+                            </div>
+                            
+                            <div class="upload-progress" id="upload-progress" style="display: none;">
+                                <div class="progress-bar">
+                                    <div class="progress-fill" id="progress-fill"></div>
+                                </div>
+                                <p class="progress-text" id="progress-text">Processing PDF...</p>
+                            </div>
+                            
+                            <div class="pdf-info" id="pdf-info" style="display: none;">
+                                <div class="pdf-details">
+                                    <span class="pdf-icon">📄</span>
+                                    <div class="pdf-meta">
+                                        <div class="pdf-filename" id="pdf-filename"></div>
+                                        <div class="pdf-stats" id="pdf-stats"></div>
+                                    </div>
+                                    <button type="button" class="remove-pdf" id="remove-pdf" title="Remove PDF">✕</button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="context-divider">
+                            <span>OR</span>
+                        </div>
+                        
                         <textarea id="context" placeholder="Paste your document content, data, or context here..."></textarea>
                         <div class="info-text">Provide the documents or context that the minions should analyze</div>
                     </div>
@@ -453,7 +633,7 @@
 
             <!-- Log Section -->
             <div class="log-section">
-                <h3>📋 Execution Log</h3>
+                <h3>� Execution Log</h3>
                 <div class="log-container" id="log">Welcome to Minions Protocol Interface
 Click "Check Status" to verify backend connection.
 </div>

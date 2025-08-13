@@ -41,6 +41,17 @@ class MinionsAdvancedClient {
       docMetadata: document.getElementById('doc_metadata'),
       context: document.getElementById('context'),
       
+      // PDF upload elements
+      pdfSelectBtn: document.getElementById('pdf-select-btn'),
+      pdfFileInput: document.getElementById('pdf-file-input'),
+      uploadProgress: document.getElementById('upload-progress'),
+      progressFill: document.getElementById('progress-fill'),
+      progressText: document.getElementById('progress-text'),
+      pdfInfo: document.getElementById('pdf-info'),
+      pdfFilename: document.getElementById('pdf-filename'),
+      pdfStats: document.getElementById('pdf-stats'),
+      removePdf: document.getElementById('remove-pdf'),
+      
       // Basic configuration
       maxRounds: document.getElementById('max_rounds'),
       loggingId: document.getElementById('logging_id'),
@@ -65,6 +76,14 @@ class MinionsAdvancedClient {
       log: document.getElementById('log'),
       metricsContainer: document.getElementById('metrics-container'),
       metrics: document.getElementById('metrics')
+    };
+
+    // Initialize PDF upload state
+    this.pdfData = {
+      filename: null,
+      text: null,
+      pages: 0,
+      characters: 0
     };
   }
 
@@ -91,6 +110,9 @@ class MinionsAdvancedClient {
     
     // Auto-generate logging ID when task changes
     this.elements.task.onblur = () => this.autoGenerateLoggingId();
+
+    // PDF upload event listeners
+    this.attachPdfEventListeners();
   }
 
   toggleAdvancedOptions() {
@@ -418,6 +440,190 @@ class MinionsAdvancedClient {
       <div class="metric-label">${label}</div>
     `;
     container.appendChild(metricDiv);
+  }
+
+  // PDF Upload Methods
+  attachPdfEventListeners() {
+    const selectBtn = this.elements.pdfSelectBtn;
+    const fileInput = this.elements.pdfFileInput;
+    const removePdf = this.elements.removePdf;
+
+    // Click button to select file
+    selectBtn.onclick = () => {
+      fileInput.click();
+    };
+
+    // File input change
+    fileInput.onchange = (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        this.handlePdfFile(file);
+      }
+    };
+
+    // Remove PDF button
+    removePdf.onclick = (e) => {
+      e.stopPropagation();
+      this.removePdf();
+    };
+  }
+
+  async handlePdfFile(file) {
+    // Validate file
+    if (!file.type.includes('pdf') && !file.name.toLowerCase().endsWith('.pdf')) {
+      this.logMessage('Please select a PDF file', 'error');
+      return;
+    }
+
+    // Check file size (10MB limit)
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxSize) {
+      this.logMessage('PDF file must be smaller than 10MB', 'error');
+      return;
+    }
+
+    this.logMessage(`Processing PDF: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)}MB)`, 'info');
+
+    // Show progress
+    this.showPdfProgress();
+
+    try {
+      // Upload PDF to backend
+      const formData = new FormData();
+      formData.append('pdf', file);
+
+      const response = await fetch(`${this.backendUrl}/upload-pdf`, {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || `HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      // Store PDF data
+      this.pdfData = {
+        filename: data.filename,
+        text: data.text,
+        pages: data.pages,
+        characters: data.characters
+      };
+
+      // Update context with PDF text
+      this.elements.context.value = data.text;
+
+      // Update document metadata if it's still default
+      if (this.elements.docMetadata.value === 'Document') {
+        this.elements.docMetadata.value = 'PDF Document';
+      }
+
+      // Show PDF info
+      this.showPdfInfo();
+
+      this.logMessage(`PDF processed successfully: ${data.pages} pages, ${data.characters} characters extracted`, 'success');
+
+    } catch (error) {
+      this.logMessage(`PDF processing failed: ${error.message}`, 'error');
+      this.hidePdfProgress();
+    }
+  }
+
+  showPdfProgress() {
+    // Hide select container and PDF info
+    const selectContainer = document.querySelector('.pdf-select-container');
+    if (selectContainer) selectContainer.style.display = 'none';
+    this.elements.pdfInfo.style.display = 'none';
+    
+    // Show progress
+    this.elements.uploadProgress.style.display = 'flex';
+    
+    // Animate progress bar
+    let progress = 0;
+    const progressInterval = setInterval(() => {
+      progress += Math.random() * 15;
+      if (progress > 90) progress = 90;
+      
+      this.elements.progressFill.style.width = `${progress}%`;
+      
+      if (progress > 50) {
+        this.elements.progressText.textContent = 'Extracting text from PDF...';
+      }
+    }, 200);
+
+    // Store interval for cleanup
+    this.progressInterval = progressInterval;
+  }
+
+  hidePdfProgress() {
+    // Clear progress interval
+    if (this.progressInterval) {
+      clearInterval(this.progressInterval);
+      this.progressInterval = null;
+    }
+
+    // Hide progress
+    this.elements.uploadProgress.style.display = 'none';
+    
+    // Show select container
+    const selectContainer = document.querySelector('.pdf-select-container');
+    if (selectContainer) selectContainer.style.display = 'block';
+  }
+
+  showPdfInfo() {
+    // Clear progress interval and complete progress bar
+    if (this.progressInterval) {
+      clearInterval(this.progressInterval);
+      this.progressInterval = null;
+    }
+
+    this.elements.progressFill.style.width = '100%';
+    this.elements.progressText.textContent = 'PDF processed successfully!';
+
+    // Wait a moment then show PDF info
+    setTimeout(() => {
+      this.elements.uploadProgress.style.display = 'none';
+      const selectContainer = document.querySelector('.pdf-select-container');
+      if (selectContainer) selectContainer.style.display = 'none';
+      
+      // Update PDF info
+      this.elements.pdfFilename.textContent = this.pdfData.filename;
+      this.elements.pdfStats.textContent = `${this.pdfData.pages} pages • ${this.pdfData.characters.toLocaleString()} characters`;
+      
+      // Show PDF info
+      this.elements.pdfInfo.style.display = 'block';
+    }, 1000);
+  }
+
+  removePdf() {
+    // Store current PDF text before clearing
+    const currentPdfText = this.pdfData.text;
+
+    // Clear PDF data
+    this.pdfData = {
+      filename: null,
+      text: null,
+      pages: 0,
+      characters: 0
+    };
+
+    // Clear context if it contains PDF text
+    if (currentPdfText && this.elements.context.value === currentPdfText) {
+      this.elements.context.value = '';
+    }
+
+    // Reset file input
+    this.elements.pdfFileInput.value = '';
+
+    // Hide PDF info and show select container
+    this.elements.pdfInfo.style.display = 'none';
+    this.elements.uploadProgress.style.display = 'none';
+    const selectContainer = document.querySelector('.pdf-select-container');
+    if (selectContainer) selectContainer.style.display = 'block';
+
+    this.logMessage('PDF removed', 'info');
   }
 }
 

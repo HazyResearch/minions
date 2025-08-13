@@ -1,0 +1,2693 @@
+
+Minions: Cost-efficient Collaboration Between On-device and Cloud Language Models
+Avanika Narayan*1, Dan Biderman*1,2,3, Sabri Eyuboglu*1, Avner May5, Scott Linderman2,3, James Zou4, Christopher R¥e1
+1Department of Computer Science, Stanford University
+2Department of Statistics, Stanford University
+3Wu Tsai Neurosciences Institute, Stanford University 4Departemnet of Biomedical Data Science, Stanford University 5Together AI
+{avanikan,biderman,eyuboglu}@stanford.edu
+
+
+
+Abstract
+   We investigate an emerging setup in which a small, on-device language model (LM) with access to local data communicates with a frontier, cloud-hosted LM to solve real-world tasks involving financial, medical, and scientific reasoning over long documents. Can a local-remote collaboration reduce cloud inference costs while preserving quality? First, we consider a na®ive collaboration protocol where the local and remote models simply chat back and forth. Because only the local model reads the full context, this protocol achieves a 30.4◊ reduction in remote costs, but recovers only 87% of the performance of the frontier model. We identify two key limitations of this protocol: the local model struggles to (1) follow the remote model's multi-step instructions and (2) reason over long contexts. Motivated by these observations, we study an extension of this protocol, coined MinionS, in which the remote model decomposes the task into easier subtasks over shorter chunks of the document, that are executed locally in parallel. MinionS reduces costs by 5.7◊ on average while recovering 97.9% of the performance of the remote model alone. Our analysis reveals several key design choices that influence the trade-off between cost and performance in local-remote systems.
+
+1 Introduction
+Today's cloud-hosted frontier Language Models (LMs) can perform data-intensive reasoning : they can generate and refactor code across entire repositories and make decisions based on financial, legal, and medical documents. However, accessing these models is expensive: processing a standard million-token code repository with OpenAI's o1 API costs > $15 per query. At the same time, smaller LMs (1-8B parameters) are rapidly improving and can now run on personal computers (Ollama, llama.cpp) and smartphones (Mehta et al., 2024; Yi et al., 2024; Xu et al., 2024). Yet, today, these small, on-device LMs are used mostly for simple tasks such as tone adjustment and text completion (Gunter et al., 2024). They do not play a role in data-intensive reasoning tasks.
+    Inspired by the growing literature on multi-agent systems (Wang et al., 2024; Guo et al., 2024), in this work we ask: how can a small, on-device LM collaborate with a frontier LM in the cloud to reduce inference costs on data-intensive reasoning tasks? In particular, we study the communication protocols that govern how the two LMs talk to each other, focusing on the tradeoff between cost and accuracy. To mimic realistic use cases, we study tasks that involve varying levels of reasoning over large volumes of medical, financial, and academic data (Islam et al., 2023; Adams et al., 2024; Dasigi et al., 2021).
+
+* Corresponding authors; equal contribution and random ordering for AN, SE, DB.
+
+1 Data-intensive Reasoning
+
+3 Minion Protocol
+
+4 MinionS Protocol
+
+
+Job Preparation
+
+Query
+
+
+Based on my files, can you
+
+...
+
+     compute FY15 depreciation and amortization margin for AMD?
+Context
+
+
+User's working context
+
+
+Local-Remote Conversation
+What was the total revenue in FY2015?
+The total revenue in 2015 was $1.3bn.
+Find the D&A in the
+
+
+Here is a function that generates jobs...
+def prepare_jobs(context):
+from bs4 import BeautifulSoup soup = BeautifulSoup(doc)
+...
+
+
+
+
+
+
+
+
+
+
+
+Job Execution and filtering
+
+2 Local-Remote Systems
+??	??
+Frontier LM	Local LM
+
+10-K document.
+I can't find any mention of D&A in the context.
+Find the D&A in the 10-K document.
+Until answer...
+
+
+
+
+We need more info., let's create more jobs.
+Until answer...
+
+??
+Local LM
+c Job Aggregation
+??
+Frontier LM
+
+
+Figure 1: Local-Remote Systems. Minion and MinionS protocols. (Left) Problem set-up: local and remote LM collaborate on a data-intensive reasoning task. (Center) Minion: A simple communication protocol in which the local and remote models have an "unconstrained" back and forth chat. (Right) MinionS: an extension of Minion where the remote LM decomposes a query into many jobs that are processed in parallel by the local model. Each job is a single-step instruction over a chunk of the context.
+
+
+   As our first attempt, we study a simple communication protocol we call Minion: an unconstrained chat between the local and remote models. Minion reduces cloud costs by only "reading" the data locally, and communicating a compressed version of the context to the remote model. We show that while Minion achieves a 30.4◊ reduction in remote model costs, it trails behind the remote-only baseline by 9.4 accuracy points on average (with an 8B local model; see Section 4 for details). In isolated ablations, we identify two
+key limitations of small LMs that hinder Minion's performance (Section 4):
+ï Small LMs struggle to follow multi-step instructions. We find that splitting complex instructions into separate requests improves performance by 56%.
+ï Small LMs get confused by long contexts . Increasing context length from < 1K to > 65K decreases performance by 13% on a simple extraction task.
+   Motivated by these limitations, we propose MinionS, an extension of Minion where the remote LM decomposes the problem into a set of single-step instructions to be performed on smaller chunks of the document. Crucially, the remote model has to do this without reading the full document, which it achieves by generating code that is later executed locally where the document is. More precisely, MinionS involves a loop over three steps:
+1. Decompose: Given a task, the remote model writes code that decomposes it into "bite-sized" subtasks.
+2. Execute: The local LM then executes the subtasks in parallel and sends a filtered selection of the responses back to the remote model.
+3. Aggregate: The remote model aggregates the local outputs and either finalizes the solution or loops back to the Decompose step.
+   Averaged across tasks, MinionS with an 8B parameter local LM can recover 97.9% of the performance of remote-only systems at 18.0% of the cloud cost (see Figure 2). With a 3B parameter local LM, MinionS achieves 93.4% of the performance of remote-only systems at 16.6% of the cloud cost (see Figure 2).
+   We perform a detailed analysis of the design and hyperparameter space of MinionS. Our analysis highlights several "knobs" that allow us to trade off cost for quality.
+   (a) Model choice How does the size and family of the language models affect the cost and quality? We show that MinionS would not have been feasible until mid-2024 (due to the the release of gpt4-turbo and Llama-3.1) and is now performant with the latest 3B-parameter models running locally.
+
+   (b) Scaling parallel workloads on-device. How should we structure parallel workloads at the edge to maximize performance? In Section 6.3, we study three different strategies for increasing the parallel workload on-device: (a) repeated sampling, (b) decomposition, and (c) context chunking. We show that all three can independently improve quality at the expense of increased remote cost.
+   (c) Sequential communication protocols. Can multiple rounds of communication improve quality? At what cost? We show that by increasing the number of sequential rounds of communication, we can pay more to improve quality.
+To summarize, our main contributions are as follows:
+ï Propose Minion, a na®ive local-remote LM communication protocol, that achieves 30.4◊ efficiency over remote-only workloads while recovering 87% of performance.
+ï Propose MinionS, an extension that overcomes the limitations we identify in Minion, achieving 5.7◊ cost-reduction over remote-only workloads and recovering 97.9% of performance.
+ï Conduct an in-depth analysis of MinionS, exploring design choices to traverse the cost-accuracy trade-off.
+
+2 Related Work
+
+
+See Appendix A for an extended discussion of related work.
+   This study is inspired by a large body of work that explores how to combine multiple LMs and tools to improve quality and reduce cost of cloud workloads. These include:
+
+ï Retrieval-Augmented Generation (RAG) RAG workflows append retrieved chunks to a large LM's prompt (Lewis et al., 2020; Karpukhin et al., 2020; Lee et al., 2019), mitigating hallucinations and externalizing knowledge. We differ by assign- ing arbitrary subtasks to a local LM, which can execute longer or more complex instructions on chunks before sending only the final extracted content. This helps reduce communication costs more than purely retrieving and passing raw text.
+ï Multi-LLM collaboration and routing A growing body of work explores multi-agent or multi-LLM systems (Guo et al., 2024; Wang et al., 2024) and model-routing (Chen et al., 2023, 2024a). Typically, these either combine multiple large models or choose one LM from a "menu" of models for the entire task. In contrast, we explicitly study a two-model collaboration where the smaller local LM handles extensive on-device context, while the larger remote LM is called on selectively, reducing cloud inference costs.
+ï Compound LM systems A broader line of re- search integrates LMs with retrieval modules, tool use, or orchestrators (Saad-Falcon et al., 2024; Khattab et al., 2023). While they optimize accu- racy or adapt prompts, they do not usually focus on asymmetric edge-cloud costs or local paral- lelization.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Figure 2: Cost-Accuracy Tradeoff in Edge- Remote Systems. Macro-average accuracy (y- axis) vs. cost (x-axis) across FinanceBench (Islam et al., 2023), LongHealth (Adams et al., 2024), and QASPER (Dasigi et al., 2021). Accuracy represents the fraction of correct predictions, while cost is the aver- age USD per query based on GPT-4o rates (Jan 2025:
+$2.50/1M input tokens, $10.00/1M output tokens); see section 3. The table compares Minion (section 4) and MinionS (section 5) protocols against local-only and remote-only baselines. Points, colored by local model, use GPT-4o as the remote model. Exact metrics in Table 1.
+
+   The specific techniques used in MinionS build upon several important ideas proposed in the litera- ture:
+
+ï Orchestration for long-contexts Prior works have used "divide-and-conquer" strategies to process long documents in smaller chunks (Zhang et al., 2024c; Zhou et al., 2024; Shankar et al., 2024). They define protocols for chunking, processing, and recombining content, sometimes with automated pipeline optimizations. However, these methods typically rely on a single large LM or multiple equally capable LMs, rather than an asymmetric local-remote collaboration with explicit cost constraints. They also do not explore parallel on-device tasks or multi-round communication with a cloud model. Other approaches improve single-LM handling of lengthy inputs by compressing, summarizing, or streaming data. Techniques like MemGPT (Packer et al., 2023), PRISM (Jayalath et al., 2024), and writing-in-the-margins (Russak et al., 2024) store partial results or structured data across external memory. While such approaches reduce context overhead for a single LM, they do not address distributing computation across a local-remote system with distinct cost models.
+ï Decomposition techniques The decomposition techniques used in MinionS are inspired by prior work showing how prompting for decomposition can improve small LM quality (Arora et al., 2022; Patel et al., 2022; Wu et al., 2022). The MinionS protocol also builds upon the idea of using code to facilitate reasoning (Arora et al., 2023; Li et al., 2023).
+ï Test-time sampling and verification In MinionS we pair repeated test-time sampling on-device with verification in the cloud. This technique is motivated by extensive literature demonstrating the promise of using test-time sampling and verification to improve reasoning capabilities (Brown et al., 2024; Song et al.,
+2024; Hassid et al., 2024; Snell et al., 2024; Wu et al., 2024).
+
+   Some recent works have explored aspects of the local-remote setting. Several study how local-remote systems can limit leakage of private information to a cloud-hosted LM API (Siyan et al., 2024; Zhang et al., 2024b). In this work, we do not address privacy concerns, though these privacy techniques can be used in conjunction with MinionS. Other techniques partition LM layers between local and cloud devices (Jin & Wu, 2024; Yang et al., 2024) without a multi-round dialogue. Our system is distinct in that the local LM and
+remote LM collaborate in natural language on tasks that draw on a large private context. This two-model interplay underlies our focus: reducing cloud inference costs while preserving performance.
+
+3 Preliminaries
+We study the tradeoff between the quality of a local-remote system and the cost of running it. We first outline the problem setup and then provide details on how we measure accuracy and cost.
+Problem setup  We study language tasks that involve a context c (e.g. a long document), a query q
+against that context, and a ground-truth answer y (see (1) in Figure 1).
+
+   A local-remote system S (see (2) in Figure 1), consists of two language models that must collaborate to solve the task-a small LM (LocalLM) running on on-device, and a large frontier LM (RemoteLM) running in the cloud. S ingests a context and a query, and applies both models in conjunction to output a predicted answer: yà ~ S(c, q).
+
+Measuring quality  We evaluate the performance of S on a dataset D = {(ci, qi, yi)}N
+
+, via a scoring
+
+metric s(yài, yi). Here, s(∑, ∑) is binary (correct/incorrect) and we report accuracy. As baselines, we compare
+S to yàremote ~ RemoteLM(c, q) and yàlocal ~ LocalLM(c, q).
+
+Measuring cost Monetary cost (in $USD) is our primary cost metric. We assume that RemoteLM calls incur a cost while LocalLM calls are free, ignoring the fixed cost of the hardware and marginal cost of energy consumption.
+   More concretely, the cost of calls to RemoteLM are proportional to a weighted sum of the number of prefill (i.e. input) tokens and decode (i.e. output) tokens:
+Cremote(nprefill, ndecode) ? nprefill + a ∑ ndecode,
+where a varies by provider (ò1- 5) (Dubey et al., 2024; Anthropic, 2024). Decode tokens are more expensive since the decoding stage is IO-bound (Leviathan et al., 2023) and has lower GPU utilization. This is because generating each decode token requires loading the full model and KV cache into GPU SRAM.
+   In this work we do not focus on optimizing the latency of local-remote systems. However, in appendix C we show analytically that there are important regimes where the systems proposed (Minion, MinionS) incur at most a 5◊ increase in latency relative to performing the entire operation remotely. This is possible because these systems avoid the costly step of processing the entire document with the huge RemoteLM, and because they can make efficient use of the local hardware by batching (e.g. in MinionS). We leave a detailed empirical study of the latency trade-offs of these local-remote systems for future work.
+
+4 Minion: A na®ive communication protocol
+In this section, we describe Minion, a baseline local- remote communication protocol, which implements
+
+a simple free-form conversation between LocalLM and RemoteLM.
+   It begins with system prompts for both models informing them of the query q and that they will be collaborating with another model to answer it (see
+(3) in Figure 1). Crucially, the system prompt for the LocalLM includes the full context c while the system prompt for the RemoteLM does not. After the system prompts, the two models chat back and forth with one another until the RemoteLM provides
+
+Number of Chunks in Context
+0.600
+
+0.575
+
+0.550
+
+0.525
+
+0.500
+
+0.475
+
+
+1 16 32	64	128
+Total Chunks In-Context (each 512 tokens)
+
+
+0.7
+
+0.6
+
+0.5
+
+0.4
+
+0.3
+
+0.2
+
+Number of Sub Tasks
+
+
+1	2	3	4
+Number of Sub Tasks
+
+a final answer to the query. See Appendix D.1 for a detailed description of the Minion protocol.
+   We compare Minion to a baseline where RemoteLM is given the full context and the query. Excitingly, Minion reduces RemoteLM costs by 38.13◊, 31.3◊, and 20.9◊ on FinanceBench, LongHealth and QASPER, respectively (see Sec-
+
+Figure 3: Analysis of small LM limitations. Evalu-
+ation of Llama-3.2-3B on simple extraction tasks (see Section E.2). (Left) Performance drops significantly as context length increases. (Right) Increasing sub-task complexity reduces performance, with fewer sub-tasks yielding better results.
+
+tion 6.1 for dataset details). Averaged across these datasets, it closes 87.0% of the quality gap between RemoteLM and LocalLM operating alone.
+    To further close the gap, we analyze Minion conversations and find that in unconstrained chat, RemoteLM often gives LocalLM complicated instructions over long contexts. Appendix E.2 presents micro-experiments illustrating LocalLM's struggles with these instructions:
+1. LocalLM struggles to handle multi-step instructions. Using GPT-4o, we generate instructions with varying numbers of sub-parts. We then show splitting sub-parts into separate requests leads to a 56 point performance improvement (see Figure 3).
+2. LocalLM struggles to reason across long contexts. We show how increasing context length from
+< 1K to > 65K tokens can decrease performance by 13% on a simple extraction instruction (see Figure 3). Put simply, these smaller LMs are currently better equipped to answer simple queries on shorter contexts.
+5 MinionS: A decomposition-based communication protocol
+Motivated by these observations, we introduce MinionS, a simple extension of the na®ive communication protocol discussed in section 4. MinionS uses a divide-and-conquer strategy where the RemoteLM decomposes
+
+the task into simpler jobs that can be run in parallel (see (4) in Figure 1). Throughout this section we will continue with the example task introduced in Section 3.
+
+5.1 Protocol description
+MinionS protocol is a loop over three steps:
+1. Job preparation on remote. RemoteLM writes code that generates a list of job specifications for LocalLM (see 4(a) in Figure 1).
+2. Job execution and filtering locally. The job specifications are executed locally with the LocalLM, and outputs are filtered (see 4(b) in Figure 1).
+3. Job aggregation on remote. The remote model receives the filtered outputs and decides whether to output an answer or begin another iteration (see 4(c) in Figure 1).
+
+Step 1: Job preparation on remote. In this step, the RemoteLM generates a list of jobs that the LocalLM will run in parallel. A job is a specification of a subtask, which can be converted into a prompt and sent to the local model. More precisely, a job, t, is a context-instruction pair t(i) = (qò(i), cò(i)). We denote a list of jobs with T = [t(1), t(2), ...]
+
+    Crucially, the context cò(i) for a job need not include the entire context c of the full task. In principle, this allows us to chunk the context into more manageable pieces, which can be executed in parallel. But how can the RemoteLM chunk the context without reading it?
+To avoid reading the entire context, we have the remote model generate a Python function, f(c, T),
+
+that accepts the full task context c and jobs from the last iteration Tà
+
+and outputs a new list of jobs
+
+T. Specifically, we prompt RemoteLM with the task query q and instruction prompt pdecompose: f(∑, ∑) ~ RemoteLM(q, pdecompose). Then, on-device, the function is executed with the context c as the argument producing a list of jobs T = f(c, Tà).
+   This strategy, which builds on work using LMs to generate code for information extraction (Arora et al., 2023; Li et al., 2023), allows us to decouple the number of unique jobs from the number tokens generated by the cloud model. For example, the code below, which is an abbreviated version of a function that was generated by the cloud model, is less than fifteen lines but can generate hundreds of jobs.
+
+   Additionally, by passing the previous iteration's jobs and responses T (last jobs in the code snippet), the large model can create jobs which build on previous responses. For example, the cloud model in the second round might zoom in on a relevant chunk identified in the first round. For more examples of generated functions or details on the exact prompt used to generate the code, see Appendix F.
+
+
+Protocol
+Local Model
+Remote Model
+ Macro Avg. Acc.	Cost
+FinanceBench
+Acc.	Cost
+LongHealth
+Acc.	Cost
+QASPER
+Acc.	Cost
+Remote Only
+-
+GPT-4o
+0.724
+$0.233
+0.826
+$0.261
+0.748
+$0.301
+0.598
+$0.137
+Local Only
+Llama-8B
+-
+0.444
+$0.000
+0.326
+$0.000
+0.468
+$0.000
+0.538
+$0.000
+Local Only
+Llama-1B
+-
+0.038
+$0.000
+0.000
+$0.000
+0.115
+$0.000
+0.000
+$0.000
+Local Only
+Llama-3B
+-
+0.213
+$0.000
+0.130
+$0.000
+0.345
+$0.000
+0.164
+$0.000
+Local Only
+Qwen-3b
+-
+0.140
+$0.000
+0.087
+$0.000
+0.177
+$0.000
+0.156
+$0.000
+Minion
+Llama-8B
+GPT-4o
+0.630
+$0.008
+0.804
+$0.007
+0.635
+$0.010
+0.450
+$0.007
+Minion
+Llama-3B
+GPT-4o
+0.518
+$0.010
+0.698
+$0.010
+0.482
+$0.009
+0.372
+$0.011
+Minion
+Qwen-3b
+GPT-4o
+0.236
+$0.028
+0.217
+$0.029
+0.281
+$0.021
+0.210
+$0.035
+MinionS
+Llama-8B
+GPT-4o
+0.709
+$0.042
+0.804
+$0.053
+0.740
+$0.054
+0.582
+$0.019
+MinionS
+Llama-3B
+GPT-4o
+0.662
+$0.052
+0.726
+$0.079
+0.703
+$0.057
+0.558
+$0.020
+MinionS
+Qwen-3b
+GPT-4o
+0.676
+$0.039
+0.783
+$0.059
+0.645
+$0.043
+0.600
+$0.015
+
+Table 1: Accuracy and cost of local-remote systems. Evaluation of cost and accuracy on 3 eval- uations datasets. The table compares two edge-remote protocols-Minion (Section 4) and MinionS (Section 5)-against edge-only and remote-only baselines. We assess 3 local models and 1 remote model. Cost (USD) is the average per-query expense, based on GPT-4o rates (Jan 2025: $2.50M/input tokens,
+$10.00M/output tokens). Local model execution is assumed free (see Section 3 for cost details).
+
+Step 2: Job execution and filtering on-device. In this step, we convert the jobs T = [t(1), t(2), ...] into prompts and execute them in parallel locally.
+   The jobs are fed in batch(es) to the LocalLM together with a system prompt pworker that instructs the model to either abstain or return a JSON object z(i) with fields explanation, citation, and answer to help us verify its reasoning.
+z(i) ~ LocalLM(t(i), pworker)	(1)
+    After the LocalLM has generated the results, we discard any z(i) for which the model abstained. Intuitively, many instructions will be irrelevant to their paired chunks, allowing the LocalLM to abstain and avoid sending unnecessary information to the RemoteLM. The surviving subtask-chunk pairs are aggregated to form the formatted string w.
+   Step 3: Job aggregation on remote. RemoteLM receives w and a synthesis prompt psynthesize, instructing it to generate a JSON object a with a "decision" field for sufficiency and a "response" field for a (potential) final answer:
+yà ~ RemoteLM(w, psynthesize)	(2)
+If the RemoteLM decides that more information is needed, the loop continues from Step 1.
+   There are several ways to maintain context across MinionS rounds. One simple approach is to keep the entire the conversation in context. However, this strategy incurs significant additional cost, even with prompt
+caching. We experiment with two alternatives: (1) simple retries, in which only the RemoteLM's advice is carried over between rounds and (2) scratchpads, in which the RemoteLM can record what it learned from the round before proceeding to the next.
+
+5.2 Protocol hyper-parameters
+MinionS has three hyper-parameters: choice of RemoteLM and LocalLM (model choice), job preparation strategy (scale of parallel workloads on-device), and looping strategy (sequential communication protocol).
+   Model choice. Different model sizes (e.g. 3B vs. 8B), families (e.g. Qwen2.5 vs. Llama), and generations (e.g. 3.1 vs. 3.2) can be used for both the LocalLM and the RemoteLM.
+   Scale of parallel workload on-device. MinionS has three knobs for increasing the degree of task decomposition and thus, workload parallelization: (1) number of tasks per round (i.e. "Extract the ARR for Q1 of 2014"), (2) number of samples per task (i.e. number of generations created with LocalLM, = 1), and
+(3) chunk size (i.e. chunk by page, chunk by paragraph, etc; smaller chunks will send more information to
+cloud). These parameters are configured by RemoteLM.
+   Sequential communication protocol. In practice, it is important to cap the number of times MinionS can loop. After the maximum number of rounds, the synthesis prompt is modified to force the model to produce a final answer. The choice of this maximum affects accuracy and cost. The strategy for maintaining
+context between rounds (simple retries vs. scratchpads) is another important hyperparameter.
+
+
+
+Figure 4: Trade-offs in edge model performance, communication efficiency, and cost of sequential communication. (Left) Accuracy vs. local model size, with the purple dashed line showing the GPT-4o model baseline. (Right) Communication efficiency of MinionS with different local LMs, where larger models (7-8B) are more token-efficient.
+
+
+We analyze these hyperparameters in Section 6.
+6 Results
+Here, we analyze how the design of MinionS affects cost and quality. Our main takeaways are:
+ï On average across three datasets, MinionS can recover 97.9% of the performance of remote-only systems while spending 5.7◊ less;
+ï We identify protocol hyper-parameters that let us flexibly trade-off cost and quality;
+ï As local models grow stronger, MinionS becomes increasingly cost-effective. We structure our analysis around three core design choices:
+1. Model choice How does the choice of local and remote model effect cost and quality? We examine different model types and sizes for LocalLM and RemoteLM in Section 6.2.
+2. Scaling parallel workloads on-device How should we structure parallel workloads on the local device to maximize performance and minimize cost? We highlight how scaling the local workloads can improve performance (Section 6.3) and study the effects on cost.
+3. Sequential communication protocol Can multiple rounds of communication improve quality? At what cost? We explore this trade-off in Section 6.4.
+    Our findings are detailed in Sections 6.2, 6.3, and 6.4. Finally, in Section 6.5 we discuss the relationship between retrieval augemented generation and local-remote compute.
+
+6.1 Experimental setup
+Datasets and models We evaluate MinionS on three benchmarks that are well suited for data-intensive reasoning: FinanceBench, LongHealth, and QASPER. FinanceBench tests financial document under- standing with complex reasoning over reports. LongHealth focuses on tracking and interpreting longitudinal
+health records. QASPER assesses question answering over dense scientific papers. See Appendix B.0.1 for details. We use two open-source model families (Llama, Qwen2.5) as LocalLM and GPT-4o as RemoteLM (details in Appendix B.0.2).
+
+Scaling Tasks	Scaling Samples	Scaling Chunks
+
+Figure 5: Scaling parallel jobs on-device improves quality. The x-axis represents tokens processed by the remote model, and the y-axis shows macro-average accuracy across LongHealth and QASPER. The cloud model is GPT-4o. Each plot varies a different MinionS hyperparameter affecting parallelism, with annotated values. (Left) Varying the number of unique instructions. (Middle) Varying the number of unique samples. (Right) Varying the chunking granularity in code f . See Section 5 for details.
+
+6.2 Model choice
+This section explores the model requirements and generalization capabilities of MinionS, examining the local model sizes necessary for effective collaboration, the sensitivity of the communication protocol across different local-remote model pairings, and the longitudinal evolution of MinionS ' performance with advances in model capabilities over time.
+
+What size does LocalLM have to be in order to be effective in MinionS? Our results demonstrate that MinionS starts being competitive with RemoteLM-only baseline at the 3B parameter model scale. When considering both the Qwen2.5 and Llama model families running locally, at 1B scale, MinionS recovers 49.5% of the GPT-4o-only baseline performance, 3B scale recovers 93.4% and 8B recovers 97.9%
+accuracy (see Table 1 for more details).
+How does the capacity of LocalLM affect the cost-accuracy tradeoff? In our system, LocalLM implicitly acts as an information encoder, optimizing the Information Bottleneck objective (Tishby et al., 2000) by compressing input context while preserving predictive information (see Appendix D.2). To measure this, we analyze the tradeoff between remote "prefill" tokens (fewer tokens indicate greater compression) and accuracy (higher accuracy means better retention). Figure 4 shows that as LocalLM size increases, representations become more compressed and accurate, improving Information Bottleneck values. Larger LocalLM models trade local FLOPs for communication, with 7-8B models being 1.53◊ more token-efficient than 1B models. Additionally, the Qwen2.5 family follows a different tradeoff than Llama, yielding more compressed representations. This suggests that as small LMs improve, local-remote systems will become increasingly cost-efficient.
+Is MinionS sensitive to different local/remote pairs? We ask whether the communication protocol in MinionS is invariant to changing the model types (i.e. Llama vs Qwen2.5 locally and Llama vs GPT-4o remotely). Our results indicate that MinionS performs similarly with different local-remote LM combinations (see the Table 1): varying the LocalLM from Qwen2.5 to Llama-3.2, results in performances within ± .05 performance points (see Table 1). Furthermore, we find that holding the LocalLM fixed as Llama-3.2-3B and varying RemoteLM from GPT-4o to Llama-3.3-70B leads to similar overall performances within ±
+0.07 points (see Table 2 in Appendix).
+How have local / remote model capabilities changed over time, and what effects do they have on MinionS? In Table 3, we provide a retrospective analysis demonstrating how the quality of MinionS would have changed with model releases over time. From 2023 to 2025, the average performance of MinionS with the best models available has improved from 0.26 to 0.66 (see Table 3 in Appendix). Interestingly, it was only in July 2024 - with the release of gpt4-turbo and Llama-3.1-8B - that MinionS could have come within 12% of the best frontier model performance at the time (see Table 3 in Appendix).
+
+6.3 Scaling parallel workloads on-device
+In MinionS, there are three levers for maximizing local compute resources through parallelized, batched processing: (1) number of tasks per round, (2) number of samples taken per task, and (3) number of chunks.
+We ablate each, showing their impact on performance. We find that (1) and (3) are more cost effective ways of increasing performance.
+How does the number of tasks per round affect performance? Increasing tasks per round proxies task decomposition, with more sub-tasks enhancing decomposition. Raising tasks from 1 to 16 boosts performance by up to 14 points but doubles RemoteLM prefill costs. Optimal task count varies by query and model, but exceeding 16 reduces performance.
+How does scaling local samples affect performance? We explore whether increased sampling at an individual {task, context} level improves performance. Increased sampling enables us to better utilize the available compute resources while improving task-level accuracy (Brown et al., 2024). Our results indicate that increasing the number samples from 1 to 32 can improve performance on average 7.4 points, but comes at the cost of 5◊ the RemoteLM prefill costs. This being said, increasing sampling beyond 16 starts hurting
+task performance as the noise across samples is too large for the remote model to effectively distill the correct
+answer (Kuratov et al., 2024).
+What effect does chunk size have on downstream performance? We test whether increasing local utilization by using more chunks per task improves performance. Our results indicate that increasing # of chunks per task (by decreasing the number of "pages" per chunk from 100 to 5) leads to an 11.7 point accuracy lift. However, this lift comes with a 2.41◊ increase in RemoteLM prefill costs.
+6.4 Scaling sequential communication
+Both the Minion and MinionS communication pro- tocols feature sequential communication: they allow for multiple rounds of exchange between the local
+and remote models.
+Does performance improve as we increase the maximum number of rounds? At what cost? We vary the maximum communication rounds and find it is correlated with accuracy and cost (see fig. 4). By simply increasing the maximum number of rounds in Minion from 1 to 5, we enable a 8.5-point lift in average accuracy across the three tasks (with Llama- 3.2 on-device). However, this accuracy improvement comes at a cost: each additional round of communi- cation increases the cost by $0.006 per query while boosting accuracy by 4.2 points.
+How should we maintain context between
+MinionS rounds?  We experiment with two se-
+
+quential protocol strategies: (1) simple retries and
+(2) scratchpad. See Section 5 for details of these strategies. As shown in Figure 7, both strategies show consistent increases in both accuracy and cost when increasing the maximum number of rounds, with the scratchpad strategy achieving a slightly bet- ter cost-accuracy tradeoff. Notably, each additional round of communication with the scratchpad strat-
+
+Figure 6: Exploring the trade-off between cost
+and quality through multiple rounds. The x-axis represents the remote model's token cost, while the y-axis shows accuracy. Point labels indicate communi- cation rounds. The purple dashed line marks GPT-4o 's performance as a benchmark.
+
+egy leads to a larger improvement in accuracy (6.1 accuracy points) which are mostly offset by larger increases in cost (8.6 dollars).
+
+6.5 Retrieval-Augmented Generation in the Context of Local-Remote Compute
+We further investigate the interplay between local-remote compute paradigms (e.g., MinionS) and retrieval- augmented generation (RAG), analyzing their complementary strengths and trade-offs in data-intensive
+reasoning tasks. Through empirical evaluations, we examine these methods on financial document extraction (FinanceBench) and long-document summarization (Booookscore). See Appendix E.3 for a more detailed treatment.
+
+6.5.1 Comparison of MinionS and RAG on FinanceBench
+RAG performs well for financial document analysis, where relevant information is found in specific sections. In Figure 8 (left), we compare MinionS, Minion, and RAG using BM25 and OpenAI's text-embedding-3-small embeddings (Robertson & Zaragoza, 2009; Neelakantan et al., 2022). A chunk size of 1000 characters balances retrieval accuracy and efficiency (Figure 8 (center)).
+   Adjusting the number of retrieved chunks allows RAG to optimize quality and cost. When BM25-based RAG retrieves 50+ chunks, it surpasses the performance of a fully context-fed remote model. However, RAG does not match the cost-effectiveness of Minion. When compared to MinionS, RAG using OpenAI embeddings achieves similar cost-quality trade-offs but may overlook nuanced financial signals across sections.
+
+6.5.2 Comparison of MinionS and RAG on Summarization Tasks
+Unlike FinanceBench, RAG struggles with summarization due to its reliance on retrieval. Unlike the financial parsing tasks, summarization requires reasoning over information dispersed across the document. We evaluate MinionS, RAG (with BM25 andEmbedding retrievals), and a GPT-4o-only baseline on BooookScore (Chang et al., 2023), a long novel summarization dataset.
+
+Evaluation
+ï Qualitative Analysis: As shown in App. Table 8, MinionS generates summaries with richer entity mentions and more coherent narratives than RAG. It is also 9.3◊ more token-efficient than GPT-4o-only (11,500 vs. 108,185 tokens).
+ï Quantitative Analysis: Using claude-3.5-sonnet for evaluation, MinionS achieves near-parity with
+GPT-4o-only, while RAG-based methods underperform (Table 7 in Appendix).
+   These results highlight RAG's effectiveness in structured tasks like FinanceBench but its shortcomings in long-form synthesis which requires reasoning over information dispersed across the document.
+7 Discussion
+As local models continue to improve, studying MinionS will provide valuable insights into evolving workload distribution and the growing role of local compute. As local models continue to improve, systems like MinionS will become increasingly valuable across a range of important workloads.
+In this work, we explore two protocols - Minion and MinionS- for collaboration between on-device and
+cloud LMs. Our results demonstrate that it is possible to reduce the cost of cloud computing workloads 5 - 26◊ by enabling remote LMs to effectively communicate with local LMs and delegate work to them. We explore the broader implications as well as the research opportunities this approach unlocks.
+
+User experience Soon, commodity hardware-laptops, smartphones, and IoT devices-will feature powerful GPUs, enabling always-on local models for complex tasks like code refactoring, document analysis, and retrieval. Additionally, this advancement is expected to reduce users' reliance on API-based cloud LMs, leading to lower operational costs.
+
+Local-remote model co-design MinionS demonstrates the promise of "collaboration" between local and remote LMs. Future work could advance this approach in two directions. First, the LMs we investigated were
+trained independently and therefore might not know each others capabilities and limitations. Communication can be made more efficient by training these models for collaboration. Second, model co-design could enable going beyond natural language as the modality of communication; models can exchange more compressed real-valued representations.
+Improvement of MinionS over time Our analysis in Section E.1 highlights the rapid advancements in local model capabilities over the past 15 months. As local-remote capabilities continue to evolve, studying MinionS will provide valuable insights into shifts in workload distribution and the increasing utilization of local compute resources.
+8 Acknowledgements
+We thank Michael Zhang, Jordan Jurafsky, Mayee Chen, Jon Saad-Falcon, Ben Viggiano, Michael Wornow, Aditi Jha, Ben Spector and Neel Guha for their helpful feedback and discussion during this work. We thank the Hazy Research lab and Together AI for supporting this work.
+   We gratefully acknowledge the support of NIH under No. U54EB020405 (Mobilize), NSF under Nos. CCF2247015 (Hardware-Aware), CCF1763315 (Beyond Sparsity), CCF1563078 (Volume to Velocity), and 1937301 (RTML); US DEVCOM ARL under Nos. W911NF-23-2-0184 (Long-context) and W911NF-21-
+2-0251 (Interactive Human-AI Teaming); ONR under Nos. N000142312633 (Deep Signal Processing); Stanford HAI under No. 247183; NXP, Xilinx, LETI-CEA, Intel, IBM, Microsoft, NEC, Toshiba, TSMC, ARM, Hitachi, BASF, Accenture, Ericsson, Qualcomm, Analog Devices, Google Cloud, Salesforce, Total, the HAI-GCP Cloud Credits for Research program, the Stanford Data Science Initiative (SDSI), AN is supported by the Knight-Hennessy Fellowship and NSF GRFP and members of the Stanford DAWN project: Meta, Google, and VMWare. SL is supported in part by grants from the NIH (R01NS131987, U01NS136507, R01NS130789, RF1MH133778) and NSF (2223827) as well as fellowships from the Sloan, Simons, and McKnight Foundation. The U.S. Government is authorized to reproduce and distribute reprints for Governmental purposes notwithstanding any copyright notation thereon. Any opinions, findings, and conclusions or recommendations expressed in this material are those of the authors and do not necessarily reflect the views, policies, or endorsements, either expressed or implied, of NIH, ONR, or the U.S. Government.
+
+References
+Lisa Adams, Felix Busch, Tianyu Han, Jean-Baptiste Excoffier, Matthieu Ortala, Alexander Lo®ser, Hugo JWL Aerts, Jakob Nikolas Kather, Daniel Truhn, and Keno Bressem. Longhealth: A question answering benchmark with long clinical documents. arXiv preprint arXiv:2401.14490, 2024.
+Anthropic. The Claude 3 Model Family: Opus, Sonnet, Haiku. 2024. URL https://www-cdn.anthropic. com/de8ba9b01c9ab7cbabf5c33b80b7bbc618857627/Model_Card_Claude_3.pdf.
+Simran Arora, Avanika Narayan, Mayee F Chen, Laurel Orr, Neel Guha, Kush Bhatia, Ines Chami, Frederic Sala, and Christopher R¥e. Ask me anything: A simple strategy for prompting language models. arXiv preprint arXiv:2210.02441, 2022.
+Simran Arora, Brandon Yang, Sabri Eyuboglu, Avanika Narayan, Andrew Hojel, Immanuel Trummer, and Christopher R¥e. Language models enable simple systems for generating structured views of heterogeneous data lakes. arXiv:2304.09433, 2023.
+Bradley Brown, Jordan Juravsky, Ryan Ehrlich, Ronald Clark, Quoc V Le, Christopher R¥e, and Azalia Mirhoseini. Large language monkeys: Scaling inference compute with repeated sampling. arXiv preprint arXiv:2407.21787, 2024.
+Yapei Chang, Kyle Lo, Tanya Goyal, and Mohit Iyyer. Booookscore: A systematic exploration of book-length summarization in the era of llms. arXiv preprint arXiv:2310.00785, 2023.
+
+Lingjiao Chen, Matei Zaharia, and James Zou. Frugalgpt: How to use large language models while reducing cost and improving performance. arXiv preprint arXiv:2305.05176, 2023.
+Lingjiao Chen, Jared Quincy Davis, Boris Hanin, Peter Bailis, Ion Stoica, Matei Zaharia, and James Zou. Are more llm calls all you need? towards scaling laws of compound inference systems. arXiv preprint arXiv:2403.02419, 2024a.
+Zhuoming Chen, Avner May, Ruslan Svirschevski, Yuhsun Huang, Max Ryabinin, Zhihao Jia, and Beidi Chen. Sequoia: Scalable, robust, and hardware-aware speculative decoding. arXiv preprint arXiv:2402.12374, 2024b.
+Pradeep Dasigi, Kyle Lo, Iz Beltagy, Arman Cohan, Noah A Smith, and Matt Gardner. A dataset of information-seeking questions and answers anchored in research papers. In Proceedings of the 2021 Conference of the North American Chapter of the Association for Computational Linguistics: Human Language Technologies, pp. 4599-4610, 2021.
+Luc Devroye. Nonuniform random variate generation. Handbooks in operations research and management science, 13:83-121, 2006.
+Abhimanyu Dubey, Abhinav Jauhri, Abhinav Pandey, Abhishek Kadian, Ahmad Al-Dahle, Aiesha Letman, Akhil Mathur, Alan Schelten, Amy Yang, Angela Fan, et al. The Llama 3 Herd of Models. arXiv preprint arXiv:2407.21783, 2024. URL https://arxiv.org/abs/2407.21783.
+Tom Gunter, Zirui Wang, Chong Wang, Ruoming Pang, Andy Narayanan, Aonan Zhang, Bowen Zhang, Chen Chen, Chung-Cheng Chiu, David Qiu, et al. Apple intelligence foundation language models. arXiv preprint arXiv:2407.21075, 2024.
+Taicheng Guo, Xiuying Chen, Yaqi Wang, Ruidi Chang, Shichao Pei, Nitesh V Chawla, Olaf Wiest, and Xiangliang Zhang. Large language model based multi-agents: A survey of progress and challenges. arXiv preprint arXiv:2402.01680, 2024.
+Kelvin Guu, Kenton Lee, Zora Tung, Panupong Pasupat, and Ming-Wei Chang. Retrieval augmented language model pre-training. In Proceedings of the 37th International Conference on Machine Learning, 2020.
+Michael Hassid, Tal Remez, Jonas Gehring, Roy Schwartz, and Yossi Adi. The larger the better? improved llm code-generation via budget reallocation. arXiv preprint arXiv:2404.00725, 2024.
+Pranab Islam, Anand Kannappan, Douwe Kiela, Rebecca Qian, Nino Scherrer, and Bertie Vidgen. Fi- nancebench: A new benchmark for financial question answering. arXiv preprint arXiv:2311.11944, 2023.
+Gautier Izacard and Edouard Grave. Unsupervised dense information retrieval with contrastive learning. In
+Advances in Neural Information Processing Systems, 2021.
+Dulhan Jayalath, James Bradley Wendt, Nicholas Monath, Sandeep Tata, and Beliz Gunel. Long-range tasks using short-context llms: Incremental reasoning with structured memories. arXiv preprint arXiv:2412.18914, 2024.
+Hongpeng Jin and Yanzhao Wu. Ce-collm: Efficient and adaptive large language models through cloud-edge collaboration. arXiv preprint arXiv:2411.02829, 2024.
+Vladimir Karpukhin, Barlas Og?uz, Sewon Min, Patrick Lewis, Ledell Wu, Sergey Edunov, Danqi Chen, and Wen-tau Yih. Dense passage retrieval for open-domain question answering. arXiv preprint arXiv:2004.04906, 2020.
+Omar Khattab, Arnav Singhvi, Paridhi Maheshwari, Zhiyuan Zhang, Keshav Santhanam, Sri Vardhamanan, Saiful Haq, Ashutosh Sharma, Thomas T Joshi, Hanna Moazam, et al. Dspy: Compiling declarative language model calls into self-improving pipelines. arXiv preprint arXiv:2310.03714, 2023.
+
+Yuri Kuratov, Aydar Bulatov, Petr Anokhin, Ivan Rodkin, Dmitry Sorokin, Artyom Sorokin, and Mikhail Burtsev. Babilong: Testing the limits of llms with long context reasoning-in-a-haystack. arXiv preprint arXiv:2406.10149, 2024.
+Kenton Lee, Ming-Wei Chang, and Kristina Toutanova. Latent retrieval for weakly supervised open domain question answering. arXiv preprint arXiv:1906.00300, 2019.
+Yaniv Leviathan, Matan Kalman, and Yossi Matias. Fast inference from transformers via speculative decoding. In International Conference on Machine Learning, pp. 19274-19286. PMLR, 2023.
+Patrick Lewis, Ethan Perez, Aleksandra Piktus, Fabio Petroni, Vladimir Karpukhin, Naman Goyal, Heinrich Ku®ttler, Mike Lewis, Wen-tau Yih, Tim Rockta®schel, et al. Retrieval-augmented generation for knowledge- intensive nlp tasks. Advances in Neural Information Processing Systems, 33:9459-9474, 2020.
+Chengshu Li, Jacky Liang, Andy Zeng, Xinyun Chen, Karol Hausman, Dorsa Sadigh, Sergey Levine, Li Fei-Fei, Fei Xia, and Brian Ichter. Chain of code: Reasoning with a language model-augmented code emulator. arXiv preprint arXiv:2312.04474, 2023.
+Sachin Mehta, Mohammad Hossein Sekhavat, Qingqing Cao, Maxwell Horton, Yanzi Jin, Chenfan Sun, Seyed Iman Mirzadeh, Mahyar Najibi, Dmitry Belenko, Peter Zatloukal, et al. Openelm: An efficient language model family with open training and inference framework. In Workshop on Efficient Systems for Foundation Models II@ ICML2024, 2024.
+Arvind Neelakantan, Tao Xu, Raul Puri, Alec Radford, Jesse Michael Han, Jerry Tworek, Qiming Yuan, Nikolas Tezak, Jong Wook Kim, Chris Hallacy, et al. Text and code embeddings by contrastive pre-training. arXiv preprint arXiv:2201.10005, 2022.
+Charles Packer, Sarah Wooders, Kevin Lin, Vivian Fang, Shishir G Patil, Ion Stoica, and Joseph E Gonzalez. Memgpt: Towards llms as operating systems. arXiv preprint arXiv:2310.08560, 2023.
+Pruthvi Patel, Swaroop Mishra, Mihir Parmar, and Chitta Baral. Is a question decomposition unit all we need? arXiv preprint arXiv:2205.12538, 2022.
+Fabio Petroni, Tim Rockt®aschel, Patrick Lewis, Anton Bakhtin, Yuxiang Wu, Alexander H. Miller, and Sebastian Riedel. Language models as knowledge bases? In Proceedings of the 2019 Conference on Empirical Methods in Natural Language Processing, 2019.
+Stephen Robertson and Hugo Zaragoza. The probabilistic relevance framework: Bm25 and beyond. Founda- tions and Trends in Information Retrieval, 3:333-389, 01 2009. doi: 10.1561/1500000019.
+Melisa Russak, Umar Jamil, Christopher Bryant, Kiran Kamble, Axel Magnuson, Mateusz Russak, and Waseem AlShikh. Writing in the margins: Better inference pattern for long context retrieval. arXiv preprint arXiv:2408.14906, 2024.
+Jon Saad-Falcon, Adrian Gamarra Lafuente, Shlok Natarajan, Nahum Maru, Hristo Todorov, Etash Guha, E Kelly Buchanan, Mayee Chen, Neel Guha, Christopher R¥e, et al. Archon: An architecture search framework for inference-time techniques. arXiv preprint arXiv:2409.15254, 2024.
+Shreya Shankar, Aditya G Parameswaran, and Eugene Wu. Docetl: Agentic query rewriting and evaluation for complex document processing. arXiv preprint arXiv:2410.12189, 2024.
+Kurt Shuster, Douwe Kiela, Ethan Perez, Harm de Vries, Jack Urbanek, Arthur Szlam, and Jason Weston. Retrieval augmentation reduces hallucination in conversation. In Proceedings of the 2021 Conference on Empirical Methods in Natural Language Processing, 2021.
+Li Siyan, Vethavikashini Chithrra Raghuram, Omar Khattab, Julia Hirschberg, and Zhou Yu. Papillon: Privacy preservation from internet-based and local language model ensembles. arXiv preprint arXiv:2410.17127, 2024.
+
+Charlie Snell, Jaehoon Lee, Kelvin Xu, and Aviral Kumar. Scaling llm test-time compute optimally can be more effective than scaling model parameters. arXiv preprint arXiv:2408.03314, 2024.
+Yifan Song, Guoyin Wang, Sujian Li, and Bill Yuchen Lin. The good, the bad, and the greedy: Evaluation of llms should not ignore non-determinism. arXiv preprint arXiv:2407.10457, 2024.
+Naftali Tishby, Fernando C Pereira, and William Bialek. The information bottleneck method. arXiv preprint physics/0004057, 2000.
+Junlin Wang, Jue Wang, Ben Athiwaratkun, Ce Zhang, and James Zou. Mixture-of-agents enhances large language model capabilities. arXiv preprint arXiv:2406.04692, 2024.
+Tongshuang Wu, Michael Terry, and Carrie Jun Cai. Ai chains: Transparent and controllable human-ai interaction by chaining large language model prompts. In Proceedings of the 2022 CHI conference on human factors in computing systems, pp. 1-22, 2022.
+Yangzhen Wu, Zhiqing Sun, Shanda Li, Sean Welleck, and Yiming Yang. An empirical analysis of compute- optimal inference for problem-solving with language models. arXiv preprint arXiv:2408.00724, 2024.
+Daliang Xu, Hao Zhang, Liming Yang, Ruiqi Liu, Gang Huang, Mengwei Xu, and Xuanzhe Liu. Empowering 1000 tokens/second on-device llm prefilling with mllm-npu. arXiv preprint arXiv:2407.05858, 2024.
+Zheming Yang, Yuanhao Yang, Chang Zhao, Qi Guo, Wenkai He, and Wen Ji. Perllm: Personalized inference scheduling with edge-cloud collaboration for diverse llm services. arXiv preprint arXiv:2405.14636, 2024.
+Rongjie Yi, Xiang Li, Weikai Xie, Zhenyan Lu, Chenghua Wang, Ao Zhou, Shangguang Wang, Xiwen Zhang, and Mengwei Xu. Phonelm: an efficient and capable small language model family through principled pre-training. arXiv preprint arXiv:2411.05046, 2024.
+Mert Yuksekgonul, Federico Bianchi, Joseph Boen, Sheng Liu, Zhi Huang, Carlos Guestrin, and James Zou. Textgrad: Automatic" differentiation" via text. arXiv preprint arXiv:2406.07496, 2024.
+Kaiyan Zhang, Jianyu Wang, Ning Ding, Biqing Qi, Ermo Hua, Xingtai Lv, and Bowen Zhou. Fast and slow generating: An empirical study on large and small language models collaborative decoding. arXiv preprint arXiv:2406.12295, 2024a.
+Kaiyan Zhang, Jianyu Wang, Ermo Hua, Biqing Qi, Ning Ding, and Bowen Zhou. Cogenesis: A framework collaborating large and small language models for secure context-aware instruction following. arXiv preprint arXiv:2403.03129, 2024b.
+Yusen Zhang, Ruoxi Sun, Yanfei Chen, Tomas Pfister, Rui Zhang, and Sercan O® Arik. Chain of agents: Large language models collaborating on long-context tasks. arXiv preprint arXiv:2406.02818, 2024c.
+Zihan Zhou, Chong Li, Xinyi Chen, Shuo Wang, Yu Chao, Zhili Li, Haoyu Wang, Rongqiao An, Qi Shi, Zhixing Tan, et al. Llm x mapreduce: Simplified long-sequence processing using large language models. arXiv preprint arXiv:2410.09342, 2024.
+
+
+A Extended Related Work
+Orchestration of LMs Recent works attempt to improve long document processing by taking a divide- and-conquer approach akin to MinionS. Instead of using single LM calls with the entire context, the task is decomposed into smaller tasks to be executed on chunks of context. (Zhang et al., 2024c; Zhou et al., 2024) use a predefined protocol for chunk processing (defined by a prompt). (Shankar et al., 2024) performs a more involved automated pipeline optimization (via agent-based rewrite directives). Crucially, none of
+the works study the cost-efficient interaction between a small local LM and large remote LM and instead focus exclusively on larger LMs (70B parameters and above). Moreover, they do not explore multi-round communication patterns for document analysis.
+
+Long-context management techniques These works aim to improve single LM accuracy in long context tasks. (Russak et al., 2024) prefill the context using chunks of the document, summarize each chunk (using a predefined prompt), and aggregate the results. This improves accuracy and requires marginal additional computation. PRISM similarly (Jayalath et al., 2024) processes the context as a stream of chunks, and writes important information into a typed data structure which can be amended as needed. MemGPT (Packer et al., 2023) proposes a virtual memory paging system inspired by operating systems, where the LLM manages information across main context (akin to RAM) and external storage (akin to disk). When approaching context limits, the system actively decides what information to preserve and can later retrieve this information through paginated function calls. Orthogonally, other methods explore the usage of code for context management (Arora et al., 2023).
+
+Cost-efficient multi-LLM Systems A plethora of recent works show that multiple LMs can collaborate on a task to improve both accuracy and efficiency (Guo et al., 2024). The most similar work is perhaps (Wang et al., 2024) which neither investigates LMs with with asymmetric capabilities nor optimizes for local compute efficiency.
+
+Model routing techniques Our work studies a collaboration of LMs, and thus should be differentiated from model routing techniques (Chen et al., 2024a, 2023) that route a prompt to the appropriate single LM that can completely answer it using the full context. This is often done for cost reduction, identifying that simple tasks can be executed by smaller and cheaper LMs.
+
+Compound LM systems Recent works explore the use of LMs as part of more elaborate pipelines that, retrieval models, tool use, and more. (Saad-Falcon et al., 2024; Khattab et al., 2023; Yuksekgonul et al., 2024) seeks to optimize the pipeline architecture and prompts using different approaches, which we do not pursue on this work.
+
+Retrieval-Augmented Generation (RAG) RAG is a hybrid approach that integrates information retrieval into the text generation process, leveraging external knowledge sources to enhance the output of language models (LMs). Instead of relying solely on parametric memory, RAG reduces the number of tokens processed by an LM by first retrieving a subset of relevant documents or document chunks and appending them as context to the LM (Lewis et al., 2020; Karpukhin et al., 2020; Lee et al., 2019; Izacard & Grave, 2021; Guu et al., 2020). This retrieval step mitigates issues such as hallucination and knowledge staleness, which are common in traditional autoregressive models (Shuster et al., 2021; Petroni et al., 2019). We differ in two ways: first, our local LM can perform tasks beyond information extraction, such as summarization or reasoning. Second, by performing arbitrary tasks on document chunks, the small LM communicates its compact answer instead of the raw document chunk, which amounts to sending fewer tokens to remote.
+
+Speculative decoding Speculative decoding (Leviathan et al., 2023; Zhang et al., 2024a; Chen et al., 2024b) techniques are addressing the different question of how to effectively sample from the distribution of a large LM by only sampling from smaller LM and using the large LM for cheaper, likelihood evaluation (using the "acceptance-complement algorithm" (Devroye, 2006)). It neither considers a collaboration between two LMs, nor attempts to minimize the communication between them.
+
+On-device language models for privacy Siyan et al. (2024); Zhang et al. (2024b) attempt to prevent leaks of private information to a cloud-hosted LM API by mediating the communication with a local privacy- aware LM that removes private information from the prompt. While the local-remote LM setup bears resemblance to ours, we do not study the aspects of privacy, but rather focus on reducing cloud costs by delegating work to devices while maintaining accuracy. Moreover, we have additional focus on local runtime efficiency.
+
+Local-remote systems Recent work has explored efficient routing patterns between local and remote computation for LM workloads, albeit without two models communicating or collaborating on a solution. (Jin & Wu, 2024) partition a single LLM with early layers on the edge and later layers in the cloud, routing
+
+to the cloud when confidence is low. (Yang et al., 2024) propose a complementary task scheduling framework that routes to cloud or local based on resource constraints and service requirements.
+
+B Extended Description of Experimental Setup
+B.0.1 Dataset Details
+In this section we provide additional details on dataset preparation. In order to extend the context length of the problems in LongHealth and QASPER, we make a few modification to the dataset.
+   FinanceBench We filter the original FinanceBench to include only the numerical reasoning, resulting in a dataset of length 64. Each sample has an average context length of 142.9K(±79224.32).
+LongHealth In the original instantiation of the LongHealth dataset, each question is paired with a
+set of medical documents corresponding to a single patient. To increase the complexity of the dataset, we include medical documents from 10 other patients in the context. We evaluate over the entire dataset (400 problems) for results reported in Table 1. Each sample has an average context length of 120.1K(±1, 237) tokens. For all ablations in Section 6, we use a fixed subset of 128 problems.
+   QASPER Similarly, in the QASPER dataset, the original dataset provides questions that are associated with a single scientific paper. In order to increase complexity, we include 10 other papers in the context. We evaluate over a random subset of 500 problems for results reported in Table 1. Each sample has an average context length of 54281 tokens (±2403). For all ablations in Section 6, we use a fixed subset of 128 problems.
+
+B.0.2 Model Details
+Local Models. For Qwen2.5 we use the following models: Qwen2.5-1.5-Instruct, Qwen2.5-3B-Instruct, Qwen2.5-7B-Instruct. For Llama, we use the following models: Llama-3.2-1B-Instruct, Llama-3.2-3B- Instruct, Llama-3.1-8B-Instruct.
+Remote Models. We use GPT-4o and Llama-3.2-70B-Instruct, Llama-3.1-70B-Instruct
+   All "local-only" and "remote-only" experiments are run with temperature of 0.2. For all MinionS experiments run in Table 1, we run the RemoteLM with a temperature of 0.0 and LocalLM with a temperature of 0.2 for FinanceBench and 0.00001 for QASPER and LongHealth.
+
+C Extended Discussion of Cost Model
+Here, we explain in detail the costs of the different communication protocols discussed in this paper-remote- only, Minion, and MinionS-with a strong focus on the latency of these methods. This section is organized as follows:
+ï Section C.1: We review background on language model inference, to motivate our cost and latency models.
+ï Section C.2: We present mathematical models for the latency of the remote-only, Minion, and MinionS
+protocols.
+ï Section C.3: We present Proposition C.1, an upper bound on the total latency of MinionS, relative to that of the remote-only model, demonstrating that MinionS is not much slower than the naive approach of performing the full query in the cloud. As an example, we show that a Llama-8B model on a GTX-4090 GPU collaborating via MinionS with a Llama-405B model on a 8◊H100 server is at most 4.75◊ slower than the remote-only protocol.
+
+C.1 Background on language model inference
+Language model inference consists of a sequence of forward passes through a model, one for prefill (i.e. input) followed by one for each additional token generated (i.e. output). At low/medium batch sizes, each forward pass after prefill is I/O bound, meaning the time it takes to load weights from memory exceeds the time it takes to actually compute the output. As the batch size increases, the computational cost of the forward pass eventually exceeds the I/O cost. Strikingly, for most models and hardware, this happens at a batch size
+
+> 100 (Leviathan et al., 2023; Chen et al., 2024b). As a result of this transition from being I/O bound to being compute bound, we can model (as is common in the literature) the cost of running a forward pass as a piecewise linear function CM,E (n) = max(?, a ∑ n + ﬂ) of the number of tokens n being processed. This is because for small n, the IO cost dominates (and is roughly constant as n grows), whereas at larger n the compute cost dominates and scales roughly linearly with n (assuming n is not too large).
+    In the cloud, the provider can batch generation requests from multiple users to keep hardware utilization high. Therefore, the cost of each output token is typically within a small multiple of the cost of each input token, and the total cost of processing the request scales as nprefill + a ∑ ndecode, for some small a = 5.
+On-device, we cannot assume we'll have enough concurrent user requests to form a large enough batch
+to achieve high utilization. As a result, the latency of a request does not scale linearly with the number of tokens. A single request can occur similar latency to hundreds run in parallel. As a result, tokens are a poor proxy for cost on-device and we instead measure latency in micro experiments (see Section 6.3).
+
+C.2 Latency models for all protocols: Remote-only, Minion, MinionS
+We now model the latency of each of these protocols (remote-only, Minion, MinionS). We will then use these results in the following section to upper bound the latency of MinionS by a scalar multiple of the latency of the remote-only protocol.
+First, we introduce the following assumptions and notation:
+ï We assume we have a local GPU (e.g. RTX-4090) with peak compute Fl (flops/sec), and peak bandwidth Ml (bytes/sec), and a remote GPU (e.g. H100) with peak compute Fr (flops/sec), and peak bandwidth Mr (bytes/sec),
+ï We also assume for now simple transformer architectures for both the local and remote models:
+- LocalLM: Ll layers, each with 8d2 params in MLP (Up/down projections each of size dl ◊ 4dl, and 4d2 parameters in the WQ,K,V,O projections. The total memory required for the (non-embedding/LM head) parameters is thus Pl = 2 ∑ 12Lld2. For simplicity, we assume the memory for the LM head is
+small relative to Pl.
+- RemoteLM: Equivalent architecture to the LocalLM, but with Lr layers, dr hidden dimension, and Pr total non-embedding/LM-head parameter memory (again assumed to be much greater than the number of LM head parameters).
+ï We model the number of input/output tokens of each protocol as follows, letting n denote the number of tokens in the original document:
+
+- Remote-only: n prefill tokens and nr
+
+decode tokens. Note that we assume-here and below-that
+
+the number of tokens in the query is negligible relative to n. We assume n ª nr
+
+so we can effectively
+
+ignore the KV-cache load time for the output tokens.
+- Minion: For LocalLM, we assume n prefill tokens and nl
+
+
+decode tokens. For RemoteLM, we
+
+assume nl
+
+prefill tokens, and nr
+
+decode tokens. In the case of multiple rounds of communication,
+
+the KV cache for the document can be stored to avoid recomputation.
+- MinionS: For LocalLM, we assume n/c prefill tokens per chunk (c chunks total), and nl
+
+
+decode
+
+tokens per job (though we assume only p fraction of output jobs do not abstain). For RemoteLM, we
+
+assume J ∑nl
+
+∑p prefill tokens, and nr
+
+decode tokens, letting J = cks denote the total number of jobs
+
+in MinionS (c chunks, k instructions, s samples). In the case of multiple rounds of communication,
+the KV cache for each document chunk can be stored to avoid recomputation.
+ï Throughout, we use the fact that a [m ◊ n] ∑ [n ◊ k] matmul takes 2 ∑ mnk flops, and assume model parameters are stored in half-precision (2 bytes/param).
+We are now ready to present the latency models for the three protocols (remote-only, Minion, MinionS).
+
+C.2.1 Remote-only
+ï Prefill: We are compute bound, so time is approximately given by total flops/Fr. We can break down
+total flops into the matmuls (MLP up/down projections, and QKVO operations) and attention operations.
+- Matmuls: 2 ∑ 12nd2 per layer. Equivalent to a [n ◊ dr] ∑ [dr ◊ 12dr] matmul.
+- Attention: 2 ∑ n2dr per layer. Equivalent to [n ◊ dr] ∑ [dr ◊ n] matmul.
+- Time: Lr ∑ (24nd2 + 2n2dr)/Fr = (nPr + 2Lrdrn2)/Fr.
+ï Decode: We are memory bound (batch size 1 for Minion), so time is approximately given by total memory/Mr
+per decode step. We can break down total memory into model parameters and KV cache.
+- Model parameters: 2 ∑ 12d2 bytes per layer.
+- KV-cache: 2 ∑ 2ndr bytes per layer (K and V are each [n ◊ d] matrices).
+
+- Time: Lr ∑ nr	∑ (24d2 + 4ndr)/Mr = nr
+
+(Pr + 4Lrdrn)/Mr.
+
+out	r	out
+
+
+Total time is given by the sum of prefill and decode times:
+
+nPr + 2Lrdrn2	nr
+
+
+
+(Pr + 4Lrdrn)
+
+Tremote =
+r
+
++  out	
+Mr
+
+
+C.2.2 Minion
+The latency of the LocalLM in the Minion protocol can be modeled equivalently to the latency of the remote-only protocol, but replacing the remote parameters with the corresponding local ones. Thus, total local latency is:
+nPl + 2Lldln2	nl  (Pl + 4Lldln)
+
+Minion
+local
+
++  out	
+Fl	Ml
+
+The total remote latency can also be expressed using these same equations, but with nl
+
+prefill tokens,
+
+and nr
+
+decode tokens.
+
+
+nl Pr + 2Lrdr(nl )2	nr (Pr + 4Lrdrnl )
+
+T Minion =  out	out  +  out	out 
+remote	Fr	Mr
+
+C.2.3 MinionS
+The LocalLM latency of the MinionS protocol has some important differences from the Minion protocol-the prefill computation avoids cross-chunk attention (which saves time), while the decode operations can actually be compute bound if batching of the different jobs is done. We review these details below:
+
+ï Prefill: We are compute bound, so time is approximately given by total flops/F . We can break down
+total flops into the matmuls (MLP up/down projections, and QKVO operations) and attention operations.
+- Matmuls: 2 ∑ 12nd2 per layer. Equivalent to c [nc ◊ dl] ∑ [dl ◊ 12dl] matmuls (where nc = n/c).
+- Attention: 2 ∑ cn2dl = 2 ∑ c (n/c)2dl = 2n2dl/c per layer. Equivalent to c [nc ◊ dl] ∑ [dl ◊ nc] matmuls.
+- Time: Ll ∑ (24nd2 + 2n2dl/c)/F = (nPl + 2Lldln2/c)/F .
+ï Decode: We will now assume we are compute bound during decode, because we have many jobs (ks) per chunk, and many chunks (c) per document, which we can batch together. Thus, time is approximately given by total flops/Fl per decode step. We can break down total flops into matmuls and attention. The
+
+flops below are per job, per output token (so for total flops we will multiply by nl
+* 
+pcks):
+
+- Matmuls: 2 ∑ 12d2 per layer. Equivalent to a [1 ◊ dl] ∑ [dl ◊ 12dl] matmul.
+- Attention: 2 ∑ ncdl = 2dl n/c per layer. Equivalent to [1 ◊ dl] ∑ [dl ◊ nc] matmul.
+
+- Time: Ll ∑ nl	∑ pcks ∑ (24d2 + 2dln/c)/F = nl
+
+∑ pcks ∑ (Pl + 2Lldln/c)/F .
+
+out	l	out
+
+The total local latency for MinionS is given by the sum of prefill and decode times: MinionS
+nPl + 2Lldln2/c	nl	∑ pcks ∑ (Pl + 2Lldln/c)
+
+MinionS
+local
+
++  out	.
+Fl	Fl
+
+The total remote latency for MinionS can be expressed using the same equations as Minion, but with
+
+pcks ∑ nl
+
+prefill tokens, and nr	decode tokens.
+(pcks ∑ nl )Pr + 2Lrdr(pcks ∑ nl  )2	nr (Pr + 4Lrdr(pcks ∑ nl  ))
+
+T MinionS = 	out	out  +  out	out 
+remote	Fr	Mr
+
+C.3 MinionS vs. remote-only comparison
+Proposition C.1. Assume nl	∑ pcks = an, for some a < 1, and that Fr,l, dr,l, and Lr,l are all as defined
+in Appendix C.2. In this case, we can show that the ratio of total latency of MinionS vs. the remote-only
+protocol is upper-bounded by the following expression:
+
+MinionS	MinionS
+
+Tremote + Tlocal
+
+
+
+
+< 1 + (1 + a) ∑ Fr ∑ Lldl .
+
+Proof. Let's assume nl
+
+∑ pcks = an, for some a < 1.
+
+
+
+
+MinionS
+local
+
+nPl + 2Lldln2/c
++
+Fl
+
+an ∑ (Pl + 2Lldln/c)
+Fl
+2
+
+<	1 + a ∑ nPl + 2Lldln /c
+Fl
+(an)Pr + 2Lrdr(an)2	nr (Pr + 4Lrdr(an))
+
+MinionS
+remote
+
++  out	
+Fr	Mr
+
+ nPr + 2Lrdrn2
+
+
+
+
+r out
+
+4Lrdrn  +
+
+outPr
+
+
+Fr	Mr	Mr
+nPr + 2Lrdrn2	nr  (Pr + 4Lrdrn)
+
+Tremote	=
+
+T MinionS
+
++  out	
+Fr	Mr
+T MinionS
+
+Thus, it is easy to see that  remote < 1. Now let's look at  local  , and show it is upper bounded by a constant:
+
+Tremote
+
+
+MinionS
+local
+
+Tremote
+
+Tremote
+
+nPl+2Lldln2/c
+
+	Fl	
+nPr +2Lrdrn2 Fr
+= (1 + a) ∑ Fr ∑ nPl + 2Lldln /c
+
+= (1 + a) ∑ Fr ∑ max Pl ,  Lldl  
+
+
+=	1 + a ∑ Fr Fl
+
+
+∑ max
+
+L d2
+l ,
+Lrd2
+
+ Lldl 
+Lrdrc
+
+< (1 + a) ∑ Fr ∑ Lldl .
+Thus, combining the above two results we can see that:
+MinionS	MinionS
+
+Tremote + Tlocal
+
+
+
+< 1 + (1 + a) ∑ Fr ∑ Lldl .
+
+
+
+
+   Real example: Let's assume that the local GPU is a RTX 4090 (Fl ò 160 TFLOPS), the remote server is a full node of 8 H100s (Fr ò 8000 TFLOPS across full node), the local model is Llama-8B (Ll = 32, dl = 4096), and the remote model is Llama-405B (Ll = 126, dl = 16384). Furthermore, let's assume a ò 0.2, which is actually a bit larger than we see in practice. In this case:
+
+1 + (1 + a) ∑ Fr ∑ Lldl 
+
+8000  32 ∑ 4096 
+ò  1 + 1.2 ∑	∑
+
+Fl	Lrdr
+
+160
+1
+ò 1 + 1.2 ∑ 50 ∑
+
+126 ∑ 16384
+
+16
+=  4.75.
+
+
+   Note that if we perform multiple rounds of MinionS, this ratio gets multiplied by at most the number of rounds, though as mentioned previously, we can save time by only performing prefill on all the document chunks in the first round.
+
+D Extended discussion of methods
+D.1 Extended description of Minion
+In this section, we describe Minion, a baseline local-remote communication protocol. We ask whether we can reduce remote prefill tokens, and thus cost, by simply orchestrating a free-form conversation between the LocalLM and the RemoteLM in which only the LocalLM has direct access to the context c.
+    The protocol proceeds with initialization step followed by a simple correspondence between the two models, which terminates when the remote model can answer the question or a maximum iteration limit is reached.
+
+Iteration i = 1: Initialize.  The RemoteLM receives the task query q along with a system prompt premote
+that instructs it to interact with a small LM that has full access to context. It outputs a first message
+
+(1)
+remote
+
+
+
+
+(1)
+remote
+
+
+
+~ RemoteLM(q, premote)
+
+
+The message is then provided to LocalLM, along with the full context c, the query c, and a minimal system prompt plocal that instructs it to answer questions on the context:
+
+
+(1)
+local
+
+~ LocalLM(m(1)
+
+, q, plocal, c)
+
+
+Iteration i > 1.  Step 1: Message from remote to local. RemoteLM consumes the conversation history and outputs new messages:
+
+
+m(i)
+
+~ RemoteLM(m(:i-1) , m(:i-1), q, premote)
+
+remote
+
+remote
+
+local
+
+In its message, RemoteLM indicates whether it has sufficient information to terminate the loop and answer the question, or alternatively raises additional questions.
+Step 2: Message from local to remote LocalLM consumes the latest remote message and conversation
+
+history, and outputs m(i) .
+
+
+m(i)
+
+
+~ LocalLM(m(:i-1) , m(:i-1), q, plocal, c)
+
+local
+
+remote
+
+local
+
+We then increment the iteration i and loop back to Step 1 until the break condition is met or we reach a maximum number of iterations.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Figure 7: Comparing strategies for maintaining context between MinionS rounds. The x-axis represents the number of tokens processed by the remote model, while the y-axis shows the accuracy achieved.
+
+D.2 Information Bottleneck Perspective
+How does local model capacity affect the cost-accuracy tradeoff?
+   The Information Bottleneck (IB) principle (Tishby et al., 2000) provides a useful analogy. One communi- cation round of a local-remote system does as follows:
+z ~ p(z|c) [Extract info. from context]
+                         y ~ p(y|z) [Predict outcome from extracted info] The IB principle seeks to find a p(z | c), our LocalLM, as follows:
+min	I(C; Z) - ﬂ I(Z; Y ) ,	(3)
+p(z|c)
+
+i.e. find a mapping that forces the latent representation to be maximally informative of the label I(Z; Y ) and minimally informative of the input I(C; Z), with a tradeoff parameter ﬂ. Here, we do not optimize the mapping p(z | c) but instead only get to choose it by setting LocalLM.
+Since we cannot compute these quantities in closed form for nonlinear distributions over tokens, we use
+(coarse) empirical proxies as follows. As a proxy for I(C; Z), we compute the number of prefill tokens sent to RemoteLM, capturing the intuition that more tokens carry more information on the input. I(Z; Y ) is estimated as the average accuracy of the local-remote system, quantifying the preservation of task-relevant information in z. While these proxies do not exactly match the underlying mutual informations, they capture the core tension of compressing the input vs. preserving predictive power.
+   We plot these quantities in Figure ??. We find that across both Qwen2.5 and Llama model families, as we increase LocalLM size, we send fewer tokens to RemoteLM (ò I(C; Z) ?), and improve accuracy (ò I(Z; Y ) ?). We find that Llama has higher ò I(C; Z) and higher ò I(Z; Y ).
+
+E Extended Results
+E.1 Model Analysis
+We include additional experiment results from Section 6.2. In Table 2 we show the effects of varying RemoteLM on MinionS. In Table 3, we show the performance of MinionS using the best in-class models at the time (from late 2023 to late 2024).
+
+
+Local Model
+Remote Model
+Release Date
+Accuracy (Longhealth)
+Accuracy (QASPER)
+Accuracy (Finance)
+llama-3B
+gpt-4o
+May 2024
+0.7025
+0.598
+0.7826
+llama-3B
+gpt-4-turbo
+April 2024
+0.6247
+0.614
+0.6304
+llama-3B
+gpt-3.5-turbo-0125
+Jan 2024
+0.2157
+0.4314
+0.1707
+llama-3B
+gpt4o-mini
+July 2024
+0.6275
+0.568
+0.6522
+llama-3B
+llama3-70B-Instruct-Turbo
+April 2024
+0.3525
+0.144
+0.1818
+llama-3B
+llama3.1-70B-Instruct-Turbo
+July 2024
+0.6193
+0.514
+0.4348
+llama-3B
+llama3.3-70B-Instruct-Turbo
+December 2024
+0.6658
+0.534
+0.6739
+
+Table 2: Accuracy Results for Longhealth, QASPER, and Finance across Various Models
+
+Local Model
+Remote Model
+Accuracy (Longhealth)
+Accuracy (QASPER)
+System Date
+Llama-2-7b-chat-hf
+gpt-4-1106-preview
+0.340
+0.178
+November 2023
+Llama-3.1-8B-Instruct
+gpt-4-turbo
+0.645
+0.528
+April 2024
+Llama-3.1-8B-Instruct
+gpt-4o
+0.740
+0.582
+July 2024
+-
+gpt-4-turbo
+0.768
+0.391
+April 2024
+Table 3: Point in time results for MinionS configurations with best-in-class LocalLM and RemoteLM
+
+E.2 Minion LocalLM Analysis
+
+
+Total Chunks In-Context
+Accuracy
+1
+0.59375
+16
+0.53906
+32
+0.50000
+64
+0.48438
+128
+0.46094
+Table 4: Accuracy vs. Number of Chunks in Context Each chunk has 512 tokens.
+
+   We perform an empirical analysis evaluating the robustness of LocalLM. We perform experiments to eval- uate two axes of model capabilities: (1) ability to reason over long contexts and (2) ability to solve multi-part queries. To test (1) and (2) we curate a synthetic dataset built over the FinanceBench dataset wherein we use GPT-4o to construct an extraction based question-answering dataset over chunks (length 512 tokens) of docu- ments in the FinanceBench dataset. We then construct two settings evaluating over Llama-3.2-3B-Instruct.
+
+    Long Context Reasoning: To evaluate long-context reasoning, we concatenate between {1,16,32,64,128} chunks to construct the context. At least one chunk in the concatenated context contains the ground truth result. As seen in Table 4, increasing the context length from 512 to 65.5K tokens leads to a 13 point drop
+in accuracy.
+
+   Multi-step Queries To evaluate the ability of LocalLM to fulfill multi-step queries, we construct queries that have between {1,2,3,4} sub-tasks. Our results indicate increasing from 1 to sub-tasks leads to a 56.3 point drop in accuracy (see Table 5).
+
+E.3 Relationship with Retrieval-Augmented Generation
+In this section, we discuss the relationship between local-remote collaboration and retrieval-augmented generation (RAG), a technique that reduces the number of tokens processed by an LM by retrieving a subset of relevant documents or chunks LM Lewis et al. (2020); Karpukhin et al. (2020); Lee et al. (2019).
+   Retrieval-augmented generation and local-remote collaboration (e.g. MinionS) are complementary techniques. They both provide a means to reduce cost by providing an LLM with a partial view of a large
+context. But, as we discuss below, they also have different error profiles and can be used in conjunction to improve performance.
+
+
+Number of Sub Tasks
+Accuracy
+1
+0.70313
+2
+0.39844
+3
+0.19531
+4
+0.14844
+
+Table 5: Accuracy vs. Number of Sub Tasks
+
+Protocol	Local Model	Remote Model	FinanceBench	LongHealth	QASPER
+
+Acc.	Cost  In
+Tok. (1k)
+
+Out Tok. (1k)
+
+Acc.	Cost  In
+Tok. (1k)
+
+Out Tok. (1k)
+
+Acc.	Cost  In
+Tok. (1k)
+
+Out Tok. (1k)
+
+Remote
+Only
+-
+GPT-4o
+0.826
+$0.261
+103.04
+0.32
+0.748
+$0.301
+120.10
+0.07
+0.598
+$0.137
+54.40
+0.09
+Local
+Llama-
+-
+0.326
+$0.000
+0.00
+0.00
+0.468
+$0.000
+122.58
+0.07
+0.538
+$0.000
+54.41
+0.06
+Only
+Local
+8B
+Llama-
+
+-
+
+0.000
+$0.000
+
+0.00
+
+0.00
+
+0.115
+$0.000
+
+122.58
+
+0.07
+
+0.000
+$0.000
+
+54.41
+
+0.10
+Only
+Local
+1B
+Llama-
+
+-
+
+0.130
+$0.000
+
+0.00
+
+0.00
+
+0.345
+$0.000
+
+122.58
+
+0.08
+
+0.164
+$0.000
+
+54.41
+
+0.08
+Only
+Local
+3B
+Qwen-
+
+-
+
+0.087
+$0.000
+
+0.00
+
+0.00
+
+0.177
+$0.000
+
+31.24
+
+0.08
+
+0.156
+$0.000
+
+32.58
+
+0.08
+Only
+3b
+
+
+
+
+
+
+
+
+
+
+
+
+
+Minion
+Llama-
+GPT-4o
+0.804
+$0.007
+0.88
+0.46
+0.635
+$0.010
+1.85
+0.50
+0.450
+$0.007
+0.92
+0.42
+
+Minion
+8B
+Llama-
+
+GPT-4o
+
+0.698
+$0.010
+
+1.74
+
+0.52
+
+0.482
+$0.009
+
+1.56
+
+0.47
+
+0.372
+$0.011
+
+2.26
+
+0.53
+
+Minion
+3B
+Qwen-
+
+GPT-4o
+
+0.217
+$0.029
+
+8.28
+
+0.82
+
+0.281
+$0.021
+
+5.70
+
+0.68
+
+0.210
+$0.035
+
+10.51
+
+0.87
+
+3b
+
+
+
+
+
+
+
+
+
+
+
+
+
+MinionS
+Llama-
+GPT-4o
+0.804
+$0.053
+15.99
+1.29
+0.740
+$0.054
+18.96
+0.65
+0.582
+$0.019
+5.10
+0.61
+
+MinionS
+8B
+Llama-
+
+GPT-4o
+
+0.726
+$0.079
+
+24.67
+
+1.77
+
+0.703
+$0.057
+
+20.11
+
+0.66
+
+0.558
+$0.020
+
+5.62
+
+0.60
+
+MinionS
+3B
+Qwen-
+
+GPT-4o
+
+0.783
+$0.059
+
+17.20
+
+1.56
+
+0.645
+$0.043
+
+14.43
+
+0.65
+
+-
+
+-
+
+-
+
+-
+
+MinionS
+3b
+Qwen-
+
+GPT-4o
+
+-
+
+-
+
+-
+
+-
+
+-
+
+-
+
+-
+
+-
+
+0.600
+$0.015
+
+3.44
+
+0.61
+
+7b
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Table 6: Accuracy and cost of local-remote systems. Evaluation of cost and accuracy on the FinanceBench Islam et al. (2023), LongHealth Adams et al. (2024), and QASPER Dasigi et al. (2021). The table compares two edge-remote communication protocols - Na®ive (section 4) and MinionS (section 5)
+- alongside edge-only and remote-only baselines. Three different edge models are considered (Llama-8B,
+Llama-3B, Qwen-3b, and Llama-1B) and a remote model (GPT-4o). Accuracy (Acc.) is the fraction of correct predictions across the dataset. Cost (USD) is the average cost in USD per query in the dataset computed. Costs are incurred for any calls to the remote model at GPT-4o rates (January 2025: $2.50 per million input tokens and $10.00 per million output tokens). We assume that running the edge model is free; see section 3 for details on the cost model. In tokens is the number of input (i.e. prefill) tokens sent to the remote model. Out tokens is the number of output (i.e. decode) tokens generated from the remote model. Both values are shown in thousands.
+
+E.3.1 Comparison of MinionS and RAG on FinanceBench
+In Figure 8 (left), we plot the quality-cost trade-off on FinanceBench for local-remote systems (Minion and MinionS) and RAG systems using BM25 and OpenAI's text-embedding-3-small embeddings Robertson & Zaragoza (2009); Neelakantan et al. (2022). For RAG, we use a chunk size of 1000 characters, which we found to be optimal for this dataset after sweeping over chunk sizes with the BM25 retriever (see Figure 8 (center)). We show how a simple hyperparameter (number of retrieved chunks provided to the remote model)
+allows us to trade off quality of the RAG system for remote cost. Furthermore, we note that when the BM25 RAG system provides 50 or more chunks of the document to the remote model, it exceeds the performance of the remote model with the full context. This likely indicates that RAG helps in minimizing distractions from the long context. For FinanceBench, when compared to MinionS, the RAG system with OpenAI embeddings reaches similar points in the quality-cost trade-off space. Interestingly however, none of the RAG
+configurations are are able to match the quality of Minion at the same low cost.
+
+
+
+
+
+
+
+
+
+
+
+
+Figure 8: Relationship with retrieval-augmented generation.
+
+E.3.2 Comparison of MinionS and RAG (Embeddings + BM25) on Summarization Tasks
+RAG is a very suitable approach for FinanceBench, since all of the questions heavily rely on information ex- traction from specific sections of financial statements. However, RAG will not be suitable for a summarization task, unlike small LMs. Therefore, we use the long-document summarization dataset, BooookScore (Chang et al., 2023). BooookScore which contains a set of 400 books published between 2023-2024. The average story length in Booookscore is 128179 tokens with a max of 401486 tokens and a minimum of 26926 tokens.
+We utilize both MinionS, RAG (w/Embeddings + BM25), and GPT-4o only to complete the task. We describe the set-up for all three approaches next.
+
+   MinionS for summarization In applying MinionS to the task, the LocalLM (Llama-3.2-3B-Instruct) provides summaries on chunks of the original text, passing a list of chunk summaries to the RemoteLM (GPT-4o). RemoteLM produces the final summary.
+   RAG (Embedding) for summarization In our embedding-based RAG approach, we use the OpenAI text-embedding-3-small to embed chunks of the original text (of length 5000 characters) and we retrieve the top-15 most relevant chunks using the query "Summarize the provided text". We then prompt GPT-4o to generate a complete summary over the retrieved chunks.
+   RAG (BM25) for summarization In our BM25-based RAG approach, we use the BM25 to retrieve chunks of the original text (of length 5000 characters) based on the query: "Summarize the provided text". We retrieve the top-15 most relevant chunks and prompt GPT-4o to produce a final summary over the retrieved chunks. We choose top-15 to ensure the number of tokens passed up by the baseline is comparable with those passed up by MinionS.
+GPT-4o In our final baseline, we use GPT-4o alone to create the story summaries. For texts that extend
+beyond the 128K context length window, we truncate the stories.
+
+Evaluation
+ï Qualitative In Table 8 we provide samples outputs from each of the 4 methods described above. We highlight major events in red, themes in green, locations in blue and names in indigo. The samples demonstrate that amongst all the methods, MinionS outputs contain the most entity mentions and story
+specific details. Moreover, when compared to GPT-4o-only RemoteLM, MinionS is 9.3◊ more efficient -
+11,500 versus the full 108,185 prefill tokens.
+The summaries from MinionS are generally 1.3◊ longer and more verbose than the RAG systems' summaries, likely indicating that the former is more effective at "passing forward" salient information. Moreover, RAG systems' summaries are missing the main arc of the narrative in favor of what seems an
+assortment of facts.
+ï Quantitative We additionally perform a quantitative analysis of the generated summaries using a LLM-as- a-judge framework. As an evaluator, we use the claude-3.5-sonnet model, to avoid any biases between the evaluator and the supervisor model. We prompt the model with the generated summary, ground truth
+
+summary (gpt4-4096-inc-cleaned) provided from the original BooookScore generations, and a grading rubric (see Figure 9). The rubric evaluates 7 criteria: coherence, relevance, conciseness, comprehensiveness, engagement & readability, accuracy, and thematic depth. We prompt claude-3.5-sonnet to generate a score (1-5) for each of the criteria and average the scores. We find that summaries generated by MinionS score comparably with GPT4o-only generated summaries, while RAG based baselines perform worse. Our
+results can be found in Table 7.
+
+
+
+Figure 9: Evaluation Rubric for Summaries
+
+
+Method
+Score
+MinionS
+3.01
+GPT4o
+3.06
+RAG (BM25)
+2.48
+RAG (Embedding)
+2.38
+
+Table 7: Comparison of Methods and Rubric Scores
+
+Table 8: Comparative Analysis of Story Summaries Across Different Methods
+
+Story
+Title
+Minions
+GPT-4o
+BM25
+Embedding
+A
+The novel follows the
+Isabelle Manning, daugh-
+Isabelle Manning, over-
+In a narrative spanning
+Likely
+complex dynamics of
+ter of a famous author,
+shadowed  by  her  fa-
+New York and Sag Har-
+Story
+the  Manning  family,
+discovers an unfinished
+mous father Ward, re-
+bor, Claire Cunningham
+
+focusing	on	Isabelle
+manuscript by her late
+ceives a threatening text,
+grapples with her iden-
+
+Manning, a struggling
+mother, Claire. She com-
+"I KNOW WHAT YOU
+tity beyond being a Vas-
+
+writer grappling with
+pletes and publishes it as
+DID," hinting at a secret
+sar graduate, while her
+
+the legacy of her famous
+her own, leading to suc-
+tied to her book, "Un-
+daughter Isabelle faces
+
+father, Ward Manning,
+cess but also guilt and
+derpainting." Meanwhile,
+personal and professional
+
+and the recent death
+exposure.	Her father,
+her mother Claire's past
+challenges, including her
+
+of her mother, Claire.
+Ward, reveals he sabo-
+support and her father's
+father's illness and her
+
+As  Isabelle  navigates
+taged her first book to
+hidden illness add layers
+own writing struggles.
+
+her career and personal
+teach her resilience, deep-
+to Isabelle's challenges.
+
+
+life, she uncovers family
+ening her sense of be-
+
+
+
+secrets,  including her
+trayal.  Ultimately, Is-
+
+
+
+father's plagiarism and
+abelle confesses her ac-
+
+
+
+her  mother's  hidden
+tions, seeks redemption,
+
+
+
+manuscript, which chal-
+and begins to redefine
+
+
+
+lenge her identity and
+her identity beyond her
+
+
+
+ambitions.  The narra-
+father's shadow.
+
+
+
+tive  explores  themes
+
+
+
+
+of fame, family expec-
+
+
+
+
+tations,  and  personal
+
+
+
+
+growth,	culminating
+
+
+
+
+in  Isabelle's  journey
+
+
+
+
+towards	self-discovery
+
+
+
+
+and independence. Set
+
+
+
+
+against the backdrop of
+
+
+
+
+New York City and Sag
+
+
+
+
+Harbor, the story delves
+
+
+
+
+into the intricacies of fa-
+
+
+
+
+milial relationships and
+
+
+
+
+the pursuit of creative
+
+
+
+
+fulfillment.
+
+
+
+All  the
+Isabelle Drake, a woman
+Isabelle Drake, plagued
+The narrative follows Is-
+Isabelle, struggling with
+Dan-
+grappling with the trau-
+by insomnia and guilt,
+abelle, dealing with Ma-
+grief and insomnia, joins
+gerous
+matic disappearance of
+is desperate to find her
+son's disappearance. She
+a grief counseling group.
+Things
+her son Mason, navi-
+missing son, Mason. She
+works  with  podcaster
+She meets Valerie and
+
+gates a complex web of
+suspects her husband,
+Waylon, uncovering links
+collaborates with Way-
+
+grief, guilt, and suspi-
+Ben, and his new partner,
+to Ben's deceased wife,
+lon, but becomes wary af-
+
+cion. As she becomes en-
+Valerie. With Waylon's
+Allison.
+ter finding unsettling in-
+
+tangled with true crime
+help, she discovers Abi-
+
+formation on his laptop.
+
+enthusiasts and investi-
+gail Fisher, manipulated
+
+
+
+gators,  including pod-
+by Valerie, took Mason
+
+
+
+cast host Waylon and De-
+believing she was rescu-
+
+
+
+tective Dozier, Isabelle's
+ing him.
+
+
+
+quest for truth reveals
+
+
+
+
+unsettling family secrets
+
+
+
+
+and personal betrayals.
+
+
+
+
+Her journey is marked
+
+
+
+
+by strained relationships,
+
+
+
+
+particularly with her ex-
+
+
+
+
+husband Ben and his con-
+
+
+
+
+nections to other women,
+
+
+
+
+including  Valerie  and
+
+
+
+
+Allison.	Throughout
+
+
+
+
+the narrative,  themes
+
+
+
+
+of motherhood, mental
+
+
+
+
+health, and societal judg-
+
+
+
+
+ment are explored, culmi-
+
+
+
+
+nating in a deeper under-
+
+
+
+
+standing of the pressures
+
+
+
+
+and expectations faced
+
+
+
+
+by women.
+
+
+
+Continued on next page
+
+Continued from previous page
+Story
+Title
+Minions
+GPT-4o
+BM25
+Embedding
+A  Liv-
+Nicole Chung, a Korean
+Nicole Chung's memoir
+The protagonist strug-
+A woman reflects on
+ing
+American adoptee,  re-
+explores her journey af-
+gles with visiting her
+her parents' illnesses and
+Rem-
+flects on her complex
+ter the loss of her adop-
+dying mother during the
+deaths,  balancing her
+edy:  A
+relationships with her
+tive parents. As a Ko-
+COVID-19	pandemic.
+role as a daughter and
+Memoir
+adoptive  parents,  her
+rean adoptee, she re-
+The story explores grief,
+mother.  She finds so-
+
+identity, and the chal-
+flects on family's finan-
+family responsibility, and
+lace in childhood memo-
+
+lenges of navigating life
+cial struggles, parents'
+cherishing  life  amidst
+ries and the legacy of her
+
+as a minority in a pre-
+health battles, and their
+adversity.
+parents' love.
+
+dominantly white com-
+deaths' impact on her
+
+
+
+munity in Oregon. Her
+identity. She finds solace
+
+
+
+memoir explores themes
+in writing and her own
+
+
+
+of family, loss, and re-
+family.
+
+
+
+silience, as she recounts
+
+
+
+
+her father's death from
+
+
+
+
+kidney failure, and her
+
+
+
+
+mother's battle with can-
+
+
+
+
+cer.  Amidst these per-
+
+
+
+
+sonal challenges, Chung
+
+
+
+
+grapples with her own
+
+
+
+
+grief,  financial  strug-
+
+
+
+
+gles, and the impact of
+
+
+
+
+the COVID-19 pandemic,
+
+
+
+
+while finding solace in
+
+
+
+
+her family, faith, and
+
+
+
+
+writing. Her journey is
+
+
+
+
+marked by a deep ap-
+
+
+
+
+preciation for her par-
+
+
+
+
+ents' sacrifices, the sup-
+
+
+
+
+port of her husband and
+
+
+
+
+children, and the endur-
+
+
+
+
+ing legacy of love and for-
+
+
+
+
+giveness instilled by her
+
+
+
+
+mother.
+
+
+
+A
+Samantha, a 32-year-old
+Samantha Montgomery
+The protagonist returns
+Samantha, an archaeoen-
+House
+archaeoentomologist, re-
+returns home to find her
+to their grandmother's
+tomologist, returns to
+with
+turns to her childhood
+mother acting strangely
+unchanged garden, filled
+her childhood home and
+Good
+home on Lammergeier
+and the house devoid of
+with roses but mysteri-
+finds herself investigat-
+Bones
+Lane in North Carolina,
+insects.	She uncovers
+ously devoid of insects.
+ing  insect  collections.
+
+where she confronts her
+a dark history involving
+They uncover unsettling
+Dealing with sleep paral-
+
+family's dark past, in-
+her great-grandfather, a
+truths about their grand-
+ysis and memories of her
+
+cluding her grandmother
+sorcerer, and her grand-
+mother's past and their
+grandmother, she discov-
+
+Gran Mae's mysterious
+mother, who used roses
+mother's current state of
+ers the peculiar absence
+
+and malevolent legacy.
+to wield power.  With
+mind. The narrative ex-
+of insects in the garden.
+
+As Samantha navigates
+help from Gail and Phil,
+plores themes of family
+She navigates family dy-
+
+her mother's strange be-
+she confronts the terri-
+legacy and the passage of
+namics and her mother's
+
+havior and the eerie pres-
+fying "underground chil-
+time.
+anxiety amid an eerie at-
+
+ence of vultures, she un-
+dren," using rose power
+
+mosphere.
+
+covers secrets involving
+to banish threats.
+
+
+
+ritual magic, a jar of hu-
+
+
+
+
+man teeth, and the su-
+
+
+
+
+pernatural "underground
+
+
+
+
+children." With the help
+
+
+
+
+of her friend Gail and
+
+
+
+
+handyman Phil, Saman-
+
+
+
+
+tha  faces  the  haunt-
+
+
+
+
+ing manifestations of her
+
+
+
+
+family's history.	The
+
+
+
+
+novel explores themes of
+
+
+
+
+family, memory, and the
+
+
+
+
+supernatural,  blending
+
+
+
+
+elements of horror and
+
+
+
+
+fantasy.
+
+
+
+
+F Prompts
+F.1 Minion
+RemoteLM
+
+
+1
+We need to answer the following question based on a { doc_type }.
+
+2
+3
+### Question
+
+4
+{ query }
+
+5
+6
+### Instructions
+
+7
+You will not have direct access to the { doc_type }, but can chat with a small language
+which has read the entire thing .
+model
+8
+
+
+9
+Feel free to think step - by - step , but eventually you must provide an output
+
+10
+in the format below :
+
+11
+
+
+12
+<think  step  by  step  here >
+
+13
+''' json
+
+14
+{{
+
+15
+" message ": " < your message to the small language model >"
+
+16
+}}
+
+17
+'''
+
+
+LocalLM
+
+Conversation
+
+
+F.2 MinionS
+MinionS: FinanceBench
+Decompose
+
+
+Worker
+
+Synthesize
+
+
+1
+2 Now synthesize the findings from multiple junior workers ( LLMs).
+3 Your task is to finalize an answer to the question below ** if and only if** you have sufficient , reliable information .
+4 Otherwise , you must request additional work .
+5
+6 ---
+7 ## Inputs
+8 1. Question to answer:
+9 { question }
+10
+11 2. Collected Job Outputs ( from junior models):
+12 { extractions }
+13
+14 ---
+15 First think step - by - step and then answer the question using the exact format below .
+16
+17 ## ANSWER GUIDELINES
+18 1. ** Determine if the collected Job Outputs provide enough trustworthy , consistent evidence to confidently answer the question .**
+19	- If the data is incomplete or contradictory , do NOT guess. Instead , specify what is missing .
+20	- If the evidence is sufficient , provide a final answer.
+21
+22 2. ** Be conservative .** When in doubt , ask for more information .
+23
+24 3. ** Address conflicts .** If multiple jobs give different answers , rely on whichever is best supported by a valid " explanation " and " citation ".
+25	- If you need more information from the conflicting jobs you could request additional work from those specific jobs ( be sure to mention the specific job IDs in your
+additional_info field ).
+26	- Then , in the next round you can make a smaller set of jobs to determine which answer is correct.
+27
+28 4. ** Required JSON Output **: You must output a JSON object with these keys:
+29	- " decision ": Must be either " provide_final_answer " OR " request_additional_info ".
+30	- Use " provide_final_answer " if you have enough information .
+31	- Use  " request_additional_info " if  you  cannot  conclusively  answer.
+32	- " explanation ": A short statement about how you arrived at your conclusion or what is still missing .
+33	- " answer ": The final answer string if " decision "=" provide_final_answer ", or null otherwise . Should contain ONLY the final answer , without additional calculations or explanations .
+34
+35 Here is the template for your JSON response ( with no extra text outside the JSON ):
+36
+37 <think step - by - step here >
+38 ''' json
+39 {{
+40 " decision ": "..." ,
+41 " explanation ": "..." ,
+42 " answer ": "... or null", # Good answer format: "0 .56 "; Bad answer format: " The ratio is calculated as 1 -0.27*2 = 0.56"
+43 }}
+44 '''
+45
+46 ** Important **:
+47 - If there is not enough information , set " answer" to null , set " decision " to " request_additional_info ", and specify exactly what else you need in " missing_info " and from which job IDs.
+48
+49 Now , carefully inspect the question , think step - by - step and perform any calculations before outputting the JSON object.
+
+
+
+MinionS: LongHealth
+Decompose
+
+
+1 # Decomposition Round #{ step_number }
+2
+3 You do not have access to the raw document( s), but instead can assign tasks to small and less capable language models that can read the document( s).
+4 Note that the document( s) can be very long , so each task should be performed only over a small chunk of text.
+5
+6 Write a Python function that will output formatted tasks for a small language model.
+7 Make sure that NONE of the tasks require multiple steps. Each task should be atomic!
+8 Consider using nested for - loops to apply a set of tasks to a set of chunks.
+9 The same ' task_id ' should be applied to multiple chunks. DO NOT instantiate a new ' task_id ' for each combination of task and chunk .
+10 Use the conversational history to inform what chunking strategy has already been applied .
+11
+12 { ADVANCED_STEPS_INSTRUCTIONS }
+13
+14 Assume a Pydantic model called ' Job Manifest ( Base Model)' is already in global scope . For your reference , here is the model:
+15 '''
+16 { manifest_source }
+17 '''
+18 Assume a Pydantic model called ' Job Output( Base Model)' is already in global scope . For your reference , here is the model:
+19
+'''
+
+20
+{ output_source }
+
+21
+'''
+
+22
+DO NOT rewrite or import the model in your code .
+
+23
+
+
+24
+The function signature will look like :
+
+25
+'''
+
+26
+{ signature_source }
+
+27
+'''
+
+28
+
+
+29
+
+
+30
+
+31
+You can assume you have access to the following chunking function ( S). Do not reimplement
+function , just use it.
+'''
+the
+32
+{ chunking_source }
+
+33
+'''
+
+34
+
+
+35
+Here is an example
+
+36
+'''
+
+37
+task_id = 1  # Unique identifier for the task
+
+38
+for doc_id , document in enumerate ( context):
+
+39
+# if you need to chunk the document into sections
+
+40
+chunks = chunk_by_section ( document)
+
+41
+# or if you need to chunk the document into pages
+
+42
+chunks = chunk_by_page ( document)
+
+43
+
+
+44
+for chunk_id , chunk in enumerate ( chunks):
+
+45
+# Create a task for extracting  mentions of specific keywords
+
+46
+task = (
+
+47
+" Extract all mentions of the following keywords: "
+
+48
+"' Ca19 -9 ', ' tumor marker ', ' September 2021 ', 'U/ ml ', ' Mrs. Anderson '."
+
+49
+)
+
+50
+job_manifest = Job Manifest (
+
+51
+chunk_id =f" doc_id_chunk_id ",
+
+52
+task_id = task_id ,
+
+53
+chunk = chunk ,
+
+54
+task =task ,
+
+55
+
+56
+advice =" Focus on extracting the specific keywords related to Mrs. Anderson ' s
+tumor marker levels ."
+)
+
+57
+job_manifests . append ( job_manifest )
+
+58
+'''
+
+
+
+pworker
+
+
+psynthesize
+
+
+1
+Answer  the  following  by the  synthesizing  findings  from  multiple  junior  workers ( LLMs).
+
+2
+
+
+3
+
+
+4
+---
+
+5
+## Inputs
+
+6
+1. Question to answer:
+
+7
+{ question }
+
+8
+
+
+9
+2. Collected Job Outputs ( from junior models):
+
+10
+{ extractions }
+
+11
+
+
+12
+---
+
+13
+First think step - by - step and then answer the question using the exact format below .
+
+14
+
+
+15
+## ANSWER GUIDELINES
+
+16
+
+
+17
+** Required  JSON  Output **: You must  output  exactly  one  JSON  object  with  these  keys:
+
+18
+- " decision ": Must be  " provide_final_answer ".
+
+19
+- " explanation ": A short statement about how you arrived at your conclusion or what
+is
+
+MinionS: QASPER
+pdecompose
+
+1 # Decomposition Round #{ step_number }
+2
+3 You do not have access to the raw document( s), but instead can assign tasks to small and less capable language models that can read the document( s).
+4 Note that the document( s) can be very long , so each task should be performed only over a small chunk of text.
+5
+6 Write a Python function that will output formatted tasks for a small language model.
+7 Make sure that NONE of the tasks require multiple steps. Each task should be atomic!
+8 Consider using nested for - loops to apply a set of tasks to a set of chunks.
+9 The same ' task_id ' should be applied to multiple chunks. DO NOT instantiate a new ' task_id ' for each combination of task and chunk .
+10 Use the conversational history to inform what chunking strategy has already been applied .
+11
+12 { ADVANCED_STEPS_INSTRUCTIONS }
+13
+14 Assume a Pydantic model called ' Job Manifest ( Base Model)' is already in global scope . For your reference , here is the model:
+15 '''
+16 { manifest_source }
+17 '''
+18 Assume a Pydantic model called ' Job Output( Base Model)' is already in global scope . For your reference , here is the model:
+19
+'''
+
+20
+{ output_source }
+
+21
+'''
+
+22
+DO NOT rewrite or import the model in your code .
+
+23
+
+
+24
+The function signature will look like :
+
+25
+'''
+
+26
+{ signature_source }
+
+27
+'''
+
+28
+
+
+29
+
+
+30
+
+31
+You can assume you have access to the following chunking function ( S). Do not reimplement
+function , just use it.
+'''
+the
+32
+{ chunking_source }
+
+33
+'''
+
+34
+
+
+35
+Here is an example
+
+36
+'''
+
+37
+task_id = 1  # Unique identifier for the task
+
+38
+for doc_id , document in enumerate ( context):
+
+39
+# if you need to chunk the document into sections
+
+40
+chunks = chunk_by_section ( document)
+
+41
+# or if you need to chunk the document into pages
+
+42
+chunks = chunk_by_page ( document)
+
+43
+
+
+44
+for chunk_id , chunk in enumerate ( chunks):
+
+45
+# Create a task for extracting  mentions of specific keywords
+
+46
+task = (
+
+47
+" Extract all mentions of the following keywords: "
+
+48
+"' Ca19 -9 ', ' tumor marker ', ' September 2021 ', 'U/ ml ', ' Mrs. Anderson '."
+
+49
+)
+
+50
+job_manifest = Job Manifest (
+
+51
+chunk_id =f" doc_id_chunk_id ",
+
+52
+task_id = task_id ,
+
+53
+chunk = chunk ,
+
+54
+task =task ,
+
+55
+
+56
+advice =" Focus on extracting the specific keywords related to Mrs. Anderson ' s
+tumor marker levels ."
+)
+
+57
+job_manifests . append ( job_manifest )
+
+58
+'''
+
+
+
+pworker
+
+
+psynthesize
+
+
+1
+Answer  the  following  by the  synthesizing  findings  from  multiple  junior  workers ( LLMs).
+
+2
+
+
+3
+
+
+4
+---
+
+5
+## Inputs
+
+6
+1. Question to answer:
+
+7
+{ question }
+
+8
+
+
+9
+2. Collected Job Outputs ( from junior models):
+
+10
+{ extractions }
+
+11
+
+
+12
+---
+
+13
+First think step - by - step and then answer the question using the exact format below .
+
+14
+
+
+15
+## ANSWER GUIDELINES
+
+16
+
+
+17
+** Required  JSON  Output **: You must  output  exactly  one  JSON  object  with  these  keys:
+
+18
+- " decision ":  Must  be " provide_final_answer " or " need  more  information "
+
+19
+- " explanation ": A short statement about how you arrived at your conclusion or what
+is
+
+
+

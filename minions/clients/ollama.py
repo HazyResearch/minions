@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 from pydantic import BaseModel
 from typing import Any, Dict, List, Optional, Union, Tuple
 import json
@@ -461,3 +462,178 @@ class OllamaClient(MinionsClient):
 
         response = ollama.embed(model=self.model_name, input=content, **kwargs)
         return response["embeddings"]
+
+
+class OllamaTurboClient(MinionsClient):
+    def __init__(
+        self,
+        model_name: str = "gpt-oss:120b",
+        api_key: Optional[str] = None,
+        temperature: float = 0.0,
+        max_tokens: int = 2048,
+        host: str = "https://ollama.com",
+        local: bool = False,
+        **kwargs
+    ):
+        """Initialize Ollama Turbo Client.
+        
+        Args:
+            model_name: The Ollama Turbo model to use (default: "gpt-oss:120b")
+            api_key: Ollama Turbo API key (optional, falls back to OLLAMA_TURBO_API_KEY environment variable)
+            temperature: Sampling temperature (default: 0.0)
+            max_tokens: Maximum number of tokens to generate (default: 2048)
+            host: Ollama Turbo API host (default: "https://ollama.com")
+            local: Whether this is a local client (default: False for remote Ollama Turbo)
+            **kwargs: Additional parameters passed to base class
+        """
+        super().__init__(
+            model_name=model_name,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            local=local,
+            **kwargs
+        )
+        
+        # Client-specific configuration
+        self.api_key = api_key or os.getenv("OLLAMA_TURBO_API_KEY")
+        self.host = host
+        
+        if not self.api_key:
+            raise ValueError("API key is required. Set OLLAMA_TURBO_API_KEY environment variable or pass api_key parameter.")
+        
+        # Initialize the Ollama client with authentication
+        from ollama import Client
+        self.client = Client(
+            host=self.host,
+            headers={'Authorization': self.api_key}
+        )
+
+    @staticmethod
+    def get_available_models():
+        """
+        Get a list of available Ollama Turbo models
+        
+        Returns:
+            List[str]: List of model names
+        """
+        return ["gpt-oss:20b", "gpt-oss:120b"]
+
+    def list_models(self):
+        """
+        List available models from the Ollama Turbo API.
+        
+        Returns:
+            Dict containing the models data
+        """
+        try:
+            models = self.get_available_models()
+            return {
+                "object": "list",
+                "data": [{"id": model, "object": "model"} for model in models]
+            }
+        except Exception as e:
+            self.logger.error(f"Error listing Ollama Turbo models: {e}")
+            raise
+
+    def chat(
+        self,
+        messages: Union[List[Dict[str, Any]], Dict[str, Any]],
+        **kwargs
+    ) -> Tuple[List[str], Usage, List[str]]:
+        """
+        Handle chat completions using the Ollama Turbo API.
+        
+        Args:
+            messages: List of message dictionaries with 'role' and 'content' keys
+            **kwargs: Additional arguments
+            
+        Returns:
+            Tuple of (List[str], Usage, List[str]) containing response strings, token usage, and done reasons
+        """
+        # If the user provided a single dictionary, wrap it in a list.
+        if isinstance(messages, dict):
+            messages = [messages]
+            
+        assert len(messages) > 0, "Messages cannot be empty."
+        
+        try:
+            # Handle batch requests (list of message lists)
+            if isinstance(messages[0], list):
+                responses = []
+                total_usage = Usage()
+                done_reasons = []
+                
+                for message_batch in messages:
+                    response_content = ""
+                    
+                    # Use streaming to get the full response
+                    for part in self.client.chat(
+                        self.model_name,
+                        messages=message_batch,
+                        stream=True,
+                        **kwargs
+                    ):
+                        if 'message' in part and 'content' in part['message']:
+                            response_content += part['message']['content']
+                    
+                    responses.append(response_content)
+                    
+                    # Estimate token usage (since Ollama Turbo might not provide exact counts)
+                    prompt_tokens = sum(len(msg.get('content', '').split()) for msg in message_batch)
+                    completion_tokens = len(response_content.split())
+                    
+                    total_usage += Usage(
+                        prompt_tokens=prompt_tokens,
+                        completion_tokens=completion_tokens
+                    )
+                    done_reasons.append("stop")
+                
+                if self.local:
+                    return responses, total_usage, done_reasons
+                else:
+                    return responses, total_usage
+            
+            # Handle single conversation
+            else:
+                response_content = ""
+                
+                # Use streaming to get the full response
+                for part in self.client.chat(
+                    self.model_name,
+                    messages=messages,
+                    stream=True,
+                    **kwargs
+                ):
+                    if 'message' in part and 'content' in part['message']:
+                        response_content += part['message']['content']
+                
+                # Estimate token usage
+                prompt_tokens = sum(len(msg.get('content', '').split()) for msg in messages)
+                completion_tokens = len(response_content.split())
+                
+                usage = Usage(
+                    prompt_tokens=prompt_tokens,
+                    completion_tokens=completion_tokens
+                )
+                
+                if self.local:
+                    return [response_content], usage, ["stop"]
+                else:
+                    return [response_content], usage
+                    
+        except Exception as e:
+            self.logger.error(f"Error during Ollama Turbo API call: {e}")
+            raise
+
+    def embed(
+        self,
+        content,
+        **kwargs,
+    ):
+        """Embed content using model (if supported)."""
+        try:
+            response = self.client.embed(model=self.model_name, input=content, **kwargs)
+            return response["embeddings"]
+        except Exception as e:
+            self.logger.error(f"Error during Ollama Turbo embedding: {e}")
+            raise

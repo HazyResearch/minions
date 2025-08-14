@@ -2,6 +2,7 @@ models:
   # declare LLM models to pull and use
   worker:
     model: ai/llama3.2
+    context_size: 10000
 
 services:
   minions-server:
@@ -13,7 +14,7 @@ services:
     environment:
       # OpenAI Configuration
       - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - REMOTE_MODEL_NAME=${REMOTE_MODEL_NAME:-gpt-4o-mini}
+      - REMOTE_MODEL_NAME=${REMOTE_MODEL_NAME:-gpt-4o}
       - REMOTE_BASE_URL=${REMOTE_BASE_URL:-https://api.openai.com/v1}
 
       

@@ -49,7 +49,7 @@ class SentenceTransformerEmbeddings(BaseEmbeddingModel):
     """
 
     _instances = {}  # Dictionary to store instances by model name
-    _default_model_name = "Qwen/Qwen3-Embedding-0.6B"
+    _default_model_name = "granite-embedding-english-r2"
 
     def __new__(cls, model_name=None):
         model_name = model_name or cls._default_model_name

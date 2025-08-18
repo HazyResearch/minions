@@ -153,3 +153,14 @@ except ImportError:
         "Warning: Modular MAX or OpenAI client is not installed. If you want to use ModularClient, "
         "please install Modular MAX (https://docs.modular.com/max/get-started) and OpenAI client (pip install openai)."
     )
+
+try:
+    from minions.clients.lmcache import LMCacheClient
+    __all__.append("LMCacheClient")
+except ImportError:
+    # print warning that lmcache is not installed
+    print(
+        "Warning: LMCache or vLLM is not installed. If you want to use LMCacheClient, "
+        "please install with `pip install lmcache vllm`. "
+        "For detailed instructions, see: https://docs.lmcache.ai/getting_started/installation.html"
+    )

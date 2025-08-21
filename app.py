@@ -188,6 +188,24 @@ API_PRICES = {
             "output": 6.00,
         },
     },
+    # Together AI model pricing per 1M tokens
+    "Together": {
+        "deepseek-ai/DeepSeek-R1-0528": {"input": 0.27, "cached_input": 0.07, "output": 1.10},
+        "Qwen/Qwen3-235B-A22B-Instruct-2507-FP8": {"input": 1.20, "cached_input": 0.30, "output": 1.20},
+        "chatgpt-oss-120b": {"input": 1.20, "cached_input": 0.30, "output": 1.20},
+        "THUDM/GLM-4.5-Air": {"input": 0.20, "cached_input": 0.05, "output": 0.80},
+        "deepseek-ai/DeepSeek-V3": {"input": 0.27, "cached_input": 0.07, "output": 1.10},
+        "Qwen/Qwen3-235B-A22B-FP8-Throughput": {"input": 1.00, "cached_input": 0.25, "output": 1.00},
+        "Qwen/Qwen2.5-72B-Instruct-Turbo": {"input": 0.88, "cached_input": 0.22, "output": 0.88},
+        "meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo": {"input": 3.50, "cached_input": 0.875, "output": 3.50},
+        "deepseek-ai/DeepSeek-R1": {"input": 0.27, "cached_input": 0.07, "output": 1.10},
+        "meta-llama/Llama-3.3-70B-Instruct-Turbo": {"input": 0.88, "cached_input": 0.22, "output": 0.88},
+        "Qwen/QwQ-32B-Preview": {"input": 0.59, "cached_input": 0.15, "output": 0.59},
+        "moonshot-ai/Kimi-K2-Instruct": {"input": 1.20, "cached_input": 0.30, "output": 1.20},
+        "meta-llama/Llama-4-Maverick": {"input": 1.20, "cached_input": 0.30, "output": 1.20},
+        "meta-llama/Llama-4-Scout": {"input": 1.09, "cached_input": 0.27, "output": 1.09},
+        "google/Gemma-3-27B": {"input": 0.27, "cached_input": 0.07, "output": 0.27},
+    },
 }
 
 PROVIDER_TO_ENV_VAR_KEY = {
@@ -2430,12 +2448,21 @@ with st.sidebar:
             default_model_index = 0
         elif selected_provider == "Together":
             model_mapping = {
-                "DeepSeek-V3 (Recommended)": "deepseek-ai/DeepSeek-V3",
-                "Qwen 2.5 72B (Recommended)": "Qwen/Qwen2.5-72B-Instruct-Turbo",
-                "Meta Llama 3.1 405B (Recommended)": "meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo",
+                "DeepSeek-R1-0528 (Recommended)": "deepseek-ai/DeepSeek-R1-0528",
+                "Qwen3 235B A22B Instruct 2507 FP8 (Recommended)": "Qwen/Qwen3-235B-A22B-Instruct-2507-FP8",
+                "GPT-OSS 120B": "chatgpt-oss-120b",
+                "GLM-4.5-Air": "THUDM/GLM-4.5-Air",
+                "DeepSeek-V3 (Legacy)": "deepseek-ai/DeepSeek-V3",
+                "Qwen3 235B A22B FP8 Throughput": "Qwen/Qwen3-235B-A22B-FP8-Throughput",
+                "Qwen 2.5 72B": "Qwen/Qwen2.5-72B-Instruct-Turbo",
+                "Meta Llama 3.1 405B": "meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo",
                 "DeepSeek-R1": "deepseek-ai/DeepSeek-R1",
                 "Llama 3.3 70B": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
                 "QWQ-32B": "Qwen/QwQ-32B-Preview",
+                "Kimi K2 Instruct": "moonshot-ai/Kimi-K2-Instruct",
+                "Llama 4 Maverick": "meta-llama/Llama-4-Maverick",
+                "Llama 4 Scout": "meta-llama/Llama-4-Scout",
+                "Gemma 3 27B": "google/Gemma-3-27B",
             }
             default_model_index = 0
         elif selected_provider == "Perplexity":
@@ -3123,10 +3150,10 @@ else:
                     )
                     st.bar_chart(df, x="Model", y="Count", color="Token Type")
 
-                    # Display cost information for OpenAI models
+                    # Display cost information for supported providers
                     if (
                         selected_provider
-                        in ["OpenAI", "AzureOpenAI", "Anthropic", "DeepSeek", "LlamaAPI"]
+                        in ["OpenAI", "AzureOpenAI", "Anthropic", "DeepSeek", "LlamaAPI", "Together"]
                         and remote_model_name in API_PRICES[selected_provider]
                     ):
                         st.header("Remote Model Cost")

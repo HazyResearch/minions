@@ -21,6 +21,7 @@ class OpenAIClient(MinionsClient):
         local: bool = False,
         tools: List[Dict[str, Any]] = None,
         reasoning_effort: str = "low",
+        conversation_id: Optional[str] = None,
         **kwargs
     ):
         """
@@ -35,6 +36,7 @@ class OpenAIClient(MinionsClient):
             use_responses_api: Whether to use responses API for o1-pro models (default: False)
             tools: List of tools for function calling (default: None)
             reasoning_effort: Reasoning effort level for o1 models (default: "low")
+            conversation_id: Conversation ID for responses API (optional, only used when use_responses_api=True)
             local: If this is communicating with a local client (default: False)
             **kwargs: Additional parameters passed to base class
         """
@@ -61,6 +63,13 @@ class OpenAIClient(MinionsClient):
             self.use_responses_api = True
         else:
             self.use_responses_api = use_responses_api
+
+        if not conversation_id and use_responses_api:
+            self.conversation = self.client.conversations.create()
+            self.conversation_id = self.conversation.id
+        else:
+            self.conversation_id = conversation_id
+
         self.tools = tools
         self.reasoning_effort = reasoning_effort
 
@@ -72,6 +81,10 @@ class OpenAIClient(MinionsClient):
             except requests.exceptions.RequestException as e:
                 raise RuntimeError(("Local OpenAI server at {} is "
                     "not running or reachable.".format(self.base_url)))
+
+
+    def get_conversation_id(self):
+        return self.conversation_id
 
     def responses(
         self, messages: List[Dict[str, Any]], **kwargs
@@ -104,6 +117,11 @@ class OpenAIClient(MinionsClient):
                 params["reasoning"] = {"effort": self.reasoning_effort}
                 # delete "tools" from params
                 del params["tools"]
+            
+            # Add conversation_id if provided
+            if self.conversation_id is not None:
+                params["conversation"] = self.conversation_id
+
 
             response = self.client.responses.create(
                 **params,
@@ -114,7 +132,7 @@ class OpenAIClient(MinionsClient):
             self.logger.error(f"Error during OpenAI API call: {e}")
             raise
 
-        outputs = [output_text[1].content[0].text]
+        outputs = [output_text[0].content[0].text]
 
         # Extract usage information if it exists
         if response.usage is None:

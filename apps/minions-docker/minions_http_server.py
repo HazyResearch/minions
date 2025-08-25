@@ -4,16 +4,17 @@ Flask HTTP server for the full Minions protocol with complete functionality incl
 retrieval, multiple LLM providers, and advanced processing capabilities.
 """
 
-import os
 import logging
+import os
+import time
+import traceback
+from datetime import datetime
+from typing import Any, Optional
+
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from typing import Dict, Any, Optional, List, Union
-import json
-import traceback
-import time
-from datetime import datetime
 from pydantic import BaseModel
+
 # Try to import PyMuPDF first, fallback to pypdf
 try:
     import fitz  # PyMuPDF for PDF processing

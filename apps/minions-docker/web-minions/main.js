@@ -57,7 +57,6 @@ class MinionsAdvancedClient {
             processingModeRemote: document.getElementById('mode_remote'),
             
             // Basic configuration
-            maxRounds: document.getElementById('max_rounds'),
             loggingId: document.getElementById('logging_id'),
             
             // Buttons
@@ -208,14 +207,6 @@ class MinionsAdvancedClient {
         const modelInfo = data.config?.remote_model_name ? ` (${data.config.remote_model_name})` : '';
         this.updateStatus('healthy', `Backend is healthy${modelInfo}`, '✅');
         this.isInitialized = data.config?.minions_initialized || true;
-        
-        // Update basic configuration from backend if available
-        if (data.config) {
-          if (data.config.max_rounds) {
-            this.elements.maxRounds.value = data.config.max_rounds.toString();
-          }
-        }
-        
         this.logMessage(`Backend health check successful. Advanced Minions Protocol ready.`, 'success');
         this.logMessage(`Configuration: Remote=${data.config?.remote_model_name || 'N/A'}, Local=${data.config?.local_model_name || 'N/A'}`, 'info');
         

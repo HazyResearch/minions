@@ -1,5 +1,5 @@
 from minions.clients.base import MinionsClient
-from minions.clients.ollama import OllamaClient
+from minions.clients.ollama import OllamaClient, OllamaTurboClient
 from minions.clients.lemonade import LemonadeClient
 from minions.clients.openai import OpenAIClient
 from minions.clients.azure_openai import AzureOpenAIClient
@@ -27,6 +27,7 @@ from minions.clients.notdiamond import NotDiamondAIClient
 
 __all__ = [
     "OllamaClient",
+    "OllamaTurboClient",
     "LemonadeClient",
     "OpenAIClient",
     "AzureOpenAIClient",
@@ -151,4 +152,15 @@ except ImportError:
     print(
         "Warning: Modular MAX or OpenAI client is not installed. If you want to use ModularClient, "
         "please install Modular MAX (https://docs.modular.com/max/get-started) and OpenAI client (pip install openai)."
+    )
+
+try:
+    from minions.clients.lmcache import LMCacheClient
+    __all__.append("LMCacheClient")
+except ImportError:
+    # print warning that lmcache is not installed
+    print(
+        "Warning: LMCache or vLLM is not installed. If you want to use LMCacheClient, "
+        "please install with `pip install lmcache vllm`. "
+        "For detailed instructions, see: https://docs.lmcache.ai/getting_started/installation.html"
     )

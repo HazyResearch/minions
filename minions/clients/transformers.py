@@ -36,6 +36,43 @@ from minions.clients.base import MinionsClient
 
 
 class TransformersClient(MinionsClient):
+    """
+    Transformers client for local inference with HuggingFace models.
+    
+    Features:
+    - Local model inference using transformers library
+    - Support for LoRA adapters and PEFT models
+    - Special support for NVIDIA Nemotron models with reasoning control
+    - Special support for Hunyuan models with thinking mode
+    - Hardware-optimized inference (CUDA/MPS/CPU)
+    - Tool calling and embedding support
+    
+    Nemotron Models:
+    - Automatic detection of Nemotron models (nvidia/NVIDIA-Nemotron-*)
+    - Reasoning control via /think and /no_think system prompts
+    - Reasoning budget control (max thinking tokens)
+    - Optimized parameters for reasoning vs non-reasoning modes
+    
+    Hunyuan Models:
+    - Chain-of-Thought reasoning with <think> and <answer> tags
+    - Access thinking process via get_thinking_content()
+    
+    Example usage with Nemotron:
+        client = TransformersClient(
+            model_name="nvidia/NVIDIA-Nemotron-Nano-9B-v2",
+            reasoning_enabled=True,
+            reasoning_budget=500
+        )
+        
+        response = client.chat([{"role": "user", "content": "Solve 2+2*3"}])
+        
+        # Or use nemotron_chat for explicit control
+        response = client.nemotron_chat(
+            messages=[{"role": "user", "content": "Complex reasoning task"}],
+            reasoning_enabled=True,
+            reasoning_budget=1000
+        )
+    """
     def __init__(
         self,
         model_name: str = "mistralai/Mistral-7B-v0.1",
@@ -49,6 +86,8 @@ class TransformersClient(MinionsClient):
         tool_calling: bool = False,
         embedding_model: Optional[str] = None,
         enable_thinking: bool = False,  # for qwen and hunyuan models
+        reasoning_enabled: bool = True,  # for nemotron models
+        reasoning_budget: Optional[int] = None,  # for nemotron models
         local: bool = True,
         **kwargs
     ):
@@ -59,6 +98,7 @@ class TransformersClient(MinionsClient):
             model_name: The Hugging Face model identifier or local path.
                 E.g., "EleutherAI/gpt-neox-20b", "/local/path/to/checkpoint", or "hf://mistralai/Mistral-7B-v0.1"
                 For Hunyuan models (e.g., "tencent/Hunyuan-1.8B-Instruct"), special thinking mode is supported.
+                For Nemotron models (e.g., "nvidia/NVIDIA-Nemotron-Nano-9B-v2"), reasoning control is supported.
             temperature: Sampling temperature for generation (default: 0.0)
             max_tokens: Maximum number of tokens to generate (default: 1024)
             top_p: Top-p sampling parameter (default: 1.0)
@@ -71,6 +111,10 @@ class TransformersClient(MinionsClient):
             enable_thinking: Whether to enable thinking mode for qwen and hunyuan models (default: False)
                 For Hunyuan models, this enables Chain-of-Thought reasoning with <think> and <answer> tags.
                 Use get_thinking_content() to access the thinking process separately.
+            reasoning_enabled: Whether to enable reasoning for Nemotron models (default: True)
+                Controls whether /think or /no_think is added to system prompts for Nemotron models.
+            reasoning_budget: Maximum tokens allowed for reasoning (Nemotron models only, default: None)
+                Limits the number of "thinking" tokens the model can use before providing final answer.
             **kwargs: Additional parameters passed to base class
         """
         super().__init__(
@@ -91,6 +135,16 @@ class TransformersClient(MinionsClient):
         self.embedding_model_name = embedding_model
         self.enable_thinking = enable_thinking
         
+        # Nemotron-specific configuration
+        self.reasoning_enabled = reasoning_enabled
+        self.reasoning_budget = reasoning_budget
+        self.is_nemotron = self._is_nemotron_model(model_name)
+        
+        if self.is_nemotron:
+            self.logger.info(f"Detected Nemotron model: {model_name}")
+            self.logger.info(f"Reasoning enabled: {reasoning_enabled}")
+            if reasoning_budget:
+                self.logger.info(f"Reasoning budget: {reasoning_budget} tokens")
 
         # Check device availability
         self.device, self.dtype = self._get_device_and_dtype()
@@ -121,6 +175,23 @@ class TransformersClient(MinionsClient):
             bool: True if the model is a Hunyuan model, False otherwise
         """
         return "hunyuan" in self.model_name.lower()
+
+    def _is_nemotron_model(self, model_name: str) -> bool:
+        """
+        Check if the model is a Nemotron model.
+        
+        Args:
+            model_name: The model name to check
+            
+        Returns:
+            True if the model is a Nemotron model, False otherwise
+        """
+        nemotron_patterns = [
+            "nemotron",
+            "NVIDIA-Nemotron",
+            "nvidia/NVIDIA-Nemotron"
+        ]
+        return any(pattern.lower() in model_name.lower() for pattern in nemotron_patterns)
 
     def _parse_hunyuan_response(self, completion_text: str) -> Dict[str, str]:
         """
@@ -162,6 +233,124 @@ class TransformersClient(MinionsClient):
             str: The thinking content extracted from <think> tags, empty string if none
         """
         return self._last_hunyuan_thinking
+
+    def set_reasoning_enabled(self, enabled: bool) -> None:
+        """
+        Enable or disable reasoning for Nemotron models.
+        
+        Args:
+            enabled: Whether to enable reasoning
+        """
+        if not self.is_nemotron:
+            self.logger.warning("Reasoning control is only available for Nemotron models")
+            return
+            
+        self.reasoning_enabled = enabled
+        self.logger.info(f"Reasoning {'enabled' if enabled else 'disabled'}")
+
+    def set_reasoning_budget(self, budget: Optional[int]) -> None:
+        """
+        Set the reasoning budget (maximum thinking tokens) for Nemotron models.
+        
+        Args:
+            budget: Maximum tokens allowed for reasoning, or None for no limit
+        """
+        if not self.is_nemotron:
+            self.logger.warning("Reasoning budget control is only available for Nemotron models")
+            return
+            
+        self.reasoning_budget = budget
+        if budget:
+            self.logger.info(f"Reasoning budget set to {budget} tokens")
+        else:
+            self.logger.info("Reasoning budget removed (no limit)")
+
+    def _prepare_nemotron_messages(self, messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Prepare messages for Nemotron models by adding appropriate reasoning control.
+        
+        Args:
+            messages: Original messages
+            
+        Returns:
+            Modified messages with reasoning control
+        """
+        if not self.is_nemotron:
+            return messages
+        
+        # Create a copy to avoid modifying the original
+        prepared_messages = messages.copy()
+        
+        # Check if there's already a system message with reasoning control
+        has_reasoning_control = False
+        for msg in prepared_messages:
+            if (msg.get("role") == "system" and 
+                isinstance(msg.get("content"), str) and 
+                ("/think" in msg["content"] or "/no_think" in msg["content"])):
+                has_reasoning_control = True
+                break
+        
+        # If no reasoning control is present, add it
+        if not has_reasoning_control:
+            reasoning_prompt = "/think" if self.reasoning_enabled else "/no_think"
+            
+            # Check if there's already a system message
+            system_msg_idx = None
+            for i, msg in enumerate(prepared_messages):
+                if msg.get("role") == "system":
+                    system_msg_idx = i
+                    break
+            
+            if system_msg_idx is not None:
+                # Append to existing system message
+                existing_content = prepared_messages[system_msg_idx]["content"]
+                prepared_messages[system_msg_idx]["content"] = f"{reasoning_prompt}\n{existing_content}"
+            else:
+                # Add new system message at the beginning
+                system_msg = {"role": "system", "content": reasoning_prompt}
+                prepared_messages.insert(0, system_msg)
+        
+        return prepared_messages
+
+    def _prepare_nemotron_kwargs(self, **kwargs) -> Dict[str, Any]:
+        """
+        Prepare kwargs for Nemotron models, including reasoning budget control.
+        
+        Args:
+            **kwargs: Original kwargs
+            
+        Returns:
+            Modified kwargs with Nemotron-specific parameters
+        """
+        if not self.is_nemotron:
+            return kwargs
+        
+        # Create a copy to avoid modifying the original
+        prepared_kwargs = kwargs.copy()
+        
+        # Add reasoning budget if specified and not already present
+        if self.reasoning_budget is not None and "max_thinking_tokens" not in prepared_kwargs:
+            prepared_kwargs["max_thinking_tokens"] = self.reasoning_budget
+        
+        # Set recommended parameters for Nemotron models if not specified
+        if self.reasoning_enabled:
+            # For reasoning mode, use higher temperature and different sampling if not specified
+            if "temperature" not in prepared_kwargs:
+                prepared_kwargs["temperature"] = 0.6
+            if "top_p" not in prepared_kwargs:
+                prepared_kwargs["top_p"] = 0.95
+            if "do_sample" not in prepared_kwargs:
+                prepared_kwargs["do_sample"] = True
+            if "max_completion_tokens" not in prepared_kwargs and "max_tokens" not in prepared_kwargs:
+                prepared_kwargs["max_completion_tokens"] = 1024
+        else:
+            # For non-reasoning mode, use greedy search if not specified
+            if "temperature" not in prepared_kwargs:
+                prepared_kwargs["temperature"] = 0.0
+            if "do_sample" not in prepared_kwargs:
+                prepared_kwargs["do_sample"] = False
+        
+        return prepared_kwargs
 
     def _get_device_and_dtype(self):
         """
@@ -428,6 +617,55 @@ class TransformersClient(MinionsClient):
 
         return responses, usage, done_reasons
 
+    def nemotron_chat(
+        self,
+        messages: Union[List[Dict[str, Any]], Dict[str, Any]],
+        reasoning_enabled: Optional[bool] = None,
+        reasoning_budget: Optional[int] = None,
+        **kwargs
+    ) -> Tuple[List[str], Usage, List[str]]:
+        """
+        Chat with Nemotron models with explicit reasoning control.
+        
+        Args:
+            messages: List of message dictionaries with 'role' and 'content' keys or a single message dictionary
+            reasoning_enabled: Override the default reasoning setting for this request
+            reasoning_budget: Override the default reasoning budget for this request
+            **kwargs: Additional arguments to pass to model.generate
+            
+        Returns:
+            Tuple of (List[str], Usage, List[str]) containing response strings, token usage, and done reasons
+            If tool_calling is enabled, returns (List[str], Usage, List[str], List[tool_calls])
+            
+        Example:
+            # Enable reasoning for this specific request
+            response = client.nemotron_chat(
+                messages=[{"role": "user", "content": "Solve this math problem: 2+2*3"}],
+                reasoning_enabled=True,
+                reasoning_budget=100
+            )
+        """
+        if not self.is_nemotron:
+            self.logger.warning("nemotron_chat should only be used with Nemotron models")
+            
+        # Temporarily override settings if provided
+        original_reasoning = self.reasoning_enabled
+        original_budget = self.reasoning_budget
+        
+        if reasoning_enabled is not None:
+            self.reasoning_enabled = reasoning_enabled
+        if reasoning_budget is not None:
+            self.reasoning_budget = reasoning_budget
+            
+        try:
+            result = self.chat(messages, **kwargs)
+        finally:
+            # Restore original settings
+            self.reasoning_enabled = original_reasoning
+            self.reasoning_budget = original_budget
+            
+        return result
+
     def chat(
         self, messages: Union[List[Dict[str, Any]], Dict[str, Any]], **kwargs
     ) -> Tuple[List[str], Usage, List[str]]:
@@ -451,6 +689,10 @@ class TransformersClient(MinionsClient):
         if isinstance(messages, dict):
             messages = [messages]
 
+        # Prepare messages and kwargs for Nemotron models
+        prepared_messages = self._prepare_nemotron_messages(messages)
+        prepared_kwargs = self._prepare_nemotron_kwargs(**kwargs)
+
         responses = []
         done_reasons = []
         tools = []
@@ -462,7 +704,7 @@ class TransformersClient(MinionsClient):
             # check if apply_chat_template is available
             if self.model_name != "kyutai/helium-1-2b":
                 input_ids = self.tokenizer.apply_chat_template(
-                    messages,
+                    prepared_messages,
                     tokenize=True,
                     return_tensors="pt",
                     enable_thinking=self.enable_thinking,
@@ -470,7 +712,7 @@ class TransformersClient(MinionsClient):
                 )
             else:
                 messages_str = "\n".join(
-                    [f"{m['role']}: {m['content']}" for m in messages]
+                    [f"{m['role']}: {m['content']}" for m in prepared_messages]
                 )
 
                 input_ids = self.tokenizer(
@@ -484,12 +726,12 @@ class TransformersClient(MinionsClient):
             # Move input tokens to the correct device
             input_ids = input_ids.to(self.model.device)
 
-            max_tokens = kwargs.get("max_completion_tokens", self.max_tokens)
-            temperature = kwargs.get("temperature", self.temperature)
-            top_p = kwargs.get("top_p", self.top_p)
-            min_p = kwargs.get("min_p", self.min_p)
-            repetition_penalty = kwargs.get("repetition_penalty", self.repetition_penalty)
-            do_sample = kwargs.get("do_sample", self.do_sample)
+            max_tokens = prepared_kwargs.get("max_completion_tokens", self.max_tokens)
+            temperature = prepared_kwargs.get("temperature", self.temperature)
+            top_p = prepared_kwargs.get("top_p", self.top_p)
+            min_p = prepared_kwargs.get("min_p", self.min_p)
+            repetition_penalty = prepared_kwargs.get("repetition_penalty", self.repetition_penalty)
+            do_sample = prepared_kwargs.get("do_sample", self.do_sample)
 
             # Generate response
             with torch.no_grad():
@@ -508,6 +750,10 @@ class TransformersClient(MinionsClient):
                     generation_kwargs["min_p"] = min_p
                 if repetition_penalty != 1.0:
                     generation_kwargs["repetition_penalty"] = repetition_penalty
+                
+                # Add Nemotron-specific parameters if present
+                if "max_thinking_tokens" in prepared_kwargs:
+                    generation_kwargs["max_thinking_tokens"] = prepared_kwargs["max_thinking_tokens"]
                 
                 gen_out = self.model.generate(
                     input_ids,
@@ -573,7 +819,7 @@ class TransformersClient(MinionsClient):
                         ).strip()
 
                 # Handle stop sequences
-                stop_sequences = kwargs.get(
+                stop_sequences = prepared_kwargs.get(
                     "stop", ["<|end_of_text|>", "</s>", "<|eot_id|>"]
                 )
                 for s in stop_sequences:
@@ -761,3 +1007,4 @@ class TransformersClient(MinionsClient):
         except Exception as e:
             self.logger.error(f"Error computing sequence probabilities: {e}")
             raise
+

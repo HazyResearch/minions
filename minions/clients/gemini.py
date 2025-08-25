@@ -40,8 +40,11 @@ class GeminiClient(MinionsClient):
             system_instruction: Optional system instruction to use for all calls.
             use_openai_api: Whether to use OpenAI-compatible API endpoint for Gemini models.
             thinking_budget: Optional thinking budget for reasoning models.
-            url_context: Whether to enable URL context retrieval tool.
-            use_search: Whether to enable Google Search tool.
+            url_context: Whether to enable URL context retrieval tool. When enabled, the model can
+                       access content from URLs mentioned in messages (supports up to 20 URLs per request).
+                       URLs are automatically detected and the tool is enabled dynamically if needed.
+            use_search: Whether to enable Google Search tool. Can be combined with URL context for 
+                       powerful search-then-analyze workflows.
             **kwargs: Additional parameters passed to base class
         """
         super().__init__(
@@ -190,11 +193,8 @@ class GeminiClient(MinionsClient):
 
     def _create_url_context_tool(self):
         """Create URL context tool for retrieving content from URLs."""
-        if not self.url_context:
-            return None
-        
         return self.types.Tool(
-            url_context=self.types.UrlContext
+            url_context=self.types.UrlContext()
         )
 
     def _create_google_search_tool(self):
@@ -216,8 +216,9 @@ class GeminiClient(MinionsClient):
         Returns:
             bool: True if URLs are found, False otherwise
         """
-        # URL pattern to match http/https URLs
-        url_pattern = r'https?://[^\s<>"{}|\\^`\[\]]+[^\s<>"{}|\\^`\[\].,;:!?]'
+        # More comprehensive URL pattern to match http/https URLs
+        # This pattern matches URLs more accurately and handles edge cases better
+        url_pattern = r'https?://(?:[-\w.])+(?:[:\d]+)?(?:/(?:[\w/_.])*(?:[?](?:[;&\w\-.,@?^=%&:/~+#])*)?(?:[#](?:[\w\-.,@?^=%&:/~+#])*)?)?'
         
         for msg in messages:
             if isinstance(msg, dict) and 'content' in msg:
@@ -225,6 +226,49 @@ class GeminiClient(MinionsClient):
                 if isinstance(content, str) and re.search(url_pattern, content):
                     return True
         return False
+
+    def extract_urls_from_messages(self, messages: List[Dict[str, Any]]) -> List[str]:
+        """
+        Extract all URLs from message content.
+        
+        Args:
+            messages: List of message dictionaries
+            
+        Returns:
+            List[str]: List of URLs found in the messages
+        """
+        url_pattern = r'https?://(?:[-\w.])+(?:[:\d]+)?(?:/(?:[\w/_.])*(?:[?](?:[;&\w\-.,@?^=%&:/~+#])*)?(?:[#](?:[\w\-.,@?^=%&:/~+#])*)?)?'
+        urls = []
+        
+        for msg in messages:
+            if isinstance(msg, dict) and 'content' in msg:
+                content = msg['content']
+                if isinstance(content, str):
+                    found_urls = re.findall(url_pattern, content)
+                    urls.extend(found_urls)
+        
+        return list(set(urls))  # Remove duplicates
+
+    def _validate_url_context_support(self) -> bool:
+        """
+        Validate if the current model supports URL context feature.
+        
+        Returns:
+            bool: True if model supports URL context, False otherwise
+        """
+        # Models that support URL context according to the documentation
+        supported_models = {
+            "gemini-2.5-pro",
+            "gemini-2.5-flash", 
+            "gemini-2.5-flash-lite",
+            "gemini-live-2.5-flash-preview",
+            "gemini-2.0-flash-live-001"
+        }
+        
+        if self.model_name not in supported_models:
+            self.logger.warning(f"Model '{self.model_name}' may not support URL context feature. Supported models: {supported_models}")
+            return False
+        return True
 
     def _prepare_tools(self, messages: Optional[List[Dict[str, Any]]] = None):
         """Prepare tools list for generation."""
@@ -236,12 +280,21 @@ class GeminiClient(MinionsClient):
             # Auto-detect URLs and enable URL context if found
             should_enable_url_context = self._detect_urls_in_messages(messages)
             if should_enable_url_context:
-                self.logger.info("URLs detected in messages, automatically enabling URL context tool")
+                # Validate URL count limit (max 20 URLs per request)
+                urls = self.extract_urls_from_messages(messages)
+                if len(urls) > 20:
+                    self.logger.warning(f"Found {len(urls)} URLs in messages, but Gemini API supports max 20 URLs per request. Some URLs may not be processed.")
+                else:
+                    self.logger.info(f"URLs detected in messages ({len(urls)} URLs), automatically enabling URL context tool")
         
         if should_enable_url_context:
-            url_tool = self._create_url_context_tool()
-            if url_tool:
-                tools.append(url_tool)
+            # Validate model support for URL context
+            if self._validate_url_context_support():
+                url_tool = self._create_url_context_tool()
+                if url_tool:
+                    tools.append(url_tool)
+            else:
+                self.logger.warning("URL context requested but model may not support it, skipping URL context tool")
         
         if self.google_search:
             search_tool = self._create_google_search_tool()

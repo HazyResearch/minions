@@ -30,43 +30,54 @@ class MinionsAdvancedClient {
     return 'http://127.0.0.1:5000';
   }
 
-  initializeElements() {
-    // Get DOM elements
-    this.elements = {
-      statusCard: document.getElementById('status-card'),
-      form: document.getElementById('minions-form'),
-      
-      // Task configuration
-      task: document.getElementById('task'),
-      docMetadata: document.getElementById('doc_metadata'),
-      context: document.getElementById('context'),
-      
-      // Basic configuration
-      maxRounds: document.getElementById('max_rounds'),
-      loggingId: document.getElementById('logging_id'),
-      
-      // Advanced configuration
-      advancedToggle: document.getElementById('advanced-toggle'),
-      advancedArrow: document.getElementById('advanced-arrow'),
-      advancedContent: document.getElementById('advanced-content'),
-      maxJobsPerRound: document.getElementById('max_jobs_per_round'),
-      numTasksPerRound: document.getElementById('num_tasks_per_round'),
-      numSamplesPerTask: document.getElementById('num_samples_per_task'),
-      useRetrieval: document.getElementById('use_retrieval'),
-      chunkFn: document.getElementById('chunk_fn'),
-      retrievalModel: document.getElementById('retrieval_model'),
-      
-      // Buttons
-      checkStatusBtn: document.getElementById('check_status'),
-      startBtn: document.getElementById('start'),
-      clearLogBtn: document.getElementById('clear_log'),
-      
-      // Output
-      log: document.getElementById('log'),
-      metricsContainer: document.getElementById('metrics-container'),
-      metrics: document.getElementById('metrics')
-    };
-  }
+    initializeElements() {
+        // Get DOM elements
+        this.elements = {
+            statusCard: document.getElementById('status-card'),
+            form: document.getElementById('minions-form'),
+            
+            // Task configuration
+            task: document.getElementById('task'),
+            docMetadata: document.getElementById('doc_metadata'),
+            context: document.getElementById('context'),
+            
+            // PDF upload elements
+            pdfSelectBtn: document.getElementById('pdf-select-btn'),
+            pdfFileInput: document.getElementById('pdf-file-input'),
+            uploadProgress: document.getElementById('upload-progress'),
+            progressFill: document.getElementById('progress-fill'),
+            progressText: document.getElementById('progress-text'),
+            pdfInfo: document.getElementById('pdf-info'),
+            pdfFilename: document.getElementById('pdf-filename'),
+            pdfStats: document.getElementById('pdf-stats'),
+            removePdf: document.getElementById('remove-pdf'),
+            
+            // Processing mode
+            processingModeMinions: document.getElementById('mode_minions'),
+            processingModeRemote: document.getElementById('mode_remote'),
+            
+            // Basic configuration
+            loggingId: document.getElementById('logging_id'),
+            
+            // Buttons
+            checkStatusBtn: document.getElementById('check_status'),
+            startBtn: document.getElementById('start'),
+            clearLogBtn: document.getElementById('clear_log'),
+            
+            // Output
+            log: document.getElementById('log'),
+            metricsContainer: document.getElementById('metrics-container'),
+            metrics: document.getElementById('metrics')
+        };
+
+        // Initialize PDF upload state
+        this.pdfData = {
+            filename: null,
+            text: null,
+            pages: 0,
+            characters: 0
+        };
+    }
 
   attachEventListeners() {
     // Button event listeners
@@ -83,28 +94,24 @@ class MinionsAdvancedClient {
       this.startMinions();
     };
     
-    // Advanced options toggle
-    this.elements.advancedToggle.onclick = () => this.toggleAdvancedOptions();
     
     // Update start button state when task changes
     this.elements.task.oninput = () => this.updateStartButtonState();
     
     // Auto-generate logging ID when task changes
     this.elements.task.onblur = () => this.autoGenerateLoggingId();
+
+    // Processing mode change listeners
+    this.elements.processingModeMinions.onchange = () => this.updateProcessingMode();
+    this.elements.processingModeRemote.onchange = () => this.updateProcessingMode();
+
+    // PDF upload event listeners
+    this.attachPdfEventListeners();
+    
+    // Initialize processing mode
+    this.updateProcessingMode();
   }
 
-  toggleAdvancedOptions() {
-    const content = this.elements.advancedContent;
-    const arrow = this.elements.advancedArrow;
-    
-    if (content.classList.contains('show')) {
-      content.classList.remove('show');
-      arrow.textContent = '▶';
-    } else {
-      content.classList.add('show');
-      arrow.textContent = '▼';
-    }
-  }
 
   autoGenerateLoggingId() {
     if (!this.elements.loggingId.value.trim() && this.elements.task.value.trim()) {
@@ -130,6 +137,17 @@ class MinionsAdvancedClient {
   updateStartButtonState() {
     const task = this.elements.task.value.trim();
     this.elements.startBtn.disabled = !task;
+  }
+
+  updateProcessingMode() {
+    const isMinionsMode = this.elements.processingModeMinions.checked;
+    const startBtn = this.elements.startBtn;
+    
+    if (isMinionsMode) {
+      startBtn.innerHTML = '🚀 Start Minions Protocol';
+    } else {
+      startBtn.innerHTML = '☁️ Start Remote Processing';
+    }
   }
 
   logMessage(message, type = 'info') {
@@ -189,32 +207,6 @@ class MinionsAdvancedClient {
         const modelInfo = data.config?.remote_model_name ? ` (${data.config.remote_model_name})` : '';
         this.updateStatus('healthy', `Backend is healthy${modelInfo}`, '✅');
         this.isInitialized = data.config?.minions_initialized || true;
-        
-        // Update configuration from backend if available
-        if (data.config) {
-          if (data.config.max_rounds) {
-            this.elements.maxRounds.value = data.config.max_rounds.toString();
-          }
-          if (data.config.max_jobs_per_round) {
-            this.elements.maxJobsPerRound.value = data.config.max_jobs_per_round.toString();
-          }
-          if (data.config.num_tasks_per_round) {
-            this.elements.numTasksPerRound.value = data.config.num_tasks_per_round.toString();
-          }
-          if (data.config.num_samples_per_task) {
-            this.elements.numSamplesPerTask.value = data.config.num_samples_per_task.toString();
-          }
-          if (data.config.use_retrieval) {
-            this.elements.useRetrieval.value = data.config.use_retrieval;
-          }
-          if (data.config.chunking_function) {
-            this.elements.chunkFn.value = data.config.chunking_function;
-          }
-          if (data.config.retrieval_model) {
-            this.elements.retrievalModel.value = data.config.retrieval_model;
-          }
-        }
-        
         this.logMessage(`Backend health check successful. Advanced Minions Protocol ready.`, 'success');
         this.logMessage(`Configuration: Remote=${data.config?.remote_model_name || 'N/A'}, Local=${data.config?.local_model_name || 'N/A'}`, 'info');
         
@@ -248,36 +240,19 @@ class MinionsAdvancedClient {
     const task = this.elements.task.value.trim();
     const docMetadata = this.elements.docMetadata.value.trim() || 'Document';
     const context = this.elements.context.value.trim();
-    
-    // Basic configuration
-    const maxRounds = parseInt(this.elements.maxRounds.value) || 3;
     const loggingId = this.elements.loggingId.value.trim() || null;
-    
-    // Advanced configuration
-    const maxJobsPerRound = parseInt(this.elements.maxJobsPerRound.value) || 2048;
-    const numTasksPerRound = parseInt(this.elements.numTasksPerRound.value) || 3;
-    const numSamplesPerTask = parseInt(this.elements.numSamplesPerTask.value) || 1;
-    const useRetrieval = this.elements.useRetrieval.value === 'false' ? false : this.elements.useRetrieval.value;
-    const chunkFn = this.elements.chunkFn.value || 'chunk_by_section';
-    const retrievalModel = this.elements.retrievalModel.value.trim() || 'all-MiniLM-L6-v2';
-    
+
     return {
       task,
       doc_metadata: docMetadata,
       context: context ? [context] : [],
-      max_rounds: maxRounds,
-      logging_id: loggingId,
-      max_jobs_per_round: maxJobsPerRound,
-      num_tasks_per_round: numTasksPerRound,
-      num_samples_per_task: numSamplesPerTask,
-      use_retrieval: useRetrieval,
-      chunk_fn: chunkFn,
-      retrieval_model: retrievalModel
+      logging_id: loggingId
     };
   }
 
   async startMinions() {
     const formData = this.collectFormData();
+    const isMinionsMode = this.elements.processingModeMinions.checked;
 
     if (!formData.task) {
       this.logMessage('Task description is required', 'error');
@@ -287,26 +262,33 @@ class MinionsAdvancedClient {
 
     // Disable start button and show loading state
     this.elements.startBtn.disabled = true;
-    this.elements.startBtn.innerHTML = '<span class="spinner"></span>Running Minions Protocol...';
+    const loadingText = isMinionsMode ? 
+      '<span class="spinner"></span>Running Minions Protocol...' : 
+      '<span class="spinner"></span>Processing with Remote Model...';
+    this.elements.startBtn.innerHTML = loadingText;
 
     const startTime = Date.now();
 
     try {
-      this.logMessage('Starting advanced minions protocol...', 'info');
+      if (isMinionsMode) {
+        this.logMessage('Starting advanced minions protocol...', 'info');
+        this.logMessage(`Mode: Minions Protocol (cost-effective multi-agent processing)`, 'info');
+      } else {
+        this.logMessage('Starting remote model processing...', 'info');
+        this.logMessage(`Mode: Remote Model Only (direct processing, higher cost)`, 'warning');
+      }
+      
       this.logMessage(`Task: ${formData.task}`, 'info');
       this.logMessage(`Document Type: ${formData.doc_metadata}`, 'info');
       
       if (formData.context.length > 0) {
         this.logMessage(`Context length: ${formData.context[0].length} characters`, 'info');
       }
-      
-      this.logMessage(`Configuration: ${formData.max_rounds} rounds, ${formData.num_tasks_per_round} tasks/round`, 'debug');
-      
-      if (formData.use_retrieval && formData.use_retrieval !== 'false') {
-        this.logMessage(`Using ${formData.use_retrieval} retrieval with ${formData.chunk_fn}`, 'debug');
-      }
 
-      const data = await this.makeRequest('/minions', {
+      // Choose endpoint based on processing mode
+      const endpoint = isMinionsMode ? '/minions' : '/remote-only';
+      
+      const data = await this.makeRequest(endpoint, {
         method: 'POST',
         body: JSON.stringify(formData)
       });
@@ -314,24 +296,33 @@ class MinionsAdvancedClient {
       const endTime = Date.now();
       const executionTime = (endTime - startTime) / 1000;
 
-      this.logMessage('Minions protocol completed successfully!', 'success');
+      const successMessage = isMinionsMode ? 
+        'Minions protocol completed successfully!' : 
+        'Remote model processing completed!';
+      
+      this.logMessage(successMessage, 'success');
       this.logMessage('='.repeat(60), 'info');
       this.logMessage('FINAL ANSWER:', 'success');
       this.logMessage(data.final_answer, 'info');
       this.logMessage('='.repeat(60), 'info');
 
-      // Display metrics
+      // Display metrics with processing mode context
       this.displayMetrics({
         executionTime: data.execution_time || executionTime,
         remoteUsage: data.usage?.remote,
         localUsage: data.usage?.local,
         timing: data.timing,
         logFile: data.log_file,
-        parametersUsed: data.parameters_used
+        parametersUsed: data.parameters_used,
+        processingMode: isMinionsMode ? 'Minions Protocol' : 'Remote Only'
       });
 
     } catch (error) {
-      this.logMessage(`Minions execution failed: ${error.message}`, 'error');
+      const errorMessage = isMinionsMode ? 
+        `Minions execution failed: ${error.message}` : 
+        `Remote processing failed: ${error.message}`;
+      
+      this.logMessage(errorMessage, 'error');
       
       // Try to parse error details if available
       try {
@@ -345,7 +336,7 @@ class MinionsAdvancedClient {
       }
     } finally {
       this.elements.startBtn.disabled = false;
-      this.elements.startBtn.innerHTML = '🚀 Start Minions Protocol';
+      this.updateProcessingMode(); // This will set the correct button text
       this.updateStartButtonState();
     }
   }
@@ -359,46 +350,46 @@ class MinionsAdvancedClient {
     
     // Execution time
     this.addMetric('Execution Time', `${metrics.executionTime.toFixed(2)}s`, metricsElement);
-    
+
     // Remote usage
     if (metrics.remoteUsage) {
       this.addMetric('Remote Total Tokens', metrics.remoteUsage.total_tokens || 'N/A', metricsElement);
       this.addMetric('Remote Prompt Tokens', metrics.remoteUsage.prompt_tokens || 'N/A', metricsElement);
       this.addMetric('Remote Completion Tokens', metrics.remoteUsage.completion_tokens || 'N/A', metricsElement);
     }
-    
+
     // Local usage
     if (metrics.localUsage) {
       this.addMetric('Local Total Tokens', metrics.localUsage.total_tokens || 'N/A', metricsElement);
       this.addMetric('Local Prompt Tokens', metrics.localUsage.prompt_tokens || 'N/A', metricsElement);
       this.addMetric('Local Completion Tokens', metrics.localUsage.completion_tokens || 'N/A', metricsElement);
     }
-    
+
     // Timing information
     if (metrics.timing) {
       Object.entries(metrics.timing).forEach(([key, value]) => {
         if (typeof value === 'number') {
           this.addMetric(
-            key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()), 
-            `${value.toFixed(2)}s`, 
+            key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+            `${value.toFixed(2)}s`,
             metricsElement
           );
         }
       });
     }
-    
+
     // Parameters used
     if (metrics.parametersUsed) {
       this.addMetric('Max Rounds', metrics.parametersUsed.max_rounds || 'N/A', metricsElement);
       this.addMetric('Tasks/Round', metrics.parametersUsed.num_tasks_per_round || 'N/A', metricsElement);
       this.addMetric('Samples/Task', metrics.parametersUsed.num_samples_per_task || 'N/A', metricsElement);
-      
+
       if (metrics.parametersUsed.use_retrieval && metrics.parametersUsed.use_retrieval !== 'false') {
         this.addMetric('Retrieval Method', metrics.parametersUsed.use_retrieval, metricsElement);
         this.addMetric('Chunk Function', metrics.parametersUsed.chunk_fn || 'N/A', metricsElement);
       }
     }
-    
+
     // Log file
     if (metrics.logFile) {
       this.addMetric('Log File', metrics.logFile, metricsElement);
@@ -418,6 +409,190 @@ class MinionsAdvancedClient {
       <div class="metric-label">${label}</div>
     `;
     container.appendChild(metricDiv);
+  }
+
+  // PDF Upload Methods
+  attachPdfEventListeners() {
+    const selectBtn = this.elements.pdfSelectBtn;
+    const fileInput = this.elements.pdfFileInput;
+    const removePdf = this.elements.removePdf;
+
+    // Click button to select file
+    selectBtn.onclick = () => {
+      fileInput.click();
+    };
+
+    // File input change
+    fileInput.onchange = (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        this.handlePdfFile(file);
+      }
+    };
+
+    // Remove PDF button
+    removePdf.onclick = (e) => {
+      e.stopPropagation();
+      this.removePdf();
+    };
+  }
+
+  async handlePdfFile(file) {
+    // Validate file
+    if (!file.type.includes('pdf') && !file.name.toLowerCase().endsWith('.pdf')) {
+      this.logMessage('Please select a PDF file', 'error');
+      return;
+    }
+
+    // Check file size (10MB limit)
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    if (file.size > maxSize) {
+      this.logMessage('PDF file must be smaller than 10MB', 'error');
+      return;
+    }
+
+    this.logMessage(`Processing PDF: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)}MB)`, 'info');
+
+    // Show progress
+    this.showPdfProgress();
+
+    try {
+      // Upload PDF to backend
+      const formData = new FormData();
+      formData.append('pdf', file);
+
+      const response = await fetch(`${this.backendUrl}/upload-pdf`, {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || `HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      // Store PDF data
+      this.pdfData = {
+        filename: data.filename,
+        text: data.text,
+        pages: data.pages,
+        characters: data.characters
+      };
+
+      // Update context with PDF text
+      this.elements.context.value = data.text;
+
+      // Update document metadata if it's still default
+      if (this.elements.docMetadata.value === 'Document') {
+        this.elements.docMetadata.value = 'PDF Document';
+      }
+
+      // Show PDF info
+      this.showPdfInfo();
+
+      this.logMessage(`PDF processed successfully: ${data.pages} pages, ${data.characters} characters extracted`, 'success');
+
+    } catch (error) {
+      this.logMessage(`PDF processing failed: ${error.message}`, 'error');
+      this.hidePdfProgress();
+    }
+  }
+
+  showPdfProgress() {
+    // Hide select container and PDF info
+    const selectContainer = document.querySelector('.pdf-select-container');
+    if (selectContainer) selectContainer.style.display = 'none';
+    this.elements.pdfInfo.style.display = 'none';
+    
+    // Show progress
+    this.elements.uploadProgress.style.display = 'flex';
+    
+    // Animate progress bar
+    let progress = 0;
+    const progressInterval = setInterval(() => {
+      progress += Math.random() * 15;
+      if (progress > 90) progress = 90;
+      
+      this.elements.progressFill.style.width = `${progress}%`;
+      
+      if (progress > 50) {
+        this.elements.progressText.textContent = 'Extracting text from PDF...';
+      }
+    }, 200);
+
+    // Store interval for cleanup
+    this.progressInterval = progressInterval;
+  }
+
+  hidePdfProgress() {
+    // Clear progress interval
+    if (this.progressInterval) {
+      clearInterval(this.progressInterval);
+      this.progressInterval = null;
+    }
+
+    // Hide progress
+    this.elements.uploadProgress.style.display = 'none';
+    
+    // Show select container
+    const selectContainer = document.querySelector('.pdf-select-container');
+    if (selectContainer) selectContainer.style.display = 'block';
+  }
+
+  showPdfInfo() {
+    // Clear progress interval and complete progress bar
+    if (this.progressInterval) {
+      clearInterval(this.progressInterval);
+      this.progressInterval = null;
+    }
+
+    this.elements.progressFill.style.width = '100%';
+    this.elements.progressText.textContent = 'PDF processed successfully!';
+
+    // Wait a moment then show PDF info
+    setTimeout(() => {
+      this.elements.uploadProgress.style.display = 'none';
+      const selectContainer = document.querySelector('.pdf-select-container');
+      if (selectContainer) selectContainer.style.display = 'none';
+      
+      // Update PDF info
+      this.elements.pdfFilename.textContent = this.pdfData.filename;
+      this.elements.pdfStats.textContent = `${this.pdfData.pages} pages • ${this.pdfData.characters.toLocaleString()} characters`;
+      
+      // Show PDF info
+      this.elements.pdfInfo.style.display = 'block';
+    }, 1000);
+  }
+
+  removePdf() {
+    // Store current PDF text before clearing
+    const currentPdfText = this.pdfData.text;
+
+    // Clear PDF data
+    this.pdfData = {
+      filename: null,
+      text: null,
+      pages: 0,
+      characters: 0
+    };
+
+    // Clear context if it contains PDF text
+    if (currentPdfText && this.elements.context.value === currentPdfText) {
+      this.elements.context.value = '';
+    }
+
+    // Reset file input
+    this.elements.pdfFileInput.value = '';
+
+    // Hide PDF info and show select container
+    this.elements.pdfInfo.style.display = 'none';
+    this.elements.uploadProgress.style.display = 'none';
+    const selectContainer = document.querySelector('.pdf-select-container');
+    if (selectContainer) selectContainer.style.display = 'block';
+
+    this.logMessage('PDF removed', 'info');
   }
 }
 

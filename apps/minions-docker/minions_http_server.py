@@ -77,7 +77,6 @@ config = {
     
     # Retrieval settings
     "use_retrieval": os.getenv("USE_RETRIEVAL", "false").lower(),
-    "retrieval_model": os.getenv("RETRIEVAL_MODEL", "all-MiniLM-L6-v2"),
     
     # Advanced minions settings
     "max_jobs_per_round": int(os.getenv("MAX_JOBS_PER_ROUND", "2048")),
@@ -126,7 +125,6 @@ def create_minions_instance() -> Minions:
     logger.info(f"  Local model: {config['local_model_name']}")
     logger.info(f"  Max rounds: {config['max_rounds']}")
     logger.info(f"  Use retrieval: {config['use_retrieval']}")
-    logger.info(f"  Retrieval model: {config['retrieval_model']}")
     
     class StructuredLocalOutput(BaseModel):
         explanation: str
@@ -179,7 +177,6 @@ def health_check():
             "local_model_name": config["local_model_name"],
             "max_rounds": config["max_rounds"],
             "use_retrieval": config["use_retrieval"],
-            "retrieval_model": config["retrieval_model"],
             "minions_initialized": minions_instance is not None
         },
         "features": {
@@ -316,40 +313,19 @@ def run_minions():
         max_jobs_per_round = config["max_jobs_per_round"]
         num_tasks_per_round = config["num_tasks_per_round"]
         num_samples_per_task = config["num_samples_per_task"]
-        use_retrieval = config["use_retrieval"]
-        retrieval_model = config["retrieval_model"]
+        use_retrieval = None
         chunk_fn = config["chunking_function"]
         
         # Optional user parameters
         logging_id = data.get("logging_id")
         mcp_tools_info = data.get("mcp_tools_info")
         
-        # Convert use_retrieval to proper format
-        if use_retrieval == "false" or use_retrieval == False:
-            use_retrieval = None
-        elif use_retrieval == "true" or use_retrieval == True:
-            use_retrieval = "embedding"
-        
         logger.info(f"Running minions with task: {task[:100]}...")
         logger.info(f"Context length: {len(context)} items")
         logger.info(f"Max rounds: {max_rounds}")
         logger.info(f"Use retrieval: {use_retrieval}")
-        logger.info(f"Retrieval model: {retrieval_model}")
         logger.info(f"Chunk function: {chunk_fn}")
-        
-        # Validate retrieval method if specified
-        if use_retrieval and use_retrieval not in [None, "false", "bm25"]:
-            return jsonify({
-                "error": "Unsupported retrieval method",
-                "message": f"Only 'bm25' retrieval is supported in this build. Got: '{use_retrieval}'"
-            }), 400
-        
-        if use_retrieval == "bm25" and not BM25_AVAILABLE:
-            return jsonify({
-                "error": "BM25 retrieval not available",
-                "message": "rank_bm25 package is not installed"
-            }), 400
-        
+
         # Run the minions protocol
         start_time = time.time()
         result = minions_instance(
@@ -384,7 +360,6 @@ def run_minions():
                 "num_tasks_per_round": num_tasks_per_round,
                 "num_samples_per_task": num_samples_per_task,
                 "use_retrieval": use_retrieval,
-                "retrieval_model": retrieval_model,
                 "chunk_fn": chunk_fn
             }
         }
@@ -694,7 +669,6 @@ if __name__ == '__main__':
     logger.info("Server features:")
     logger.info("  - Full Minions Protocol Support")
     logger.info("  - OpenAI and Docker Client Support")
-    logger.info(f"  - BM25 Retrieval: {'Available' if BM25_AVAILABLE else 'Not Available'}")
     logger.info("  - Advanced Document Processing")
     logger.info("  - Configurable Chunking Strategies")
     

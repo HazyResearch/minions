@@ -26,10 +26,9 @@ services:
       - LOG_DIR=minion_logs
       - DEBUG=${DEBUG:-false}
       - PRODUCTION=${PRODUCTION:-false}
-      
+
       # Retrieval Configuration
       - USE_RETRIEVAL=${USE_RETRIEVAL:-false}
-      - RETRIEVAL_MODEL=${RETRIEVAL_MODEL:-all-MiniLM-L6-v2}
       
       # Advanced Features
       - MAX_JOBS_PER_ROUND=${MAX_JOBS_PER_ROUND:-15}

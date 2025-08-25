@@ -249,31 +249,13 @@ class MinionsAdvancedClient {
     const task = this.elements.task.value.trim();
     const docMetadata = this.elements.docMetadata.value.trim() || 'Document';
     const context = this.elements.context.value.trim();
-    
-    // Basic configuration
-    const maxRounds = parseInt(this.elements.maxRounds.value) || 3;
     const loggingId = this.elements.loggingId.value.trim() || null;
-    
-    // Simplified configuration with fixed values
-    const maxJobsPerRound = 2048;
-    const numTasksPerRound = 3;
-    const numSamplesPerTask = 1;
-    const useRetrieval = false; // Disable retrieval for simplicity
-    const chunkFn = 'chunk_by_section';
-    const retrievalModel = 'all-MiniLM-L6-v2';
-    
+
     return {
       task,
       doc_metadata: docMetadata,
       context: context ? [context] : [],
-      max_rounds: maxRounds,
-      logging_id: loggingId,
-      max_jobs_per_round: maxJobsPerRound,
-      num_tasks_per_round: numTasksPerRound,
-      num_samples_per_task: numSamplesPerTask,
-      use_retrieval: useRetrieval,
-      chunk_fn: chunkFn,
-      retrieval_model: retrievalModel
+      logging_id: loggingId
     };
   }
 
@@ -310,14 +292,6 @@ class MinionsAdvancedClient {
       
       if (formData.context.length > 0) {
         this.logMessage(`Context length: ${formData.context[0].length} characters`, 'info');
-      }
-      
-      if (isMinionsMode) {
-        this.logMessage(`Configuration: ${formData.max_rounds} rounds, ${formData.num_tasks_per_round} tasks/round`, 'debug');
-        
-        if (formData.use_retrieval && formData.use_retrieval !== 'false') {
-          this.logMessage(`Using ${formData.use_retrieval} retrieval with ${formData.chunk_fn}`, 'debug');
-        }
       }
 
       // Choose endpoint based on processing mode
@@ -383,55 +357,57 @@ class MinionsAdvancedClient {
     // Clear previous metrics
     metricsElement.innerHTML = '';
     
-    // Create token comparison section with only the 3 key metrics
-    this.createTokenComparisonSection(metrics, metricsElement);
+    // Execution time
+    this.addMetric('Execution Time', `${metrics.executionTime.toFixed(2)}s`, metricsElement);
+
+    // Remote usage
+    if (metrics.remoteUsage) {
+      this.addMetric('Remote Total Tokens', metrics.remoteUsage.total_tokens || 'N/A', metricsElement);
+      this.addMetric('Remote Prompt Tokens', metrics.remoteUsage.prompt_tokens || 'N/A', metricsElement);
+      this.addMetric('Remote Completion Tokens', metrics.remoteUsage.completion_tokens || 'N/A', metricsElement);
+    }
+
+    // Local usage
+    if (metrics.localUsage) {
+      this.addMetric('Local Total Tokens', metrics.localUsage.total_tokens || 'N/A', metricsElement);
+      this.addMetric('Local Prompt Tokens', metrics.localUsage.prompt_tokens || 'N/A', metricsElement);
+      this.addMetric('Local Completion Tokens', metrics.localUsage.completion_tokens || 'N/A', metricsElement);
+    }
+
+    // Timing information
+    if (metrics.timing) {
+      Object.entries(metrics.timing).forEach(([key, value]) => {
+        if (typeof value === 'number') {
+          this.addMetric(
+            key.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()),
+            `${value.toFixed(2)}s`,
+            metricsElement
+          );
+        }
+      });
+    }
+
+    // Parameters used
+    if (metrics.parametersUsed) {
+      this.addMetric('Max Rounds', metrics.parametersUsed.max_rounds || 'N/A', metricsElement);
+      this.addMetric('Tasks/Round', metrics.parametersUsed.num_tasks_per_round || 'N/A', metricsElement);
+      this.addMetric('Samples/Task', metrics.parametersUsed.num_samples_per_task || 'N/A', metricsElement);
+
+      if (metrics.parametersUsed.use_retrieval && metrics.parametersUsed.use_retrieval !== 'false') {
+        this.addMetric('Retrieval Method', metrics.parametersUsed.use_retrieval, metricsElement);
+        this.addMetric('Chunk Function', metrics.parametersUsed.chunk_fn || 'N/A', metricsElement);
+      }
+    }
+
+    // Log file
+    if (metrics.logFile) {
+      this.addMetric('Log File', metrics.logFile, metricsElement);
+    }
     
     // Show metrics container
     metricsContainer.classList.remove('hidden');
     
     this.logMessage('Execution metrics displayed below', 'info');
-  }
-
-  createTokenComparisonSection(metrics, container) {
-    // Calculate total tokens from prompt + completion tokens
-    const remotePromptTokens = metrics.remoteUsage?.prompt_tokens || 0;
-    const remoteCompletionTokens = metrics.remoteUsage?.completion_tokens || 0;
-    const remoteTokens = remotePromptTokens + remoteCompletionTokens;
-    
-    const localPromptTokens = metrics.localUsage?.prompt_tokens || 0;
-    const localCompletionTokens = metrics.localUsage?.completion_tokens || 0;
-    const localTokens = localPromptTokens + localCompletionTokens;
-    
-    const totalTime = metrics.executionTime || 0;
-    
-    const comparisonSection = document.createElement('div');
-    comparisonSection.className = 'token-comparison';
-    
-    comparisonSection.innerHTML = `
-      <h4>💰 Token Usage Comparison</h4>
-      <div class="token-comparison-grid">
-        <div class="token-metric remote">
-          <div class="token-metric-value">${remoteTokens.toLocaleString()}</div>
-          <div class="token-metric-label">Remote Tokens</div>
-          <div class="token-metric-sublabel">Expensive API calls</div>
-        </div>
-        <div class="vs-divider">VS</div>
-        <div class="token-metric local">
-          <div class="token-metric-value">${localTokens.toLocaleString()}</div>
-          <div class="token-metric-label">Local Tokens</div>
-          <div class="token-metric-sublabel">Cost-effective processing</div>
-        </div>
-      </div>
-      <div style="text-align: center; margin-top: 20px;">
-        <div class="token-metric" style="display: inline-block; margin: 0;">
-          <div class="token-metric-value" style="color: #4facfe;">${totalTime.toFixed(2)}s</div>
-          <div class="token-metric-label">Total Time</div>
-          <div class="token-metric-sublabel">Complete execution</div>
-        </div>
-      </div>
-    `;
-    
-    container.appendChild(comparisonSection);
   }
 
   addMetric(label, value, container) {

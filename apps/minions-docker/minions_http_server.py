@@ -4,16 +4,17 @@ Flask HTTP server for the full Minions protocol with complete functionality incl
 retrieval, multiple LLM providers, and advanced processing capabilities.
 """
 
-import os
 import logging
+import os
+import time
+import traceback
+from datetime import datetime
+from typing import Any, Optional
+
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from typing import Dict, Any, Optional, List, Union
-import json
-import traceback
-import time
-from datetime import datetime
 from pydantic import BaseModel
+
 # Try to import PyMuPDF first, fallback to pypdf
 try:
     import fitz  # PyMuPDF for PDF processing
@@ -309,14 +310,17 @@ def run_minions():
                 "message": "'context' must be a list of strings"
             }), 400
         
-        # Extract optional parameters with defaults
-        max_rounds = data.get("max_rounds", config["max_rounds"])
-        max_jobs_per_round = data.get("max_jobs_per_round", config["max_jobs_per_round"])
-        num_tasks_per_round = data.get("num_tasks_per_round", config["num_tasks_per_round"])
-        num_samples_per_task = data.get("num_samples_per_task", config["num_samples_per_task"])
-        use_retrieval = data.get("use_retrieval", config["use_retrieval"])
-        retrieval_model = data.get("retrieval_model", config["retrieval_model"])
-        chunk_fn = data.get("chunk_fn", config["chunking_function"])
+        # Use environment variables as the ONLY configuration source
+        # All parameters come from environment variables (Docker Compose)
+        max_rounds = config["max_rounds"]
+        max_jobs_per_round = config["max_jobs_per_round"]
+        num_tasks_per_round = config["num_tasks_per_round"]
+        num_samples_per_task = config["num_samples_per_task"]
+        use_retrieval = config["use_retrieval"]
+        retrieval_model = config["retrieval_model"]
+        chunk_fn = config["chunking_function"]
+        
+        # Optional user parameters
         logging_id = data.get("logging_id")
         mcp_tools_info = data.get("mcp_tools_info")
         

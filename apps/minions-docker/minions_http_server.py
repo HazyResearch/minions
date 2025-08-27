@@ -4,28 +4,37 @@ Flask HTTP server for the full Minions protocol with complete functionality incl
 retrieval, multiple LLM providers, and advanced processing capabilities.
 """
 
-import os
 import logging
+import os
+import time
+import traceback
+from datetime import datetime
+from typing import Any, Optional
+
 from flask import Flask, request, jsonify
 from flask_cors import CORS
-from typing import Dict, Any, Optional, List, Union
-import json
-import traceback
-import time
-from datetime import datetime
 from pydantic import BaseModel
+
+# Try to import PyMuPDF first, fallback to pypdf
+try:
+    import fitz  # PyMuPDF for PDF processing
+    PDF_LIBRARY = 'pymupdf'
+except ImportError:
+    try:
+        from pypdf import PdfReader
+        PDF_LIBRARY = 'pypdf'
+        fitz = None
+    except ImportError:
+        PDF_LIBRARY = None
+        fitz = None
 
 # Import the full Minions class and core clients
 from minions.minions import Minions
 from minions.clients.docker_model_runner import DockerModelRunnerClient
 from minions.clients.openai import OpenAIClient
 
-# Import BM25 retrieval support
-try:
-    from minions.utils.retrievers import bm25_retrieve_top_k_chunks
-    BM25_AVAILABLE = True
-except ImportError:
-    BM25_AVAILABLE = False
+# no retrieval support
+BM25_AVAILABLE = False
 
 
 # Configure logging
@@ -68,7 +77,6 @@ config = {
     
     # Retrieval settings
     "use_retrieval": os.getenv("USE_RETRIEVAL", "false").lower(),
-    "retrieval_model": os.getenv("RETRIEVAL_MODEL", "all-MiniLM-L6-v2"),
     
     # Advanced minions settings
     "max_jobs_per_round": int(os.getenv("MAX_JOBS_PER_ROUND", "2048")),
@@ -117,7 +125,6 @@ def create_minions_instance() -> Minions:
     logger.info(f"  Local model: {config['local_model_name']}")
     logger.info(f"  Max rounds: {config['max_rounds']}")
     logger.info(f"  Use retrieval: {config['use_retrieval']}")
-    logger.info(f"  Retrieval model: {config['retrieval_model']}")
     
     class StructuredLocalOutput(BaseModel):
         explanation: str
@@ -170,7 +177,6 @@ def health_check():
             "local_model_name": config["local_model_name"],
             "max_rounds": config["max_rounds"],
             "use_retrieval": config["use_retrieval"],
-            "retrieval_model": config["retrieval_model"],
             "minions_initialized": minions_instance is not None
         },
         "features": {
@@ -181,21 +187,38 @@ def health_check():
         }
     })
 
-@app.route('/status', methods=['GET'])
-def get_status():
-    """Get detailed server status and configuration."""
-    return jsonify({
-        "server": {
-            "status": "running",
-            "timestamp": datetime.now().isoformat(),
-            "minions_initialized": minions_instance is not None
-        },
-        "configuration": config,
-        "available_providers": {
-            "openai": True,
-            "docker": True
-        }
-    })
+
+def extract_text_from_pdf(pdf_bytes):
+    """Extract text from a PDF file using PyMuPDF or pypdf as fallback."""
+    try:
+        if PDF_LIBRARY == 'pymupdf' and fitz:
+            # Use PyMuPDF
+            doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+            text = ""
+            for page_num in range(len(doc)):
+                page = doc[page_num]
+                text += page.get_text()
+                if page_num < len(doc) - 1:
+                    text += "\n\n"  # Page separator
+            doc.close()
+            return text
+        elif PDF_LIBRARY == 'pypdf':
+            # Use pypdf as fallback
+            import io
+            pdf_file = io.BytesIO(pdf_bytes)
+            reader = PdfReader(pdf_file)
+            text = ""
+            for page_num, page in enumerate(reader.pages):
+                text += page.extract_text()
+                if page_num < len(reader.pages) - 1:
+                    text += "\n\n"  # Page separator
+            return text
+        else:
+            logger.error("No PDF processing library available")
+            return None
+    except Exception as e:
+        logger.error(f"Error processing PDF with {PDF_LIBRARY}: {str(e)}")
+        return None
 
 def initialize_minions_on_startup():
     """Initialize minions instance on startup if possible."""
@@ -284,43 +307,25 @@ def run_minions():
                 "message": "'context' must be a list of strings"
             }), 400
         
-        # Extract optional parameters with defaults
-        max_rounds = data.get("max_rounds", config["max_rounds"])
-        max_jobs_per_round = data.get("max_jobs_per_round", config["max_jobs_per_round"])
-        num_tasks_per_round = data.get("num_tasks_per_round", config["num_tasks_per_round"])
-        num_samples_per_task = data.get("num_samples_per_task", config["num_samples_per_task"])
-        use_retrieval = data.get("use_retrieval", config["use_retrieval"])
-        retrieval_model = data.get("retrieval_model", config["retrieval_model"])
-        chunk_fn = data.get("chunk_fn", config["chunking_function"])
+        # Use environment variables as the ONLY configuration source
+        # All parameters come from environment variables (Docker Compose)
+        max_rounds = config["max_rounds"]
+        max_jobs_per_round = config["max_jobs_per_round"]
+        num_tasks_per_round = config["num_tasks_per_round"]
+        num_samples_per_task = config["num_samples_per_task"]
+        use_retrieval = None
+        chunk_fn = config["chunking_function"]
+        
+        # Optional user parameters
         logging_id = data.get("logging_id")
         mcp_tools_info = data.get("mcp_tools_info")
-        
-        # Convert use_retrieval to proper format
-        if use_retrieval == "false" or use_retrieval == False:
-            use_retrieval = None
-        elif use_retrieval == "true" or use_retrieval == True:
-            use_retrieval = "embedding"
         
         logger.info(f"Running minions with task: {task[:100]}...")
         logger.info(f"Context length: {len(context)} items")
         logger.info(f"Max rounds: {max_rounds}")
         logger.info(f"Use retrieval: {use_retrieval}")
-        logger.info(f"Retrieval model: {retrieval_model}")
         logger.info(f"Chunk function: {chunk_fn}")
-        
-        # Validate retrieval method if specified
-        if use_retrieval and use_retrieval not in [None, "false", "bm25"]:
-            return jsonify({
-                "error": "Unsupported retrieval method",
-                "message": f"Only 'bm25' retrieval is supported in this build. Got: '{use_retrieval}'"
-            }), 400
-        
-        if use_retrieval == "bm25" and not BM25_AVAILABLE:
-            return jsonify({
-                "error": "BM25 retrieval not available",
-                "message": "rank_bm25 package is not installed"
-            }), 400
-        
+
         # Run the minions protocol
         start_time = time.time()
         result = minions_instance(
@@ -355,7 +360,6 @@ def run_minions():
                 "num_tasks_per_round": num_tasks_per_round,
                 "num_samples_per_task": num_samples_per_task,
                 "use_retrieval": use_retrieval,
-                "retrieval_model": retrieval_model,
                 "chunk_fn": chunk_fn
             }
         }
@@ -374,117 +378,248 @@ def run_minions():
             "traceback": traceback.format_exc() if os.getenv("DEBUG", "false").lower() == "true" else None
         }), 500
 
-@app.route('/config', methods=['GET'])
-def get_config():
-    """Get current configuration."""
-    # Hide sensitive API keys in response
-    safe_config = config.copy()
-    for key in safe_config:
-        if "api_key" in key.lower() and safe_config[key]:
-            safe_config[key] = "*" * 10
+@app.route('/remote-only', methods=['POST'])
+def run_remote_only():
+    """
+    Run the task using only the remote model (no minions protocol).
+    This demonstrates the cost difference compared to the minions approach.
     
-    return jsonify({
-        "config": safe_config,
-        "minions_initialized": minions_instance is not None,
-        "available_chunking_functions": [
-            "chunk_by_section",
-            "chunk_by_page", 
-            "chunk_by_paragraph",
-            "chunk_by_code",
-            "chunk_by_function_and_class"
-        ],
-        "available_retrieval_methods": [
-            "bm25"
-        ],
-        "available_providers": {
-            "local": ["docker", "openai"],
-            "remote": ["openai", "anthropic", "together", "groq", "gemini", "mistral"]
-        }
-    })
-
-@app.route('/config', methods=['POST'])
-def update_config():
-    """Update configuration and reinitialize minions if needed."""
-    global config, minions_instance
+    Expected JSON body: Same as /minions endpoint
+    """
+    global minions_instance
     
     try:
-        data = request.get_json() or {}
-        config_changed = False
-        
-        # Update configuration
-        for key in config.keys():
-            if key in data:
-                old_value = config[key]
-                if key in ["max_rounds", "timeout", "max_jobs_per_round", "num_tasks_per_round", "num_samples_per_task"]:
-                    config[key] = int(data[key])
-                else:
-                    config[key] = data[key]
-                
-                if config[key] != old_value:
-                    config_changed = True
-                    logger.info(f"Config updated: {key} = {config[key]}")
-        
-        # If provider-related config changed, reinitialize minions
-        provider_keys = ["remote_provider", "local_provider", "remote_model_name", "local_model_name"]
-        api_key_keys = [k for k in config.keys() if "api_key" in k]
-        
-        if any(key in data for key in provider_keys + api_key_keys) and minions_instance:
-            logger.info("Provider configuration changed, reinitializing minions...")
-            minions_instance = None
+        # Initialize minions if not already done (we need the remote client)
+        if minions_instance is None:
+            has_remote_key = config["openai_api_key"]
+            
+            if not has_remote_key:
+                return jsonify({
+                    "error": "No API key configured",
+                    "message": "Set OPENAI_API_KEY environment variable"
+                }), 400
+            
             try:
                 minions_instance = create_minions_instance()
-                logger.info("Minions reinitialized successfully")
             except Exception as e:
-                logger.error(f"Failed to reinitialize minions: {e}")
                 return jsonify({
-                    "error": "Failed to reinitialize minions with new configuration",
+                    "error": "Failed to initialize remote client",
                     "message": str(e)
                 }), 500
         
-        # Hide sensitive information in response
-        safe_config = config.copy()
-        for key in safe_config:
-            if "api_key" in key.lower() and safe_config[key]:
-                safe_config[key] = "*" * 10
+        # Parse request body
+        data = request.get_json()
+        if not data:
+            return jsonify({
+                "error": "Invalid request",
+                "message": "JSON body required"
+            }), 400
+        
+        # Extract required parameters
+        task = data.get("task")
+        doc_metadata = data.get("doc_metadata", "Unknown document type")
+        context = data.get("context", [])
+        
+        if not task:
+            return jsonify({
+                "error": "Missing required parameter",
+                "message": "'task' is required"
+            }), 400
+        
+        if not isinstance(context, list):
+            return jsonify({
+                "error": "Invalid parameter type",
+                "message": "'context' must be a list of strings"
+            }), 400
+        
+        logger.info(f"Running remote-only processing with task: {task[:100]}...")
+        logger.info(f"Context length: {len(context)} items")
+        
+        # Prepare the prompt for direct remote processing
+        context_text = "\n\n".join(context) if context else ""
+        
+        # Create a comprehensive prompt that includes all the context
+        prompt = f"""You are an AI assistant tasked with analyzing the following document and answering a specific question.
+
+Document Type: {doc_metadata}
+
+Document Content:
+{context_text}
+
+Task: {task}
+
+Please provide a comprehensive and accurate answer based on the document content provided above. If the document doesn't contain enough information to fully answer the question, please indicate what information is missing."""
+
+        # Run the remote model directly
+        start_time = time.time()
+        
+        # Get the remote client from the minions instance
+        remote_client = minions_instance.remote_client
+        
+        # Make the direct call to the remote model using the correct method
+        response_texts, usage = remote_client.chat(
+            messages=[{"role": "user", "content": prompt}],
+            max_completion_tokens=2000,
+            temperature=0.1
+        )
+        
+        end_time = time.time()
+        
+        # Extract the answer from the response
+        final_answer = response_texts[0] if response_texts else "No response generated"
+        
+        # Get actual usage information
+        remote_usage = {
+            "prompt_tokens": usage.prompt_tokens,
+            "completion_tokens": usage.completion_tokens,
+            "total_tokens": usage.total_tokens
+        }
+        
+        # Prepare response
+        response_data = {
+            "success": True,
+            "final_answer": final_answer,
+            "log_file": None,  # No log file for remote-only processing
+            "usage": {
+                "remote": remote_usage,
+                "local": None  # No local usage in remote-only mode
+            },
+            "timing": {
+                "total_time": end_time - start_time,
+                "remote_time": end_time - start_time,
+                "local_time": 0
+            },
+            "execution_time": end_time - start_time,
+            "parameters_used": {
+                "processing_mode": "remote_only",
+                "max_rounds": 1,  # Only one round for remote-only
+                "max_jobs_per_round": 1,
+                "num_tasks_per_round": 1,
+                "num_samples_per_task": 1,
+                "use_retrieval": False,
+                "retrieval_model": None,
+                "chunk_fn": None
+            }
+        }
+        
+        logger.info(f"Remote-only processing completed successfully. Final answer length: {len(final_answer)}")
+        logger.info(f"Execution time: {end_time - start_time:.2f} seconds")
+        logger.info(f"Estimated token usage: {remote_usage['total_tokens']} tokens")
+        
+        return jsonify(response_data)
+        
+    except Exception as e:
+        logger.error(f"Error running remote-only processing: {str(e)}")
+        logger.error(traceback.format_exc())
+        return jsonify({
+            "error": "Failed to run remote-only processing",
+            "message": str(e),
+            "traceback": traceback.format_exc() if os.getenv("DEBUG", "false").lower() == "true" else None
+        }), 500
+
+@app.route('/upload-pdf', methods=['POST'])
+def upload_pdf():
+    """
+    Upload and process a PDF file to extract text content.
+    
+    Expected: multipart/form-data with 'pdf' file field
+    
+    Returns:
+    {
+        "success": true,
+        "text": "Extracted text content...",
+        "filename": "document.pdf",
+        "pages": 5,
+        "characters": 1234
+    }
+    """
+    try:
+        # Check if file is present in request
+        if 'pdf' not in request.files:
+            return jsonify({
+                "error": "No file provided",
+                "message": "PDF file is required in 'pdf' field"
+            }), 400
+        
+        file = request.files['pdf']
+        
+        # Check if file was selected
+        if file.filename == '':
+            return jsonify({
+                "error": "No file selected",
+                "message": "Please select a PDF file"
+            }), 400
+        
+        # Validate file type
+        if not file.filename.lower().endswith('.pdf'):
+            return jsonify({
+                "error": "Invalid file type",
+                "message": "Only PDF files are supported"
+            }), 400
+        
+        # Read file content
+        pdf_bytes = file.read()
+        
+        # Validate file size (10MB limit)
+        max_size = 10 * 1024 * 1024  # 10MB
+        if len(pdf_bytes) > max_size:
+            return jsonify({
+                "error": "File too large",
+                "message": f"PDF file must be smaller than {max_size // (1024*1024)}MB"
+            }), 400
+        
+        # Validate that it's actually a PDF
+        if not pdf_bytes.startswith(b'%PDF'):
+            return jsonify({
+                "error": "Invalid PDF file",
+                "message": "File does not appear to be a valid PDF"
+            }), 400
+        
+        logger.info(f"Processing PDF upload: {file.filename} ({len(pdf_bytes)} bytes)")
+        
+        # Extract text from PDF
+        extracted_text = extract_text_from_pdf(pdf_bytes)
+        
+        if extracted_text is None:
+            return jsonify({
+                "error": "PDF processing failed",
+                "message": "Could not extract text from PDF. The file may be corrupted or contain only images."
+            }), 400
+        
+        # Count pages by opening the PDF again (for metadata)
+        try:
+            if PDF_LIBRARY == 'pymupdf' and fitz:
+                doc = fitz.open(stream=pdf_bytes, filetype="pdf")
+                page_count = len(doc)
+                doc.close()
+            elif PDF_LIBRARY == 'pypdf':
+                import io
+                pdf_file = io.BytesIO(pdf_bytes)
+                reader = PdfReader(pdf_file)
+                page_count = len(reader.pages)
+            else:
+                page_count = 0
+        except:
+            page_count = 0
+        
+        logger.info(f"PDF processed successfully: {len(extracted_text)} characters extracted from {page_count} pages")
         
         return jsonify({
-            "message": "Configuration updated successfully",
-            "config": safe_config,
-            "minions_reinitialized": config_changed and minions_instance is not None
+            "success": True,
+            "text": extracted_text,
+            "filename": file.filename,
+            "pages": page_count,
+            "characters": len(extracted_text)
         })
         
     except Exception as e:
-        logger.error(f"Error updating configuration: {str(e)}")
+        logger.error(f"Error processing PDF upload: {str(e)}")
+        logger.error(traceback.format_exc())
         return jsonify({
-            "error": "Failed to update configuration",
+            "error": "PDF processing failed",
             "message": str(e)
         }), 500
 
-@app.route('/providers', methods=['GET'])
-def get_providers():
-    """Get information about available providers and their status."""
-    providers_status = {}
-    
-    # Check each provider
-    providers_status["openai"] = {
-        "available": True,
-        "configured": bool(config.get("openai_api_key")),
-        "models": []  # Could be expanded to list available models per provider
-    }
-    
-    providers_status["docker"] = {
-        "available": True,
-        "configured": True,
-        "models": []
-    }
-    
-    return jsonify({
-        "providers": providers_status,
-        "current_selection": {
-            "remote": config["remote_provider"],
-            "local": config["local_provider"]
-        }
-    })
 
 @app.errorhandler(404)
 def not_found(error):
@@ -492,11 +627,9 @@ def not_found(error):
         "error": "Endpoint not found",
         "available_endpoints": [
             "GET /health",
-            "GET /status",
             "POST /minions",
-            "GET /config",
-            "POST /config",
-            "GET /providers"
+            "POST /remote-only",
+            "POST /upload-pdf"
         ]
     }), 404
 
@@ -536,7 +669,6 @@ if __name__ == '__main__':
     logger.info("Server features:")
     logger.info("  - Full Minions Protocol Support")
     logger.info("  - OpenAI and Docker Client Support")
-    logger.info(f"  - BM25 Retrieval: {'Available' if BM25_AVAILABLE else 'Not Available'}")
     logger.info("  - Advanced Document Processing")
     logger.info("  - Configurable Chunking Strategies")
     

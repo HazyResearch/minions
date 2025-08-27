@@ -5,7 +5,7 @@ FROM python:3.11-alpine AS builder
 ENV PYTHONUNBUFFERED=1
 ENV PYTHONDONTWRITEBYTECODE=1
 
-# Install build dependencies including Rust for tiktoken
+# Install build dependencies including Rust for tiktoken, make and clang for PyMuPDF
 RUN apk add --no-cache \
     gcc \
     g++ \
@@ -15,7 +15,10 @@ RUN apk add --no-cache \
     git \
     rust \
     cargo \
-    linux-headers
+    linux-headers \
+    make \
+    clang \
+    clang-dev
 
 # Set working directory
 WORKDIR /app
@@ -36,7 +39,10 @@ RUN pip install --upgrade pip && \
     pydantic>=2.0.0 \
     # Additional dependencies for minions functionality
     rank_bm25>=0.2.2 \
-    numpy>=1.24.0
+    numpy>=1.24.0 && \
+    # Try to install PyMuPDF with fallback to pypdf
+    (pip install --no-cache-dir --user PyMuPDF>=1.23.0 || \
+     pip install --no-cache-dir --user pypdf>=3.0.0)
 
 # Runtime stage
 FROM python:3.11-alpine AS runtime
@@ -89,7 +95,7 @@ RUN mkdir -p minion_logs
 EXPOSE 5000
 
 # Environment variables with defaults
-ENV REMOTE_MODEL_NAME="gpt-4o-mini"
+ENV REMOTE_MODEL_NAME="gpt-4o"
 ENV LOCAL_MODEL_NAME="ai/smollm2"
 ENV LOCAL_BASE_URL="http://model-runner.docker.internal/engines/llama.cpp/v1"
 ENV REMOTE_BASE_URL="http://model-runner.docker.internal/engines/openai/v1"
@@ -130,7 +136,8 @@ echo "Available Features:"\n\
 echo "  - Full Minions Protocol Support"\n\
 echo "  - OpenAI and Docker Client Support"\n\
 echo "  - BM25 Retrieval (rank_bm25)"\n\
-echo "  - Basic Document Processing"\n\
+echo "  - PDF Document Processing (PyMuPDF)"\n\
+echo "  - Advanced Document Processing"\n\
 echo ""\n\
 if [ "$PRODUCTION" = "true" ]; then\n\
     echo "Running in production mode with gunicorn..."\n\
@@ -141,4 +148,4 @@ else\n\
 fi\n' > /app/entrypoint.sh && chmod +x /app/entrypoint.sh
 
 # Use the entrypoint script
-ENTRYPOINT ["/app/entrypoint.sh"] 
+ENTRYPOINT ["/app/entrypoint.sh"]

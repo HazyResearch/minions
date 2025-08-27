@@ -124,7 +124,7 @@ class DockerModelRunnerClient(MinionsClient):
             payload["json_schema"] = self.format_structured_output
         
         try:
-            resp = requests.post(f"{self.base_url}/chat/completions", json=payload, timeout=30)
+            resp = requests.post(f"{self.base_url}/chat/completions", json=payload, timeout=self.timeout)
             if resp.ok:
                 return resp.json()
             else:
@@ -171,7 +171,7 @@ class DockerModelRunnerClient(MinionsClient):
             payload["json_schema"] = self.format_structured_output
         
         try:
-            timeout = aiohttp.ClientTimeout(total=30)
+            timeout = aiohttp.ClientTimeout(total=self.timeout)
             async with aiohttp.ClientSession(timeout=timeout) as session:
                 async with session.post(f"{self.base_url}/chat/completions", json=payload) as resp:
                     if resp.status == 200:

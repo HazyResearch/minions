@@ -2,6 +2,7 @@ models:
   # declare LLM models to pull and use
   worker:
     model: ai/llama3.2
+    context_size: 10000
 
 services:
   minions-server:
@@ -13,28 +14,27 @@ services:
     environment:
       # OpenAI Configuration
       - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - REMOTE_MODEL_NAME=${REMOTE_MODEL_NAME:-gpt-4o-mini}
+      - REMOTE_MODEL_NAME=${REMOTE_MODEL_NAME:-gpt-4o}
       - REMOTE_BASE_URL=${REMOTE_BASE_URL:-https://api.openai.com/v1}
 
       
       # Server Configuration
-      - MAX_ROUNDS=${MAX_ROUNDS:-3}
+      - MAX_ROUNDS=${MAX_ROUNDS:-5}
       - TIMEOUT=${TIMEOUT:-60}
       - HOST=0.0.0.0
       - PORT=5000
       - LOG_DIR=minion_logs
       - DEBUG=${DEBUG:-false}
       - PRODUCTION=${PRODUCTION:-false}
-      
+
       # Retrieval Configuration
       - USE_RETRIEVAL=${USE_RETRIEVAL:-false}
-      - RETRIEVAL_MODEL=${RETRIEVAL_MODEL:-all-MiniLM-L6-v2}
       
       # Advanced Features
-      - MAX_JOBS_PER_ROUND=${MAX_JOBS_PER_ROUND:-2048}
-      - NUM_TASKS_PER_ROUND=${NUM_TASKS_PER_ROUND:-3}
+      - MAX_JOBS_PER_ROUND=${MAX_JOBS_PER_ROUND:-15}
+      - NUM_TASKS_PER_ROUND=${NUM_TASKS_PER_ROUND:-1}
       - NUM_SAMPLES_PER_TASK=${NUM_SAMPLES_PER_TASK:-1}
-      - CHUNKING_FUNCTION=${CHUNKING_FUNCTION:-chunk_by_section}
+      - CHUNKING_FUNCTION=${CHUNKING_FUNCTION:-chunk_by_paragraph}
       
       # Provider Selection
       - REMOTE_PROVIDER=${REMOTE_PROVIDER:-openai}

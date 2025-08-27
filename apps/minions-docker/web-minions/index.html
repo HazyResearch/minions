@@ -134,42 +134,6 @@
             gap: 20px;
         }
 
-        .form-row-3 {
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
-            gap: 15px;
-        }
-
-        .advanced-section {
-            background: #f8f9fa;
-            border-radius: 10px;
-            padding: 20px;
-            margin-top: 20px;
-        }
-
-        .advanced-toggle {
-            background: none;
-            border: none;
-            color: #4facfe;
-            font-weight: 600;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            gap: 5px;
-            margin-bottom: 15px;
-        }
-
-        .advanced-toggle:hover {
-            text-decoration: underline;
-        }
-
-        .advanced-content {
-            display: none;
-        }
-
-        .advanced-content.show {
-            display: block;
-        }
 
         .button-group {
             display: flex;
@@ -268,6 +232,7 @@
             border-radius: 8px;
             text-align: center;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            overflow: scroll;
         }
 
         .metric-value {
@@ -302,6 +267,223 @@
             color: #1976d2;
         }
 
+        /* PDF Upload Section Styles */
+        .pdf-upload-section {
+            margin-bottom: 15px;
+        }
+
+        .pdf-select-container {
+            text-align: center;
+            padding: 20px;
+            background: #fafbfc;
+            border: 1px solid #e1e8ed;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+
+        .pdf-select-btn {
+            margin-bottom: 10px;
+        }
+
+        .upload-info {
+            font-size: 0.9em;
+            color: #666;
+            margin: 0;
+        }
+
+        .upload-progress {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .progress-bar {
+            width: 200px;
+            height: 6px;
+            background: #e1e8ed;
+            border-radius: 3px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4facfe, #00f2fe);
+            width: 0%;
+            transition: width 0.3s ease;
+            border-radius: 3px;
+        }
+
+        .progress-text {
+            font-size: 0.9em;
+            color: #666;
+            margin: 0;
+        }
+
+        .pdf-info {
+            background: #e8f5e8;
+            border: 1px solid #c3e6cb;
+            border-radius: 8px;
+            padding: 15px;
+        }
+
+        .pdf-details {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .pdf-icon {
+            font-size: 2em;
+        }
+
+        .pdf-meta {
+            flex: 1;
+            text-align: left;
+        }
+
+        .pdf-filename {
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 5px;
+        }
+
+        .pdf-stats {
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        .remove-pdf {
+            background: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            cursor: pointer;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.3s ease;
+        }
+
+        .remove-pdf:hover {
+            background: #c82333;
+        }
+
+        .context-divider {
+            text-align: center;
+            margin: 20px 0;
+            position: relative;
+            color: #888;
+            font-weight: 600;
+        }
+
+        .context-divider::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: #e1e8ed;
+            z-index: 1;
+        }
+
+        .context-divider span {
+            background: white;
+            padding: 0 15px;
+            position: relative;
+            z-index: 2;
+        }
+
+        /* Radio Group Styles */
+        .radio-group {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-top: 10px;
+        }
+
+        .radio-option {
+            position: relative;
+        }
+
+        .radio-option input[type="radio"] {
+            position: absolute;
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+
+        .radio-label {
+            display: block;
+            padding: 20px;
+            border: 2px solid #e1e8ed;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: #fafbfc;
+            position: relative;
+        }
+
+        .radio-label:hover {
+            border-color: #4facfe;
+            background: #f0f8ff;
+        }
+
+        .radio-option input[type="radio"]:checked + .radio-label {
+            border-color: #4facfe;
+            background: #e3f2fd;
+            box-shadow: 0 0 0 3px rgba(79, 172, 254, 0.1);
+        }
+
+        .radio-option input[type="radio"]:checked + .radio-label::before {
+            content: '✓';
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            width: 24px;
+            height: 24px;
+            background: #4facfe;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .radio-title {
+            font-size: 1.1em;
+            font-weight: 600;
+            color: #2c3e50;
+            margin-bottom: 8px;
+        }
+
+        .radio-description {
+            font-size: 0.95em;
+            color: #666;
+            margin-bottom: 10px;
+            line-height: 1.4;
+        }
+
+        .radio-benefits {
+            font-size: 0.85em;
+            color: #555;
+            font-weight: 500;
+        }
+
+        .radio-option input[type="radio"]:checked + .radio-label .radio-title {
+            color: #1976d2;
+        }
+
+        .radio-option input[type="radio"]:checked + .radio-label .radio-benefits {
+            color: #1976d2;
+        }
+
         @media (max-width: 768px) {
             .form-row,
             .form-row-3 {
@@ -314,6 +496,20 @@
             
             .header h1 {
                 font-size: 2em;
+            }
+
+            .pdf-upload-zone {
+                padding: 30px 15px;
+            }
+
+            .upload-icon {
+                font-size: 2.5em;
+            }
+
+            .pdf-details {
+                flex-direction: column;
+                text-align: center;
+                gap: 10px;
             }
         }
     </style>
@@ -354,87 +550,81 @@
 
                     <div class="form-group">
                         <label for="context">Context/Documents</label>
+                        
+                        <!-- PDF Upload Section -->
+                        <div class="pdf-upload-section" id="pdf-upload-section">
+                            <div class="pdf-select-container">
+                                <button type="button" class="btn btn-primary pdf-select-btn" id="pdf-select-btn">
+                                    📄 Choose PDF File
+                                </button>
+                                <input type="file" id="pdf-file-input" accept=".pdf" hidden>
+                                <div class="upload-info">Maximum file size: 10MB</div>
+                            </div>
+                            
+                            <div class="upload-progress" id="upload-progress" style="display: none;">
+                                <div class="progress-bar">
+                                    <div class="progress-fill" id="progress-fill"></div>
+                                </div>
+                                <p class="progress-text" id="progress-text">Processing PDF...</p>
+                            </div>
+                            
+                            <div class="pdf-info" id="pdf-info" style="display: none;">
+                                <div class="pdf-details">
+                                    <span class="pdf-icon">📄</span>
+                                    <div class="pdf-meta">
+                                        <div class="pdf-filename" id="pdf-filename"></div>
+                                        <div class="pdf-stats" id="pdf-stats"></div>
+                                    </div>
+                                    <button type="button" class="remove-pdf" id="remove-pdf" title="Remove PDF">✕</button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="context-divider">
+                            <span>OR</span>
+                        </div>
+                        
                         <textarea id="context" placeholder="Paste your document content, data, or context here..."></textarea>
                         <div class="info-text">Provide the documents or context that the minions should analyze</div>
                     </div>
                 </div>
 
-                <!-- Basic Configuration -->
+                <!-- Processing Mode Selection -->
                 <div class="form-section">
-                    <h3>⚙️ Basic Configuration</h3>
+                    <h3>🔄 Processing Mode</h3>
                     
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="max_rounds">Max Rounds</label>
-                            <input type="number" id="max_rounds" min="1" max="10" value="3">
-                            <div class="info-text">Number of processing rounds</div>
+                    <div class="form-group">
+                        <label>Choose Processing Method</label>
+                        <div class="radio-group">
+                            <div class="radio-option">
+                                <input type="radio" id="mode_minions" name="processing_mode" value="minions" checked>
+                                <label for="mode_minions" class="radio-label">
+                                    <div class="radio-title">🤖 Minions Protocol (Recommended)</div>
+                                    <div class="radio-description">Uses local processing + selective remote calls for cost-effective analysis</div>
+                                    <div class="radio-benefits">✅ Lower cost</div>
+                                </label>
+                            </div>
+                            <div class="radio-option">
+                                <input type="radio" id="mode_remote" name="processing_mode" value="remote">
+                                <label for="mode_remote" class="radio-label">
+                                    <div class="radio-title">☁️ Remote Model Only</div>
+                                    <div class="radio-description">Sends entire document directly to remote model (higher cost)</div>
+                                    <div class="radio-benefits">⚠️ Higher cost</div>
+                                </label>
+                            </div>
                         </div>
-                        
-                        <div class="form-group">
-                            <label for="logging_id">Logging ID</label>
-                            <input type="text" id="logging_id" placeholder="Optional custom identifier">
-                            <div class="info-text">Custom identifier for this task</div>
-                        </div>
+                        <div class="info-text">Compare the efficiency and cost-effectiveness of both approaches</div>
                     </div>
                 </div>
 
-                <!-- Advanced Configuration -->
+                <!-- Optional Configuration -->
                 <div class="form-section">
-                    <div class="advanced-section">
-                        <button type="button" class="advanced-toggle" id="advanced-toggle">
-                            <span id="advanced-arrow">▶</span> Advanced Options
-                        </button>
-                        
-                        <div class="advanced-content" id="advanced-content">
-                            <div class="form-row-3">
-                                <div class="form-group">
-                                    <label for="max_jobs_per_round">Max Jobs/Round</label>
-                                    <input type="number" id="max_jobs_per_round" min="1" max="4096" value="2048">
-                                    <div class="info-text">Maximum jobs per round</div>
-                                </div>
-                                
-                                <div class="form-group">
-                                    <label for="num_tasks_per_round">Tasks/Round</label>
-                                    <input type="number" id="num_tasks_per_round" min="1" max="10" value="3">
-                                    <div class="info-text">Number of tasks per round</div>
-                                </div>
-                                
-                                <div class="form-group">
-                                    <label for="num_samples_per_task">Samples/Task</label>
-                                    <input type="number" id="num_samples_per_task" min="1" max="5" value="1">
-                                    <div class="info-text">Samples per task</div>
-                                </div>
-                            </div>
-
-                            <div class="form-row">
-                                <div class="form-group">
-                                    <label for="use_retrieval">Retrieval Method</label>
-                                    <select id="use_retrieval">
-                                        <option value="false">No Retrieval</option>
-                                        <option value="bm25">BM25 Retrieval</option>
-                                    </select>
-                                    <div class="info-text">Document retrieval strategy</div>
-                                </div>
-                                
-                                <div class="form-group">
-                                    <label for="chunk_fn">Chunking Strategy</label>
-                                    <select id="chunk_fn">
-                                        <option value="chunk_by_section">By Section</option>
-                                        <option value="chunk_by_page">By Page</option>
-                                        <option value="chunk_by_paragraph">By Paragraph</option>
-                                        <option value="chunk_by_code">By Code</option>
-                                        <option value="chunk_by_function_and_class">By Function/Class</option>
-                                    </select>
-                                    <div class="info-text">How to split documents</div>
-                                </div>
-                            </div>
-
-                            <div class="form-group">
-                                <label for="retrieval_model">Retrieval Model</label>
-                                <input type="text" id="retrieval_model" value="all-MiniLM-L6-v2" placeholder="all-MiniLM-L6-v2">
-                                <div class="info-text">Model used for document retrieval</div>
-                            </div>
-                        </div>
+                    <h3>⚙️ Optional Configuration</h3>
+                    
+                    <div class="form-group">
+                        <label for="logging_id">Logging ID</label>
+                        <input type="text" id="logging_id" placeholder="Optional custom identifier">
+                        <div class="info-text">Custom identifier for this task</div>
                     </div>
                 </div>
 
@@ -453,7 +643,7 @@
 
             <!-- Log Section -->
             <div class="log-section">
-                <h3>📋 Execution Log</h3>
+                <h3>� Execution Log</h3>
                 <div class="log-container" id="log">Welcome to Minions Protocol Interface
 Click "Check Status" to verify backend connection.
 </div>

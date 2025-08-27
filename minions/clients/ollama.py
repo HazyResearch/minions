@@ -352,6 +352,10 @@ class OllamaClient(MinionsClient):
         # Add tools to chat kwargs if MCP is enabled
         if self.mcp_tools_enabled and self.ollama_tools:
             chat_kwargs["tools"] = self.ollama_tools
+        
+        # Enable hybrid thinking mode if requested
+        if self.thinking:
+            kwargs["think"] = True
         responses = []
         usage_total = Usage()
         done_reasons = []

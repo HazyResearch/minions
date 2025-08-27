@@ -4,6 +4,7 @@ from minions.clients.lemonade import LemonadeClient
 from minions.clients.openai import OpenAIClient
 from minions.clients.azure_openai import AzureOpenAIClient
 from minions.clients.anthropic import AnthropicClient
+from minions.clients.cohere import CohereClient
 from minions.clients.together import TogetherClient
 from minions.clients.perplexity import PerplexityAIClient
 from minions.clients.openrouter import OpenRouterClient
@@ -32,6 +33,7 @@ __all__ = [
     "OpenAIClient",
     "AzureOpenAIClient",
     "AnthropicClient",
+    "CohereClient",
     "TogetherClient",
     "PerplexityAIClient",
     "OpenRouterClient",

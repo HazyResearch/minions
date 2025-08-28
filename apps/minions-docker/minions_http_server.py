@@ -307,6 +307,14 @@ def run_minions():
                 "message": "'context' must be a list of strings"
             }), 400
         
+        # Validate that context is not empty and contains meaningful content
+        if not context or all(not str(item).strip() for item in context):
+            return jsonify({
+                "error": "Context is required",
+                "message": "Context is mandatory for the minions protocol. Please upload a PDF document or provide text content in the context field.",
+                "suggestion": "Upload a PDF file or enter text content to analyze"
+            }), 400
+        
         # Use environment variables as the ONLY configuration source
         # All parameters come from environment variables (Docker Compose)
         max_rounds = config["max_rounds"]
@@ -430,6 +438,14 @@ def run_remote_only():
             return jsonify({
                 "error": "Invalid parameter type",
                 "message": "'context' must be a list of strings"
+            }), 400
+        
+        # Validate that context is not empty and contains meaningful content
+        if not context or all(not str(item).strip() for item in context):
+            return jsonify({
+                "error": "Context is required",
+                "message": "Context is mandatory for remote processing. Please upload a PDF document or provide text content in the context field.",
+                "suggestion": "Upload a PDF file or enter text content to analyze"
             }), 400
         
         logger.info(f"Running remote-only processing with task: {task[:100]}...")

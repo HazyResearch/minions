@@ -95,8 +95,9 @@ class MinionsAdvancedClient {
     };
     
     
-    // Update start button state when task changes
+    // Update start button state when task or context changes
     this.elements.task.oninput = () => this.updateStartButtonState();
+    this.elements.context.oninput = () => this.updateStartButtonState();
     
     // Auto-generate logging ID when task changes
     this.elements.task.onblur = () => this.autoGenerateLoggingId();
@@ -136,7 +137,31 @@ class MinionsAdvancedClient {
 
   updateStartButtonState() {
     const task = this.elements.task.value.trim();
-    this.elements.startBtn.disabled = !task;
+    const context = this.elements.context.value.trim();
+    const hasValidInput = task && context;
+    
+    this.elements.startBtn.disabled = !hasValidInput;
+    
+    // Update button text to indicate what's missing
+    if (!hasValidInput) {
+      const isMinionsMode = this.elements.processingModeMinions.checked;
+      if (!task && !context) {
+        this.elements.startBtn.innerHTML = isMinionsMode ? 
+          '🚀 Start Minions Protocol (Task & Context Required)' : 
+          '☁️ Start Remote Processing (Task & Context Required)';
+      } else if (!task) {
+        this.elements.startBtn.innerHTML = isMinionsMode ? 
+          '🚀 Start Minions Protocol (Task Required)' : 
+          '☁️ Start Remote Processing (Task Required)';
+      } else if (!context) {
+        this.elements.startBtn.innerHTML = isMinionsMode ? 
+          '🚀 Start Minions Protocol (Context Required)' : 
+          '☁️ Start Remote Processing (Context Required)';
+      }
+    } else {
+      // Reset to normal text when everything is valid
+      this.updateProcessingMode();
+    }
   }
 
   updateProcessingMode() {
@@ -250,13 +275,37 @@ class MinionsAdvancedClient {
     };
   }
 
+  validateFormData(formData) {
+    const errors = [];
+
+    if (!formData.task) {
+      errors.push('Task description is required');
+    }
+
+    if (!formData.context || formData.context.length === 0 || !formData.context[0]) {
+      errors.push('Context is required. Please upload a PDF document or provide text content.');
+    }
+
+    return errors;
+  }
+
   async startMinions() {
     const formData = this.collectFormData();
     const isMinionsMode = this.elements.processingModeMinions.checked;
 
-    if (!formData.task) {
-      this.logMessage('Task description is required', 'error');
-      this.elements.task.focus();
+    // Validate form data
+    const validationErrors = this.validateFormData(formData);
+    if (validationErrors.length > 0) {
+      validationErrors.forEach(error => {
+        this.logMessage(error, 'error');
+      });
+      
+      // Focus on the appropriate field
+      if (!formData.task) {
+        this.elements.task.focus();
+      } else if (!formData.context || formData.context.length === 0 || !formData.context[0]) {
+        this.elements.context.focus();
+      }
       return;
     }
 
@@ -493,6 +542,9 @@ class MinionsAdvancedClient {
       this.showPdfInfo();
 
       this.logMessage(`PDF processed successfully: ${data.pages} pages, ${data.characters} characters extracted`, 'success');
+      
+      // Update button state since context is now populated
+      this.updateStartButtonState();
 
     } catch (error) {
       this.logMessage(`PDF processing failed: ${error.message}`, 'error');
@@ -593,6 +645,9 @@ class MinionsAdvancedClient {
     if (selectContainer) selectContainer.style.display = 'block';
 
     this.logMessage('PDF removed', 'info');
+    
+    // Update button state since context may now be empty
+    this.updateStartButtonState();
   }
 }
 

@@ -24,6 +24,7 @@ class OpenRouterClient(OpenAIClient):
         base_url: Optional[str] = None,
         site_url: Optional[str] = None,
         site_name: Optional[str] = None,
+        verbosity: str = "medium",
         **kwargs
     ):
         """Initialize the OpenRouter client.
@@ -36,6 +37,7 @@ class OpenRouterClient(OpenAIClient):
             base_url: Base URL for the OpenRouter API. If not provided, will look for OPENROUTER_BASE_URL env var or use default.
             site_url: Optional site URL for rankings on openrouter.ai (used in HTTP-Referer header)
             site_name: Optional site name for rankings on openrouter.ai (used in X-Title header)
+            verbosity: Controls the verbosity and length of the model response. Options: "low", "medium", "high". Default: "medium"
             **kwargs: Additional parameters passed to base class
         """
         # Get API key from environment if not provided
@@ -53,6 +55,12 @@ class OpenRouterClient(OpenAIClient):
         # Store OpenRouter-specific headers for rankings
         self.site_url = site_url or os.environ.get("OPENROUTER_SITE_URL")
         self.site_name = site_name or os.environ.get("OPENROUTER_SITE_NAME")
+        
+        # Validate and store verbosity parameter
+        valid_verbosity_levels = ["low", "medium", "high"]
+        if verbosity not in valid_verbosity_levels:
+            raise ValueError(f"Invalid verbosity level '{verbosity}'. Must be one of: {valid_verbosity_levels}")
+        self.verbosity = verbosity
 
         # Call parent constructor
         super().__init__(
@@ -64,7 +72,7 @@ class OpenRouterClient(OpenAIClient):
             **kwargs
         )
 
-        self.logger.info(f"Initialized OpenRouter client with model: {model_name}")
+        self.logger.info(f"Initialized OpenRouter client with model: {model_name}, verbosity: {verbosity}")
 
     def _get_extra_headers(self) -> Dict[str, str]:
         """Get OpenRouter-specific headers for API requests.
@@ -117,6 +125,7 @@ class OpenRouterClient(OpenAIClient):
                 "messages": messages,
                 "max_completion_tokens": self.max_tokens,
                 "temperature": self.temperature,
+                "verbosity": self.verbosity,
                 **kwargs,
             }
 

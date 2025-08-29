@@ -106,6 +106,7 @@ API_PRICES = {
     "Grok": {
         "grok-2": {"input": 2.00, "cached_input": 1.00, "output": 10.00},
         "grok-3": {"input": 3.00, "cached_input": 1.50, "output": 15.00},
+        "grok-code-fast": {"input": 0.20 "cached_input": 0.02, "output": 1.5},
         "grok-3-fast": {"input": 5.00, "cached_input": 2.50, "output": 25.00},
         "grok-3-mini": {"input": 0.30, "cached_input": 0.15, "output": 0.50},
         "grok-4-0709": {"input": 4.00, "cached_input": 2.00, "output": 20.00},
@@ -2502,6 +2503,7 @@ with st.sidebar:
             model_mapping = {
                 "grok-4-0709 (Recommended)": "grok-4-0709",
                 "grok-3": "grok-3",
+                "grok-code-fast": "grok-code-fast-1",
                 "grok-3-fast": "grok-3-fast",
                 "grok-3-mini": "grok-3-mini",
                 "grok-2": "grok-2",

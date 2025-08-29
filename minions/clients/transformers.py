@@ -12,6 +12,11 @@ except ImportError:
     )
 
 try:
+    from PIL import Image
+except ImportError:
+    Image = None  # PIL is optional; required only for vision models
+
+try:
     import torch
     import torch.nn.functional as F
 except ImportError:
@@ -46,6 +51,7 @@ class TransformersClient(MinionsClient):
     - Special support for Hunyuan models with thinking mode
     - Hardware-optimized inference (CUDA/MPS/CPU)
     - Tool calling and embedding support
+    - Vision support for Apple FastVLM models (single-image VLM chat)
     
     Nemotron Models:
     - Automatic detection of Nemotron models (nvidia/NVIDIA-Nemotron-*)
@@ -139,6 +145,7 @@ class TransformersClient(MinionsClient):
         self.reasoning_enabled = reasoning_enabled
         self.reasoning_budget = reasoning_budget
         self.is_nemotron = self._is_nemotron_model(model_name)
+        self.is_fastvlm = self._is_fastvlm_model(model_name)
         
         if self.is_nemotron:
             self.logger.info(f"Detected Nemotron model: {model_name}")
@@ -167,6 +174,13 @@ class TransformersClient(MinionsClient):
 
         self.logger.info(f"Loaded Hugging Face model: {self.model_name}")
 
+    def _is_fastvlm_model(self, model_name: str) -> bool:
+        """
+        Detect Apple FastVLM models which require special image handling.
+        """
+        name = (model_name or "").lower()
+        return "fastvlm" in name or "apple/fastvlm" in name
+
     def _is_hunyuan_model(self) -> bool:
         """
         Check if the current model is a Hunyuan model.
@@ -192,6 +206,65 @@ class TransformersClient(MinionsClient):
             "nvidia/NVIDIA-Nemotron"
         ]
         return any(pattern.lower() in model_name.lower() for pattern in nemotron_patterns)
+
+    def _extract_first_image(self, messages: List[Dict[str, Any]]) -> Optional["Image.Image"]:
+        """
+        Extract and load the first image referenced in messages.
+        Supports keys: 'images' (list/str), 'image' (str), 'image_url' (data URL or path).
+        Returns a PIL Image if available.
+        """
+        if not messages:
+            return None
+
+        def _open_image_from_path(path: str) -> Optional["Image.Image"]:
+            if not path:
+                return None
+            try:
+                if Image is None:
+                    self.logger.error("Pillow (PIL) is required for vision models. Install with `pip install pillow`.")
+                    return None
+                return Image.open(path).convert("RGB")
+            except Exception as e:
+                self.logger.error(f"Failed to open image '{path}': {e}")
+                return None
+
+        def _open_image_from_data_url(data_url: str) -> Optional["Image.Image"]:
+            try:
+                if not data_url.startswith("data:"):
+                    return None
+                import base64, io
+                header, b64 = data_url.split(",", 1)
+                img_bytes = base64.b64decode(b64)
+                if Image is None:
+                    self.logger.error("Pillow (PIL) is required for vision models. Install with `pip install pillow`.")
+                    return None
+                return Image.open(io.BytesIO(img_bytes)).convert("RGB")
+            except Exception as e:
+                self.logger.error(f"Failed to decode image data URL: {e}")
+                return None
+
+        for msg in messages:
+            # 'images': list[str] | str
+            if isinstance(msg, dict) and "images" in msg:
+                images_val = msg.get("images")
+                if isinstance(images_val, list) and images_val:
+                    return _open_image_from_path(images_val[0])
+                if isinstance(images_val, str):
+                    return _open_image_from_path(images_val)
+            # 'image': str
+            if isinstance(msg, dict) and "image" in msg and isinstance(msg["image"], str):
+                return _open_image_from_path(msg["image"])
+            # 'image_url': data URL or path
+            if isinstance(msg, dict) and "image_url" in msg and isinstance(msg["image_url"], str):
+                url = msg["image_url"]
+                if url.startswith("data:"):
+                    img = _open_image_from_data_url(url)
+                    if img is not None:
+                        return img
+                else:
+                    # Treat as local path (best effort)
+                    return _open_image_from_path(url)
+        return None
 
     def _parse_hunyuan_response(self, completion_text: str) -> Dict[str, str]:
         """
@@ -699,32 +772,105 @@ class TransformersClient(MinionsClient):
         usage = Usage(prompt_tokens=0, completion_tokens=0)
 
         try:
-            # Apply the model's chat template to format the conversation
+            # Prepare inputs, including FastVLM vision path if applicable
+            px = None  # pixel values for image if any
 
-            # check if apply_chat_template is available
-            if self.model_name != "kyutai/helium-1-2b":
-                input_ids = self.tokenizer.apply_chat_template(
-                    prepared_messages,
-                    tokenize=True,
-                    return_tensors="pt",
-                    enable_thinking=self.enable_thinking,
-                    add_generation_prompt=True,
-                )
+            if self.is_fastvlm:
+                # For FastVLM, if an image is present, we must splice in the <image> token
+                pil_img = self._extract_first_image(prepared_messages)
+                if pil_img is not None:
+                    # Insert a placeholder into the first user message content if not already present
+                    messages_for_template = []
+                    image_inserted = False
+                    for m in prepared_messages:
+                        m_copy = dict(m)
+                        if not image_inserted and m_copy.get("role") == "user":
+                            content = m_copy.get("content", "")
+                            if isinstance(content, str):
+                                if "<image>" not in content:
+                                    m_copy["content"] = f"<image>\n{content}"
+                                image_inserted = True
+                        messages_for_template.append(m_copy)
+
+                    rendered = self.tokenizer.apply_chat_template(
+                        messages_for_template,
+                        add_generation_prompt=True,
+                        tokenize=False,
+                    )
+
+                    if "<image>" not in rendered:
+                        # As a fallback, prepend at the very start
+                        rendered = f"<image>\n{rendered}"
+
+                    pre, post = rendered.split("<image>", 1)
+
+                    pre_ids = self.tokenizer(
+                        pre,
+                        return_tensors="pt",
+                        add_special_tokens=False,
+                    ).input_ids
+                    post_ids = self.tokenizer(
+                        post,
+                        return_tensors="pt",
+                        add_special_tokens=False,
+                    ).input_ids
+
+                    IMAGE_TOKEN_INDEX = -200  # FastVLM expects this special token id
+                    img_tok = torch.tensor([[IMAGE_TOKEN_INDEX]], dtype=pre_ids.dtype)
+                    input_ids = torch.cat([pre_ids, img_tok, post_ids], dim=1)
+
+                    # Preprocess image via the model's own processor
+                    try:
+                        vision_tower = self.model.get_vision_tower()
+                        processor = getattr(vision_tower, "image_processor", None)
+                        if processor is None:
+                            raise AttributeError("FastVLM vision tower missing image_processor")
+                        px = processor(images=pil_img, return_tensors="pt")["pixel_values"]
+                        px = px.to(self.model.device, dtype=self.model.dtype)
+                    except Exception as e:
+                        self.logger.error(f"Failed to prepare image for FastVLM: {e}")
+                        raise
+
+                    prompt_token_count = input_ids.shape[1]
+                    usage.prompt_tokens += prompt_token_count
+
+                    input_ids = input_ids.to(self.model.device)
+                else:
+                    # No image present; fall back to text-only path
+                    input_ids = self.tokenizer.apply_chat_template(
+                        prepared_messages,
+                        tokenize=True,
+                        return_tensors="pt",
+                        enable_thinking=self.enable_thinking,
+                        add_generation_prompt=True,
+                    )
+                    prompt_token_count = input_ids.shape[1]
+                    usage.prompt_tokens += prompt_token_count
+                    input_ids = input_ids.to(self.model.device)
             else:
-                messages_str = "\n".join(
-                    [f"{m['role']}: {m['content']}" for m in prepared_messages]
-                )
+                # Non-FastVLM path (text-only or models without special vision handling)
+                if self.model_name != "kyutai/helium-1-2b":
+                    input_ids = self.tokenizer.apply_chat_template(
+                        prepared_messages,
+                        tokenize=True,
+                        return_tensors="pt",
+                        enable_thinking=self.enable_thinking,
+                        add_generation_prompt=True,
+                    )
+                else:
+                    messages_str = "\n".join(
+                        [f"{m['role']}: {m['content']}" for m in prepared_messages]
+                    )
 
-                input_ids = self.tokenizer(
-                    messages_str,
-                    return_tensors="pt",
-                )["input_ids"]
+                    input_ids = self.tokenizer(
+                        messages_str,
+                        return_tensors="pt",
+                    )["input_ids"]
 
-            prompt_token_count = input_ids.shape[1]
-            usage.prompt_tokens += prompt_token_count
+                prompt_token_count = input_ids.shape[1]
+                usage.prompt_tokens += prompt_token_count
 
-            # Move input tokens to the correct device
-            input_ids = input_ids.to(self.model.device)
+                input_ids = input_ids.to(self.model.device)
 
             max_tokens = prepared_kwargs.get("max_completion_tokens", self.max_tokens)
             temperature = prepared_kwargs.get("temperature", self.temperature)
@@ -755,10 +901,17 @@ class TransformersClient(MinionsClient):
                 if "max_thinking_tokens" in prepared_kwargs:
                     generation_kwargs["max_thinking_tokens"] = prepared_kwargs["max_thinking_tokens"]
                 
-                gen_out = self.model.generate(
-                    input_ids,
-                    **generation_kwargs
-                )
+                if px is not None:
+                    gen_out = self.model.generate(
+                        inputs=input_ids,
+                        images=px,
+                        **generation_kwargs,
+                    )
+                else:
+                    gen_out = self.model.generate(
+                        input_ids,
+                        **generation_kwargs
+                    )
 
                 # Extract token IDs for the completion
                 output_ids = gen_out.sequences[0]

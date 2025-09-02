@@ -24,6 +24,13 @@ try:
 except ImportError:
     MLX_AVAILABLE = False
 
+# Gemini Embeddings support
+try:
+    from google import genai
+    GEMINI_AVAILABLE = True
+except ImportError:
+    GEMINI_AVAILABLE = False
+
 
 ### EMBEDDING MODELS ###
 
@@ -180,6 +187,142 @@ class MLXEmbeddings(BaseEmbeddingModel):
             embeddings = np.array(embeddings)
         
         return embeddings
+
+
+class GeminiEmbeddings(BaseEmbeddingModel):
+    """
+    Implementation of embedding model using Google Gemini Embeddings.
+    
+    This class provides an interface to use Gemini-based embedding models
+    with the existing retrieval system.
+    """
+
+    _instances = {}  # Dictionary to store instances by model name
+    _default_model_name = "text-embedding-004"
+
+    def __new__(cls, model_name=None):
+        if not GEMINI_AVAILABLE:
+            raise ImportError(
+                "google-genai is required to use GeminiEmbeddings. "
+                "Please install it with: pip install google-genai"
+            )
+
+        model_name = model_name or cls._default_model_name
+        print(f"Using Gemini embedding model: {model_name}")
+
+        # Check if we already have an instance for this model
+        if model_name not in cls._instances:
+            instance = super(GeminiEmbeddings, cls).__new__(cls)
+            instance.model_name = model_name
+            instance.api_key = cls._get_api_key()
+            instance._client = genai.Client(api_key=instance.api_key)
+            cls._instances[model_name] = instance
+        
+        return cls._instances[model_name]
+
+    @staticmethod
+    def _get_api_key():
+        """Get API key from environment variables."""
+        import os
+        api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+        if not api_key:
+            raise ValueError(
+                "Gemini API key not found. Please set GEMINI_API_KEY or GOOGLE_API_KEY environment variable."
+            )
+        return api_key
+
+    def get_model(self):
+        """Get the Gemini client."""
+        return self._client
+
+    def encode(self, texts: Union[str, List[str]], **kwargs) -> np.ndarray:
+        """
+        Encode texts to create embeddings using Gemini model.
+
+        Args:
+            texts: Single text or list of texts to encode
+            **kwargs: Additional arguments (currently unused)
+
+        Returns:
+            Numpy array of embeddings
+        """
+        # Handle single text input
+        if isinstance(texts, str):
+            texts = [texts]
+
+        embeddings_list = []
+        
+        # Process texts in batches to handle API limits
+        batch_size = kwargs.get('batch_size', 100)  # Gemini has limits on batch size
+        
+        for i in range(0, len(texts), batch_size):
+            batch_texts = texts[i:i + batch_size]
+            
+            try:
+                # Use the embed_content method from Gemini API
+                result = self._client.models.embed_content(
+                    model=self.model_name,
+                    contents=batch_texts,
+                )
+                
+                # Extract embeddings from the result
+                batch_embeddings = []
+                if hasattr(result, 'embeddings'):
+                    # Handle multiple embeddings
+                    if isinstance(result.embeddings, list):
+                        for embedding in result.embeddings:
+                            if hasattr(embedding, 'values'):
+                                batch_embeddings.append(embedding.values)
+                            else:
+                                batch_embeddings.append(embedding)
+                    else:
+                        # Single embedding
+                        if hasattr(result.embeddings, 'values'):
+                            batch_embeddings.append(result.embeddings.values)
+                        else:
+                            batch_embeddings.append(result.embeddings)
+                else:
+                    raise ValueError("No embeddings found in Gemini API response")
+                
+                embeddings_list.extend(batch_embeddings)
+                
+            except Exception as e:
+                print(f"Error generating embeddings for batch {i//batch_size + 1}: {e}")
+                # Create zero embeddings as fallback
+                fallback_dim = 768  # Default embedding dimension
+                for _ in batch_texts:
+                    embeddings_list.append([0.0] * fallback_dim)
+
+        # Convert to numpy array
+        embeddings = np.array(embeddings_list, dtype=np.float32)
+        return embeddings
+
+    @classmethod
+    def get_model_by_name(cls, model_name=None):
+        """Get model by name (for backward compatibility)"""
+        instance = cls(model_name)
+        return instance.get_model()
+
+    @classmethod
+    def encode_by_name(cls, texts, model_name=None, **kwargs) -> np.ndarray:
+        """Encode texts using model by name (for backward compatibility)"""
+        instance = cls(model_name)
+        return instance.encode(texts, **kwargs)
+
+    @classmethod
+    def get_available_models(cls):
+        """
+        Get a list of available Gemini embedding models.
+        
+        Returns:
+            List[str]: List of model names
+        """
+        return [
+            "text-embedding-004",
+            "text-embedding-preview-0815",
+            "embedding-001",
+        ]
+
 
 ### RETRIEVERS ###
 

@@ -28,7 +28,7 @@ from typing import List, Tuple, Dict
 # Add the minions directory to the path
 sys.path.append(os.path.join(os.path.dirname(__file__), '../../minions'))
 
-from minions.utils.retrievers import bm25_retrieve_top_k_chunks, embedding_retrieve_top_k_chunks, SentenceTransformerEmbeddings, MLXEmbeddings
+from minions.utils.retrievers import bm25_retrieve_top_k_chunks, embedding_retrieve_top_k_chunks, SentenceTransformerEmbeddings, MLXEmbeddings, GeminiEmbeddings
 from minions.utils.multimodal_retrievers import retrieve_chunks_from_chroma
 from minions.clients.ollama import OllamaClient
 from pydantic import BaseModel
@@ -202,6 +202,7 @@ def search_documents(query, documents: List[str], file_paths: List[str], k: int 
         "bm25": _retrieve_bm25,
         "embedding": _retrieve_embedding,
         "mlx": _retrieve_mlx,
+        "gemini": _retrieve_gemini,
         "multimodal": _retrieve_multimodal
     }
     
@@ -268,6 +269,24 @@ def _retrieve_mlx(query: str, documents: List[str], k: int) -> List[str]:
         return embedding_retrieve_top_k_chunks([query], documents, k=k, embedding_model=mlx_model)
     except ImportError as e:
         print(f"Error: {e}")
+        print("Falling back to BM25...")
+        return _retrieve_bm25(query.split(), documents, k)
+
+
+def _retrieve_gemini(query: str, documents: List[str], k: int) -> List[str]:
+    """Gemini embedding retrieval using Google's Gemini embeddings."""
+    print("Using Gemini embedding retrieval with Google's Gemini API")
+    
+    try:
+        gemini_model = GeminiEmbeddings()
+        return embedding_retrieve_top_k_chunks([query], documents, k=k, embedding_model=gemini_model)
+    except ImportError as e:
+        print(f"Error: {e}")
+        print("Falling back to BM25...")
+        return _retrieve_bm25(query.split(), documents, k)
+    except ValueError as e:
+        print(f"Error: {e}")
+        print("Make sure to set GEMINI_API_KEY or GOOGLE_API_KEY environment variable.")
         print("Falling back to BM25...")
         return _retrieve_bm25(query.split(), documents, k)
 

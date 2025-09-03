@@ -72,6 +72,8 @@ class OpenAIClient(MinionsClient):
 
         self.tools = tools
         self.reasoning_effort = reasoning_effort
+        if "gpt5" in self.model_name and self.reasoning_effort == "low":
+            self.reasoning_effort = "minimal"
 
         # If we are using a local client, we want to check to see if the
         # local server is running or not

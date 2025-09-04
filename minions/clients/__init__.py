@@ -1,5 +1,6 @@
 from minions.clients.base import MinionsClient
 from minions.clients.ollama import OllamaClient, OllamaTurboClient
+from minions.clients.osaurus import OsaurusClient
 from minions.clients.lemonade import LemonadeClient
 from minions.clients.openai import OpenAIClient
 from minions.clients.azure_openai import AzureOpenAIClient
@@ -30,6 +31,7 @@ from minions.clients.vercel_gateway import VercelGatewayClient
 __all__ = [
     "OllamaClient",
     "OllamaTurboClient",
+    "OsaurusClient",
     "LemonadeClient",
     "OpenAIClient",
     "AzureOpenAIClient",

@@ -2,19 +2,23 @@
 """
 Document Search Script with Multiple Retrievers
 
-This script loads all .md files from a specified directory and uses different retrieval methods
+This script loads all text files from a specified directory and uses different retrieval methods
 to retrieve the top k most relevant documents based on a query.
 
 Supported retrievers:
 - bm25: Traditional keyword-based retrieval
 - embedding: Dense vector embeddings with SentenceTransformers + FAISS
 - mlx: Apple Silicon optimized embeddings with MLX
+- gemini: Google Gemini embeddings via API
+- embeddinggemma: Google EmbeddingGemma-300m model via SentenceTransformers
 - multimodal: ChromaDB + Ollama embeddings
 
 Usage:
   python local_rag_document_search.py --retriever bm25
   python local_rag_document_search.py --retriever embedding
   python local_rag_document_search.py --retriever mlx
+  python local_rag_document_search.py --retriever gemini
+  python local_rag_document_search.py --retriever embeddinggemma
   python local_rag_document_search.py --retriever multimodal
 """
 
@@ -34,8 +38,8 @@ from minions.clients.ollama import OllamaClient
 from pydantic import BaseModel
 
 
-class MeetingAnswer(BaseModel):
-    """Structured output for answering questions from meeting summaries"""
+class DocumentAnswer(BaseModel):
+    """Structured output for answering questions from documents using RAG"""
     answer: str
     citation: str
     confidence: str  # high, medium, low
@@ -129,12 +133,14 @@ Response: {"keywords": ["vendor", "website", "redesign", "selected"], "weights":
         return simple_keywords, simple_weights
 
 
-def load_markdown_files(directory_path: str) -> Tuple[List[str], List[str]]:
+def load_text_files(directory_path: str, file_extensions: List[str] = None) -> Tuple[List[str], List[str]]:
     """
-    Load all .md files from the specified directory.
+    Load all text files from the specified directory.
     
     Args:
-        directory_path: Path to the directory containing markdown files
+        directory_path: Path to the directory containing text files
+        file_extensions: List of file extensions to include (e.g., ['.md', '.txt', '.py'])
+                        If None, loads common text file types
         
     Returns:
         Tuple of (file_contents, file_paths) where:
@@ -146,28 +152,80 @@ def load_markdown_files(directory_path: str) -> Tuple[List[str], List[str]]:
     if not directory.exists():
         raise FileNotFoundError(f"Directory not found: {directory_path}")
     
-    # Find all .md files in the directory
-    md_files = list(directory.glob("*.md"))
+    # Default text file extensions if none specified
+    if file_extensions is None:
+        file_extensions = [
+            '.md', '.txt', '.py', '.js', '.ts', '.jsx', '.tsx', 
+            '.html', '.css', '.json', '.yaml', '.yml', '.xml',
+            '.rst', '.org', '.tex', '.log', '.cfg', '.ini',
+            '.sh', '.bash', '.zsh', '.fish', '.ps1', '.bat',
+            '.sql', '.r', '.rb', '.go', '.rs', '.cpp', '.c',
+            '.h', '.hpp', '.java', '.kt', '.swift', '.php',
+            '.pl', '.lua', '.vim', '.dockerfile', '.gitignore'
+        ]
     
-    if not md_files:
-        raise ValueError(f"No .md files found in {directory_path}")
+    # Find all files with specified extensions
+    all_files = []
+    for ext in file_extensions:
+        pattern = f"*{ext}" if ext.startswith('.') else f"*.{ext}"
+        all_files.extend(directory.glob(pattern))
+    
+    # Also include files without extensions (often text files)
+    for file_path in directory.iterdir():
+        if file_path.is_file() and not file_path.suffix and file_path not in all_files:
+            # Try to determine if it's a text file by attempting to read it
+            try:
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    f.read(100)  # Try to read first 100 chars
+                all_files.append(file_path)
+            except (UnicodeDecodeError, PermissionError):
+                # Skip binary files or files we can't read
+                continue
+    
+    if not all_files:
+        raise ValueError(f"No readable text files found in {directory_path}")
     
     file_contents = []
     file_paths = []
+    skipped_files = []
     
-    print(f"Loading markdown files from: {directory_path}")
-    print(f"Found {len(md_files)} .md files")
+    print(f"Loading text files from: {directory_path}")
+    print(f"Found {len(all_files)} potential text files")
+    print(f"Supported extensions: {', '.join(file_extensions[:10])}{'...' if len(file_extensions) > 10 else ''}")
     print("-" * 50)
     
-    for file_path in sorted(md_files):
+    for file_path in sorted(all_files):
         try:
             with open(file_path, 'r', encoding='utf-8') as f:
                 content = f.read()
+                
+                # Skip empty files
+                if not content.strip():
+                    skipped_files.append((file_path.name, "empty file"))
+                    continue
+                
+                # Skip very large files (>10MB) to avoid memory issues
+                if len(content) > 10 * 1024 * 1024:
+                    skipped_files.append((file_path.name, f"too large ({len(content)//1024//1024}MB)"))
+                    continue
+                
                 file_contents.append(content)
                 file_paths.append(str(file_path))
                 print(f"✓ Loaded: {file_path.name} ({len(content)} chars)")
+                
+        except UnicodeDecodeError:
+            skipped_files.append((file_path.name, "binary/non-text file"))
+        except PermissionError:
+            skipped_files.append((file_path.name, "permission denied"))
         except Exception as e:
-            print(f"✗ Error loading {file_path.name}: {e}")
+            skipped_files.append((file_path.name, str(e)))
+    
+    if skipped_files:
+        print(f"\nSkipped {len(skipped_files)} files:")
+        for filename, reason in skipped_files[:5]:  # Show first 5 skipped files
+            print(f"  ✗ {filename}: {reason}")
+        if len(skipped_files) > 5:
+            print(f"  ... and {len(skipped_files) - 5} more")
     
     print(f"\nSuccessfully loaded {len(file_contents)} documents")
     return file_contents, file_paths
@@ -203,6 +261,7 @@ def search_documents(query, documents: List[str], file_paths: List[str], k: int 
         "embedding": _retrieve_embedding,
         "mlx": _retrieve_mlx,
         "gemini": _retrieve_gemini,
+        "embeddinggemma": _retrieve_embeddinggemma,
         "multimodal": _retrieve_multimodal
     }
     
@@ -291,6 +350,26 @@ def _retrieve_gemini(query: str, documents: List[str], k: int) -> List[str]:
         return _retrieve_bm25(query.split(), documents, k)
 
 
+def _retrieve_embeddinggemma(query: str, documents: List[str], k: int) -> List[str]:
+    """EmbeddingGemma retrieval using Google's EmbeddingGemma-300m model."""
+    print("Using EmbeddingGemma-300m retrieval with SentenceTransformers")
+    
+    try:
+        # Use SentenceTransformerEmbeddings with EmbeddingGemma model
+        embeddinggemma_model = SentenceTransformerEmbeddings(model_name="google/embeddinggemma-300m")
+        return embedding_retrieve_top_k_chunks([query], documents, k=k, embedding_model=embeddinggemma_model)
+    except ImportError as e:
+        print(f"Error: {e}")
+        print("Make sure sentence-transformers is installed.")
+        print("Falling back to BM25...")
+        return _retrieve_bm25(query.split(), documents, k)
+    except Exception as e:
+        print(f"Error loading EmbeddingGemma model: {e}")
+        print("This might be due to model download or compatibility issues.")
+        print("Falling back to BM25...")
+        return _retrieve_bm25(query.split(), documents, k)
+
+
 def _retrieve_multimodal(query: str, documents: List[str], k: int) -> List[str]:
     """Multimodal retrieval using ChromaDB + Ollama."""
     print("Using multimodal retrieval with ChromaDB + Ollama")
@@ -304,18 +383,18 @@ def _retrieve_multimodal(query: str, documents: List[str], k: int) -> List[str]:
         return _retrieve_bm25(query.split(), documents, k)
 
 
-def answer_question_with_ollama(user_query: str, documents: List[str], file_paths: List[str], ollama_client: OllamaClient) -> MeetingAnswer:
+def answer_question_with_ollama(user_query: str, documents: List[str], file_paths: List[str], ollama_client: OllamaClient) -> DocumentAnswer:
     """
-    Answer a question using Ollama client with concatenated documents as context.
+    Answer a question using Ollama client with concatenated documents as context using RAG.
     
     Args:
         user_query: The user's question
-        documents: List of document contents (top k from BM25 search)
+        documents: List of document contents (top k from retrieval)
         file_paths: List of corresponding file paths
         ollama_client: Ollama client for generating the answer
         
     Returns:
-        MeetingAnswer with structured response
+        DocumentAnswer with structured response
     """
     # Concatenate documents with clear separators
     context_parts = []
@@ -325,27 +404,28 @@ def answer_question_with_ollama(user_query: str, documents: List[str], file_path
     
     concatenated_context = "\n".join(context_parts)
     
-    system_prompt = """You are an expert at analyzing meeting summaries and extracting specific information.
+    system_prompt = """You are an expert at analyzing documents and extracting specific information using retrieval-augmented generation.
 
-Your task is to answer questions based on the provided meeting summaries. Read through all the documents carefully and provide:
+Your task is to answer questions based on the provided documents. Read through all the documents carefully and provide:
 
 1. A direct, specific answer to the question
-2. An exact citation (quote) from the relevant meeting summary that supports your answer
+2. An exact citation (quote) from the relevant document that supports your answer
 3. Your confidence level (high, medium, low) in the answer
 
 Guidelines:
-- If the information is explicitly stated, use "high" confidence
-- If you need to infer from context, use "medium" confidence  
-- If the information is not clearly available, use "low" confidence and state what you found
-- For citations, use exact quotes from the documents
-- Be precise with numbers, dates, and specific details"""
+- If the information is explicitly stated in the documents, use "high" confidence
+- If you need to infer from context or combine information from multiple sources, use "medium" confidence  
+- If the information is not clearly available in the provided documents, use "low" confidence and state what you found
+- For citations, use exact quotes from the documents with clear attribution
+- Be precise with numbers, dates, and specific details when available
+- If the answer requires information not present in the documents, clearly state this limitation"""
 
     user_message = f"""Question: {user_query}
 
-Meeting Summaries:
+Documents:
 {concatenated_context}
 
-Please provide a structured answer with the specific information requested, an exact citation from the meetings, and your confidence level."""
+Please provide a structured answer with the specific information requested, an exact citation from the documents, and your confidence level."""
 
     messages = [
         {"role": "system", "content": system_prompt},
@@ -361,7 +441,7 @@ Please provide a structured answer with the specific information requested, an e
         
         # Parse the structured output
         if isinstance(response, list) and len(response) > 0:
-            if isinstance(response[0], MeetingAnswer):
+            if isinstance(response[0], DocumentAnswer):
                 return response[0]
             else:
                 # If not structured, try to parse the text response
@@ -372,7 +452,7 @@ Please provide a structured answer with the specific information requested, an e
                 try:
                     if answer_text.strip().startswith('{'):
                         parsed = json.loads(answer_text)
-                        return MeetingAnswer(
+                        return DocumentAnswer(
                             answer=parsed.get("answer", answer_text),
                             citation=parsed.get("citation", "No citation provided"),
                             confidence=parsed.get("confidence", "medium")
@@ -380,13 +460,13 @@ Please provide a structured answer with the specific information requested, an e
                 except:
                     pass
                 
-                return MeetingAnswer(
+                return DocumentAnswer(
                     answer=answer_text,
                     citation="Raw response - structured parsing failed",
                     confidence="medium"
                 )
         else:
-            return MeetingAnswer(
+            return DocumentAnswer(
                 answer="No response generated",
                 citation="N/A",
                 confidence="low"
@@ -394,7 +474,7 @@ Please provide a structured answer with the specific information requested, an e
             
     except Exception as e:
         print(f"Error getting answer from Ollama: {e}")
-        return MeetingAnswer(
+        return DocumentAnswer(
             answer=f"Error: {str(e)}",
             citation="N/A",
             confidence="low"
@@ -408,9 +488,18 @@ def parse_arguments():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  python local_rag_document_search.py --retriever bm25
-  python local_rag_document_search.py --retriever embedding
+  # Use BM25 with all supported text file types
+  python local_rag_document_search.py --retriever bm25 --documents-path ./docs
+  
+  # Use EmbeddingGemma with only Python and Markdown files
+  python local_rag_document_search.py --retriever embeddinggemma --documents-path ./src --file-extensions .py .md
+  
+  # Use embedding retriever with specific file types
+  python local_rag_document_search.py --retriever embedding --documents-path ./project --file-extensions .txt .json .yaml
+  
+  # Other retriever examples
   python local_rag_document_search.py --retriever mlx
+  python local_rag_document_search.py --retriever gemini
   python local_rag_document_search.py --retriever multimodal
         """
     )
@@ -419,7 +508,7 @@ Examples:
         "--retriever", 
         type=str, 
         default="bm25",
-        choices=["bm25", "embedding", "mlx", "multimodal"],
+        choices=["bm25", "embedding", "mlx", "gemini", "embeddinggemma", "multimodal"],
         help="Type of retriever to use (default: bm25)"
     )
 
@@ -433,21 +522,28 @@ Examples:
     parser.add_argument(
         "--query",
         type=str,
-        default="how many additional FTEs were approved in the executive team call?",
-        help="Search query (default: FTE approval question)"
+        default="What are the main topics discussed in these documents?",
+        help="Search query (default: generic document question)"
     )
     
     parser.add_argument(
         "--top-k",
         type=int,
         default=3,
-        help="Number of top results to return (default: 5)"
+        help="Number of top results to return (default: 3)"
     )
     
     parser.add_argument(
         "--documents-path",
         type=str,
-        help="Path to directory containing markdown files"
+        help="Path to directory containing text files"
+    )
+    
+    parser.add_argument(
+        "--file-extensions",
+        type=str,
+        nargs='+',
+        help="File extensions to include (e.g., --file-extensions .md .txt .py). If not specified, loads common text file types"
     )
     
     return parser.parse_args()
@@ -477,8 +573,8 @@ def main():
             )
             print("✓ Keyword generation client initialized")
         
-        # Load all markdown files
-        documents, file_paths = load_markdown_files(args.documents_path)
+        # Load all text files
+        documents, file_paths = load_text_files(args.documents_path, args.file_extensions)
         
         # Generate keywords using local model (only for BM25, other retrievers use the full query)
         if args.retriever == "bm25":
@@ -504,28 +600,18 @@ def main():
             print(f"   Path: {file_path}")
             print(f"   Preview: {preview}")
         
-        # Check if the expected file is in the results
-        expected_file = "6_executive_leadership_team_monthly_update.md"
-        found_expected = any(expected_file in result[0] for result in results)
-        
+        # Show search results summary
         print(f"\n{'='*70}")
-        print(f"Expected file '{expected_file}' found in results: {found_expected}")
+        print(f"Found {len(results)} relevant documents")
         
-        if found_expected:
-            # Find the rank of the expected file
-            for i, (file_path, _, score) in enumerate(results, 1):
-                if expected_file in file_path:
-                    print(f"Expected file ranked #{i} with {args.retriever.upper()} score: {score:.3f}")
-                    break
-        
-        # Show improvement from local model keyword generation
+        # Show search results summary
         print(f"\n{'='*70}")
         print("SEARCH RESULTS SUMMARY:")
         print(f"- User query: '{args.query}'")
         if args.retriever == "bm25":
             print(f"- Local AI-generated keywords: {search_query}")
         print(f"- Retriever type: {args.retriever}")
-        print(f"- Search success: {'Yes' if found_expected else 'No'}")
+        print(f"- Documents found: {len(results)}")
         
         # Initialize Ollama client for answering the question (can reuse the same client)
         print(f"\n{'='*70}")
@@ -538,7 +624,7 @@ def main():
             temperature=0.0,
             max_tokens=500,
             num_ctx=4096,  # Optimized context window (we know we need ~2400 tokens)
-            structured_output_schema=MeetingAnswer,
+            structured_output_schema=DocumentAnswer,
             use_async=False
         )
         print("✓ Answer generation client initialized")

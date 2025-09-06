@@ -2439,6 +2439,7 @@ with st.sidebar:
             default_model_index = 0
         elif selected_provider == "OpenRouter":
             model_mapping = {
+                "Qwen3 Max": "qwen/qwen3-max",
                 "Qwen3 235B A22B 2507": "qwen/qwen3-235b-a22b-07-25:free",
                 "Hermes 4 70B": "nousresearch/hermes-4-70b",
                 "Hermes 4 405B": "nousresearch/hermes-4-405b",

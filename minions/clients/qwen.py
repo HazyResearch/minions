@@ -9,7 +9,7 @@ import openai
 class QwenClient(MinionsClient):
     def __init__(
         self,
-        model_name: str = "qwen-plus",
+        model_name: str = "qwen3-max",
         api_key: Optional[str] = None,
         temperature: float = 0.0,
         max_tokens: int = 4096,

@@ -87,6 +87,7 @@ class NovitaClient(OpenAIClient):
             logging.error(f"Failed to get Novita model list: {e}")
             # Return some common models as fallback based on documentation
             return [
+                "moonshotai/kimi-k2-0905",
                 "deepseek/deepseek-v3.1",
                 "meta-llama/llama-3.1-8b-instruct",
                 "meta-llama/llama-3.1-70b-instruct",

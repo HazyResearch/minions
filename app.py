@@ -2477,7 +2477,7 @@ with st.sidebar:
                 "DeepSeek-R1": "deepseek-ai/DeepSeek-R1",
                 "Llama 3.3 70B": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
                 "QWQ-32B": "Qwen/QwQ-32B-Preview",
-                "Kimi K2 Instruct": "moonshot-ai/Kimi-K2-Instruct",
+                "Kimi K2 Instruct": "moonshotai/Kimi-K2-Instruct-0905",
                 "Llama 4 Maverick": "meta-llama/Llama-4-Maverick",
                 "Llama 4 Scout": "meta-llama/Llama-4-Scout",
                 "Gemma 3 27B": "google/Gemma-3-27B",

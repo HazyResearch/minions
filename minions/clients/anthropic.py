@@ -18,6 +18,8 @@ class AnthropicClient(MinionsClient):
         include_search_queries: bool = False,
         use_caching: bool = False,
         use_code_interpreter: bool = False,
+        use_thinking: bool = False,
+        thinking_budget_tokens: int = 10000,
         local: bool = False,
         **kwargs
     ):
@@ -28,11 +30,13 @@ class AnthropicClient(MinionsClient):
             model_name: The name of the model to use (default: "claude-3-sonnet-20240229")
             api_key: Anthropic API key (optional, falls back to environment variable if not provided)
             temperature: Sampling temperature (default: 0.2)
-            max_tokens: Maximum number of tokens to generate (default: 2048)
+            max_tokens: Maximum number of tokens to generate (default: 4096)
             use_web_search: Whether to enable web search functionality (default: False)
             include_search_queries: Whether to include search queries in the response (default: False)
             use_caching: Whether to use caching for the client (default: False)
             use_code_interpreter: Whether to use the code interpreter (default: False)
+            use_thinking: Whether to enable thinking mode (default: False)
+            thinking_budget_tokens: Token budget for thinking when enabled (default: 10000)
             **kwargs: Additional parameters passed to base class
         """
         super().__init__(
@@ -51,6 +55,8 @@ class AnthropicClient(MinionsClient):
         self.include_search_queries = include_search_queries
         self.use_code_interpreter = use_code_interpreter
         self.use_caching = use_caching
+        self.use_thinking = use_thinking
+        self.thinking_budget_tokens = thinking_budget_tokens
         
         # Initialize client with appropriate headers
         if self.use_code_interpreter:
@@ -99,6 +105,13 @@ class AnthropicClient(MinionsClient):
                 **kwargs,
             }
 
+            # Add thinking parameter if enabled
+            if self.use_thinking:
+                params["thinking"] = {
+                    "type": "enabled",
+                    "budget_tokens": self.thinking_budget_tokens
+                }
+
             # Add web search tool if enabled
             if self.use_web_search:
                 web_search_tool = {
@@ -130,15 +143,12 @@ class AnthropicClient(MinionsClient):
         )
 
         # Process response content
-        if (
-            self.use_web_search
-            and hasattr(response, "content")
-            and isinstance(response.content, list)
-        ):
-            # Handle structured response with potential web search results
+        if hasattr(response, "content") and isinstance(response.content, list):
+            # Handle structured response with potential web search results and thinking blocks
             full_text_parts = []
             citations_parts = []
             search_queries = []
+            thinking_parts = []
 
             for content_item in response.content:
                 # Handle text content
@@ -158,9 +168,16 @@ class AnthropicClient(MinionsClient):
                                 ):  # Avoid duplicates
                                     citations_parts.append(citation_text)
 
-                # Capture search queries
+                # Handle thinking content
+                elif content_item.type == "thinking":
+                    if hasattr(content_item, "thinking"):
+                        thinking_summary = f"Thinking summary: {content_item.thinking}"
+                        thinking_parts.append(thinking_summary)
+
+                # Capture search queries (only if web search is enabled)
                 elif (
-                    content_item.type == "server_tool_use"
+                    self.use_web_search
+                    and content_item.type == "server_tool_use"
                     and content_item.name == "web_search"
                 ):
                     search_query = (
@@ -173,17 +190,28 @@ class AnthropicClient(MinionsClient):
             # Combine all text parts
             full_text = " ".join(full_text_parts).strip()
 
-            # Add search queries and citations if present
-            result_text = full_text
+            # Build result text with thinking, main content, search queries, and citations
+            result_parts = []
+            
+            # Add thinking summaries if present
+            if thinking_parts:
+                result_parts.extend(thinking_parts)
+            
+            # Add main response text
+            if full_text:
+                result_parts.append(full_text)
 
-            if self.include_search_queries and search_queries:
-                result_text += "\n\n" + "\n".join(search_queries)
+            # Add search queries if enabled and present
+            if self.use_web_search and self.include_search_queries and search_queries:
+                result_parts.extend(search_queries)
 
+            # Add citations if present
             if citations_parts:
-                result_text += "\n\n" + "\n".join(citations_parts)
+                result_parts.extend(citations_parts)
+
+            result_text = "\n\n".join(result_parts) if result_parts else ""
 
             if self.local:
-                # For web search, we can use "stop" as finish reason
                 return [result_text], usage, ["stop"]
             else:
                 return [result_text], usage

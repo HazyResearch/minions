@@ -217,6 +217,37 @@ class DockerModelRunnerClient(MinionsClient):
         else:
             raise RuntimeError(f"Unexpected response format from Docker Model Runner: {result}")
 
+    def embeddings(self, input_text: str, model: str = None) -> List[float]:
+        """
+        Generate embeddings for the given input text.
+        
+        Args:
+            input_text: The text to generate embeddings for
+            model: The model to use for embeddings (defaults to self.model_name)
+            
+        Returns:
+            List[float]: The embedding vector
+        """
+        model_to_use = model or self.model_name
+        payload = {
+            "model": model_to_use,
+            "input": input_text
+        }
+        
+        try:
+            resp = requests.post(f"{self.base_url}/engines/llama.cpp/v1/embeddings", json=payload, timeout=self.timeout)
+            if resp.ok:
+                result = resp.json()
+                if "data" in result and len(result["data"]) > 0:
+                    return result["data"][0]["embedding"]
+                else:
+                    raise RuntimeError(f"Unexpected embeddings response format: {result}")
+            else:
+                resp.raise_for_status()
+        except requests.exceptions.ConnectionError:
+            raise RuntimeError(f"Cannot connect to Docker Model Runner at {self.base_url}. Is Docker Desktop running with Model Runner enabled?")
+
+
     def __del__(self):
         # No need to clean up processes since Docker Desktop manages the service
         pass

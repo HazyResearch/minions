@@ -1,6 +1,7 @@
 import logging
 from typing import Any, Dict, List, Optional, Tuple
 import os
+import re
 import anthropic
 
 from minions.usage import Usage
@@ -59,11 +60,15 @@ class AnthropicClient(MinionsClient):
         self.thinking_budget_tokens = thinking_budget_tokens
         
         # Initialize client with appropriate headers
+        beta_headers = []
         if self.use_code_interpreter:
+            beta_headers.append("code-execution-2025-05-22")
+            
+        if beta_headers:
             self.client = anthropic.Anthropic(
                 api_key=self.api_key,
                 default_headers={
-                    "anthropic-beta": "code-execution-2025-05-22"
+                    "anthropic-beta": ",".join(beta_headers)
                 }
             )
         else:
@@ -71,6 +76,34 @@ class AnthropicClient(MinionsClient):
 
         self.system_prompt = "You are a helpful assistant that can answer questions and help with tasks. Your outputs should be structured JSON objects. Follow the instructions in the user's message to generate the JSON object."
           
+
+    def _detect_urls_in_messages(self, messages: List[Dict[str, Any]]) -> bool:
+        """
+        Detect if there are any URLs in the messages.
+        
+        Args:
+            messages: List of message dictionaries
+            
+        Returns:
+            bool: True if URLs are found, False otherwise
+        """
+        url_pattern = re.compile(
+            r'http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\\(\\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+'
+        )
+        
+        for message in messages:
+            content = message.get('content', '')
+            if isinstance(content, str):
+                if url_pattern.search(content):
+                    return True
+            elif isinstance(content, list):
+                # Handle structured content (like with caching)
+                for item in content:
+                    if isinstance(item, dict) and item.get('type') == 'text':
+                        text_content = item.get('text', '')
+                        if url_pattern.search(text_content):
+                            return True
+        return False
 
     def chat(self, messages: List[Dict[str, Any]], **kwargs) -> Tuple[List[str], Usage]:
         """
@@ -86,6 +119,25 @@ class AnthropicClient(MinionsClient):
         assert len(messages) > 0, "Messages cannot be empty."
 
         try:
+            # Detect if URLs are present in messages
+            has_urls = self._detect_urls_in_messages(messages)
+            
+            # Create a new client with web fetch support if URLs detected
+            if has_urls:
+                beta_headers = []
+                if self.use_code_interpreter:
+                    beta_headers.append("code-execution-2025-05-22")
+                beta_headers.append("web-fetch-2025-09-10")
+                
+                client_for_request = anthropic.Anthropic(
+                    api_key=self.api_key,
+                    default_headers={
+                        "anthropic-beta": ",".join(beta_headers)
+                    }
+                )
+            else:
+                client_for_request = self.client
+            
             if self.use_caching:
                 final_message = messages[-1]
                 final_message["content"] =[ {
@@ -121,6 +173,16 @@ class AnthropicClient(MinionsClient):
                 }
                 params["tools"] = params.get("tools", []) + [web_search_tool]
 
+            # Add web fetch tool if URLs detected
+            if has_urls:
+                web_fetch_tool = {
+                    "type": "web_fetch_20250910",
+                    "name": "web_fetch",
+                    "max_uses": kwargs.get("max_web_fetch_uses", 5),
+                    "citations": {"enabled": True}
+                }
+                params["tools"] = params.get("tools", []) + [web_fetch_tool]
+
             if self.use_code_interpreter:
                 code_interpreter_tool = {
                     "type": "code_execution_20250522",
@@ -131,7 +193,7 @@ class AnthropicClient(MinionsClient):
                 else:
                     params["tools"] = [code_interpreter_tool]
 
-            response = self.client.messages.create(**params)
+            response = client_for_request.messages.create(**params)
         except Exception as e:
             self.logger.error(f"Error during Anthropic API call: {e}")
             raise
@@ -185,6 +247,26 @@ class AnthropicClient(MinionsClient):
                     )
                     search_queries.append(search_query)
 
+                # Capture web fetch queries (when URLs are detected)
+                elif (
+                    has_urls
+                    and content_item.type == "server_tool_use"
+                    and content_item.name == "web_fetch"
+                ):
+                    fetch_url = content_item.input.get('url', '')
+                    if fetch_url:
+                        search_queries.append(f"Fetched content from: {fetch_url}")
+
+                # Handle web fetch tool results
+                elif content_item.type == "web_fetch_tool_result":
+                    if hasattr(content_item, "content") and content_item.content:
+                        fetch_content = content_item.content
+                        if hasattr(fetch_content, "url"):
+                            # Add URL info to citations if not already present
+                            url_citation = f"Source: {fetch_content.url}"
+                            if url_citation not in citations_parts:
+                                citations_parts.append(url_citation)
+
                 # We skip web_search_tool_result as the relevant information will be in citations
 
             # Combine all text parts
@@ -202,7 +284,7 @@ class AnthropicClient(MinionsClient):
                 result_parts.append(full_text)
 
             # Add search queries if enabled and present
-            if self.use_web_search and self.include_search_queries and search_queries:
+            if (self.use_web_search or has_urls) and self.include_search_queries and search_queries:
                 result_parts.extend(search_queries)
 
             # Add citations if present

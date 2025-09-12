@@ -1,12 +1,23 @@
 try:
     from minions.clients.ollama import OllamaClient
 except:
-    print("OllamaClient is not installed. Please install it using `pip install ollama`.")
+    print(
+        "OllamaClient is not installed. Please install it using `pip install ollama`."
+    )
 
 try:
     import chromadb
 except:
     print("chromadb is not installed. Please install it using `pip install chromadb`.")
+
+try:
+    from qdrant_client import QdrantClient
+    from qdrant_client.models import Distance, VectorParams, PointStruct
+    from qdrant_client.http import models
+except:
+    print(
+        "qdrant-client is not installed. Please install it using `pip install qdrant-client`."
+    )
 
 from datetime import datetime
 import os
@@ -380,6 +391,156 @@ class ChromaDBCollection:
         return self.collection.count()
 
 
+class QdrantCollection:
+    def __init__(
+        self,
+        embedding_model: str = "llava",
+        collection_name: Optional[str] = None,
+        qdrant_url: str = "http://localhost:6333",
+        api_key: Optional[str] = None,
+        client: Optional[QdrantClient] = None,
+    ) -> None:
+        """
+        Initialize a Qdrant client and collection.
+
+        :param embedding_model: name of the local ollama model used to embed text, images, etc.
+        :param collection_name: name of the collection/index this client should create, defaults
+            to a hash of the current date timestamp and embedding model
+        :param qdrant_url: URL of the Qdrant server (default: http://localhost:6333)
+        :param api_key: API key for Qdrant Cloud (optional for local instances)
+        :param client: Optional existing QdrantClient instance. If provided, qdrant_url and api_key are ignored.
+        """
+        if collection_name is None:
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            collection_name = f"{embedding_model}_{timestamp}"
+
+        self.embedding_model = embedding_model
+        self.collection_name = collection_name
+        self.client = client or QdrantClient(url=qdrant_url, api_key=api_key)
+
+        self._collection_exists = self.client.collection_exists(self.collection_name)
+
+    def _embedding_from_result(
+        self, point: models.ScoredPoint
+    ) -> Union[TextEmbedding, ImageEmbedding, VideoEmbedding]:
+        """Converts Qdrant query result to Embedding Object."""
+        metadata = point.payload
+        embedding_type = metadata["type"]
+
+        if embedding_type == "text":
+            return TextEmbedding(
+                embedding=point.vector,
+                text_body=metadata["content"],
+                file_path=metadata["content_path"],
+            )
+        elif embedding_type == "image":
+            return ImageEmbedding(
+                embedding=point.vector,
+                image_path=metadata["content_path"],
+                upload=metadata["upload"],
+            )
+        elif embedding_type == "video":
+            return VideoEmbedding(
+                embedding=point.vector,
+                video_path=metadata["content_path"],
+                upload=metadata["upload"],
+            )
+        else:
+            return None
+
+    def delete_collection(self) -> bool:
+        """
+        Delete the current collection from Qdrant.
+
+        :returns Whether the collection was successfully deleted
+        """
+        if self._collection_exists:
+            self.client.delete_collection(self.collection_name)
+            self._collection_exists = False
+            return True
+        else:
+            return False
+
+    def add_entries(
+        self,
+        embeddings: List[Union[TextEmbedding, ImageEmbedding, VideoEmbedding]],
+    ) -> List[str]:
+        """
+        Add entries to the Qdrant collection.
+
+        :param embeddings: list of document embeddings to add, must be either TextEmbedding, ImageEmbedding, or
+            VideoEmbedding object
+        :returns List of ids of added entries
+        """
+        if not embeddings:
+            return []
+
+        points, ids = [], []
+
+        for embedding in embeddings:
+            import uuid
+
+            point_id = str(uuid.uuid4())
+            ids.append(point_id)
+
+            embedding_metadata = embedding.to_dict()
+            embedding_metadata["model"] = self.embedding_model
+
+            point = models.PointStruct(
+                id=point_id, vector=embedding.embedding, payload=embedding_metadata
+            )
+            points.append(point)
+
+        if not self._collection_exists:
+            first_vector = points[0].vector
+            self.client.create_collection(
+                collection_name=self.collection_name,
+                vectors_config=VectorParams(
+                    size=len(first_vector), distance=Distance.COSINE
+                ),
+            )
+            self._collection_exists = True
+            print(
+                f"Created collection {self.collection_name} with auto-detected vector size {len(first_vector)}"
+            )
+
+        self.client.upsert(collection_name=self.collection_name, points=points)
+
+        return ids
+
+    def retrieve(
+        self, query: TextEmbedding, top_k: int
+    ) -> List[Tuple[Union[TextEmbedding, ImageEmbedding, VideoEmbedding], float]]:
+        """
+        Retrieve entries from the Qdrant collection based on query.
+
+        :param query: embedding object (TextEmbedding) of query
+        :param top_k: number of top K documents to query from Qdrant collection
+        :returns List of top N most relevant documents and their distance to the query in a tuple, either
+            TextEmbedding, ImageEmbedding, or VideoEmbedding object
+        """
+
+        search_results = self.client.query_points(
+            collection_name=self.collection_name,
+            query=query.embedding,
+            limit=top_k,
+            with_payload=True,
+            with_vectors=True,
+        ).points
+
+        results = []
+        for result in search_results:
+            embedding_obj = self._embedding_from_result(result)
+            if embedding_obj:
+                results.append((embedding_obj, result.score))
+
+        return results
+
+    def collection_size(self) -> int:
+        """Return number of entries in current collection."""
+        return self.client.count(collection_name=self.collection_name).count
+
+
 @clear_system_cache_after
 def embed_and_add(
     chromadb: ChromaDBCollection, content: str, content_type: str, upload=False, path=""
@@ -424,6 +585,48 @@ def embed_and_retrieve(chromadb: ChromaDBCollection, query_text: str, top_k: int
     return results
 
 
+def embed_and_add_qdrant(
+    qdrant: QdrantCollection, content: str, content_type: str, upload=False, path=""
+) -> List[str]:
+    """
+    Embed content and add embeddings to the Qdrant collection.
+
+    :param qdrant: QdrantCollection instance to add embeddings to
+    :param content: content to embed (text, image bytes, or video bytes)
+    :param content_type: type of content ('text', 'image', or 'video')
+    :param upload: whether to upload media content to S3 (only applicable for image/video)
+    :param path: local path for media content (required if upload=False for image/video)
+    :returns Embedding Object and ids of added entry
+    """
+    embedder = MultiModalEmbedder(model_name=qdrant.embedding_model)
+
+    embedding = embedder.generate_embedding(
+        content=content, content_type=content_type, upload=upload, path=path
+    )
+
+    return embedding, qdrant.add_entries([embedding])
+
+
+def embed_and_retrieve_qdrant(
+    qdrant: QdrantCollection, query_text: str, top_k: int = 1
+):
+    """
+    Embed query string find most relevant entries from the Qdrant collection.
+
+    :param qdrant: QdrantCollection instance to add embeddings to
+    :param query_text: query to search collection by
+    :param content_type: type of query_body ('text', 'image', or 'video')
+    :param top_k: number of most relevant entries to retrieve
+    :returns List of top_k most relevant Embedding Objects
+    """
+    embedder = MultiModalEmbedder(model_name=qdrant.embedding_model)
+    query_embedding = embedder.generate_embedding(
+        content=query_text, content_type="text"
+    )
+    results = qdrant.retrieve(query=query_embedding, top_k=top_k)
+    return results
+
+
 def retrieve_chunks_from_chroma(
     chunks, keywords, embedding_model="granite3.2-vision", k=10
 ):
@@ -439,5 +642,45 @@ def retrieve_chunks_from_chroma(
     search_results = embed_and_retrieve(collection, query_text=query, top_k=k)
     relevant_chunks = []
     for result in search_results:
+        relevant_chunks.append(result.content)
+    return relevant_chunks
+
+
+def retrieve_chunks_from_qdrant(
+    chunks,
+    keywords,
+    embedding_model="granite3.2-vision",
+    k=10,
+    qdrant_url="http://localhost:6333",
+    api_key=None,
+    client=None,
+):
+    """
+    Retrieve chunks from Qdrant vector database.
+
+    :param chunks: List of text chunks to embed and search through
+    :param keywords: List of keywords to construct query from
+    :param embedding_model: Model name for embedding generation
+    :param k: Number of top results to return
+    :param qdrant_url: URL of the Qdrant server
+    :param api_key: API key for Qdrant Cloud (optional for local instances)
+    :param client: Optional existing QdrantClient instance
+    :returns List of relevant chunks
+    """
+    collection = QdrantCollection(
+        embedding_model=embedding_model,
+        qdrant_url=qdrant_url,
+        api_key=api_key,
+        client=client,
+    )
+
+    for i, chunk in enumerate(chunks):
+        embed_and_add_qdrant(collection, content=chunk, content_type="text", path="")
+
+    query = " ".join(keywords)
+
+    search_results = embed_and_retrieve_qdrant(collection, query_text=query, top_k=k)
+    relevant_chunks = []
+    for result, _ in search_results:
         relevant_chunks.append(result.content)
     return relevant_chunks

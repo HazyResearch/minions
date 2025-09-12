@@ -106,7 +106,7 @@ API_PRICES = {
     "Grok": {
         "grok-2": {"input": 2.00, "cached_input": 1.00, "output": 10.00},
         "grok-3": {"input": 3.00, "cached_input": 1.50, "output": 15.00},
-        "grok-code-fast": {"input": 0.20 "cached_input": 0.02, "output": 1.5},
+        "grok-code-fast": {"input": 0.20, "cached_input": 0.02, "output": 1.5},
         "grok-3-fast": {"input": 5.00, "cached_input": 2.50, "output": 25.00},
         "grok-3-mini": {"input": 0.30, "cached_input": 0.15, "output": 0.50},
         "grok-4-0709": {"input": 4.00, "cached_input": 2.00, "output": 20.00},
@@ -2197,6 +2197,7 @@ with st.sidebar:
         elif local_provider == "Transformers":
             local_model_options = {
                 "Jan-v1-Edge": "janhq/Jan-v1-edge",
+                "K2-Thinking": "LLM360/K2-Thinking",
                 "MedGemma 4B (Recommended)": "google/medgemma-4b-it",
                 "SmallThinker-4BA0.6B-Instruct": "PowerInfer/SmallThinker-4BA0.6B-Instruct",
                 "MiniCPM4-8B": "openbmb/MiniCPM4-8B",

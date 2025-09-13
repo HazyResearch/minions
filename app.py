@@ -192,6 +192,7 @@ API_PRICES = {
     # Together AI model pricing per 1M tokens
     "Together": {
         "deepseek-ai/DeepSeek-R1-0528": {"input": 0.27, "cached_input": 0.07, "output": 1.10},
+        "Qwen/Qwen3-Next-80B-A3B-Thinking": {"input": 0.15, "cached_input": 0.15, "output": 1.50},
         "Qwen/Qwen3-235B-A22B-Instruct-2507-FP8": {"input": 1.20, "cached_input": 0.30, "output": 1.20},
         "chatgpt-oss-120b": {"input": 1.20, "cached_input": 0.30, "output": 1.20},
         "THUDM/GLM-4.5-Air": {"input": 0.20, "cached_input": 0.05, "output": 0.80},
@@ -2469,6 +2470,7 @@ with st.sidebar:
         elif selected_provider == "Together":
             model_mapping = {
                 "DeepSeek-R1-0528 (Recommended)": "deepseek-ai/DeepSeek-R1-0528",
+                "Qwen3-Next-80B-A3B-Thinking": "Qwen/Qwen3-Next-80B-A3B-Thinking",
                 "Qwen3 235B A22B Instruct 2507 FP8 (Recommended)": "Qwen/Qwen3-235B-A22B-Instruct-2507-FP8",
                 "GPT-OSS 120B": "chatgpt-oss-120b",
                 "GLM-4.5-Air": "THUDM/GLM-4.5-Air",

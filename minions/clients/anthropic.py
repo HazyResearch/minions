@@ -11,7 +11,7 @@ from minions.clients.base import MinionsClient
 class AnthropicClient(MinionsClient):
     def __init__(
         self,
-        model_name: str = "claude-3-sonnet-20240229",
+        model_name: str = "claude-opus-4-20250514",
         api_key: Optional[str] = None,
         temperature: float = 0.2,
         max_tokens: int = 4096,
@@ -28,7 +28,7 @@ class AnthropicClient(MinionsClient):
         Initialize the Anthropic client.
 
         Args:
-            model_name: The name of the model to use (default: "claude-3-sonnet-20240229")
+            model_name: The name of the model to use (default: "claude-opus-4-20250514")
             api_key: Anthropic API key (optional, falls back to environment variable if not provided)
             temperature: Sampling temperature (default: 0.2)
             max_tokens: Maximum number of tokens to generate (default: 4096)

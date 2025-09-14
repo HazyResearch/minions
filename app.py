@@ -2462,9 +2462,6 @@ with st.sidebar:
                 "Claude 4.1 Opus": "claude-opus-4-1-20250805",
                 "Claude 4 Sonnet (Recommended)": "claude-sonnet-4-20250514",
                 "claude-3-7-sonnet-latest (Recommended for web search)": "claude-3-7-sonnet-latest",
-                "claude-3-5-sonnet-latest": "claude-3-5-sonnet-latest",
-                "claude-3-5-haiku-latest": "claude-3-5-haiku-latest",
-                "claude-3-opus-latest": "claude-3-opus-latest",
             }
             default_model_index = 0
         elif selected_provider == "Together":

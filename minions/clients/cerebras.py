@@ -20,6 +20,7 @@ class CerebrasClient:
         temperature: float = 0.0,
         max_tokens: int = 4096,
         base_url: Optional[str] = None,
+        reasoning_effort="low", #low, medium, high
         local: bool = False,
     ):
         '''
@@ -39,6 +40,8 @@ class CerebrasClient:
         self.temperature = temperature
         self.max_tokens = max_tokens
         self.local = local
+        self.reasoning_effort = reasoning_effort
+
         
         # Initialize the Cerebras client
         client_kwargs = {}
@@ -68,6 +71,7 @@ class CerebrasClient:
                 "messages": messages,
                 "max_tokens": self.max_tokens,
                 "temperature": self.temperature,
+                "reasoning_effort": self.reasoning_effort,
                 **kwargs,
             }
 

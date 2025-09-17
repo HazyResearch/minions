@@ -2199,6 +2199,7 @@ with st.sidebar:
             local_model_options = {
                 "Jan-v1-Edge": "janhq/Jan-v1-edge",
                 "K2-Thinking": "LLM360/K2-Thinking",
+                "Ring-mini-2.0": "inclusionAI/Ring-mini-2.0",
                 "MedGemma 4B (Recommended)": "google/medgemma-4b-it",
                 "SmallThinker-4BA0.6B-Instruct": "PowerInfer/SmallThinker-4BA0.6B-Instruct",
                 "MiniCPM4-8B": "openbmb/MiniCPM4-8B",

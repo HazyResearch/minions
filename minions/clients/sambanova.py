@@ -15,6 +15,7 @@ class SambanovaClient(MinionsClient):
         max_tokens: int = 4096,
         base_url: str = "https://api.sambanova.ai/v1",
         local: bool = False,
+        reasoning_effort=None, #low, medium, high
         **kwargs
     ):
         """
@@ -41,6 +42,7 @@ class SambanovaClient(MinionsClient):
         # Client-specific configuration
         self.api_key = api_key or os.getenv("SAMBANOVA_API_KEY")
         self.base_url = base_url
+        self.reasoning_effort = reasoning_effort
 
     def chat(self, messages: List[Dict[str, Any]], **kwargs) -> Tuple[List[str], Usage]:
         """
@@ -64,6 +66,7 @@ class SambanovaClient(MinionsClient):
                 "messages": messages,
                 "max_tokens": self.max_tokens,
                 "temperature": self.temperature,
+                **({"reasoning_effort": self.reasoning_effort} if self.reasoning_effort is not None else {}),
                 **kwargs,
             }
 

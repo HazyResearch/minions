@@ -8,6 +8,7 @@ pathlib
 sentence-transformers
 faiss-cpu
 chromadb
+qdrant-client
 
 # MLX dependencies (Apple Silicon only)
 mlx

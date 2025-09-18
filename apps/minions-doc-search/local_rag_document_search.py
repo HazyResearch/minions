@@ -12,6 +12,7 @@ Supported retrievers:
 - gemini: Google Gemini embeddings via API
 - embeddinggemma: Google EmbeddingGemma-300m model via SentenceTransformers
 - multimodal: ChromaDB + Ollama embeddings
+- qdrant: Qdrant + Ollama embeddings
 
 Usage:
   python local_rag_document_search.py --retriever bm25
@@ -20,6 +21,7 @@ Usage:
   python local_rag_document_search.py --retriever gemini
   python local_rag_document_search.py --retriever embeddinggemma
   python local_rag_document_search.py --retriever multimodal
+  python local_rag_document_search.py --retriever qdrant
 """
 
 import os
@@ -33,7 +35,7 @@ from typing import List, Tuple, Dict
 sys.path.append(os.path.join(os.path.dirname(__file__), '../../minions'))
 
 from minions.utils.retrievers import bm25_retrieve_top_k_chunks, embedding_retrieve_top_k_chunks, SentenceTransformerEmbeddings, MLXEmbeddings, GeminiEmbeddings
-from minions.utils.multimodal_retrievers import retrieve_chunks_from_chroma
+from minions.utils.multimodal_retrievers import retrieve_chunks_from_chroma, retrieve_chunks_from_qdrant
 from minions.clients.ollama import OllamaClient
 from pydantic import BaseModel
 
@@ -240,7 +242,7 @@ def search_documents(query, documents: List[str], file_paths: List[str], k: int 
         documents: List of document contents (treated as chunks)
         file_paths: List of corresponding file paths
         k: Number of top results to return
-        retriever_type: Type of retriever to use ("bm25", "embedding", "mlx", "multimodal")
+        retriever_type: Type of retriever to use ("bm25", "embedding", "mlx", "multimodal", "qdrant")
         weights: Dictionary of keyword weights for BM25 retrieval
         
     Returns:
@@ -262,7 +264,8 @@ def search_documents(query, documents: List[str], file_paths: List[str], k: int 
         "mlx": _retrieve_mlx,
         "gemini": _retrieve_gemini,
         "embeddinggemma": _retrieve_embeddinggemma,
-        "multimodal": _retrieve_multimodal
+        "multimodal": _retrieve_multimodal,
+        "qdrant": _retrieve_qdrant
     }
     
     if retriever_type not in retrievers:
@@ -377,6 +380,19 @@ def _retrieve_multimodal(query: str, documents: List[str], k: int) -> List[str]:
     try:
         keywords = query.split()
         return retrieve_chunks_from_chroma(documents, keywords, embedding_model="llama3.2", k=k)
+    except Exception as e:
+        print(f"Error: {e}")
+        print("Falling back to BM25...")
+        return _retrieve_bm25(query.split(), documents, k)
+
+
+def _retrieve_qdrant(query: str, documents: List[str], k: int) -> List[str]:
+    """Qdrant retrieval using Qdrant + Ollama."""
+    print("Using Qdrant retrieval with Qdrant + Ollama")
+    
+    try:
+        keywords = query.split()
+        return retrieve_chunks_from_qdrant(documents, keywords, embedding_model="llama3.2", k=k)
     except Exception as e:
         print(f"Error: {e}")
         print("Falling back to BM25...")
@@ -501,6 +517,7 @@ Examples:
   python local_rag_document_search.py --retriever mlx
   python local_rag_document_search.py --retriever gemini
   python local_rag_document_search.py --retriever multimodal
+  python local_rag_document_search.py --retriever qdrant
         """
     )
     
@@ -508,7 +525,7 @@ Examples:
         "--retriever", 
         type=str, 
         default="bm25",
-        choices=["bm25", "embedding", "mlx", "gemini", "embeddinggemma", "multimodal"],
+        choices=["bm25", "embedding", "mlx", "gemini", "embeddinggemma", "multimodal", "qdrant"],
         help="Type of retriever to use (default: bm25)"
     )
 

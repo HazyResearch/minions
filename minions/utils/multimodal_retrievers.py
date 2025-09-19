@@ -398,7 +398,7 @@ class QdrantCollection:
         collection_name: Optional[str] = None,
         qdrant_url: str = "http://localhost:6333",
         api_key: Optional[str] = None,
-        client: Optional[QdrantClient] = None,
+        client: Optional[Any] = None,
     ) -> None:
         """
         Initialize a Qdrant client and collection.
@@ -421,7 +421,7 @@ class QdrantCollection:
         self._collection_exists = self.client.collection_exists(self.collection_name)
 
     def _embedding_from_result(
-        self, point: models.ScoredPoint
+        self, point: Any
     ) -> Union[TextEmbedding, ImageEmbedding, VideoEmbedding]:
         """Converts Qdrant query result to Embedding Object."""
         metadata = point.payload

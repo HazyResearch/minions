@@ -2445,6 +2445,7 @@ with st.sidebar:
         elif selected_provider == "OpenRouter":
             model_mapping = {
                 "Qwen3 Max": "qwen/qwen3-max",
+                "grok-4-fast": "x-ai/grok-4-fast",
                 "Qwen3 235B A22B 2507": "qwen/qwen3-235b-a22b-07-25:free",
                 "Hermes 4 70B": "nousresearch/hermes-4-70b",
                 "Hermes 4 405B": "nousresearch/hermes-4-405b",
@@ -2506,6 +2507,8 @@ with st.sidebar:
         elif selected_provider == "Grok":
             model_mapping = {
                 "grok-4-0709 (Recommended)": "grok-4-0709",
+                "grok-4-fast-reasoning": "grok-4-fast-reasoning",
+                "grok-4-fast-non-reasoning": "grok-4-fast-non-reasoning",
                 "grok-3": "grok-3",
                 "grok-code-fast": "grok-code-fast-1",
                 "grok-3-fast": "grok-3-fast",

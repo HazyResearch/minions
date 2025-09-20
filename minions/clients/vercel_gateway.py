@@ -17,7 +17,7 @@ class VercelGatewayClient(OpenAIClient):
 
     def __init__(
         self,
-        model_name: str = "anthropic/claude-sonnet-4",
+        model_name: str = "xai/grok-4",
         api_key: Optional[str] = None,
         temperature: float = 0.0,
         max_tokens: int = 4096,

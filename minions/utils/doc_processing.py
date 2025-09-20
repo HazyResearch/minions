@@ -92,7 +92,7 @@ def pdf_to_images(
 def img_to_markdown_smoldocling(
     image_data: Union[str, Path, Image.Image, bytes],
     prompt: str = "Convert this page to docling.",
-    model_path: str = "ds4sd/SmolDocling-256M-preview-mlx-bf16",
+    model_path: str = "ibm-granite/granite-docling-258M-mlx",
     verbose: bool = False,
     max_tokens: int = 4096,
     model_and_processor=None,
@@ -288,7 +288,7 @@ def _generate_markdown_with_transformers(
 
     # Adjust model path for transformers if needed
     if "mlx" in model_path:
-        model_path = "ds4sd/SmolDocling-256M-preview"
+        model_path = "ibm-granite/granite-docling-258M-mlx"
 
     # Load the model if not provided
     if model_and_processor is None:
@@ -345,7 +345,7 @@ def _generate_markdown_with_transformers(
 def process_pdf_to_markdown(
     pdf_data: Union[str, Path, bytes],
     prompt: str = "Convert this page to docling.",
-    model_path: str = "ds4sd/SmolDocling-256M-preview-mlx-bf16",
+    model_path: str = "ibm-granite/granite-docling-258M",
     verbose: bool = False,
     max_tokens: int = 4096,
     return_type: str = "string",
@@ -380,7 +380,7 @@ def process_pdf_to_markdown(
     elif not use_mlx and HAS_TRANSFORMERS:
         # Adjust model path for transformers if needed
         if "mlx" in model_path:
-            transformers_model_path = "ds4sd/SmolDocling-256M-preview"
+            transformers_model_path = "ibm-granite/granite-docling-258M"
         else:
             transformers_model_path = model_path
 

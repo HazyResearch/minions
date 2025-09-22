@@ -208,6 +208,12 @@ API_PRICES = {
         "meta-llama/Llama-4-Scout": {"input": 1.09, "cached_input": 0.27, "output": 1.09},
         "google/Gemma-3-27B": {"input": 0.27, "cached_input": 0.07, "output": 0.27},
     },
+    # Ollama Turbo model pricing per 1M tokens
+    "Ollama": {
+        "gpt-oss:20b-cloud": {"input": 1.20, "cached_input": 0.30, "output": 1.20},
+        "gpt-oss:120b-cloud": {"input": 0.60, "cached_input": 0.15, "output": 0.60},
+        "deepseek-v3.1:671b-cloud": {"input": 0.20, "cached_input": 0.05, "output": 0.20},
+    },
 }
 
 PROVIDER_TO_ENV_VAR_KEY = {
@@ -220,6 +226,7 @@ PROVIDER_TO_ENV_VAR_KEY = {
     "Groq": "GROQ_API_KEY",
     "Grok": "XAI_API_KEY",
     "DeepSeek": "DEEPSEEK_API_KEY",
+    "Ollama": "OLLAMA_TURBO_API_KEY",
     "Firecrawl": "FIRECRAWL_API_KEY",
     "SERP": "SERPAPI_API_KEY",
     "SambaNova": "SAMBANOVA_API_KEY",
@@ -957,6 +964,13 @@ def initialize_clients(
             max_tokens=int(remote_max_tokens),
             api_key=api_key,
         )
+    elif provider == "Ollama":
+        st.session_state.remote_client = OllamaTurboClient(
+            model_name=remote_model_name,
+            temperature=remote_temperature,
+            max_tokens=int(remote_max_tokens),
+            api_key=api_key,
+        )
     elif provider == "Secure":
         # Get secure endpoint URL from session state or environment
         secure_endpoint_url = st.session_state.get("secure_endpoint_url") or os.getenv(
@@ -1538,6 +1552,21 @@ def validate_qwen_key(api_key):
         return False, str(e)
 
 
+def validate_ollama_key(api_key):
+    try:
+        client = OllamaTurboClient(
+            model_name="gpt-oss:20b",
+            api_key=api_key,
+            temperature=0.0,
+            max_tokens=1,
+        )
+        messages = [{"role": "user", "content": "Say yes"}]
+        client.chat(messages)
+        return True, ""
+    except Exception as e:
+        return False, str(e)
+
+
 def validate_secure_endpoint(endpoint_url):
     """Validate secure endpoint by checking if it uses HTTPS and is reachable."""
     try:
@@ -1600,6 +1629,7 @@ with st.sidebar:
             "LlamaAPI",
             "Sarvam",
             "Qwen",
+            "Ollama",
             "Secure",
         ]
         selected_provider = st.selectbox(
@@ -1670,6 +1700,8 @@ with st.sidebar:
             is_valid, msg = validate_sarvam_key(api_key)
         elif selected_provider == "Qwen":
             is_valid, msg = validate_qwen_key(api_key)
+        elif selected_provider == "Ollama":
+            is_valid, msg = validate_ollama_key(api_key)
         elif selected_provider == "Secure":
             # For secure client, validate the endpoint instead of API key
             secure_endpoint_url = st.session_state.get(
@@ -2545,6 +2577,13 @@ with st.sidebar:
                 "qwen3-235b-a22b-instruct-2507": "qwen3-235b-a22b-instruct-2507",
             }
             default_model_index = 0
+        elif selected_provider == "Ollama":
+            model_mapping = {
+                "deepseek-v3.1:671b": "deepseek-v3.1:671b-cloud",
+                "gpt-oss:120b-cloud": "gpt-oss:120b-cloud",
+                "qwen3-coder:480b-cloud": "qwen3-coder:480b-cloud",
+            }
+            default_model_index = 0
         elif selected_provider == "Secure":
             # Get secure endpoint URL from session state or environment
             secure_endpoint_url = st.session_state.get(
@@ -3179,7 +3218,7 @@ else:
                     # Display cost information for supported providers
                     if (
                         selected_provider
-                        in ["OpenAI", "AzureOpenAI", "Anthropic", "DeepSeek", "LlamaAPI", "Together"]
+                        in ["OpenAI", "AzureOpenAI", "Anthropic", "DeepSeek", "LlamaAPI", "Together", "Ollama"]
                         and remote_model_name in API_PRICES[selected_provider]
                     ):
                         st.header("Remote Model Cost")

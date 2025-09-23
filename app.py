@@ -117,6 +117,10 @@ API_PRICES = {
         "deepseek-chat": {"input": 0.27, "cached_input": 0.07, "output": 1.10},
         "deepseek-reasoner": {"input": 0.27, "cached_input": 0.07, "output": 1.10},
     },
+    # Novita AI pricing per 1M tokens
+    "Novita": {
+        "deepseek/deepseek-v3.1-terminus": {"input": 0.27, "cached_input": 0.27, "output": 1.00},
+    },
     "Anthropic": {
         "claude-opus-4-1-20250805": {"input": 15.00, "cached_input": 1.50, "output": 75.00},
     },
@@ -226,6 +230,7 @@ PROVIDER_TO_ENV_VAR_KEY = {
     "Groq": "GROQ_API_KEY",
     "Grok": "XAI_API_KEY",
     "DeepSeek": "DEEPSEEK_API_KEY",
+    "Novita": "NOVITA_API_KEY",
     "Ollama": "OLLAMA_TURBO_API_KEY",
     "Firecrawl": "FIRECRAWL_API_KEY",
     "SERP": "SERPAPI_API_KEY",
@@ -926,6 +931,14 @@ def initialize_clients(
             max_tokens=int(remote_max_tokens),
             api_key=api_key,
         )
+    elif provider == "Novita":
+        st.session_state.remote_client = OpenAIClient(
+            model_name=remote_model_name,
+            temperature=remote_temperature,
+            max_tokens=int(remote_max_tokens),
+            api_key=api_key,
+            base_url="https://api.novita.ai/openai",
+        )
     elif provider == "SambaNova":
         st.session_state.remote_client = SambanovaClient(
             model_name=remote_model_name,
@@ -1477,6 +1490,23 @@ def validate_deepseek_key(api_key):
         return False, str(e)
 
 
+def validate_novita_key(api_key):
+    try:
+        # Novita uses OpenAI-compatible API, so we can use OpenAI client with custom base URL
+        client = OpenAIClient(
+            model_name="deepseek/deepseek-v3.1-terminus",
+            api_key=api_key,
+            temperature=0.0,
+            max_tokens=1,
+            base_url="https://api.novita.ai/openai"
+        )
+        messages = [{"role": "user", "content": "Say yes"}]
+        client.chat(messages)
+        return True, ""
+    except Exception as e:
+        return False, str(e)
+
+
 def validate_azure_openai_key(api_key):
     """Validate Azure OpenAI API key by checking if it's not empty."""
     if not api_key:
@@ -1624,6 +1654,7 @@ with st.sidebar:
             "Groq",
             "Grok",
             "DeepSeek",
+            "Novita",
             "SambaNova",
             "Gemini",
             "LlamaAPI",
@@ -1690,6 +1721,8 @@ with st.sidebar:
             is_valid, msg = validate_grok_key(api_key)
         elif selected_provider == "DeepSeek":
             is_valid, msg = validate_deepseek_key(api_key)
+        elif selected_provider == "Novita":
+            is_valid, msg = validate_novita_key(api_key)
         elif selected_provider == "SambaNova":
             is_valid, msg = validate_sambanova_key(api_key)
         elif selected_provider == "Gemini":
@@ -2057,9 +2090,10 @@ with st.sidebar:
         "OpenRouter",
         "Anthropic",
         "DeepSeek",
+        "Novita",
         "SambaNova",
         "LlamaAPI",
-    ]:  # Added LlamaAPI and Anthropic to the list
+    ]:  # Added LlamaAPI, Anthropic, and Novita to the list
         # Currently Lemonade does not support Minion-CUA
         # TODO: Once the protocol support is added to the
         # Lemonade client, remove this check
@@ -2552,6 +2586,11 @@ with st.sidebar:
             model_mapping = {
                 "deepseek-chat (Recommended)": "deepseek-chat",
                 "deepseek-reasoner": "deepseek-reasoner",
+            }
+            default_model_index = 0
+        elif selected_provider == "Novita":
+            model_mapping = {
+                "deepseek/deepseek-v3.1-terminus (Recommended)": "deepseek/deepseek-v3.1-terminus",
             }
             default_model_index = 0
         elif selected_provider == "LlamaAPI":
@@ -3218,7 +3257,7 @@ else:
                     # Display cost information for supported providers
                     if (
                         selected_provider
-                        in ["OpenAI", "AzureOpenAI", "Anthropic", "DeepSeek", "LlamaAPI", "Together", "Ollama"]
+                        in ["OpenAI", "AzureOpenAI", "Anthropic", "DeepSeek", "Novita", "LlamaAPI", "Together", "Ollama"]
                         and remote_model_name in API_PRICES[selected_provider]
                     ):
                         st.header("Remote Model Cost")

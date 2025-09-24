@@ -2610,7 +2610,8 @@ with st.sidebar:
             default_model_index = 0
         elif selected_provider == "Qwen":
             model_mapping = {
-                "qwen-plus (Recommended)": "qwen-plus",
+                "qwen3-max (Recommended)": "qwen3-max",
+                "qwen-plus": "qwen-plus",
                 "qwen3-coder-plus": "qwen3-coder-plus",
                 "qwen-max": "qwen-max",
                 "qwen3-235b-a22b-instruct-2507": "qwen3-235b-a22b-instruct-2507",

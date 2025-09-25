@@ -33,6 +33,13 @@ try:
 except ImportError:
     HAS_TRANSFORMERS = False
 
+# Try to import LangExtract for entity extraction
+try:
+    import langextract as lx
+    HAS_LANGEXTRACT = True
+except ImportError:
+    HAS_LANGEXTRACT = False
+
 
 def pdf_to_images(
     pdf_data: Union[str, Path, bytes], dpi: int = 300
@@ -416,3 +423,91 @@ def process_pdf_to_markdown(
         return "\n".join(markdown_pages)
     else:
         return markdown_pages
+
+
+
+def extract_entities_from_text(
+    text_or_documents: Union[str, List[str]],
+    entity_types: Optional[List[str]] = None,
+    prompt_description: str = "extract all entities",
+    model_id: str = "gpt-4o",
+    api_key: Optional[str] = None,
+    examples: Optional[List] = None,
+    verbose: bool = False,
+) -> List[str]:
+    """
+    Extract specific entity types from text and return as a simple list.
+    
+    Args:
+        text: Input text to process
+        entity_types: List of entity types to extract (e.g., ["person", "location"])
+        model_id: Model to use
+        api_key: API key for the model
+        verbose: Whether to print progress
+        
+    Returns:
+        List of extracted entity strings
+    """
+    if not HAS_LANGEXTRACT:
+        raise ImportError(
+            "LangExtract is not installed. Install with 'pip install langextract'"
+        )
+    
+    if entity_types is None:
+        entity_types = ["person", "organization", "location"]
+    
+    # Create prompt based on entity types
+    prompt = f"extract all {', '.join(entity_types)} entities"
+    
+    # Create examples based on entity types
+    examples = [
+        lx.data.ExampleData(
+            text="Dr. Sarah Johnson works at General Hospital with Dr. Michael Chen.",
+            extractions=[
+                lx.data.Extraction(
+                    extraction_class="person",
+                    extraction_text="Dr. Sarah Johnson",
+                ),
+                lx.data.Extraction(
+                    extraction_class="person", 
+                    extraction_text="Dr. Michael Chen",
+                ),
+                lx.data.Extraction(
+                    extraction_class="organization",
+                    extraction_text="General Hospital",
+                ),
+                lx.data.Extraction(
+                    extraction_class="location",
+                    extraction_text="New York City",
+                ),
+                lx.data.Extraction(
+                    extraction_class="date",
+                    extraction_text="March 15, 2024",
+                ),
+            ]
+        )
+    ]
+
+    
+    # Extract entities
+    result = extract_entities_simple(
+        text_or_documents=text,
+        prompt_description=prompt,
+        model_id=model_id,
+        api_key=api_key,
+        examples=examples,
+        verbose=verbose,
+    )
+    
+    # Extract just the text from results
+    entities = []
+    if hasattr(result, 'extractions'):
+        entities = [extraction.extraction_text for extraction in result.extractions]
+    elif hasattr(result, 'data'):
+        # Handle different result formats
+        if isinstance(result.data, list):
+            entities = [str(item) for item in result.data]
+        else:
+            entities = [str(result.data)]
+    
+    return entities

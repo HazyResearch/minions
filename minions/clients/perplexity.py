@@ -1,10 +1,17 @@
 import logging
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 import os
 import openai
 
 from minions.usage import Usage
 from minions.clients.base import MinionsClient
+
+try:
+    from perplexity import Perplexity
+except ImportError:
+    Perplexity = None
+
+
 
 
 class PerplexityAIClient(MinionsClient):
@@ -117,6 +124,36 @@ class PerplexityAIClient(MinionsClient):
 
         # The content is now nested under message
         return [choice.message.content for choice in response.choices], usage
+
+    def search(self, query: Union[str, List[str]], **kwargs) -> SearchResponse:
+        """
+        Perform a search using Perplexity's search capabilities.
+        
+        Args:
+            query: A single query string or list of query strings to search for
+            **kwargs: Additional arguments to pass to the search API
+            
+        Returns:
+            SearchResponse: Object containing search results with title and URL for each result
+        """
+        # Ensure query is a list
+        search_client = Perplexity(api_key=self.api_key)
+
+        if isinstance(query, str):
+            queries = [query]
+        else:
+            queries = query
+            
+        try:
+            search = search_client.search(query=queries, **kwargs)
+            results = search.results
+            return results
+            
+            
+        except Exception as e:
+            self.logger.error(f"Error during Perplexity search: {e}")
+            # Return empty results on error
+            return []
 
     @staticmethod
     def get_available_models():

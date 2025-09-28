@@ -5,6 +5,7 @@ from pydantic import BaseModel
 from typing import Any, Dict, List, Optional, Union, Tuple
 import json
 import re
+import ollama
 
 from minions.usage import Usage
 from minions.clients.base import MinionsClient
@@ -329,6 +330,48 @@ class OllamaClient(MinionsClient):
             return texts, usage_total, done_reasons
         else:
             return texts, usage_total
+
+    def search(self, query: str, max_results: int = 5) -> Dict[str, Any]:
+        """
+        Class method to perform web search using Ollama's web search API.
+        
+        Args:
+            query: The search query to execute
+            max_results: Maximum number of search results to return (default: 5)
+            
+        Returns:
+            Dict containing search results or error information
+        """
+        try:
+            
+            result = ollama.web_search(query=query, max_results=max_results)
+            
+            if hasattr(result, 'results'):
+                return {
+                    "success": True,
+                    "results": result.results,
+                    "query": query,
+                    "count": len(result.results)
+                }
+            else:
+                return {
+                    "success": False,
+                    "error": "No results attribute in response",
+                    "query": query
+                }
+                
+        except ImportError:
+            return {
+                "success": False,
+                "error": "Web search functionality not available. Please update ollama library to version >= 0.6.0",
+                "query": query
+            }
+        except Exception as e:
+            return {
+                "success": False,
+                "error": str(e),
+                "query": query
+            }
 
     def schat(
         self,

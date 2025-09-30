@@ -125,7 +125,7 @@ class PerplexityAIClient(MinionsClient):
         # The content is now nested under message
         return [choice.message.content for choice in response.choices], usage
 
-    def search(self, query: Union[str, List[str]], **kwargs) -> SearchResponse:
+    def search(self, query: Union[str, List[str]], **kwargs):
         """
         Perform a search using Perplexity's search capabilities.
         

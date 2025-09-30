@@ -1073,10 +1073,6 @@ def initialize_clients(
 
         # Test if the class is correctly initialized
         print(f"Method type: {type(st.session_state.method).__name__}")
-    elif protocol == "Entity Extraction":
-        # Entity Extraction protocol doesn't need a specific method class
-        # We'll handle it directly in run_protocol
-        st.session_state.method = None
     else:  # Minion protocol
         st.session_state.method = Minion(
             st.session_state.local_client,
@@ -1317,93 +1313,6 @@ def run_protocol(
                 firecrawl_api_key=st.session_state.get("firecrawl_api_key"),
                 serpapi_key=st.session_state.get("serpapi_api_key"),
             )
-        elif protocol == "Entity Extraction":
-            # Handle Entity Extraction protocol
-            from minions.utils.doc_processing import extract_entities_with_langextract, HAS_LANGEXTRACT
-            
-            if not HAS_LANGEXTRACT:
-                output = {
-                    "final_answer": "❌ LangExtract is not installed. Please install with: pip install langextract",
-                    "error": "Missing dependency"
-                }
-            else:
-                try:
-                    # Get entity types from session state or use defaults
-                    entity_types = st.session_state.get('selected_entity_types', ['person', 'organization', 'location', 'date'])
-                    
-                    # Get API key from environment or session state
-                    api_key = os.getenv('LANGEXTRACT_API_KEY') or st.session_state.get('langextract_api_key')
-                    
-                    # Get model from session state or determine based on API key
-                    model_id = st.session_state.get('langextract_model')
-                    if not model_id:
-                        if api_key:
-                            model_id = "gemini-2.5-flash"
-                        else:
-                            model_id = "gemma2:2b"  # Ollama model
-                    
-                    # Get extraction parameters from session state
-                    temperature = st.session_state.get('extraction_temperature', 0.1)
-                    max_tokens = st.session_state.get('max_extraction_tokens', 4096)
-                    
-                    # Perform entity extraction
-                    results = extract_entities_with_langextract(
-                        text_or_documents=context,
-                        entity_types=entity_types,
-                        model_id=model_id,
-                        api_key=api_key,
-                        temperature=temperature,
-                        max_tokens=max_tokens,
-                        verbose=True
-                    )
-                    
-                    # Format results for display
-                    formatted_results = []
-                    total_entities = 0
-                    
-                    for entity_type, data in results.items():
-                        entities = data.get('entities', [])
-                        success = data.get('metadata', {}).get('success', False)
-                        
-                        if success and entities:
-                            formatted_results.append(f"\n## {entity_type.upper()} ENTITIES ({len(entities)} found):")
-                            for i, entity in enumerate(entities, 1):
-                                if isinstance(entity, dict):
-                                    formatted_results.append(f"{i}. {entity}")
-                                else:
-                                    formatted_results.append(f"{i}. {entity}")
-                            total_entities += len(entities)
-                        elif not success:
-                            error_msg = data.get('metadata', {}).get('error', 'Unknown error')
-                            formatted_results.append(f"\n## {entity_type.upper()} ENTITIES: ❌ Extraction failed - {error_msg}")
-                        else:
-                            formatted_results.append(f"\n## {entity_type.upper()} ENTITIES: No entities found")
-                    
-                    final_answer = f"""# 🔍 Entity Extraction Results
-
-**Task:** {task}
-
-**Total Entities Found:** {total_entities}
-
-**Model Used:** {model_id}
-
-{''.join(formatted_results)}
-
----
-*Extracted using LangExtract with structured entity recognition*
-"""
-                    
-                    output = {"final_answer": final_answer}
-                    
-                except Exception as e:
-                    error_msg = f"Entity extraction failed: {str(e)}"
-                    if "api_key" in str(e).lower():
-                        error_msg += "\n💡 Tip: Set LANGEXTRACT_API_KEY environment variable or use a local model"
-                    
-                    output = {
-                        "final_answer": f"❌ {error_msg}",
-                        "error": str(e)
-                    }
         elif protocol == "Minion-CUA":
             # For CUA, let's be clear about automation capabilities
             st.info("💡 Using Computer User Automation to physically control your Mac")
@@ -2189,7 +2098,7 @@ with st.sidebar:
         # TODO: Once the protocol support is added to the
         # Lemonade client, remove this check
         if local_provider == "Lemonade":
-            protocol_options = ["Minion", "Minions", "Minions-MCP", "DeepResearch", "Entity Extraction"]
+            protocol_options = ["Minion", "Minions", "Minions-MCP", "DeepResearch"]
         else:
             protocol_options = [
                 "Minion",
@@ -2197,7 +2106,6 @@ with st.sidebar:
                 "Minions-MCP",
                 "Minion-CUA",
                 "DeepResearch",
-                "Entity Extraction",
             ]
         protocol = st.segmented_control(
             "Communication protocol", options=protocol_options, default="Minion"
@@ -2294,82 +2202,6 @@ with st.sidebar:
         use_bm25 = False
         max_jobs_per_round = 2048
         st.session_state.chunk_fn = "chunk_by_section"  # Default value
-
-    # Add Entity Extraction settings when Entity Extraction is selected
-    if protocol == "Entity Extraction":
-        st.subheader("🔍 Entity Extraction Settings")
-        
-        # Entity type selection
-        entity_type_options = {
-            "Person": "person",
-            "Organization": "organization", 
-            "Location": "location",
-            "Date/Time": "date",
-            "Medical": "medical",
-            "Financial": "financial"
-        }
-        
-        selected_entity_types = st.multiselect(
-            "Entity Types to Extract",
-            options=list(entity_type_options.keys()),
-            default=["Person", "Organization", "Location", "Date/Time"],
-            help="Select which types of entities to extract from the document"
-        )
-        
-        # Store selected entity types in session state
-        st.session_state.selected_entity_types = [entity_type_options[et] for et in selected_entity_types]
-        
-        # API key input for LangExtract
-        langextract_api_key = st.text_input(
-            "LangExtract API Key (Optional)",
-            type="password",
-            value=st.session_state.get("langextract_api_key", ""),
-            help="API key for cloud models. Leave empty to use local Ollama models.",
-            key="langextract_api_key_input"
-        )
-        
-        # Model selection
-        if langextract_api_key or os.getenv('LANGEXTRACT_API_KEY'):
-            model_options = ["gemini-2.5-flash", "gpt-4o", "claude-3-sonnet"]
-            default_model = "gemini-2.5-flash"
-        else:
-            model_options = ["gemma2:2b", "llama3.2:3b", "qwen2.5:7b"]
-            default_model = "gemma2:2b"
-            
-        selected_model = st.selectbox(
-            "Model for Entity Extraction",
-            options=model_options,
-            index=0,
-            help="Select the model to use for entity extraction"
-        )
-        
-        st.session_state.langextract_model = selected_model
-        
-        # Advanced settings
-        with st.expander("⚙️ Advanced Settings"):
-            extraction_temperature = st.slider(
-                "Temperature",
-                min_value=0.0,
-                max_value=1.0,
-                value=0.1,
-                step=0.1,
-                help="Lower values make extraction more consistent, higher values more creative"
-            )
-            
-            max_extraction_tokens = st.number_input(
-                "Max Tokens",
-                min_value=512,
-                max_value=8192,
-                value=4096,
-                step=256,
-                help="Maximum tokens for entity extraction"
-            )
-            
-            st.session_state.extraction_temperature = extraction_temperature
-            st.session_state.max_extraction_tokens = max_extraction_tokens
-        
-        # Info about LangExtract
-        st.info("💡 **About Entity Extraction**: Uses Google's LangExtract library for structured entity recognition with precise source grounding. Supports both cloud and local models.")
 
     # Add MCP server selection when Minions-MCP is selected
     if protocol == "Minions-MCP":
@@ -2695,9 +2527,10 @@ with st.sidebar:
             default_model_index = 0
         elif selected_provider == "Anthropic":
             model_mapping = {
+                "Claude 4.5 Sonnet (Recommended)": " claude-sonnet-4-5",
                 "Claude 4 Opus (Recommended)": "claude-opus-4-20250514",
                 "Claude 4.1 Opus": "claude-opus-4-1-20250805",
-                "Claude 4 Sonnet (Recommended)": "claude-sonnet-4-20250514",
+                "Claude 4 Sonnet": "claude-sonnet-4-20250514",
                 "claude-3-7-sonnet-latest (Recommended for web search)": "claude-3-7-sonnet-latest",
             }
             default_model_index = 0

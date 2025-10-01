@@ -2591,7 +2591,9 @@ with st.sidebar:
             default_model_index = 0
         elif selected_provider == "Novita":
             model_mapping = {
-                "deepseek/deepseek-v3.1-terminus (Recommended)": "deepseek/deepseek-v3.1-terminus",
+                "GLM 4.6": "zai-org/glm-4.6",
+                "Deepseek V3.2 Exp": "deepseek/deepseek-v3.2-exp",
+                "Deepseek V3.1 Terminus (Recommended)": "deepseek/deepseek-v3.1-terminus",
             }
             default_model_index = 0
         elif selected_provider == "LlamaAPI":

@@ -2346,6 +2346,10 @@ with st.sidebar:
             # Initialize with default model options
             local_model_options = {
                 "llama3.2 (Recommended)": "llama3.2",
+                "granite4 micro": "granite4:micro",
+                "granite4 micro-h": "granite4:micro-h",
+                "granite4 tiny-h": "granite4:tiny-h",
+                "granite4 small-h": "granite4:small-h",
                 "llama3.1:8b (Recommended)": "llama3.1:8b",
                 "gemma3n:e2b": "gemma3n:e2b",
                 "gemma3n:e4b": "gemma3n:e4b",

@@ -23,6 +23,7 @@ from minions.clients.docker_model_runner import DockerModelRunnerClient
 from minions.clients.lemonade import LemonadeClient
 from minions.clients.distributed_inference import DistributedInferenceClient
 from minions.clients.novita import NovitaClient
+from minions.clients.parallel import ParallelClient
 from minions.clients.tencent import TencentClient
 from minions.clients.cloudflare import CloudflareGatewayClient
 from minions.clients.notdiamond import NotDiamondAIClient
@@ -53,6 +54,7 @@ __all__ = [
     "DockerModelRunnerClient",
     "DistributedInferenceClient",
     "NovitaClient",
+    "ParallelClient",
     "TencentClient",
     "CloudflareGatewayClient",
     "NotDiamondAIClient",

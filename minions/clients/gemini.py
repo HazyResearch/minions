@@ -129,8 +129,6 @@ class GeminiClient(MinionsClient):
                     "gemini-2.5-flash-lite",
                     "gemini-2.0-flash",
                     "gemini-2.0-pro",
-                    "gemini-1.5-pro",
-                    "gemini-1.5-flash",
                 ]
 
             client = genai.Client(api_key=api_key)

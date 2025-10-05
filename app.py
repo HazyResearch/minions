@@ -2244,6 +2244,7 @@ with st.sidebar:
         if local_provider == "MLX":
             local_model_options = {
                 "SmolLM3-3B-8bit (Recommended)": "mlx-community/SmolLM3-3B-8bit",
+                "GLM-4.5-Air-mxfp4": "mlx-community/GLM-4.5-Air-mxfp4",
                 "Qwen3-0.6B-MLX-4bit": "Qwen/Qwen3-0.6B-MLX-4bit",
                 "Qwen3-1.7B-MLX-bf16": "Qwen/Qwen3-1.7B-MLX-bf16",
                 "Qwen3-14B-MLX-8bit": "Qwen/Qwen3-14B-MLX-8bit",

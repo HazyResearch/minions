@@ -98,6 +98,7 @@ API_PRICES = {
         "o4-mini": {"input": 1.10, "cached_input": 0.275, "output": 4.40},
         # --- GPT-5 ---
         "gpt-5": {"input": 1.25, "cached_input": 0.125, "output": 10.00},
+        "gpt-5-pro": {"input": 15.00, "cached_input": 2.50, "output": 120.00},
         "gpt-5-mini": {"input": 0.25, "cached_input": 0.025, "output": 2.00},
         "gpt-5-nano": {"input": 0.05, "cached_input": 0.005, "output": 0.40},
         "gpt-5-chat-latest": {"input": 1.25, "cached_input": 0.125, "output": 10.00},
@@ -2438,6 +2439,7 @@ with st.sidebar:
                 "o1-pro": "o1-pro",
                 # GPT-5 family
                 "gpt-5": "gpt-5",
+                "gpt-5-pro": "gpt-5-pro-2025-10-06",
                 "gpt-5-mini": "gpt-5-mini",
                 "gpt-5-nano": "gpt-5-nano",
                 "gpt-5-chat-latest": "gpt-5-chat-latest",

@@ -2265,6 +2265,7 @@ with st.sidebar:
             }
         elif local_provider == "Transformers":
             local_model_options = {
+                "Jamba-Reasoning-3B": "ai21labs/AI21-Jamba-Reasoning-3B",
                 "LFM2-8B-A1B": "LiquidAI/LFM2-8B-A1B",
                 "Jan-v1-Edge": "janhq/Jan-v1-edge",
                 "K2-Thinking": "LLM360/K2-Thinking",

@@ -1,9 +1,15 @@
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 from minions.usage import Usage
 from minions.clients.base import MinionsClient
 import logging
 import os
-import openai
+try:
+    from sambanova import SambaNova
+except ImportError:
+    raise ImportError(
+        "sambanova is required for SambanovaClient. "
+        "Install it with: pip install sambanova"
+    )
 
 
 class SambanovaClient(MinionsClient):
@@ -43,6 +49,7 @@ class SambanovaClient(MinionsClient):
         self.api_key = api_key or os.getenv("SAMBANOVA_API_KEY")
         self.base_url = base_url
         self.reasoning_effort = reasoning_effort
+        self.client = SambaNova(base_url=self.base_url, api_key=self.api_key)
 
     def chat(self, messages: List[Dict[str, Any]], **kwargs) -> Tuple[List[str], Usage]:
         """
@@ -58,8 +65,7 @@ class SambanovaClient(MinionsClient):
         assert len(messages) > 0, "Messages cannot be empty."
 
         try:
-            # Create OpenAI client with SambaNova base URL
-            client = openai.OpenAI(base_url=self.base_url, api_key=self.api_key)
+        
 
             params = {
                 "model": self.model_name,
@@ -74,7 +80,7 @@ class SambanovaClient(MinionsClient):
             # logprobs, top_logprobs, n, presence_penalty, frequency_penalty, logit_bias, seed
             # These will be ignored if passed
 
-            response = client.chat.completions.create(**params)
+            response = self.client.chat.completions.create(**params)
         except Exception as e:
             self.logger.error(f"Error during SambaNova API call: {e}")
             raise
@@ -93,3 +99,39 @@ class SambanovaClient(MinionsClient):
             return [choice.message.content for choice in response.choices], usage, finish_reasons
         else:
             return [choice.message.content for choice in response.choices], usage
+
+    def embed(
+        self, 
+        content: Union[str, List[str]], 
+        model: str = "E5-Mistral-7B-Instruct",
+        **kwargs
+    ) -> List[List[float]]:
+        """
+        Generate embeddings using SambaNova's embedding API.
+        
+        Args:
+            content: Text content to embed (single string or list of strings)
+            model: Embedding model to use (default: "E5-Mistral-7B-Instruct")
+            **kwargs: Additional parameters for the embeddings API
+            
+        Returns:
+            List of embedding vectors
+        """
+        try:
+            
+            # Ensure content is a list for consistent handling
+            if isinstance(content, str):
+                content = [content]
+            
+            response = self.client.embeddings.create(
+                model=model,
+                input=content,
+                **kwargs
+            )
+            
+            # Extract embeddings from response
+            return [embedding.embedding for embedding in response.data]
+            
+        except Exception as e:
+            self.logger.error(f"Error during SambaNova embedding API call: {e}")
+            raise

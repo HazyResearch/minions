@@ -83,22 +83,26 @@ st.markdown(
 )
 
 API_PRICES = {
-    # OpenAI model pricing per 1M tokens
+    # OpenAI model pricing per 1M tokens (Updated October 2025)
     "OpenAI": {
+        # GPT-4o Series
         "gpt-4o": {"input": 2.50, "cached_input": 1.25, "output": 10.00},
         "gpt-4o-mini": {"input": 0.15, "cached_input": 0.075, "output": 0.60},
-        "gpt-4.5-preview": {"input": 75.00, "cached_input": 37.50, "output": 150.00},
-        "o3-mini": {"input": 1.10, "cached_input": 0.55, "output": 4.40},
+        # GPT-4.5 Series
+        "gpt-4.5-preview": {"input": 1.50, "cached_input": 0.75, "output": 6.00},
+        # GPT-4.1 Series
+        "gpt-4.1": {"input": 3.00, "cached_input": 0.75, "output": 12.00},
+        "gpt-4.1-mini": {"input": 0.80, "cached_input": 0.20, "output": 3.20},
+        "gpt-4.1-nano": {"input": 0.20, "cached_input": 0.05, "output": 0.80},
+        # Reasoning Models (o-series)
         "o1": {"input": 15.00, "cached_input": 7.50, "output": 60.00},
         "o1-pro": {"input": 150.00, "cached_input": 7.50, "output": 600.00},
-        "gpt-4.1": {"input": 2.00, "cached_input": 0.50, "output": 8.00},
-        "gpt-4.1-mini": {"input": 0.40, "cached_input": 0.10, "output": 1.60},
-        "gpt-4.1-nano": {"input": 0.10, "cached_input": 0.025, "output": 0.40},
-        "o3": {"input": 10.0, "cached_input": 2.50, "output": 40.00},
-        "o4-mini": {"input": 1.10, "cached_input": 0.275, "output": 4.40},
-        # --- GPT-5 ---
+        "o3": {"input": 10.00, "cached_input": 2.50, "output": 40.00},
+        "o3-mini": {"input": 1.10, "cached_input": 0.55, "output": 4.40},
+        "o4-mini": {"input": 4.00, "cached_input": 1.00, "output": 16.00},
+        # GPT-5 Series
         "gpt-5": {"input": 1.25, "cached_input": 0.125, "output": 10.00},
-        "gpt-5-pro": {"input": 15.00, "cached_input": 2.50, "output": 120.00},
+        "gpt-5-pro": {"input": 15.00, "cached_input": 7.50, "output": 120.00},
         "gpt-5-mini": {"input": 0.25, "cached_input": 0.025, "output": 2.00},
         "gpt-5-nano": {"input": 0.05, "cached_input": 0.005, "output": 0.40},
         "gpt-5-chat-latest": {"input": 1.25, "cached_input": 0.125, "output": 10.00},
@@ -2629,6 +2633,7 @@ with st.sidebar:
             default_model_index = 0
         elif selected_provider == "Ollama":
             model_mapping = {
+                "kimi-k2:1t-cloud": "kimi-k2:1t-cloud",
                 "deepseek-v3.1:671b": "deepseek-v3.1:671b-cloud",
                 "gpt-oss:120b-cloud": "gpt-oss:120b-cloud",
                 "qwen3-coder:480b-cloud": "qwen3-coder:480b-cloud",

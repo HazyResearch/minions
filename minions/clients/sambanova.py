@@ -6,10 +6,11 @@ import os
 try:
     from sambanova import SambaNova
 except ImportError:
-    raise ImportError(
+    print(
         "sambanova is required for SambanovaClient. "
         "Install it with: pip install sambanova"
     )
+    SambaNova = None
 
 
 class SambanovaClient(MinionsClient):
@@ -49,7 +50,10 @@ class SambanovaClient(MinionsClient):
         self.api_key = api_key or os.getenv("SAMBANOVA_API_KEY")
         self.base_url = base_url
         self.reasoning_effort = reasoning_effort
-        self.client = SambaNova(base_url=self.base_url, api_key=self.api_key)
+        if SambaNova is not None:
+            self.client = SambaNova(base_url=self.base_url, api_key=self.api_key)
+        else:
+            self.client = None
 
     def chat(self, messages: List[Dict[str, Any]], **kwargs) -> Tuple[List[str], Usage]:
         """

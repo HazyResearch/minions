@@ -116,6 +116,14 @@ API_PRICES = {
         "grok-3-mini": {"input": 0.30, "cached_input": 0.15, "output": 0.50},
         "grok-4-0709": {"input": 4.00, "cached_input": 2.00, "output": 20.00},
     },
+    # Groq model pricing per 1M tokens
+    "Groq": {
+        "llama-3.1-8b-instant": {"input": 0.05, "cached_input": 0.025, "output": 0.08},
+        "llama-3.3-70b-versatile": {"input": 0.59, "cached_input": 0.295, "output": 0.79},
+        "meta-llama/llama-guard-4-12b": {"input": 0.20, "cached_input": 0.10, "output": 0.20},
+        "openai/gpt-oss-120b": {"input": 0.15, "cached_input": 0.075, "output": 0.75},
+        "openai/gpt-oss-20b": {"input": 0.10, "cached_input": 0.05, "output": 0.50},
+    },
     # DeepSeek model pricing per 1M tokens
     "DeepSeek": {
         # Let's assume 1 dollar = 7.25 RMB and
@@ -128,6 +136,7 @@ API_PRICES = {
     },
     "Anthropic": {
         "claude-opus-4-1-20250805": {"input": 15.00, "cached_input": 1.50, "output": 75.00},
+        "claude-haiku-4-5-20251001": {"input": 1.00, "cached_input": 1.25, "output": 2.00},
     },
     "Gemini": {
         "gemini-2.5-pro": {
@@ -2300,23 +2309,16 @@ with st.sidebar:
             available_lemonade_models = lemonade.get_available_models()
             if protocol in ("Minions", "Minions-MCP", "DeepResearch"):
                 local_model_options = {
-                    "Qwen3-8B-GGUF": "Qwen3-8B-GGUF",
-                    "Qwen3-4B-GGUF": "Qwen3-4B-GGUF",
-                    "Qwen3-1.7B-GGUF": "Qwen3-1.7B-GGUF",
-                    "Qwen3-0.6B-GGUF": "Qwen3-0.6B-GGUF",
-                    "DeepSeek-Qwen3-8B-GGUF": "DeepSeek-Qwen3-8B-GGUF",
-                    "Gemma-3-4b-it-GGUF": "Gemma-3-4b-it-GGUF",
-                    "Qwen2.5-VL-7B-Instruct-GGUF": "Qwen2.5-VL-7B-Instruct-GGUF",
+                    "Qwen3-4B-Instruct-2507-GGUF (Recommended)": "Qwen3-4B-Instruct-2507-GGUF",
+                    "Qwen3-Coder-30B-A3B-Instruct-GGUF": "Qwen3-Coder-30B-A3B-Instruct-GGUF",
+                    "Gemma-3-4b-it-GGUF (Recommended)": "Gemma-3-4b-it-GGUF",
+                    "gpt-oss-120b-mxfp-GGUF": "gpt-oss-120b-mxfp-GGUF",
+                    "gpt-oss-20b-mxfp4-GGUF": "gpt-oss-20b-mxfp4-GGUF",
                 }
             else:
                 local_model_options = {
-                    "Llama-3.2-3B-Instruct-Hybrid": "Llama-3.2-3B-Instruct-Hybrid",
-                    "Qwen2.5-0.5B-Instruct-CPU": "Qwen2.5-0.5B-Instruct-CPU",
-                    "Llama-3.2-1B-Instruct-Hybrid": "Llama-3.2-1B-Instruct-Hybrid",
-                    "Phi-3-Mini-Instruct-Hybrid": "Phi-3-Mini-Instruct-Hybrid",
-                    "Qwen-1.5-7B-Chat-Hybrid": "Qwen-1.5-7B-Chat-Hybrid",
-                    "DeepSeek-R1-Distill-Llama-8B-Hybrid": "DeepSeek-R1-Distill-Llama-8B-Hybrid",
-                    "DeepSeek-R1-Distill-Qwen-7B-Hybrid": "DeepSeek-R1-Distill-Qwen-7B-Hybrid",
+                    "Qwen3-4B-Instruct-2507-FLM (Recommended)": "Qwen3-4B-Instruct-2507-FLM",
+                    "Gemma-3-4b-it-FLM (Recommended)": "Gemma-3-4b-it-FLM",
                 }
 
             # Add any additional available models from Lemonade that aren't in the default list
@@ -2540,6 +2542,7 @@ with st.sidebar:
         elif selected_provider == "Anthropic":
             model_mapping = {
                 "Claude 4.5 Sonnet (Recommended)": " claude-sonnet-4-5",
+                "Claude 4.5 Haiku": "claude-haiku-4-5-20251001",
                 "Claude 4 Opus (Recommended)": "claude-opus-4-20250514",
                 "Claude 4.1 Opus": "claude-opus-4-1-20250805",
                 "Claude 4 Sonnet": "claude-sonnet-4-20250514",
@@ -2577,10 +2580,11 @@ with st.sidebar:
             default_model_index = 0
         elif selected_provider == "Groq":
             model_mapping = {
-                "llama-3.3-70b-versatile (Recommended)": "llama-3.3-70b-versatile",
-                "llama-3.3-70b-specdec": "llama-3.3-70b-specdec",
-                "deepseek-r1-distill-llama-70b-specdec": "deepseek-r1-distill-llama-70b-specdec",
-                "qwen-2.5-32b": "qwen-2.5-32b",
+                "Llama 3.1 8B (Recommended)": "llama-3.1-8b-instant",
+                "Llama 3.3 70B": "llama-3.3-70b-versatile",
+                "Llama Guard 4 12B": "meta-llama/llama-guard-4-12b",
+                "GPT OSS 120B": "openai/gpt-oss-120b",
+                "GPT OSS 20B": "openai/gpt-oss-20b",
             }
             default_model_index = 0
         elif selected_provider == "Grok":
@@ -3274,7 +3278,7 @@ else:
                     # Display cost information for supported providers
                     if (
                         selected_provider
-                        in ["OpenAI", "AzureOpenAI", "Anthropic", "DeepSeek", "Novita", "LlamaAPI", "Together", "Ollama"]
+                        in ["OpenAI", "AzureOpenAI", "Anthropic", "DeepSeek", "Novita", "LlamaAPI", "Together", "Ollama", "Groq"]
                         and remote_model_name in API_PRICES[selected_provider]
                     ):
                         st.header("Remote Model Cost")

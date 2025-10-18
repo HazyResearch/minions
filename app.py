@@ -2258,6 +2258,8 @@ with st.sidebar:
         if local_provider == "MLX":
             local_model_options = {
                 "SmolLM3-3B-8bit (Recommended)": "mlx-community/SmolLM3-3B-8bit",
+                "AI21-Jamba-Reasoning-3B-4bit": "mlx-community/AI21-Jamba-Reasoning-3B-4bit",
+                "LFM2-8B-A1B-8bit": "mlx-community/LFM2-8B-A1B-8bit",   
                 "GLM-4.5-Air-mxfp4": "mlx-community/GLM-4.5-Air-mxfp4",
                 "Qwen3-0.6B-MLX-4bit": "Qwen/Qwen3-0.6B-MLX-4bit",
                 "Qwen3-1.7B-MLX-bf16": "Qwen/Qwen3-1.7B-MLX-bf16",

@@ -50,6 +50,7 @@ class TransformersClient(MinionsClient):
     - Special support for NVIDIA Nemotron models with reasoning control
     - Special support for Hunyuan models with thinking mode
     - Special support for ServiceNow Apriel models with text-only reasoning
+    - Special support for Facebook MobileLLM models with subfolder versions
     - Hardware-optimized inference (CUDA/MPS/CPU)
     - Tool calling and embedding support
     - Vision support for Apple FastVLM models (single-image VLM chat)
@@ -70,6 +71,12 @@ class TransformersClient(MinionsClient):
     - Reasoning with [BEGIN FINAL RESPONSE] and [END FINAL RESPONSE] tags
     - Access thinking process via get_thinking_content()
     
+    MobileLLM Models:
+    - Automatic detection of MobileLLM models (facebook/MobileLLM-*)
+    - Support for multiple versions via subfolder parameter ("base" or "instruct")
+    - Defaults to "instruct" version if not specified
+    - Optimized for on-device deployment
+    
     Example usage with Nemotron:
         client = TransformersClient(
             model_name="nvidia/NVIDIA-Nemotron-Nano-9B-v2",
@@ -85,6 +92,20 @@ class TransformersClient(MinionsClient):
             reasoning_enabled=True,
             reasoning_budget=1000
         )
+    
+    Example usage with MobileLLM:
+        # Uses instruct version by default
+        client = TransformersClient(
+            model_name="facebook/MobileLLM-Pro"
+        )
+        
+        # Or explicitly specify the version
+        client = TransformersClient(
+            model_name="facebook/MobileLLM-Pro",
+            subfolder="instruct"  # or "base"
+        )
+        
+        response = client.chat([{"role": "user", "content": "Why are open-source models great?"}])
     """
     def __init__(
         self,
@@ -101,6 +122,7 @@ class TransformersClient(MinionsClient):
         enable_thinking: bool = False,  # for qwen and hunyuan models
         reasoning_enabled: bool = True,  # for nemotron models
         reasoning_budget: Optional[int] = None,  # for nemotron models
+        subfolder: Optional[str] = None,  # for models with subfolders (e.g., MobileLLM)
         local: bool = True,
         **kwargs
     ):
@@ -128,6 +150,8 @@ class TransformersClient(MinionsClient):
                 Controls whether /think or /no_think is added to system prompts for Nemotron models.
             reasoning_budget: Maximum tokens allowed for reasoning (Nemotron models only, default: None)
                 Limits the number of "thinking" tokens the model can use before providing final answer.
+            subfolder: Optional subfolder path for models with multiple versions (default: None)
+                For MobileLLM models, use "base" or "instruct". Example: "facebook/MobileLLM-Pro" with subfolder="instruct"
             **kwargs: Additional parameters passed to base class
         """
         super().__init__(
@@ -148,12 +172,26 @@ class TransformersClient(MinionsClient):
         self.embedding_model_name = embedding_model
         self.enable_thinking = enable_thinking
         
+        # Model-specific detection
+        self.is_mobilellm = self._is_mobilellm_model(model_name)
+        
+        # Auto-set subfolder for MobileLLM if not specified
+        if self.is_mobilellm and subfolder is None:
+            subfolder = "instruct"  # Default to instruct version
+            self.logger.info(f"MobileLLM detected, defaulting to subfolder: {subfolder}")
+        
+        self.subfolder = subfolder
+        
         # Nemotron-specific configuration
         self.reasoning_enabled = reasoning_enabled
         self.reasoning_budget = reasoning_budget
         self.is_nemotron = self._is_nemotron_model(model_name)
         self.is_fastvlm = self._is_fastvlm_model(model_name)
         self.is_apriel = self._is_apriel_model(model_name)
+        
+        if self.is_mobilellm:
+            self.logger.info(f"Detected MobileLLM model: {model_name}")
+            self.logger.info(f"Using subfolder: {self.subfolder}")
         
         if self.is_nemotron:
             self.logger.info(f"Detected Nemotron model: {model_name}")
@@ -189,6 +227,13 @@ class TransformersClient(MinionsClient):
         self._last_apriel_thinking = ""
 
         self.logger.info(f"Loaded Hugging Face model: {self.model_name}")
+
+    def _is_mobilellm_model(self, model_name: str) -> bool:
+        """
+        Detect Facebook MobileLLM models which use subfolders for different versions.
+        """
+        name = (model_name or "").lower()
+        return "mobilellm" in name or "facebook/mobilellm" in name
 
     def _is_fastvlm_model(self, model_name: str) -> bool:
         """
@@ -550,7 +595,10 @@ class TransformersClient(MinionsClient):
 
                 # First load the tokenizer from the base model
                 tokenizer = AutoTokenizer.from_pretrained(
-                    base_model_name, token=self.hf_token
+                    base_model_name, 
+                    token=self.hf_token,
+                    subfolder=self.subfolder,
+                    trust_remote_code=True
                 )
 
                 # Add pad token if it doesn't exist
@@ -586,7 +634,12 @@ class TransformersClient(MinionsClient):
             # Original code path for loading a full model
             # First load the tokenizer
 
-            tokenizer = AutoTokenizer.from_pretrained(ckpt_path, token=self.hf_token)
+            tokenizer = AutoTokenizer.from_pretrained(
+                ckpt_path, 
+                token=self.hf_token,
+                subfolder=self.subfolder,
+                trust_remote_code=True
+            )
 
             # Add pad token if it doesn't exist
             if tokenizer.pad_token is None:
@@ -598,6 +651,7 @@ class TransformersClient(MinionsClient):
                 torch_dtype=self.dtype,
                 device_map="auto" if use_device_map else None,
                 token=self.hf_token,
+                subfolder=self.subfolder,
                 trust_remote_code=True,
             )
 

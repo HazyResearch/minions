@@ -2640,6 +2640,7 @@ with st.sidebar:
             default_model_index = 0
         elif selected_provider == "Ollama":
             model_mapping = {
+                "qwen3-vl:235b-cloud": "qwen3-vl:235b-cloud",
                 "kimi-k2:1t-cloud": "kimi-k2:1t-cloud",
                 "deepseek-v3.1:671b": "deepseek-v3.1:671b-cloud",
                 "gpt-oss:120b-cloud": "gpt-oss:120b-cloud",

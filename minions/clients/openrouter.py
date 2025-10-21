@@ -25,12 +25,14 @@ class OpenRouterClient(OpenAIClient):
         site_url: Optional[str] = None,
         site_name: Optional[str] = None,
         verbosity: str = "medium",
+        use_responses_api: bool = False,
+        reasoning_effort: str = "low",
         **kwargs
     ):
         """Initialize the OpenRouter client.
 
         Args:
-            model_name: The model to use (e.g., "anthropic/claude-3-5-sonnet", "openai/gpt-4o")
+            model_name: The model to use (e.g., "anthropic/claude-3-5-sonnet", "openai/gpt-4o", "openai/o4-mini")
             api_key: OpenRouter API key. If not provided, will look for OPENROUTER_API_KEY env var.
             temperature: Temperature parameter for generation.
             max_tokens: Maximum number of tokens to generate.
@@ -38,6 +40,8 @@ class OpenRouterClient(OpenAIClient):
             site_url: Optional site URL for rankings on openrouter.ai (used in HTTP-Referer header)
             site_name: Optional site name for rankings on openrouter.ai (used in X-Title header)
             verbosity: Controls the verbosity and length of the model response. Options: "low", "medium", "high". Default: "medium"
+            use_responses_api: Whether to use responses API for reasoning models (default: False)
+            reasoning_effort: Reasoning effort level for reasoning models (default: "low")
             **kwargs: Additional parameters passed to base class
         """
         # Get API key from environment if not provided
@@ -62,17 +66,26 @@ class OpenRouterClient(OpenAIClient):
             raise ValueError(f"Invalid verbosity level '{verbosity}'. Must be one of: {valid_verbosity_levels}")
         self.verbosity = verbosity
 
-        # Call parent constructor
+        # Store responses API settings
+        # Automatically use responses API for o4 models
+        if "o4" in model_name or "o1" in model_name or "o3" in model_name:
+            self.use_responses_api = True
+        else:
+            self.use_responses_api = use_responses_api
+        self.reasoning_effort = reasoning_effort
+
+        # Call parent constructor (but don't pass use_responses_api/reasoning_effort to avoid double handling)
         super().__init__(
             model_name=model_name,
             api_key=api_key,
             temperature=temperature,
             max_tokens=max_tokens,
             base_url=base_url,
+            use_responses_api=False,  # We handle this in OpenRouterClient
             **kwargs
         )
 
-        self.logger.info(f"Initialized OpenRouter client with model: {model_name}, verbosity: {verbosity}")
+        self.logger.info(f"Initialized OpenRouter client with model: {model_name}, verbosity: {verbosity}, use_responses_api: {self.use_responses_api}")
 
     def _get_extra_headers(self) -> Dict[str, str]:
         """Get OpenRouter-specific headers for API requests.
@@ -89,6 +102,80 @@ class OpenRouterClient(OpenAIClient):
             headers["X-Title"] = self.site_name
             
         return headers
+
+    def responses(
+        self, messages: List[Dict[str, Any]], **kwargs
+    ) -> Tuple[List[str], Usage]:
+        """
+        Handle chat completions using the OpenRouter Responses API.
+        
+        The Responses API is designed for reasoning models and provides extended thinking capabilities.
+        
+        Args:
+            messages: List of message dictionaries with 'role' and 'content' keys
+            **kwargs: Additional arguments to pass to the responses API
+        
+        Returns:
+            Tuple of (List[str], Usage) containing response strings and token usage
+        """
+        assert len(messages) > 0, "Messages cannot be empty."
+
+        # Handle response_format conversion if present
+        if "response_format" in kwargs:
+            kwargs["text"] = {"format": kwargs["response_format"]}
+            del kwargs["response_format"]
+
+        try:
+            # Convert messages to responses API format if needed
+            input_messages = messages
+            
+            # Replace "system" role with "developer" for responses API
+            for message in input_messages:
+                if message["role"] == "system":
+                    message["role"] = "developer"
+
+            params = {
+                "model": self.model_name,
+                "input": input_messages,
+                "max_output_tokens": self.max_tokens,
+                "stream": False,
+                **kwargs,
+            }
+            
+            # Add reasoning effort for reasoning models
+            if "o1" in self.model_name or "o3" in self.model_name or "o4" in self.model_name:
+                params["reasoning"] = {"effort": self.reasoning_effort}
+
+            # Add OpenRouter-specific headers if they exist
+            extra_headers = self._get_extra_headers()
+            if extra_headers:
+                params["extra_headers"] = extra_headers
+
+            response = self.client.responses.create(**params)
+            
+        except Exception as e:
+            self.logger.error(f"Error during OpenRouter Responses API call: {e}")
+            raise
+
+        # Extract output text from response
+        outputs = []
+        if hasattr(response, 'output') and response.output:
+            for output_item in response.output:
+                if output_item.type == "message" and hasattr(output_item, 'content'):
+                    for content_part in output_item.content:
+                        if content_part.type == "output_text":
+                            outputs.append(content_part.text)
+
+        # Extract usage information if it exists
+        if response.usage is None:
+            usage = Usage(prompt_tokens=0, completion_tokens=0)
+        else:
+            usage = Usage(
+                prompt_tokens=response.usage.input_tokens,
+                completion_tokens=response.usage.output_tokens,
+            )
+
+        return outputs, usage
 
     def chat(self, messages: List[Dict[str, Any]], **kwargs) -> Tuple[List[str], Usage]:
         """
@@ -117,6 +204,10 @@ class OpenRouterClient(OpenAIClient):
         Returns:
             Tuple of (List[str], Usage) containing response strings and token usage
         """
+        # Use responses API for reasoning models or when explicitly requested
+        if self.use_responses_api:
+            return self.responses(messages, **kwargs)
+        
         assert len(messages) > 0, "Messages cannot be empty."
 
         try:
@@ -196,6 +287,10 @@ class OpenRouterClient(OpenAIClient):
             return [
                 "openai/gpt-4o",
                 "openai/gpt-4o-mini",
+                "openai/o4-mini",
+                "openai/o1-preview",
+                "openai/o1-mini",
+                "openai/o3-mini",
                 "openrouter/horizon-beta",
                 "anthropic/claude-3-5-sonnet",
                 "anthropic/claude-3-5-haiku",

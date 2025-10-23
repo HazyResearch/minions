@@ -206,6 +206,12 @@ API_PRICES = {
             "cached_input": 1.00,
             "output": 6.00,
         },
+        # Exacto variants (enhanced tool-calling accuracy)
+        "moonshotai/kimi-k2-0905:exacto": {"input": 1.20, "cached_input": 0.30, "output": 1.20},
+        "deepseek/deepseek-v3.1-terminus:exacto": {"input": 0.27, "cached_input": 0.27, "output": 1.00},
+        "z-ai/glm-4.6:exacto": {"input": 0.50, "cached_input": 0.25, "output": 1.50},
+        "openai/gpt-oss-120b:exacto": {"input": 1.20, "cached_input": 0.30, "output": 1.20},
+        "qwen/qwen3-coder:exacto": {"input": 0.60, "cached_input": 0.15, "output": 0.60},
     },
     # Together AI model pricing per 1M tokens
     "Together": {
@@ -2539,6 +2545,12 @@ with st.sidebar:
                 "Mistral Large": "mistralai/mistral-large",
                 "Llama 3 70B": "meta-llama/llama-3-70b-instruct",
                 "Gemini 1.5 Pro": "google/gemini-1.5-pro",
+                # Exacto variants (enhanced tool-calling accuracy)
+                "Kimi K2 Exacto": "moonshotai/kimi-k2-0905:exacto",
+                "DeepSeek v3.1 Terminus Exacto": "deepseek/deepseek-v3.1-terminus:exacto",
+                "GLM 4.6 Exacto": "z-ai/glm-4.6:exacto",
+                "GPT-OSS 120B Exacto": "openai/gpt-oss-120b:exacto",
+                "Qwen3 Coder Exacto": "qwen/qwen3-coder:exacto",
             }
             default_model_index = 0
         elif selected_provider == "Anthropic":

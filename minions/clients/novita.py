@@ -11,6 +11,8 @@ class NovitaClient(OpenAIClient):
 
     Novita AI uses the OpenAI API format, so we can inherit from OpenAIClient.
     Novita AI provides access to various AI models with competitive pricing and performance.
+    
+    Supports reasoning models that return both content and reasoning_content.
     """
 
     def __init__(
@@ -25,9 +27,10 @@ class NovitaClient(OpenAIClient):
         """Initialize the Novita client.
 
         Args:
-            model_name: The model to use (e.g., "meta-llama/llama-3.1-8b-instruct", "meta-llama/llama-3.1-70b-instruct")
+            model_name: The model to use (e.g., "meta-llama/llama-3.1-8b-instruct", 
+                       "deepseek/deepseek-r1" for reasoning models)
             api_key: Novita AI API key. If not provided, will look for NOVITA_API_KEY env var.
-            temperature: Temperature parameter for generation.
+            temperature: Temperature parameter for generation (recommended 0.5-0.7 for reasoning models).
             max_tokens: Maximum number of tokens to generate.
             base_url: Base URL for the Novita API. If not provided, will look for NOVITA_BASE_URL env var or use default.
             **kwargs: Additional parameters passed to base class
@@ -56,6 +59,84 @@ class NovitaClient(OpenAIClient):
         )
 
         self.logger.info(f"Initialized Novita client with model: {model_name}")
+        
+    def is_reasoning_model(self) -> bool:
+        """Check if the current model is a reasoning model.
+        
+        Returns:
+            bool: True if the model supports reasoning_content output
+        """
+        reasoning_model_prefixes = [
+            # DeepSeek R1 Series
+            "deepseek/deepseek-r1",
+            # Qwen Thinking Series
+            "qwen/qwen3-235b-a22b-thinking",
+            "qwen/qwen3-235b-a22b-fp8",
+            "qwen/qwen3-30b-a3b-fp8",
+            "qwen/qwen3-32b-fp8",
+            "qwen/qwen3-8b-fp8",
+            "qwen/qwen3-4b-fp8",
+            # GLM Series
+            "thudm/glm-4.1v-9b-thinking",
+            "zai-org/glm-4.5",
+            # LLaMA Series
+            "meta-llama/llama-4-maverick-17b-128e-instruct-fp8"
+        ]
+        return any(self.model_name.startswith(prefix) for prefix in reasoning_model_prefixes)
+    
+    def chat(self, messages: List[Dict[str, Any]], **kwargs) -> Tuple[List[str], Usage, Optional[List[str]]]:
+        """Handle chat completions with support for reasoning models.
+        
+        Args:
+            messages: List of message dictionaries with 'role' and 'content' keys
+            **kwargs: Additional arguments to pass to the API
+            
+        Returns:
+            Tuple of (outputs, usage, reasoning_outputs) where:
+                - outputs: List of response strings
+                - usage: Token usage information
+                - reasoning_outputs: List of reasoning content (None if not a reasoning model)
+        """
+        assert len(messages) > 0, "Messages cannot be empty."
+        
+        try:
+            params = {
+                "model": self.model_name,
+                "messages": messages,
+                "max_tokens": self.max_tokens,
+                "temperature": self.temperature,
+                **kwargs,
+            }
+            
+            response = self.client.chat.completions.create(**params)
+            
+            # Extract usage information
+            if response.usage is None:
+                usage = Usage(prompt_tokens=0, completion_tokens=0)
+            else:
+                usage = Usage(
+                    prompt_tokens=response.usage.prompt_tokens,
+                    completion_tokens=response.usage.completion_tokens,
+                )
+            
+            # Extract regular content
+            outputs = [choice.message.content for choice in response.choices if choice.message.content]
+            
+            # Extract reasoning content if available
+            reasoning_outputs = None
+            if self.is_reasoning_model():
+                reasoning_outputs = []
+                for choice in response.choices:
+                    if hasattr(choice.message, 'reasoning_content') and choice.message.reasoning_content:
+                        reasoning_outputs.append(choice.message.reasoning_content)
+                # Only return reasoning outputs if we found any
+                reasoning_outputs = reasoning_outputs if reasoning_outputs else None
+            
+            return outputs, usage, reasoning_outputs
+                
+        except Exception as e:
+            self.logger.error(f"Error during Novita API call: {e}")
+            raise
 
     @staticmethod
     def get_available_models() -> List[str]:
@@ -87,6 +168,7 @@ class NovitaClient(OpenAIClient):
             logging.error(f"Failed to get Novita model list: {e}")
             # Return some common models as fallback based on documentation
             return [
+                # Standard models
                 "moonshotai/kimi-k2-0905",
                 "deepseek/deepseek-v3.1",
                 "meta-llama/llama-3.1-8b-instruct",
@@ -97,4 +179,24 @@ class NovitaClient(OpenAIClient):
                 "microsoft/wizardlm-2-8x22b",
                 "google/gemma-2-9b-it",
                 "qwen/qwen2.5-72b-instruct",
+                # Reasoning models - DeepSeek Series
+                "deepseek/deepseek-r1-0528",
+                "deepseek/deepseek-r1-0528-qwen3-8b",
+                "deepseek/deepseek-r1-turbo",
+                "deepseek/deepseek-r1-distill-qwen-32b",
+                "deepseek/deepseek-r1-distill-qwen-14b",
+                "deepseek/deepseek-r1-distill-llama-70b",
+                "deepseek/deepseek-r1-distill-llama-8b",
+                # Reasoning models - Qwen Series
+                "qwen/qwen3-235b-a22b-fp8",
+                "qwen/qwen3-30b-a3b-fp8",
+                "qwen/qwen3-32b-fp8",
+                "qwen/qwen3-8b-fp8",
+                "qwen/qwen3-4b-fp8",
+                "qwen/qwen3-235b-a22b-thinking-2507",
+                # Reasoning models - GLM Series
+                "zai-org/glm-4.5",
+                "thudm/glm-4.1v-9b-thinking",
+                # Reasoning models - LLaMA Series
+                "meta-llama/llama-4-maverick-17b-128e-instruct-fp8",
             ] 

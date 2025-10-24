@@ -28,10 +28,10 @@ def scrape_url(url, api_key=None):
     # Use the new v2 scrape method with formats as a direct parameter
     result = firecrawl.scrape(url, formats=["markdown", "html"])
     
-    # The v2 API returns the data object directly when using the SDK
+    # The v2 API returns a Document object (Pydantic model) when using the SDK
     # Return in the same format as v1 for backward compatibility
     return {
-        "markdown": result.get("markdown", ""),
-        "html": result.get("html", ""),
-        "metadata": result.get("metadata", {})
+        "markdown": getattr(result, "markdown", ""),
+        "html": getattr(result, "html", ""),
+        "metadata": getattr(result, "metadata", {})
     }

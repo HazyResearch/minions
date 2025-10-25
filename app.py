@@ -2508,26 +2508,18 @@ with st.sidebar:
             default_model_index = 0
         elif selected_provider == "SambaNova":
             model_mapping = {
-                "Meta-Llama-3.1-8B-Instruct (Recommended)": "Meta-Llama-3.1-8B-Instruct",
-                "DeepSeek-V3-0324": "DeepSeek-V3-0324",
-                "Meta-Llama-3.3-70B-Instruct": "Meta-Llama-3.3-70B-Instruct",
-                "Meta-Llama-3.1-405B-Instruct": "Meta-Llama-3.1-405B-Instruct",
-                "Meta-Llama-3.1-70B-Instruct": "Meta-Llama-3.1-70B-Instruct",
-                "Meta-Llama-3.2-3B-Instruct": "Meta-Llama-3.2-3B-Instruct",
-                "Meta-Llama-3.2-1B-Instruct": "Meta-Llama-3.2-1B-Instruct",
-                "Llama-3.2-90B-Vision-Instruct": "Llama-3.2-90B-Vision-Instruct",
-                "Llama-3.2-11B-Vision-Instruct": "Llama-3.2-11B-Vision-Instruct",
-                "Meta-Llama-Guard-3-8B": "Meta-Llama-Guard-3-8B",
-                "Llama-3.1-Tulu-3-405B": "Llama-3.1-Tulu-3-405B",
-                "Llama-3.1-Swallow-8B-Instruct-v0.3": "Llama-3.1-Swallow-8B-Instruct-v0.3",
-                "Llama-3.1-Swallow-70B-Instruct-v0.3": "Llama-3.1-Swallow-70B-Instruct-v0.3",
-                "DeepSeek-R1": "DeepSeek-R1",
+                # Reasoning Models
+                "gpt-oss-120b (Recommended)": "gpt-oss-120b",
+                "DeepSeek-R1-0528 (671B)": "DeepSeek-R1-0528",
                 "DeepSeek-R1-Distill-Llama-70B": "DeepSeek-R1-Distill-Llama-70B",
-                "E5-Mistral-7B-Instruct": "E5-Mistral-7B-Instruct",
-                "Qwen2.5-72B-Instruct": "Qwen2.5-72B-Instruct",
-                "Qwen2.5-Coder-32B-Instruct": "Qwen2.5-Coder-32B-Instruct",
-                "QwQ-32B": "QwQ-32B",
-                "Qwen2-Audio-7B-Instruct": "Qwen2-Audio-7B-Instruct",
+                "DeepSeek-V3.1": "DeepSeek-V3.1",
+                "DeepSeek-V3.1-Terminus": "DeepSeek-V3.1-Terminus",
+                "Qwen3-32B": "Qwen3-32B",
+                # Text Models
+                "DeepSeek-V3-0324 (671B)": "DeepSeek-V3-0324",
+                "Llama-3.3-Swallow-70B-Instruct-v0.4": "Llama-3.3-Swallow-70B-Instruct-v0.4",
+                "Meta-Llama-3.1-8B-Instruct (Recommended)": "Meta-Llama-3.1-8B-Instruct",
+                "Meta-Llama-3.3-70B-Instruct": "Meta-Llama-3.3-70B-Instruct",
             }
             default_model_index = 0
         elif selected_provider == "OpenRouter":

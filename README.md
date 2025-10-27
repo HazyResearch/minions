@@ -180,7 +180,7 @@ client = LlamaCppClient(
 
 **Step 3:** Set your API key for at least one of the following cloud LLM providers.
 
-_If needed, create an [OpenAI API Key](https://platform.openai.com/docs/overview) or [TogetherAI API key](https://docs.together.ai/docs/quickstart) or [DeepSeek API key](https://platform.deepseek.com/api_keys) for the cloud model._
+_If needed, create an [OpenAI API Key](https://platform.openai.com/docs/overview) or [TogetherAI API key](https://docs.together.ai/docs/quickstart) or [DeepSeek API key](https://platform.deepseek.com/api_keys) or [MiniMax API key](https://platform.minimax.io/) for the cloud model._
 
 ```bash
 # OpenAI
@@ -209,6 +209,10 @@ export ANTHROPIC_API_KEY=<your-anthropic-api-key>
 
 # Mistral AI
 export MISTRAL_API_KEY=<your-mistral-api-key>
+
+# MiniMax
+export MINIMAX_API_KEY=<your-minimax-api-key>
+export MINIMAX_BASE_URL=<your-minimax-base-url>  # Optional: Use a different MiniMax API endpoint
 ```
 
 ## Minions Demo Application
@@ -776,5 +780,4 @@ minion = Minion(local_client, remote_client)
 ## Maintainers
 
 - Avanika Narayan (contact: avanika@cs.stanford.edu)
-- Dan Biderman (contact: biderman@stanford.edu)
-- Sabri Eyuboglu (contact: eyuboglu@cs.stanford.edu)
+

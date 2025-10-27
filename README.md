@@ -212,7 +212,6 @@ export MISTRAL_API_KEY=<your-mistral-api-key>
 
 # MiniMax
 export MINIMAX_API_KEY=<your-minimax-api-key>
-export MINIMAX_BASE_URL=<your-minimax-base-url>  # Optional: Use a different MiniMax API endpoint
 ```
 
 ## Minions Demo Application

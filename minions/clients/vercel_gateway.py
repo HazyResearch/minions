@@ -3,6 +3,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import os
 
 from minions.clients.openai import OpenAIClient
+from minions.clients.response import ChatResponse
 from minions.usage import Usage
 
 
@@ -127,7 +128,10 @@ class VercelGatewayClient(OpenAIClient):
                 completion_tokens=response.usage.completion_tokens,
             )
 
-        return [choice.message.content for choice in response.choices], usage
+        return ChatResponse(
+            responses=[choice.message.content for choice in response.choices],
+            usage=usage
+        )
 
     def embed(
         self,
@@ -225,5 +229,3 @@ class VercelGatewayClient(OpenAIClient):
         except Exception as e:
             self.logger.error(f"Error retrieving model '{model_id}' via Vercel AI Gateway: {e}")
             raise
-
-

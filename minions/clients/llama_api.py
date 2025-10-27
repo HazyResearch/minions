@@ -1,6 +1,7 @@
 from typing import Any, Dict, List, Optional, Tuple
 from minions.usage import Usage
 from minions.clients.base import MinionsClient
+from minions.clients.response import ChatResponse
 import logging
 import os
 import openai
@@ -80,4 +81,7 @@ class LlamaApiClient(MinionsClient):
         )
 
         # The content is now nested under message
-        return [choice.message.content for choice in response.choices], usage
+        return ChatResponse(
+            responses=[choice.message.content for choice in response.choices],
+            usage=usage
+        )

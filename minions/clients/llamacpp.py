@@ -19,6 +19,7 @@ except ImportError:
 
 from minions.usage import Usage
 from minions.clients.base import MinionsClient
+from minions.clients.response import ChatResponse
 
 
 class LlamaCppClient(MinionsClient):
@@ -278,13 +279,12 @@ class LlamaCppClient(MinionsClient):
             self.logger.error(f"Error in chat completion: {e}")
             raise
 
-        if self.return_tools:
-            return responses, usage_total, done_reasons, tools
-        else:
-            if self.local:
-                return responses, usage_total, done_reasons
-            else:
-                return responses, usage_total
+        return ChatResponse(
+            responses=responses,
+            usage=usage_total,
+            done_reasons=done_reasons if self.local else None,
+            tool_calls=tools if self.return_tools else None
+        )
 
     def complete(
         self, prompts: Union[str, List[str]], **kwargs

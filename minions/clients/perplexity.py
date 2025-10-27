@@ -5,6 +5,7 @@ import openai
 
 from minions.usage import Usage
 from minions.clients.base import MinionsClient
+from minions.clients.response import ChatResponse
 
 try:
     from perplexity import Perplexity
@@ -123,7 +124,10 @@ class PerplexityAIClient(MinionsClient):
             pass
 
         # The content is now nested under message
-        return [choice.message.content for choice in response.choices], usage
+        return ChatResponse(
+            responses=[choice.message.content for choice in response.choices],
+            usage=usage
+        )
 
     def search(self, query: Union[str, List[str]], **kwargs):
         """

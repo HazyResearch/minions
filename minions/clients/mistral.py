@@ -5,6 +5,7 @@ from mistralai import Mistral
 
 from minions.usage import Usage
 from minions.clients.base import MinionsClient
+from minions.clients.response import ChatResponse
 
 
 class MistralClient(MinionsClient):
@@ -119,10 +120,11 @@ class MistralClient(MinionsClient):
         # Extract done reasons (finish_reason in Mistral API)
         done_reasons = [choice.finish_reason for choice in response.choices]
 
-        if self.local:
-            return [choice.message.content for choice in response.choices], usage, done_reasons
-        else:
-            return [choice.message.content for choice in response.choices], usage
+        return ChatResponse(
+            responses=[choice.message.content for choice in response.choices],
+            usage=usage,
+            done_reasons=done_reasons if self.local else None
+        )
 
     def _chat_with_websearch_agent(self, messages: List[Dict[str, Any]], **kwargs) -> Tuple[List[str], Usage, List[str]]:
         """
@@ -172,8 +174,12 @@ class MistralClient(MinionsClient):
             
             # For websearch agents, we'll assume completion
             done_reasons = ["stop"] * len(response_texts) if response_texts else ["stop"]
-            
-            return response_texts, usage, done_reasons
+
+            return ChatResponse(
+                responses=response_texts,
+                usage=usage,
+                done_reasons=done_reasons
+            )
             
         except Exception as e:
             self.logger.error(f"Error during websearch agent conversation: {e}")

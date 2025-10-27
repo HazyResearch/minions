@@ -3,6 +3,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import os
 
 from minions.clients.openai import OpenAIClient
+from minions.clients.response import ChatResponse
 from minions.usage import Usage
 
 
@@ -131,7 +132,10 @@ class MiniMaxClient(OpenAIClient):
                 completion_tokens=response.usage.completion_tokens,
             )
 
-        return [choice.message.content for choice in response.choices], usage
+        return ChatResponse(
+            responses=[choice.message.content for choice in response.choices],
+            usage=usage
+        )
 
 
     def list_models(self) -> Dict[str, Any]:

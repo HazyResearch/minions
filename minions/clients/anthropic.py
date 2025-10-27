@@ -6,6 +6,7 @@ import anthropic
 
 from minions.usage import Usage
 from minions.clients.base import MinionsClient
+from minions.clients.response import ChatResponse
 
 
 class AnthropicClient(MinionsClient):
@@ -293,10 +294,11 @@ class AnthropicClient(MinionsClient):
 
             result_text = "\n\n".join(result_parts) if result_parts else ""
 
-            if self.local:
-                return [result_text], usage, ["stop"]
-            else:
-                return [result_text], usage
+            return ChatResponse(
+                responses=[result_text],
+                usage=usage,
+                done_reasons=["stop"] if self.local else None
+            )
                 
         else:
             # Standard response handling for non-web-search or simple responses
@@ -307,21 +309,24 @@ class AnthropicClient(MinionsClient):
             ):
                 if hasattr(response.content[0], "text"):
                     print(response.content[-1].text)
-                    if self.local:
-                        return [response.content[-1].text], usage, ["stop"]
-                    else:
-                        return [response.content[-1].text], usage
+                    return ChatResponse(
+                        responses=[response.content[-1].text],
+                        usage=usage,
+                        done_reasons=["stop"] if self.local else None
+                    )
                 else:
                     self.logger.warning(
                         "Unexpected response format - missing text attribute"
                     )
-                    if self.local:
-                        return [str(response.content)], usage, ["stop"]
-                    else:
-                        return [str(response.content)], usage
+                    return ChatResponse(
+                        responses=[str(response.content)],
+                        usage=usage,
+                        done_reasons=["stop"] if self.local else None
+                    )
             else:
                 self.logger.warning("Unexpected response format - missing content list")
-                if self.local:
-                    return [str(response)], usage, ["stop"]
-                else:
-                    return [str(response)], usage
+                return ChatResponse(
+                    responses=[str(response)],
+                    usage=usage,
+                    done_reasons=["stop"] if self.local else None
+                )

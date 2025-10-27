@@ -6,9 +6,9 @@ import requests
 
 from minions.usage import Usage
 from minions.clients.base import MinionsClient
+from minions.clients.response import ChatResponse
 
 
-# TODO: define one dataclass for what is returned from all the clients
 class OpenAIClient(MinionsClient):
     def __init__(
         self,
@@ -192,10 +192,11 @@ class OpenAIClient(MinionsClient):
                 )
 
             # The content is now nested under message
-            if self.local:
-                return [choice.message.content for choice in response.choices], usage, [choice.finish_reason for choice in response.choices]
-            else:
-                return [choice.message.content for choice in response.choices], usage
+            return ChatResponse(
+                responses=[choice.message.content for choice in response.choices],
+                usage=usage,
+                done_reasons=[choice.finish_reason for choice in response.choices] if self.local else None
+            )
 
 
     def check_local_server_health(self):

@@ -1,5 +1,7 @@
 from typing import Any, Dict, List, Optional, Tuple
 from minions.usage import Usage
+from minions.clients.base import MinionsClient
+from minions.clients.response import ChatResponse
 import logging
 import os
 
@@ -12,7 +14,7 @@ except ImportError:
     )
 
 
-class CerebrasClient:
+class CerebrasClient(MinionsClient):
     def __init__(
         self,
         model_name: str = "llama3.1-8b",
@@ -52,7 +54,7 @@ class CerebrasClient:
             
         self.client = Cerebras(**client_kwargs)
 
-    def chat(self, messages: List[Dict[str, Any]], **kwargs) -> Tuple[List[str], Usage]:
+    def chat(self, messages: List[Dict[str, Any]], **kwargs) -> ChatResponse:
         '''
         Handle chat completions using the Cerebras API.
 
@@ -61,7 +63,7 @@ class CerebrasClient:
             **kwargs: Additional arguments to pass to cerebras.chat.completions.create
 
         Returns:
-            Tuple of (List[str], Usage) containing response strings and token usage
+            ChatResponse containing response strings, token usage, and finish reasons
         '''
         assert len(messages) > 0, "Messages cannot be empty."
 
@@ -88,9 +90,10 @@ class CerebrasClient:
 
         # Extract finish reasons
         finish_reasons = ["stop"] * len(response.choices)
-        
+
         # Extract response content
-        if self.local:
-            return [choice.message.content for choice in response.choices], usage, finish_reasons
-        else:
-            return [choice.message.content for choice in response.choices], usage 
+        return ChatResponse(
+            responses=[choice.message.content for choice in response.choices],
+            usage=usage,
+            done_reasons=finish_reasons if self.local else None
+        ) 

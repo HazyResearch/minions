@@ -38,6 +38,7 @@ except ImportError:
 
 from minions.usage import Usage
 from minions.clients.base import MinionsClient
+from minions.clients.response import ChatResponse
 
 
 class TransformersClient(MinionsClient):
@@ -1236,10 +1237,15 @@ class TransformersClient(MinionsClient):
         if self.return_tools:
             return responses, usage, done_reasons, tools
         else:
-            if self.local:
-                return responses, usage, done_reasons
-            else:
-                return responses, usage
+            return ChatResponse(
+
+                responses=responses,
+
+                usage=usage,
+
+                done_reasons=done_reasons if self.local else None
+
+            )
 
     def embed(self, content: Union[str, List[str]], **kwargs) -> List[List[float]]:
         """

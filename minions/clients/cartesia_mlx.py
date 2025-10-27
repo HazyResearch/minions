@@ -5,6 +5,7 @@ import cartesia_mlx as cmx
 import mlx.core as mx
 from minions.usage import Usage
 from minions.clients.base import MinionsClient
+from minions.clients.response import ChatResponse
 from transformers import AutoTokenizer
 
 
@@ -137,7 +138,8 @@ class CartesiaMLXClient(MinionsClient):
             completion_tokens=completion_tokens,
         )
 
-        if self.local:
-            return [output_text], usage, "stop"
-        else:
-            return [output_text], usage
+        return ChatResponse(
+            responses=[output_text],
+            usage=usage,
+            done_reasons=["stop"] if self.local else None
+        )

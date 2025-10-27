@@ -7,6 +7,7 @@ from openai import AzureOpenAI
 
 from minions.usage import Usage
 from minions.clients.base import MinionsClient
+from minions.clients.response import ChatResponse
 
 
 class AzureOpenAIClient(MinionsClient):
@@ -98,4 +99,7 @@ class AzureOpenAIClient(MinionsClient):
         )
 
         # The content is now nested under message
-        return [choice.message.content for choice in response.choices], usage 
+        return ChatResponse(
+            responses=[choice.message.content for choice in response.choices],
+            usage=usage
+        )

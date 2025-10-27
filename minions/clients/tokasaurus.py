@@ -5,10 +5,10 @@ from openai import OpenAI
 
 from minions.usage import Usage
 from minions.clients.base import MinionsClient
+from minions.clients.response import ChatResponse
 from minions.clients.utils import ServerMixin
 
 
-# TODO: define one dataclass for what is returned from all the clients
 class TokasaurusClient(MinionsClient, ServerMixin):
     def __init__(
         self,
@@ -102,7 +102,12 @@ class TokasaurusClient(MinionsClient, ServerMixin):
         finish_reasons = [choice.finish_reason for choice in response.choices]
 
         # The content is now nested under message
-        if self.local:
-            return [choice.message.content for choice in response.choices], usage, finish_reasons
-        else:
-            return [choice.message.content for choice in response.choices], usage
+        return ChatResponse(
+
+            responses=[choice.message.content for choice in response.choices],
+
+            usage=usage,
+
+            done_reasons=finish_reasons if self.local else None
+
+        )

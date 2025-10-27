@@ -2,6 +2,7 @@ import logging
 from typing import Any, Dict, List, Optional, Tuple
 import os
 from minions.clients.openai import OpenAIClient
+from minions.clients.response import ChatResponse
 
 from minions.usage import Usage
 
@@ -131,8 +132,12 @@ class NovitaClient(OpenAIClient):
                         reasoning_outputs.append(choice.message.reasoning_content)
                 # Only return reasoning outputs if we found any
                 reasoning_outputs = reasoning_outputs if reasoning_outputs else None
-            
-            return outputs, usage, reasoning_outputs
+
+            return ChatResponse(
+                responses=outputs,
+                usage=usage,
+                metadata={"reasoning": reasoning_outputs} if reasoning_outputs else None
+            )
                 
         except Exception as e:
             self.logger.error(f"Error during Novita API call: {e}")

@@ -13,6 +13,7 @@ import openai
 
 from minions.usage import Usage
 from minions.clients.base import MinionsClient
+from minions.clients.response import ChatResponse
 from minions.clients.utils import ServerMixin
 
 
@@ -135,7 +136,11 @@ class HuggingFaceClient(MinionsClient):
                 # Extract the content from the response
                 content = response.choices[0].message.content
 
-                return [content], usage, self.model_name
+                return ChatResponse(
+                    responses=[content],
+                    usage=usage,
+                    done_reasons=[self.model_name]  # HuggingFace uses this field for model_name
+                )
 
             except Exception as e:
                 self.logger.error(f"Error during HuggingFace Router API call: {e}")
@@ -168,7 +173,11 @@ class HuggingFaceClient(MinionsClient):
             # Extract the content from the response
             content = response.choices[0].message.content
 
-            return [content], usage, self.model_name
+            return ChatResponse(
+                    responses=[content],
+                    usage=usage,
+                    done_reasons=[self.model_name]  # HuggingFace uses this field for model_name
+                )
 
     async def achat(
         self, messages: List[Dict[str, Any]], stream: bool = False, **kwargs
@@ -233,7 +242,11 @@ class HuggingFaceClient(MinionsClient):
                     # Extract the content from the response
                     content = response.choices[0].message.content
 
-                    return [content], usage, self.model_name
+                    return ChatResponse(
+                    responses=[content],
+                    usage=usage,
+                    done_reasons=[self.model_name]  # HuggingFace uses this field for model_name
+                )
                 except Exception as e:
                     self.logger.error(f"Error during async HuggingFace Router API call: {e}")
                     raise
@@ -274,7 +287,11 @@ class HuggingFaceClient(MinionsClient):
                     # Extract the content from the response
                     content = response.choices[0].message.content
 
-                    return [content], usage, self.model_name
+                    return ChatResponse(
+                    responses=[content],
+                    usage=usage,
+                    done_reasons=[self.model_name]  # HuggingFace uses this field for model_name
+                )
                 except Exception as e:
                     self.logger.error(f"Error during async HuggingFace API call: {e}")
                     raise
@@ -358,6 +375,36 @@ class HuggingFaceClient(MinionsClient):
         # If content format is not recognized
         raise ValueError(f"Unsupported message content format: {type(content)}")
 
+    @staticmethod
+    def _audio_array_to_wav_bytes(audio_array: np.ndarray, sample_rate: int = 24000) -> bytes:
+        """
+        Convert numpy audio array to WAV format bytes.
+
+        Args:
+            audio_array: Numpy array containing audio samples
+            sample_rate: Sample rate in Hz (default: 24000)
+
+        Returns:
+            WAV file as bytes
+
+        Example:
+            >>> audio_array = model.generate_audio(...)
+            >>> wav_bytes = HuggingFaceClient._audio_array_to_wav_bytes(audio_array)
+            >>> with open("output.wav", "wb") as f:
+            >>>     f.write(wav_bytes)
+        """
+        # Create in-memory buffer
+        buffer = io.BytesIO()
+
+        # Write audio to buffer as WAV
+        sf.write(buffer, audio_array, samplerate=sample_rate, format='WAV')
+
+        # Get bytes from buffer
+        buffer.seek(0)
+        audio_bytes = buffer.getvalue()
+
+        return audio_bytes
+
     def multimodal_chat(
         self,
         messages: List[Dict[str, Any]],
@@ -365,7 +412,7 @@ class HuggingFaceClient(MinionsClient):
         voice_type: str = "Chelsie",
         use_audio_in_video: bool = True,
         **kwargs,
-    ) -> Dict[str, Any]:
+    ) -> ChatResponse:
         """
         Handle multimodal chat completions using the Qwen2.5-Omni model.
 
@@ -381,7 +428,18 @@ class HuggingFaceClient(MinionsClient):
             **kwargs: Additional arguments to pass to the model
 
         Returns:
-            Dictionary with 'text' key and optional 'audio' key (if return_audio=True)
+            ChatResponse: Response with text and optional audio bytes
+                - responses: List with generated text
+                - usage: Token usage info
+                - done_reasons: List with finish reason
+                - audio: WAV audio bytes if return_audio=True, else None
+
+        Example:
+            >>> messages = [{"role": "user", "content": "Hello"}]
+            >>> response = client.multimodal_chat(messages, return_audio=True)
+            >>> print(response.responses[0])  # Text
+            >>> with open("output.wav", "wb") as f:
+            >>>     f.write(response.audio)  # Audio
         """
         if not self.model_name.startswith("Qwen/Qwen2.5-Omni"):
             raise ValueError(
@@ -463,26 +521,26 @@ class HuggingFaceClient(MinionsClient):
 
                 # Decode text
                 text_output = processor.batch_decode(
-                    text_ids,
+                    text_ids[:, inputs["input_ids"].shape[1]:],
                     skip_special_tokens=True,
                     clean_up_tokenization_spaces=False,
                 )[0]
 
-                # Process audio
+                # Process audio to bytes (no temp file needed)
                 audio_array = audio.reshape(-1).detach().cpu().numpy()
-
-                # Create a temporary file for the audio
-                with tempfile.NamedTemporaryFile(
-                    suffix=".wav", delete=False
-                ) as temp_file:
-                    sf.write(temp_file.name, audio_array, samplerate=24000)
-                    audio_path = temp_file.name
+                audio_bytes = self._audio_array_to_wav_bytes(audio_array, sample_rate=24000)
 
                 usage.completion_tokens = len(audio_array) + len(text_ids)
 
-                # TODO: add audio to response
-                return [text_output], usage, "STOP"
+                # Return with audio in ChatResponse
+                return ChatResponse(
+                    responses=[text_output],
+                    usage=usage,
+                    done_reasons=["STOP"],
+                    audio=audio_bytes
+                )
             else:
+                # No audio generation
                 text_ids = self.client.generate(
                     **inputs,
                     use_audio_in_video=use_audio_in_video,
@@ -492,15 +550,19 @@ class HuggingFaceClient(MinionsClient):
 
                 # Decode text
                 text_output = processor.batch_decode(
-                    text_ids,
+                    text_ids[:, inputs["input_ids"].shape[1]:],
                     skip_special_tokens=True,
                     clean_up_tokenization_spaces=False,
                 )[0]
 
-                usage.completion_tokens = len(text_ids)
+                usage.completion_tokens = len(text_ids[0])
 
-                # TODO: add audio to response
-                return [text_output], usage, "STOP"
+                # Return without audio
+                return ChatResponse(
+                    responses=[text_output],
+                    usage=usage,
+                    done_reasons=["STOP"]
+                )
 
         except Exception as e:
             self.logger.error(f"Error during multimodal chat: {e}")

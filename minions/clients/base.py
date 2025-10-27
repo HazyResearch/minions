@@ -7,6 +7,7 @@ from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from minions.usage import Usage
+from minions.clients.response import ChatResponse
 
 
 class MinionsClient(ABC):
@@ -63,29 +64,36 @@ class MinionsClient(ABC):
     
     @abstractmethod
     def chat(
-        self, 
-        messages: List[Dict[str, Any]], 
+        self,
+        messages: List[Dict[str, Any]],
         **kwargs
-    ) -> Union[
-            Tuple[List[str], Usage],
-            Tuple[List[str], Usage, List[str]],
-            Tuple[List[str], Usage, List[str], List[Any]]
-        ]:
+    ) -> ChatResponse:
         """
         Primary chat interface that all clients must implement.
-        
+
         Args:
             messages: List of message dictionaries with 'role' and 'content' keys
             **kwargs: Additional parameters specific to the client
-            
+
         Returns:
-            Tuple containing at minimum:
-            - List[str]: Generated responses
-            - Usage: Token usage information
-            
-            May also include:
-            - List[str]: Finish reasons (optional)
-            - List[Any]: Tool calls (optional)
+            ChatResponse: Standardized response object with responses, usage,
+                and optional fields (done_reasons, tool_calls, audio, metadata)
+
+        Examples:
+            # Type-safe attribute access (recommended):
+            response = client.chat(messages)
+            print(response.responses[0])
+            print(response.usage.total_tokens)
+            if response.done_reasons:
+                print(response.done_reasons[0])
+
+            # Backward compatible unpacking (still supported):
+            responses, usage = client.chat(messages)
+            responses, usage, done_reasons = client.chat(messages)
+            responses, usage, done_reasons, tool_calls = client.chat(messages)
+
+        Raises:
+            NotImplementedError: If client doesn't support chat
         """
         pass
     

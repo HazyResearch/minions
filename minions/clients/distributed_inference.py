@@ -13,6 +13,7 @@ import json
 
 from minions.usage import Usage
 from minions.clients.base import MinionsClient
+from minions.clients.response import ChatResponse
 
 
 class DistributedInferenceClient(MinionsClient):
@@ -246,8 +247,12 @@ class DistributedInferenceClient(MinionsClient):
             # Extract done reason if available, default to "stop"
             done_reason = data.get("done_reason", "stop")
             self.logger.info(f"DistributedInferenceClient: Done reason: {done_reason}")
-            
-            return ([response_text], usage, [done_reason])
+
+            return ChatResponse(
+                responses=[response_text],
+                usage=usage,
+                done_reasons=[done_reason]
+            )
             
         except requests.exceptions.HTTPError as e:
             self.logger.error(f"DistributedInferenceClient: HTTP Error - Status: {e.response.status_code}")
@@ -422,8 +427,12 @@ class DistributedInferenceClient(MinionsClient):
                     done_reasons.append("stop")
             
             self.logger.info(f"DistributedInferenceClient: Final batch result summary - responses: {len(responses)}, total_usage: {total_usage}")
-            
-            return (responses, total_usage, done_reasons)
+
+            return ChatResponse(
+                responses=responses,
+                usage=total_usage,
+                done_reasons=done_reasons
+            )
             
         except requests.exceptions.HTTPError as e:
             self.logger.error(f"DistributedInferenceClient: Batch HTTP Error - Status: {e.response.status_code}")

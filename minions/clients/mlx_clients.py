@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union, BinaryIO, Literal
 
 from minions.usage import Usage
 from minions.clients.base import MinionsClient
+from minions.clients.response import ChatResponse
 
 
 class MLXParallmClient(MinionsClient):
@@ -99,10 +100,11 @@ class MLXParallmClient(MinionsClient):
 
         usage = Usage(prompt_tokens=prompt_tokens, completion_tokens=completion_tokens)
 
-        if self.local:
-            return [response], usage, "END_OF_TEXT"
-        else:
-            return [response], usage
+        return ChatResponse(
+            responses=[response],
+            usage=usage,
+            done_reasons=["END_OF_TEXT"] if self.local else None
+        )
 
 
 class MLXLMClient(MinionsClient):
@@ -245,10 +247,11 @@ class MLXLMClient(MinionsClient):
                 completion_tokens=completion_tokens,
             )
 
-            if self.local:
-                return [response], usage, ["stop"]
-            else:
-                return [response], usage
+            return ChatResponse(
+                responses=[response],
+                usage=usage,
+                done_reasons=["stop"] if self.local else None
+            )
 
         except Exception as e:
             self.logger.error(f"Error during MLX LM generation: {e}")

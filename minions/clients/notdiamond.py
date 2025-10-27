@@ -5,6 +5,7 @@ import openai
 
 from minions.usage import Usage
 from minions.clients.base import MinionsClient
+from minions.clients.response import ChatResponse
 
 
 class NotDiamondAIClient(MinionsClient):
@@ -121,4 +122,7 @@ class NotDiamondAIClient(MinionsClient):
             completion_tokens=response.usage.completion_tokens,
         )
 
-        return [choice.message.content for choice in response.choices], usage 
+        return ChatResponse(
+            responses=[choice.message.content for choice in response.choices],
+            usage=usage
+        )

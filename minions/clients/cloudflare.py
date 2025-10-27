@@ -3,6 +3,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import os
 from openai import OpenAI
 from minions.clients.openai import OpenAIClient
+from minions.clients.response import ChatResponse
 
 from minions.usage import Usage
 
@@ -126,8 +127,10 @@ class CloudflareGatewayClient(OpenAIClient):
             )
 
         # Return response content
-        return [choice.message.content for choice in response.choices], usage
-
+        return ChatResponse(
+            responses=[choice.message.content for choice in response.choices],
+            usage=usage
+        )
     @staticmethod
     def get_available_models() -> List[str]:
         """

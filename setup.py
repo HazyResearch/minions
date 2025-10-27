@@ -46,6 +46,7 @@ setup(
             "sentence-transformers",  # for pretrained embedding models
             "torch",  # for running embedding models on CUDA
             "chromadb",  # for vector database
+            "numpy",  # for embedding tests
         ],
         "secure": [
             "flask",  # for the worker server

@@ -5,6 +5,7 @@ from openai import OpenAI
 
 from minions.usage import Usage
 from minions.clients.base import MinionsClient
+from minions.clients.response import ChatResponse
 from minions.clients.utils import ServerMixin
 
 
@@ -119,12 +120,12 @@ class ModularClient(MinionsClient, ServerMixin):
                 completion_tokens=response.usage.completion_tokens if response.usage else 0,
             )
 
-            if self.local:
-                # Extract response content
-                return [choice.message.content for choice in response.choices], usage, [choice.finish_reason for choice in response.choices]
-            else:
-                # Extract response content
-                return [choice.message.content for choice in response.choices], usage
+            # Extract response content
+            return ChatResponse(
+                responses=[choice.message.content for choice in response.choices],
+                usage=usage,
+                done_reasons=[choice.finish_reason for choice in response.choices] if self.local else None
+            )
             
         except Exception as e:
             self.logger.error(f"Error during Modular MAX API call: {e}")

@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import List, Dict, Any, Tuple, Optional
 from pydantic import BaseModel
 from minions.clients.base import MinionsClient  
+from minions.clients.response import ChatResponse
 from minions.usage import Usage
 
 class DockerModelRunnerClient(MinionsClient):
@@ -150,11 +151,12 @@ class DockerModelRunnerClient(MinionsClient):
             choice = result["choices"][0]
             message_content = choice["message"]["content"]
             finish_reason = choice.get("finish_reason", "stop")
-            
-            if self.local:
-                return [message_content], usage, [finish_reason]
-            else:
-                return [message_content], usage
+
+            return ChatResponse(
+                responses=[message_content],
+                usage=usage,
+                done_reasons=[finish_reason] if self.local else None
+            )
         else:
             raise RuntimeError(f"Unexpected response format from Docker Model Runner: {result}")
     
@@ -208,12 +210,14 @@ class DockerModelRunnerClient(MinionsClient):
             choice = result["choices"][0]
             message_content = choice["message"]["content"]
             finish_reason = choice.get("finish_reason", "stop")
-            
-            # Return format matches OllamaClient.achat - note List[Usage] instead of Usage
-            if self.local:
-                return [message_content], [usage], [finish_reason]
-            else:
-                return [message_content], [usage]
+
+            # NOTE: This async method historically returned List[Usage] instead of Usage
+            # Preserving this behavior but using ChatResponse
+            return ChatResponse(
+                responses=[message_content],
+                usage=usage,  # Store as single Usage, can unpack to [usage] if needed
+                done_reasons=[finish_reason] if self.local else None
+            )
         else:
             raise RuntimeError(f"Unexpected response format from Docker Model Runner: {result}")
 

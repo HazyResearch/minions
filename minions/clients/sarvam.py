@@ -5,6 +5,7 @@ import requests
 
 from minions.usage import Usage
 from minions.clients.base import MinionsClient
+from minions.clients.response import ChatResponse
 
 
 class SarvamClient(MinionsClient):
@@ -60,7 +61,7 @@ class SarvamClient(MinionsClient):
             "Content-Type": "application/json",
         }
 
-    def chat(self, messages: List[Dict[str, Any]], **kwargs) -> Tuple[List[str], Usage, List[str]]:
+    def chat(self, messages: List[Dict[str, Any]], **kwargs) -> ChatResponse:
         """
         Handle chat completions using the Sarvam AI API.
 
@@ -69,7 +70,7 @@ class SarvamClient(MinionsClient):
             **kwargs: Additional arguments to pass to the API
 
         Returns:
-            Tuple of (List[str], Usage, List[str]) containing response strings, token usage, and done reasons
+            ChatResponse containing response strings, token usage, and done reasons
         """
         assert len(messages) > 0, "Messages cannot be empty."
 
@@ -123,11 +124,15 @@ class SarvamClient(MinionsClient):
             message = choice.get("message", {})
             content = message.get("content", "")
             response_texts.append(content)
-            
+
             finish_reason = choice.get("finish_reason", "stop")
             done_reasons.append(finish_reason)
 
-        return response_texts, usage
+        return ChatResponse(
+            responses=response_texts,
+            usage=usage,
+            done_reasons=done_reasons
+        )
 
     def get_chat_completion(self, messages: List[Dict[str, Any]], **kwargs) -> Optional[Dict[str, Any]]:
         """

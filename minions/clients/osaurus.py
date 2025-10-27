@@ -6,6 +6,7 @@ from openai import OpenAI
 
 from minions.usage import Usage
 from minions.clients.base import MinionsClient
+from minions.clients.response import ChatResponse
 
 
 class OsaurusClient(MinionsClient):
@@ -215,10 +216,19 @@ class OsaurusClient(MinionsClient):
                 # This follows OpenAI's pattern where the client handles tool execution
                 pass
             
-            if self.local:
-                return response_texts, usage, finish_reasons
-            else:
-                return response_texts, usage
+            return ChatResponse(
+
+            
+                responses=response_texts,
+
+            
+                usage=usage,
+
+            
+                done_reasons=finish_reasons if self.local else None
+
+            
+            )
                 
         except Exception as e:
             self.logger.error(f"Error during Osaurus API call: {e}")

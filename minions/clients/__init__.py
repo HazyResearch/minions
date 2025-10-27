@@ -18,6 +18,7 @@ from minions.clients.gemini import GeminiClient
 from minions.clients.grok import GrokClient
 from minions.clients.llama_api import LlamaApiClient
 from minions.clients.mistral import MistralClient
+from minions.clients.minimax import MiniMaxClient
 from minions.clients.sarvam import SarvamClient
 from minions.clients.docker_model_runner import DockerModelRunnerClient
 from minions.clients.lemonade import LemonadeClient
@@ -51,6 +52,7 @@ __all__ = [
     "GrokClient",
     "LlamaApiClient",
     "MistralClient",
+    "MiniMaxClient",
     "SarvamClient",
     "DockerModelRunnerClient",
     "DistributedInferenceClient",

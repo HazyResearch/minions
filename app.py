@@ -2524,6 +2524,7 @@ with st.sidebar:
             default_model_index = 0
         elif selected_provider == "OpenRouter":
             model_mapping = {
+                "MiniMax-M2 (Recommended)": "minimax/minimax-m2:free",
                 "Qwen3 Max": "qwen/qwen3-max",
                 "grok-4-fast": "x-ai/grok-4-fast",
                 "Qwen3 235B A22B 2507": "qwen/qwen3-235b-a22b-07-25:free",

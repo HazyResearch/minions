@@ -22,6 +22,7 @@ class HuggingFaceClient(MinionsClient):
         model_name: str = "meta-llama/Llama-3.2-3B-Instruct",
         temperature: float = 0.2,
         max_tokens: int = 2048,
+        provider: str = "together",
         api_token: Optional[str] = None,
         use_router: bool = False,
         **kwargs
@@ -35,6 +36,7 @@ class HuggingFaceClient(MinionsClient):
             max_tokens: Maximum number of tokens to generate (default: 2048)
             api_token: HuggingFace API token (optional, falls back to HF_TOKEN environment variable)
             use_router: Whether to use HuggingFace Router instead of Inference API (default: False)
+            provider: Provider name to use with Router (e.g., "zai-org") or with huggingface InferenceClient (default: "together")
             **kwargs: Additional parameters passed to base class
         """
         super().__init__(
@@ -50,6 +52,11 @@ class HuggingFaceClient(MinionsClient):
         # Get API token from parameter or environment variable
         self.api_token = api_token or os.getenv("HF_TOKEN")
         self.use_router = use_router
+        self.provider = provider
+        self.logger.info(f"Using provider: {self.provider}. See https://huggingface.co/docs/inference-providers/ for more information.")
+        
+        # If provider is specified, append it to the model name for Router API
+        self.router_model_name = f"{model_name}:{provider}" if provider and use_router else model_name
 
         if self.use_router:
             # Initialize OpenAI client for HuggingFace Router
@@ -57,12 +64,12 @@ class HuggingFaceClient(MinionsClient):
                 base_url="https://router.huggingface.co/v1",
                 api_key=self.api_token,
             )
-            self.logger.info(f"Using HuggingFace Router for model: {model_name}")
+            self.logger.info(f"Using HuggingFace Router for model: {self.router_model_name}")
         else:
             # Initialize regular HuggingFace clients
-            self.client = InferenceClient(model=self.model_name, token=self.api_token)
+            self.client = InferenceClient(provider=self.provider, token=self.api_token)
             self.async_client = AsyncInferenceClient(
-                model=self.model_name, token=self.api_token
+                provider=self.provider, token=self.api_token
             )
 
             if model_name.startswith("Qwen/Qwen2.5-Omni"):
@@ -121,7 +128,7 @@ class HuggingFaceClient(MinionsClient):
                     kwargs["max_tokens"] = self.max_tokens
 
                 response = self.router_client.chat.completions.create(
-                    model=self.model_name,
+                    model=self.router_model_name,
                     messages=messages,
                     **kwargs,
                 )
@@ -151,6 +158,7 @@ class HuggingFaceClient(MinionsClient):
                     kwargs["max_tokens"] = self.max_tokens
 
                 response = self.client.chat_completion(
+                    model=self.model_name,
                     messages=messages,
                     **kwargs,
                 )
@@ -199,7 +207,7 @@ class HuggingFaceClient(MinionsClient):
             if stream:
                 try:
                     stream_response = await self.router_client.chat.completions.create(
-                        model=self.model_name,
+                        model=self.router_model_name,
                         messages=messages,
                         stream=True,
                         **kwargs,
@@ -219,7 +227,7 @@ class HuggingFaceClient(MinionsClient):
             else:
                 try:
                     response = await self.router_client.chat.completions.create(
-                        model=self.model_name,
+                        model=self.router_model_name,
                         messages=messages,
                         **kwargs,
                     )
@@ -242,6 +250,7 @@ class HuggingFaceClient(MinionsClient):
             if stream:
                 try:
                     stream_response = await self.async_client.chat_completion(
+                        model=self.model_name,
                         messages=messages,
                         stream=True,
                         **kwargs,
@@ -261,6 +270,7 @@ class HuggingFaceClient(MinionsClient):
             else:
                 try:
                     response = await self.async_client.chat_completion(
+                        model=self.model_name,
                         messages=messages,
                         **kwargs,
                     )
@@ -544,4 +554,3 @@ class HuggingFaceClient(MinionsClient):
             **kwargs,
         )
 
-    # TODO: extend to other huggingface client types:  https://huggingface.co/docs/huggingface_hub/en/guides/inference

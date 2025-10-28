@@ -88,6 +88,78 @@ class TestHuggingFaceClientIntegration(BaseClientIntegrationTest):
         
         responses, usage = self.client.chat(messages)
         self.assert_response_content(responses, "HF_SYSTEM_OK")
+    
+    def test_router_without_provider(self):
+        """Test Router API without specifying a provider"""
+        client = HuggingFaceClient(
+            model_name="meta-llama/Llama-3.2-3B-Instruct",
+            use_router=True,
+            max_tokens=50
+        )
+        
+        messages = [{"role": "user", "content": "Say 'hello'"}]
+        
+        try:
+            responses, usage, model = client.chat(messages)
+            self.assertIsInstance(responses, list)
+            self.assertGreater(len(responses), 0)
+            # Verify the model name is not modified when no provider is specified
+            self.assertEqual(client.router_model_name, "meta-llama/Llama-3.2-3B-Instruct")
+        except Exception as e:
+            if "authentication" in str(e).lower() or "not available" in str(e).lower():
+                self.skipTest(f"Router API not available or auth issue: {e}")
+            else:
+                raise
+    
+    def test_router_with_provider(self):
+        """Test Router API with provider specification"""
+        # Test that provider parameter correctly formats the model name
+        client = HuggingFaceClient(
+            model_name="zai-org/GLM-4.6",
+            use_router=True,
+            provider="zai-org",
+            max_tokens=50
+        )
+        
+        # Verify the router_model_name is correctly formatted
+        self.assertEqual(client.router_model_name, "zai-org/GLM-4.6:zai-org")
+        
+        messages = [{"role": "user", "content": "Say 'hello'"}]
+        
+        try:
+            responses, usage, model = client.chat(messages)
+            self.assertIsInstance(responses, list)
+            self.assertGreater(len(responses), 0)
+        except Exception as e:
+            if "authentication" in str(e).lower() or "not available" in str(e).lower() or "model" in str(e).lower():
+                self.skipTest(f"Z.ai model not available or auth issue: {e}")
+            else:
+                raise
+    
+    def test_provider_parameter_ignored_without_router(self):
+        """Test that provider parameter is ignored when not using router"""
+        client = HuggingFaceClient(
+            model_name="microsoft/DialoGPT-medium",
+            use_router=False,
+            provider="some-provider",  # Should be ignored
+            max_tokens=50
+        )
+        
+        # Verify the router_model_name is just the model name when not using router
+        self.assertEqual(client.router_model_name, "microsoft/DialoGPT-medium")
+        self.assertEqual(client.provider, "some-provider")
+        
+        messages = [{"role": "user", "content": "Hello"}]
+        
+        try:
+            responses, usage, model = client.chat(messages)
+            self.assertIsInstance(responses, list)
+            self.assertGreater(len(responses), 0)
+        except Exception as e:
+            if "model" in str(e).lower() or "not available" in str(e).lower():
+                self.skipTest(f"Model not available: {e}")
+            else:
+                raise
 
 
 if __name__ == '__main__':

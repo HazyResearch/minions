@@ -31,6 +31,13 @@ try:
 except ImportError:
     GEMINI_AVAILABLE = False
 
+# Liquid AI ColBERT support
+try:
+    from pylate import models, indexes, retrieve, rank
+    LIQUID_COLBERT_AVAILABLE = True
+except ImportError:
+    LIQUID_COLBERT_AVAILABLE = False
+
 
 ### EMBEDDING MODELS ###
 
@@ -324,6 +331,142 @@ class GeminiEmbeddings(BaseEmbeddingModel):
         ]
 
 
+class LiquidAIColBERTEmbeddings(BaseEmbeddingModel):
+    """
+    Implementation of embedding model using Liquid AI's LFM2-ColBERT-350M.
+    
+    This is a late-interaction retriever that provides excellent multilingual
+    performance and supports both retrieval and reranking tasks.
+    
+    Note: ColBERT models output multi-vector embeddings (one per token) rather
+    than single-vector embeddings, enabling more expressive semantic matching.
+    """
+
+    _instances = {}  # Dictionary to store instances by model name
+    _default_model_name = "LiquidAI/LFM2-ColBERT-350M"
+
+    def __new__(cls, model_name=None):
+        if not LIQUID_COLBERT_AVAILABLE:
+            raise ImportError(
+                "PyLate is required to use LiquidAIColBERTEmbeddings. "
+                "Please install it with: pip install pylate"
+            )
+
+        model_name = model_name or cls._default_model_name
+        print(f"Using Liquid AI ColBERT model: {model_name}")
+
+        # Check if we already have an instance for this model
+        if model_name not in cls._instances:
+            instance = super(LiquidAIColBERTEmbeddings, cls).__new__(cls)
+            instance.model_name = model_name
+            instance._model = models.ColBERT(model_name_or_path=model_name)
+            # Set pad token for tokenizer compatibility
+            instance._model.tokenizer.pad_token = instance._model.tokenizer.eos_token
+            cls._instances[model_name] = instance
+        
+        return cls._instances[model_name]
+
+    def get_model(self):
+        """Get the ColBERT model."""
+        return self._model
+
+    def encode(
+        self, 
+        texts: Union[str, List[str]], 
+        is_query: bool = True,
+        batch_size: int = 32,
+        show_progress_bar: bool = False,
+        **kwargs
+    ) -> np.ndarray:
+        """
+        Encode texts to create ColBERT embeddings.
+        
+        Args:
+            texts: Single text or list of texts to encode
+            is_query: Whether encoding queries (True) or documents (False)
+            batch_size: Batch size for encoding
+            show_progress_bar: Whether to show progress during encoding
+            **kwargs: Additional arguments
+        
+        Returns:
+            Numpy array of multi-vector embeddings
+            
+        Note: Returns multi-vector embeddings (shape: [batch_size, num_tokens, dim])
+        """
+        # Handle single text input
+        if isinstance(texts, str):
+            texts = [texts]
+
+        # Encode using PyLate's ColBERT model
+        embeddings = self._model.encode(
+            texts,
+            batch_size=batch_size,
+            is_query=is_query,
+            show_progress_bar=show_progress_bar,
+        )
+        
+        return embeddings
+
+    def rerank(
+        self,
+        queries: List[str],
+        documents: List[List[str]],
+        documents_ids: List[List[int]],
+        batch_size: int = 32,
+    ) -> List[List[Dict]]:
+        """
+        Rerank documents for given queries using ColBERT's late interaction.
+        
+        Args:
+            queries: List of query strings
+            documents: List of document lists (one list per query)
+            documents_ids: List of document ID lists (one list per query)
+            batch_size: Batch size for encoding
+            
+        Returns:
+            List of reranked document results with scores
+        """
+        # Encode queries and documents
+        queries_embeddings = self.encode(
+            queries,
+            is_query=True,
+            batch_size=batch_size,
+        )
+        
+        documents_embeddings = self.encode(
+            documents,
+            is_query=False,
+            batch_size=batch_size,
+        )
+        
+        # Rerank using PyLate's rank function
+        reranked_documents = rank.rerank(
+            documents_ids=documents_ids,
+            queries_embeddings=queries_embeddings,
+            documents_embeddings=documents_embeddings,
+        )
+        
+        return reranked_documents
+
+    @classmethod
+    def get_model_by_name(cls, model_name=None):
+        """Get model by name (for backward compatibility)"""
+        instance = cls(model_name)
+        return instance.get_model()
+
+    @classmethod
+    def encode_by_name(
+        cls, 
+        texts, 
+        model_name=None,
+        is_query: bool = True,
+        **kwargs
+    ) -> np.ndarray:
+        """Encode texts using model by name (for backward compatibility)"""
+        instance = cls(model_name)
+        return instance.encode(texts, is_query=is_query, **kwargs)
+
+
 ### RETRIEVERS ###
 
 def bm25_retrieve_top_k_chunks(
@@ -413,3 +556,167 @@ def embedding_retrieve_top_k_chunks(
     relevant_chunks = [chunks[i] for i in top_k_indices]
 
     return relevant_chunks
+
+
+def colbert_retrieve_top_k_chunks(
+    queries: List[str],
+    chunks: List[str] = None,
+    k: int = 10,
+    model_name: str = None,
+    index_folder: str = "pylate-index",
+    index_name: str = "colbert_index",
+    batch_size: int = 32,
+    recreate_index: bool = False,
+) -> List[str]:
+    """
+    Retrieves top k chunks using Liquid AI's ColBERT late-interaction retriever.
+    
+    This function uses PyLate's PLAID index for efficient similarity search with
+    ColBERT's multi-vector embeddings. The index is created once and reused for
+    subsequent queries unless recreate_index is True.
+    
+    Args:
+        queries: List of query strings
+        chunks: List of text chunks to search through
+        k: Number of top chunks to retrieve
+        model_name: Optional ColBERT model name (defaults to LFM2-ColBERT-350M)
+        index_folder: Folder to store the PLAID index
+        index_name: Name for the index
+        batch_size: Batch size for encoding
+        recreate_index: Whether to recreate the index from scratch
+        
+    Returns:
+        List of top k relevant chunks
+        
+    Example:
+        >>> queries = ["What is machine learning?"]
+        >>> chunks = ["ML is a subset of AI...", "Deep learning uses neural nets..."]
+        >>> results = colbert_retrieve_top_k_chunks(queries, chunks, k=5)
+    """
+    if not LIQUID_COLBERT_AVAILABLE:
+        raise ImportError(
+            "PyLate is required for ColBERT retrieval. "
+            "Please install it with: pip install pylate"
+        )
+    
+    # Initialize the ColBERT model
+    embedding_model = LiquidAIColBERTEmbeddings(model_name)
+    
+    # Initialize or load the PLAID index
+    index = indexes.PLAID(
+        index_folder=index_folder,
+        index_name=index_name,
+        override=recreate_index,
+    )
+    
+    # If recreating index or index is empty, encode and add documents
+    if recreate_index or not hasattr(index, '_documents_ids') or len(getattr(index, '_documents_ids', [])) == 0:
+        print(f"Creating ColBERT index with {len(chunks)} documents...")
+        
+        # Create document IDs
+        documents_ids = [str(i) for i in range(len(chunks))]
+        
+        # Encode documents (not queries)
+        documents_embeddings = embedding_model.encode(
+            chunks,
+            batch_size=batch_size,
+            is_query=False,
+            show_progress_bar=True,
+        )
+        
+        # Add documents to index
+        index.add_documents(
+            documents_ids=documents_ids,
+            documents_embeddings=documents_embeddings,
+        )
+        print("ColBERT index created successfully.")
+    
+    # Initialize the ColBERT retriever
+    retriever = retrieve.ColBERT(index=index)
+    
+    # Encode queries
+    queries_embeddings = embedding_model.encode(
+        queries,
+        batch_size=batch_size,
+        is_query=True,
+        show_progress_bar=False,
+    )
+    
+    # Retrieve top-k documents
+    scores_dict = retriever.retrieve(
+        queries_embeddings=queries_embeddings,
+        k=k,
+    )
+    
+    # Aggregate scores across all queries
+    aggregated_scores = {}
+    for query_scores in scores_dict:
+        for doc_id, score in query_scores:
+            if doc_id in aggregated_scores:
+                aggregated_scores[doc_id] += score
+            else:
+                aggregated_scores[doc_id] = score
+    
+    # Sort by aggregated scores and get top k
+    sorted_doc_ids = sorted(
+        aggregated_scores.keys(),
+        key=lambda x: aggregated_scores[x],
+        reverse=True
+    )[:k]
+    
+    # Convert document IDs back to chunk indices and return chunks
+    relevant_chunks = [chunks[int(doc_id)] for doc_id in sorted_doc_ids]
+    
+    return relevant_chunks
+
+
+def colbert_rerank_chunks(
+    queries: List[str],
+    chunks_list: List[List[str]],
+    model_name: str = None,
+    batch_size: int = 32,
+) -> List[List[Dict]]:
+    """
+    Rerank chunks for each query using Liquid AI's ColBERT model.
+    
+    This is useful for reranking results from a first-stage retriever
+    (like BM25 or a bi-encoder) with ColBERT's more expressive late interaction.
+    
+    Args:
+        queries: List of query strings
+        chunks_list: List of chunk lists (one list per query to rerank)
+        model_name: Optional ColBERT model name (defaults to LFM2-ColBERT-350M)
+        batch_size: Batch size for encoding
+        
+    Returns:
+        List of reranked results with scores for each query
+        
+    Example:
+        >>> queries = ["What is AI?"]
+        >>> chunks_list = [["AI is...", "Machine learning is...", "Deep learning is..."]]
+        >>> reranked = colbert_rerank_chunks(queries, chunks_list)
+    """
+    if not LIQUID_COLBERT_AVAILABLE:
+        raise ImportError(
+            "PyLate is required for ColBERT reranking. "
+            "Please install it with: pip install pylate"
+        )
+    
+    # Initialize the ColBERT model
+    embedding_model = LiquidAIColBERTEmbeddings(model_name)
+    
+    # Create document IDs for each list
+    documents_ids = [
+        [i for i in range(len(chunks))]
+        for chunks in chunks_list
+    ]
+    
+    # Rerank using the model's rerank method
+    reranked_results = embedding_model.rerank(
+        queries=queries,
+        documents=chunks_list,
+        documents_ids=documents_ids,
+        batch_size=batch_size,
+    )
+    
+    return reranked_results

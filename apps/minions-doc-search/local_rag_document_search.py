@@ -11,6 +11,7 @@ Supported retrievers:
 - mlx: Apple Silicon optimized embeddings with MLX
 - gemini: Google Gemini embeddings via API
 - embeddinggemma: Google EmbeddingGemma-300m model via SentenceTransformers
+- colbert: Liquid AI late-interaction retrieval with ColBERT + PLAID index
 - multimodal: ChromaDB + Ollama embeddings
 - qdrant: Qdrant + Ollama embeddings
 
@@ -20,6 +21,7 @@ Usage:
   python local_rag_document_search.py --retriever mlx
   python local_rag_document_search.py --retriever gemini
   python local_rag_document_search.py --retriever embeddinggemma
+  python local_rag_document_search.py --retriever colbert
   python local_rag_document_search.py --retriever multimodal
   python local_rag_document_search.py --retriever qdrant
 """
@@ -34,7 +36,7 @@ from typing import List, Tuple, Dict
 # Add the minions directory to the path
 sys.path.append(os.path.join(os.path.dirname(__file__), '../../minions'))
 
-from minions.utils.retrievers import bm25_retrieve_top_k_chunks, embedding_retrieve_top_k_chunks, SentenceTransformerEmbeddings, MLXEmbeddings, GeminiEmbeddings
+from minions.utils.retrievers import bm25_retrieve_top_k_chunks, embedding_retrieve_top_k_chunks, colbert_retrieve_top_k_chunks, SentenceTransformerEmbeddings, MLXEmbeddings, GeminiEmbeddings
 from minions.utils.multimodal_retrievers import retrieve_chunks_from_chroma, retrieve_chunks_from_qdrant
 from minions.clients.ollama import OllamaClient
 from pydantic import BaseModel
@@ -242,7 +244,7 @@ def search_documents(query, documents: List[str], file_paths: List[str], k: int 
         documents: List of document contents (treated as chunks)
         file_paths: List of corresponding file paths
         k: Number of top results to return
-        retriever_type: Type of retriever to use ("bm25", "embedding", "mlx", "multimodal", "qdrant")
+        retriever_type: Type of retriever to use ("bm25", "embedding", "mlx", "gemini", "embeddinggemma", "colbert", "multimodal", "qdrant")
         weights: Dictionary of keyword weights for BM25 retrieval
         
     Returns:
@@ -264,6 +266,7 @@ def search_documents(query, documents: List[str], file_paths: List[str], k: int 
         "mlx": _retrieve_mlx,
         "gemini": _retrieve_gemini,
         "embeddinggemma": _retrieve_embeddinggemma,
+        "colbert": _retrieve_colbert,
         "multimodal": _retrieve_multimodal,
         "qdrant": _retrieve_qdrant
     }
@@ -369,6 +372,34 @@ def _retrieve_embeddinggemma(query: str, documents: List[str], k: int) -> List[s
     except Exception as e:
         print(f"Error loading EmbeddingGemma model: {e}")
         print("This might be due to model download or compatibility issues.")
+        print("Falling back to BM25...")
+        return _retrieve_bm25(query.split(), documents, k)
+
+
+def _retrieve_colbert(query: str, documents: List[str], k: int) -> List[str]:
+    """ColBERT late-interaction retrieval using Liquid AI's LFM2-ColBERT-350M."""
+    print("Using ColBERT late-interaction retrieval with Liquid AI LFM2-ColBERT-350M")
+    print("Features: Best-in-class multilingual performance, efficient inference, cross-lingual support")
+    
+    try:
+        return colbert_retrieve_top_k_chunks(
+            queries=[query], 
+            chunks=documents, 
+            k=k,
+            batch_size=32,
+            recreate_index=False,  # Reuse existing index if available
+            index_folder="./colbert_doc_index",
+            index_name="documents"
+        )
+    except ImportError as e:
+        print(f"Error: {e}")
+        print("Make sure pylate is installed.")
+        print("Install with: pip install pylate")
+        print("\nFalling back to BM25...")
+        return _retrieve_bm25(query.split(), documents, k)
+    except Exception as e:
+        print(f"Error with ColBERT retrieval: {e}")
+        print("This might be due to model download or index issues.")
         print("Falling back to BM25...")
         return _retrieve_bm25(query.split(), documents, k)
 
@@ -516,6 +547,7 @@ Examples:
   # Other retriever examples
   python local_rag_document_search.py --retriever mlx
   python local_rag_document_search.py --retriever gemini
+  python local_rag_document_search.py --retriever colbert
   python local_rag_document_search.py --retriever multimodal
   python local_rag_document_search.py --retriever qdrant
         """
@@ -525,7 +557,7 @@ Examples:
         "--retriever", 
         type=str, 
         default="bm25",
-        choices=["bm25", "embedding", "mlx", "gemini", "embeddinggemma", "multimodal", "qdrant"],
+        choices=["bm25", "embedding", "mlx", "gemini", "embeddinggemma", "colbert", "multimodal", "qdrant"],
         help="Type of retriever to use (default: bm25)"
     )
 

@@ -3,6 +3,7 @@ from typing import Any, Dict, List, Optional, Tuple
 import os
 from openai import OpenAI
 from minions.clients.openai import OpenAIClient
+from minions.clients.response import ChatResponse
 
 from minions.usage import Usage
 
@@ -175,8 +176,7 @@ class OpenRouterClient(OpenAIClient):
                 completion_tokens=response.usage.output_tokens,
             )
 
-        return outputs, usage
-
+        return ChatResponse(responses=outputs, usage=usage)
     def chat(self, messages: List[Dict[str, Any]], **kwargs) -> Tuple[List[str], Usage]:
         """
         Handle chat completions using the OpenRouter API.
@@ -253,8 +253,7 @@ class OpenRouterClient(OpenAIClient):
             else:
                 responses.append(content)
 
-        return responses, usage
-
+        return ChatResponse(responses=responses, usage=usage)
     @staticmethod
     def get_available_models() -> List[str]:
         """

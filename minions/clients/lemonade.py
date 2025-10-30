@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import requests
 
 from minions.clients.openai import OpenAIClient
+from minions.clients.response import ChatResponse
 from minions.usage import Usage
 from pydantic import BaseModel
 
@@ -104,10 +105,15 @@ class LemonadeClient(OpenAIClient):
             completion_tokens=response_data.get('usage', {}).get('completion_tokens', 0),
         )
         done_reason = [choice.get("finish_reason", "stop") for choice in choices]
-        if self.local:
-            return responses, usage, done_reason
-        else:
-            return responses, usage
+        return ChatResponse(
+
+            responses=responses,
+
+            usage=usage,
+
+            done_reasons=done_reason if self.local else None
+
+        )
 
     def achat(
         self,

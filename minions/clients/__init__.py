@@ -1,37 +1,18 @@
+# Core imports - should always work with base installation
 from minions.clients.base import MinionsClient
+from minions.clients.response import ChatResponse
 from minions.clients.ollama import OllamaClient, OllamaTurboClient
 from minions.clients.osaurus import OsaurusClient
 from minions.clients.lemonade import LemonadeClient
 from minions.clients.openai import OpenAIClient
 from minions.clients.azure_openai import AzureOpenAIClient
 from minions.clients.anthropic import AnthropicClient
-from minions.clients.cohere import CohereClient
-from minions.clients.together import TogetherClient
-from minions.clients.perplexity import PerplexityAIClient
-from minions.clients.openrouter import OpenRouterClient
-from minions.clients.groq import GroqClient
-from minions.clients.deepseek import DeepSeekClient
-from minions.clients.qwen import QwenClient
-from minions.clients.sambanova import SambanovaClient
-from minions.clients.moonshot import MoonshotClient
-from minions.clients.gemini import GeminiClient
-from minions.clients.grok import GrokClient
-from minions.clients.llama_api import LlamaApiClient
-from minions.clients.mistral import MistralClient
-from minions.clients.minimax import MiniMaxClient
-from minions.clients.sarvam import SarvamClient
-from minions.clients.docker_model_runner import DockerModelRunnerClient
-from minions.clients.lemonade import LemonadeClient
-from minions.clients.distributed_inference import DistributedInferenceClient
-from minions.clients.novita import NovitaClient
 from minions.clients.parallel import ParallelClient
-from minions.clients.tencent import TencentClient
-from minions.clients.cloudflare import CloudflareGatewayClient
-from minions.clients.notdiamond import NotDiamondAIClient
-from minions.clients.vercel_gateway import VercelGatewayClient
-from minions.clients.exa import ExaClient
 
+# Initialize __all__ with core clients
 __all__ = [
+    "MinionsClient",
+    "ChatResponse",
     "OllamaClient",
     "OllamaTurboClient",
     "OsaurusClient",
@@ -39,31 +20,44 @@ __all__ = [
     "OpenAIClient",
     "AzureOpenAIClient",
     "AnthropicClient",
-    "CohereClient",
-    "TogetherClient",
-    "PerplexityAIClient",
-    "OpenRouterClient",
-    "GroqClient",
-    "DeepSeekClient",
-    "QwenClient",
-    "SambanovaClient",
-    "MoonshotClient",
-    "GeminiClient",
-    "GrokClient",
-    "LlamaApiClient",
-    "MistralClient",
-    "MiniMaxClient",
-    "SarvamClient",
-    "DockerModelRunnerClient",
-    "DistributedInferenceClient",
-    "NovitaClient",
     "ParallelClient",
-    "TencentClient",
-    "CloudflareGatewayClient",
-    "NotDiamondAIClient",
-    "VercelGatewayClient",
-    "ExaClient",
 ]
+
+# Optional dependencies - clients that require additional packages
+_optional_clients = [
+    ("minions.clients.cohere", "CohereClient"),
+    ("minions.clients.perplexity", "PerplexityAIClient"),
+    ("minions.clients.openrouter", "OpenRouterClient"),
+    ("minions.clients.groq", "GroqClient"),
+    ("minions.clients.deepseek", "DeepSeekClient"),
+    ("minions.clients.qwen", "QwenClient"),
+    ("minions.clients.moonshot", "MoonshotClient"),
+    ("minions.clients.grok", "GrokClient"),
+    ("minions.clients.llama_api", "LlamaApiClient"),
+    ("minions.clients.minimax", "MiniMaxClient"),
+    ("minions.clients.sarvam", "SarvamClient"),
+    ("minions.clients.docker_model_runner", "DockerModelRunnerClient"),
+    ("minions.clients.distributed_inference", "DistributedInferenceClient"),
+    ("minions.clients.novita", "NovitaClient"),
+    ("minions.clients.tencent", "TencentClient"),
+    ("minions.clients.cloudflare", "CloudflareGatewayClient"),
+    ("minions.clients.notdiamond", "NotDiamondAIClient"),
+    ("minions.clients.vercel_gateway", "VercelGatewayClient"),
+    ("minions.clients.exa", "ExaClient"),
+    ("minions.clients.together", "TogetherClient"),
+    ("minions.clients.sambanova", "SambanovaClient"),
+    ("minions.clients.gemini", "GeminiClient"),
+    ("minions.clients.mistral", "MistralClient"),
+]
+
+# Dynamically import optional clients
+for module_path, class_name in _optional_clients:
+    try:
+        module = __import__(module_path, fromlist=[class_name])
+        globals()[class_name] = getattr(module, class_name)
+        __all__.append(class_name)
+    except ImportError:
+        pass
 
 try:
     from minions.clients.transformers import TransformersClient

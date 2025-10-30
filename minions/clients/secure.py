@@ -11,6 +11,7 @@ from urllib.parse import urlparse
 
 from minions.usage import Usage
 from minions.clients.base import MinionsClient
+from minions.clients.response import ChatResponse
 
 
 # Import crypto utilities from secure module
@@ -351,8 +352,7 @@ class SecureClient(MinionsClient):
                     f"Estimated token usage - Prompt: {estimated_prompt_tokens}, Completion: {estimated_completion_tokens}"
                 )
 
-            return responses, usage
-
+            return ChatResponse(responses=responses, usage=usage)
         except Exception as e:
             self.logger.error(f"Error during secure chat completion: {e}")
             raise

@@ -1,6 +1,7 @@
 from typing import Any, Dict, List, Optional, Tuple, Union
 from minions.usage import Usage
 from minions.clients.base import MinionsClient
+from minions.clients.response import ChatResponse
 import logging
 import os
 import openai
@@ -158,16 +159,18 @@ class GrokClient(MinionsClient):
                 reasoning = getattr(choice.message, 'reasoning_content', None)
                 reasoning_content.append(reasoning)
 
-        # Return appropriate tuple based on what's requested
-        if self.local:
-            if self.enable_reasoning_output and reasoning_content and any(r is not None for r in reasoning_content):
-                return f"{reasoning_content} \n {response_content}", usage, finish_reasons
-            else:
-                return response_content, usage, finish_reasons
+        # Combine reasoning and response content if both exist
+        if self.enable_reasoning_output and reasoning_content and any(r is not None for r in reasoning_content):
+            # Properly combine lists element-wise
+            combined_responses = [
+                f"{r}\n{c}" if r is not None else c
+                for r, c in zip(reasoning_content, response_content)
+            ]
         else:
-            if self.enable_reasoning_output and reasoning_content and any(r is not None for r in reasoning_content):
-                return f"{reasoning_content} \n {response_content}", usage
-            else:
-                return response_content, usage
+            combined_responses = response_content
 
-   
+        return ChatResponse(
+            responses=combined_responses,
+            usage=usage,
+            done_reasons=finish_reasons if self.local else None
+        )

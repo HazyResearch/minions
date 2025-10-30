@@ -7,6 +7,7 @@ import re
 
 from minions.usage import Usage
 from minions.clients.base import MinionsClient
+from minions.clients.response import ChatResponse
 
 
 class GeminiClient(MinionsClient):
@@ -557,11 +558,12 @@ class GeminiClient(MinionsClient):
 
         # Store URL context metadata for later retrieval
         self.last_url_context_metadata = url_context_metadata
-        
-        if self.local:
-            return texts, usage_total, done_reasons
-        else:
-            return texts, usage_total
+
+        return ChatResponse(
+            responses=texts,
+            usage=usage_total,
+            done_reasons=done_reasons if self.local else None
+        )
 
     def schat(
         self,
@@ -681,11 +683,12 @@ class GeminiClient(MinionsClient):
 
         # Store URL context metadata for later retrieval
         self.last_url_context_metadata = url_context_metadata
-        
-        if self.local:
-            return responses, usage_total, done_reasons
-        else:
-            return responses, usage_total
+
+        return ChatResponse(
+            responses=responses,
+            usage=usage_total,
+            done_reasons=done_reasons if self.local else None
+        )
 
     def get_url_context_metadata(self) -> Optional[Dict[str, Any]]:
         """

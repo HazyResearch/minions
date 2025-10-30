@@ -9,6 +9,7 @@ import ollama
 
 from minions.usage import Usage
 from minions.clients.base import MinionsClient
+from minions.clients.response import ChatResponse
 
 
 class OllamaClient(MinionsClient):
@@ -662,11 +663,12 @@ class OllamaTurboClient(MinionsClient):
                     prompt_tokens=prompt_tokens,
                     completion_tokens=completion_tokens
                 )
-                
-                if self.local:
-                    return [response_content], usage, ["stop"]
-                else:
-                    return [response_content], usage
+
+                return ChatResponse(
+                    responses=[response_content],
+                    usage=usage,
+                    done_reasons=["stop"] if self.local else None
+                )
                     
         except Exception as e:
             self.logger.error(f"Error during Ollama Turbo API call: {e}")

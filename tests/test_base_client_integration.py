@@ -17,11 +17,12 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
 from utils.env_checker import APIKeyChecker
 from minions.usage import Usage
+from minions.clients.response import ChatResponse
 
 
 class BaseClientIntegrationTest(unittest.TestCase):
     """Base class for real API integration tests"""
-    
+
     # Subclasses should override these
     CLIENT_CLASS = None
     SERVICE_NAME = None
@@ -56,27 +57,61 @@ class BaseClientIntegrationTest(unittest.TestCase):
         ]
     
     def assert_valid_chat_response(self, result):
-        """Assert that chat response has correct format"""
-        self.assertIsInstance(result, tuple)
-        self.assertGreaterEqual(len(result), 2)
-        
-        responses, usage = result[0], result[1]
-        self.assertIsInstance(responses, list)
-        self.assertGreater(len(responses), 0)
-        self.assertIsInstance(responses[0], str)
-        self.assertIsInstance(usage, Usage)
-        self.assertGreater(usage.total_tokens, 0)
-        
-        # Additional validation for clients that return more values
-        if len(result) >= 3:
-            # Third element is typically finish_reasons or done_reasons
-            finish_reasons = result[2]
-            self.assertIsInstance(finish_reasons, list)
-            
-        if len(result) >= 4:
-            # Fourth element is typically tools
-            tools = result[3]
-            self.assertIsInstance(tools, list)
+        """
+        Validate that chat response is properly formatted.
+
+        All clients must now return ChatResponse objects with backward-compatible
+        tuple unpacking support.
+        """
+        # Should be a ChatResponse instance
+        self.assertIsInstance(result, ChatResponse,
+            "All clients must now return ChatResponse")
+
+        # Validate required fields
+        self.assertIsInstance(result.responses, list,
+            "ChatResponse.responses must be a list")
+        self.assertGreater(len(result.responses), 0,
+            "ChatResponse.responses must not be empty")
+        self.assertIsInstance(result.responses[0], str,
+            "ChatResponse.responses must contain strings")
+        self.assertIsInstance(result.usage, Usage,
+            "ChatResponse.usage must be a Usage object")
+        self.assertGreater(result.usage.total_tokens, 0,
+            "Usage must have total_tokens > 0")
+
+        # Validate optional fields (if present)
+        if result.done_reasons is not None:
+            self.assertIsInstance(result.done_reasons, list,
+                "ChatResponse.done_reasons must be a list if present")
+
+        if result.tool_calls is not None:
+            self.assertIsInstance(result.tool_calls, list,
+                "ChatResponse.tool_calls must be a list if present")
+
+        if result.audio is not None:
+            self.assertIsInstance(result.audio, bytes,
+                "ChatResponse.audio must be bytes if present")
+
+        if result.metadata is not None:
+            self.assertIsInstance(result.metadata, dict,
+                "ChatResponse.metadata must be dict if present")
+
+        # Test backward compatibility: 2-tuple unpacking must work
+        responses, usage = result
+        self.assertEqual(responses, result.responses,
+            "Tuple unpacking [0] must match .responses")
+        self.assertEqual(usage, result.usage,
+            "Tuple unpacking [1] must match .usage")
+
+        # If done_reasons exists, test 3-tuple unpacking
+        if result.done_reasons is not None:
+            responses2, usage2, done_reasons = result
+            self.assertEqual(responses2, result.responses,
+                "3-tuple unpacking [0] must match .responses")
+            self.assertEqual(usage2, result.usage,
+                "3-tuple unpacking [1] must match .usage")
+            self.assertEqual(done_reasons, result.done_reasons,
+                "3-tuple unpacking [2] must match .done_reasons")
     
     def assert_response_content(self, responses: List[str], expected_content: str):
         """Assert response contains expected content"""

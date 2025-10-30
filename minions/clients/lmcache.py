@@ -11,6 +11,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 from minions.usage import Usage
 from minions.clients.base import MinionsClient
+from minions.clients.response import ChatResponse
 
 
 class LMCacheClient(MinionsClient):
@@ -218,10 +219,9 @@ class LMCacheClient(MinionsClient):
             
             if not responses:
                 responses = [""]  # Ensure we always return at least one response
-            
+
             self.logger.info(f"Generated {len(responses)} responses with LMCache")
-            return responses, usage
-            
+            return ChatResponse(responses=responses, usage=usage)
         except Exception as e:
             self.logger.error(f"Error during LMCache inference: {e}")
             raise

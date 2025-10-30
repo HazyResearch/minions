@@ -1,6 +1,7 @@
 from typing import Any, Dict, List, Optional, Tuple, Union
 from minions.usage import Usage
 from minions.clients.base import MinionsClient
+from minions.clients.response import ChatResponse
 import logging
 import os
 try:
@@ -99,10 +100,13 @@ class SambanovaClient(MinionsClient):
         finish_reasons = [choice.finish_reason for choice in response.choices]
         
         # Extract content from response
-        if self.local:
-            return [choice.message.content for choice in response.choices], usage, finish_reasons
-        else:
-            return [choice.message.content for choice in response.choices], usage
+        return ChatResponse(
+
+            responses=[choice.message.content for choice in response.choices],
+
+            usage=usage,
+            done_reasons=finish_reasons if self.local else None
+        )
 
     def embed(
         self, 

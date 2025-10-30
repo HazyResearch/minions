@@ -5,6 +5,7 @@ import openai
 
 from minions.usage import Usage
 from minions.clients.base import MinionsClient
+from minions.clients.response import ChatResponse
 
 
 class CohereClient(MinionsClient):
@@ -93,10 +94,11 @@ class CohereClient(MinionsClient):
             )
 
         # Extract response content
-        if self.local:
-            return [choice.message.content for choice in response.choices], usage, [choice.finish_reason for choice in response.choices]
-        else:
-            return [choice.message.content for choice in response.choices], usage
+        return ChatResponse(
+            responses=[choice.message.content for choice in response.choices],
+            usage=usage,
+            done_reasons=[choice.finish_reason for choice in response.choices] if self.local else None
+        )
 
     def embed(
         self, 

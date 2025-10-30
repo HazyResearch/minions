@@ -29,7 +29,7 @@ setup(
         "cryptography",  # for crypto utils
         "orjson",
         "twilio",
-        "pyjwt",  # for JWT utilities
+        "PyJWT",  # for JWT utilities
         "torch",
         "cerebras-cloud-sdk",  # for Cerebras client
         "nv-attestation-sdk",
@@ -46,18 +46,18 @@ setup(
             "sentence-transformers",  # for pretrained embedding models
             "torch",  # for running embedding models on CUDA
             "chromadb",  # for vector database
+            "numpy",  # for embedding tests
         ],
         "secure": [
             "flask",  # for the worker server
             "cryptography",  # for crypto utils
             "orjson",
             "twilio",
-            "pyjwt",  # for JWT utilities
+            "PyJWT[crypto]",  # JWT with RSA/ECDSA crypto support for secure minions
             "nv-attestation-sdk",
             "nv-local-gpu-verifier",
             "azure-security-attestation",
             "azure-identity",
-            "PyJWT[crypto]", # TODO: check if this conflicts with the pyjwt installed above
         ],
     },
     author="Sabri, Avanika, and Dan",

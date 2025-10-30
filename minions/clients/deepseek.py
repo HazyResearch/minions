@@ -5,6 +5,7 @@ import os
 import openai
 
 from minions.clients.base import MinionsClient
+from minions.clients.response import ChatResponse
 
 class DeepSeekClient(MinionsClient):
     def __init__(
@@ -83,7 +84,8 @@ class DeepSeekClient(MinionsClient):
         finish_reasons = [choice.finish_reason for choice in response.choices]
 
         # The content is now nested under message
-        if self.local:
-            return [choice.message.content for choice in response.choices], usage, finish_reasons
-        else:
-            return [choice.message.content for choice in response.choices], usage
+        return ChatResponse(
+            responses=[choice.message.content for choice in response.choices],
+            usage=usage,
+            done_reasons=finish_reasons if self.local else None
+        )

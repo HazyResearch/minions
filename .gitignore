@@ -66,6 +66,10 @@ attestation_sdk.log
 
 minions-secure-attestation/
 
+# Internal workflow
 CLAUDE.md
+.claude/
+doc/
+.autonomous/
 
 *.csv

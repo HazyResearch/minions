@@ -2650,6 +2650,7 @@ with st.sidebar:
                 "deepseek-v3.1:671b": "deepseek-v3.1:671b-cloud",
                 "gpt-oss:120b-cloud": "gpt-oss:120b-cloud",
                 "qwen3-coder:480b-cloud": "qwen3-coder:480b-cloud",
+                "minimax-m2:cloud": "minimax-m2:cloud",
             }
             default_model_index = 0
         elif selected_provider == "Secure":

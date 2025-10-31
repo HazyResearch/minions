@@ -21,6 +21,9 @@ class PerplexityAIClient(MinionsClient):
         api_key: Optional[str] = None,
         temperature: float = 0.0,
         max_tokens: int = 4096,
+        search_receny_filter: Optional[str] = None,
+        search_after_date_filter: Optional[str] = None,
+        search_before_date_filter: Optional[str] = None,
         base_url: Optional[str] = None,
         **kwargs
     ):
@@ -54,6 +57,9 @@ class PerplexityAIClient(MinionsClient):
         self.client = openai.OpenAI(
             api_key=self.api_key, base_url=base_url
         )
+        self.search_receny_filter = search_receny_filter
+        self.search_after_date_filter = search_after_date_filter
+        self.search_before_date_filter = search_before_date_filter
 
     def chat(self, messages: List[Dict[str, Any]], **kwargs) -> Tuple[List[str], Usage]:
         """
@@ -145,7 +151,7 @@ class PerplexityAIClient(MinionsClient):
             queries = query
             
         try:
-            search = search_client.search(query=queries, **kwargs)
+            search = search_client.search(query=queries, search_after_date_filter=self.search_after_date_filter, search_before_date_filter=self.search_before_date_filter, search_recent_filter=self.search_receny_filter, **kwargs)
             results = search.results
             return results
             

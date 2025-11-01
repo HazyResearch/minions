@@ -123,6 +123,7 @@ API_PRICES = {
         "meta-llama/llama-guard-4-12b": {"input": 0.20, "cached_input": 0.10, "output": 0.20},
         "openai/gpt-oss-120b": {"input": 0.15, "cached_input": 0.075, "output": 0.75},
         "openai/gpt-oss-20b": {"input": 0.10, "cached_input": 0.05, "output": 0.50},
+        "openai/gpt-oss-safeguard-20b": {"input": 0.10, "cached_input": 0.05, "output": 0.50},
     },
     # DeepSeek model pricing per 1M tokens
     "DeepSeek": {

@@ -1,0 +1,234 @@
+{
+  "timestamp": 1762052053.370559,
+  "dataset_summary": {
+    "total_queries": 13,
+    "by_type": {
+      "lookup": 4,
+      "math": 3,
+      "extract": 1,
+      "multi-hop": 3,
+      "code": 1,
+      "open-ended": 1
+    },
+    "by_route": {
+      "local": 9,
+      "remote": 4
+    },
+    "by_difficulty": {
+      "easy": 7,
+      "medium": 3,
+      "hard": 3
+    }
+  },
+  "classification": {
+    "accuracy": 0.9230769230769231,
+    "correct": 12,
+    "total": 13,
+    "results": [
+      {
+        "query": "What is a cartridge",
+        "expected_type": "lookup",
+        "predicted_type": "lookup",
+        "correct": true
+      },
+      {
+        "query": "Define machine learning",
+        "expected_type": "lookup",
+        "predicted_type": "lookup",
+        "correct": true
+      },
+      {
+        "query": "What is the meaning of blockchain",
+        "expected_type": "lookup",
+        "predicted_type": "lookup",
+        "correct": true
+      },
+      {
+        "query": "Explain photosynthesis",
+        "expected_type": "lookup",
+        "predicted_type": "lookup",
+        "correct": true
+      },
+      {
+        "query": "Calculate 15 + 27",
+        "expected_type": "math",
+        "predicted_type": "math",
+        "correct": true
+      },
+      {
+        "query": "What is the average of 10, 20, and 30",
+        "expected_type": "math",
+        "predicted_type": "lookup",
+        "correct": false
+      },
+      {
+        "query": "Compute 144 divided by 12",
+        "expected_type": "math",
+        "predicted_type": "math",
+        "correct": true
+      },
+      {
+        "query": "Extract all numbers from the text",
+        "expected_type": "extract",
+        "predicted_type": "extract",
+        "correct": true
+      },
+      {
+        "query": "Analyze the economic implications of widespread AI adoption and recommend policy interventions",
+        "expected_type": "multi-hop",
+        "predicted_type": "multi-hop",
+        "correct": true
+      },
+      {
+        "query": "Compare the advantages and disadvantages of renewable vs fossil fuel energy sources",
+        "expected_type": "multi-hop",
+        "predicted_type": "multi-hop",
+        "correct": true
+      },
+      {
+        "query": "Why did the Roman Empire fall",
+        "expected_type": "multi-hop",
+        "predicted_type": "multi-hop",
+        "correct": true
+      },
+      {
+        "query": "Write a Python function to check if a number is prime",
+        "expected_type": "code",
+        "predicted_type": "code",
+        "correct": true
+      },
+      {
+        "query": "What should I do this weekend",
+        "expected_type": "open-ended",
+        "predicted_type": "open-ended",
+        "correct": true
+      }
+    ]
+  },
+  "routing_simulation": {
+    "accuracy": 0.9230769230769231,
+    "routing_accuracy": {
+      "correct": 12,
+      "total": 13
+    },
+    "results": [
+      {
+        "query": "What is a cartridge",
+        "query_type": "lookup",
+        "threshold": 0.8,
+        "simulated_uncertainty": 0.2,
+        "predicted_route": "local",
+        "expected_route": "local",
+        "correct": true
+      },
+      {
+        "query": "Define machine learning",
+        "query_type": "lookup",
+        "threshold": 0.8,
+        "simulated_uncertainty": 0.2,
+        "predicted_route": "local",
+        "expected_route": "local",
+        "correct": true
+      },
+      {
+        "query": "What is the meaning of blockchain",
+        "query_type": "lookup",
+        "threshold": 0.8,
+        "simulated_uncertainty": 0.2,
+        "predicted_route": "local",
+        "expected_route": "local",
+        "correct": true
+      },
+      {
+        "query": "Explain photosynthesis",
+        "query_type": "lookup",
+        "threshold": 0.8,
+        "simulated_uncertainty": 0.2,
+        "predicted_route": "local",
+        "expected_route": "local",
+        "correct": true
+      },
+      {
+        "query": "Calculate 15 + 27",
+        "query_type": "math",
+        "threshold": 0.7,
+        "simulated_uncertainty": 0.3,
+        "predicted_route": "local",
+        "expected_route": "local",
+        "correct": true
+      },
+      {
+        "query": "What is the average of 10, 20, and 30",
+        "query_type": "lookup",
+        "threshold": 0.8,
+        "simulated_uncertainty": 0.2,
+        "predicted_route": "local",
+        "expected_route": "local",
+        "correct": true
+      },
+      {
+        "query": "Compute 144 divided by 12",
+        "query_type": "math",
+        "threshold": 0.7,
+        "simulated_uncertainty": 0.3,
+        "predicted_route": "local",
+        "expected_route": "local",
+        "correct": true
+      },
+      {
+        "query": "Extract all numbers from the text",
+        "query_type": "extract",
+        "threshold": 0.6,
+        "simulated_uncertainty": 0.5,
+        "predicted_route": "local",
+        "expected_route": "local",
+        "correct": true
+      },
+      {
+        "query": "Analyze the economic implications of widespread AI adoption and recommend policy interventions",
+        "query_type": "multi-hop",
+        "threshold": 0.3,
+        "simulated_uncertainty": 0.8,
+        "predicted_route": "remote",
+        "expected_route": "remote",
+        "correct": true
+      },
+      {
+        "query": "Compare the advantages and disadvantages of renewable vs fossil fuel energy sources",
+        "query_type": "multi-hop",
+        "threshold": 0.3,
+        "simulated_uncertainty": 0.8,
+        "predicted_route": "remote",
+        "expected_route": "remote",
+        "correct": true
+      },
+      {
+        "query": "Why did the Roman Empire fall",
+        "query_type": "multi-hop",
+        "threshold": 0.3,
+        "simulated_uncertainty": 0.8,
+        "predicted_route": "remote",
+        "expected_route": "remote",
+        "correct": true
+      },
+      {
+        "query": "Write a Python function to check if a number is prime",
+        "query_type": "code",
+        "threshold": 0.5,
+        "simulated_uncertainty": 0.6,
+        "predicted_route": "remote",
+        "expected_route": "local",
+        "correct": false
+      },
+      {
+        "query": "What should I do this weekend",
+        "query_type": "open-ended",
+        "threshold": 0.4,
+        "simulated_uncertainty": 0.7,
+        "predicted_route": "remote",
+        "expected_route": "remote",
+        "correct": true
+      }
+    ]
+  }
+}

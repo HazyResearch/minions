@@ -22,7 +22,7 @@ class OsaurusClient(MinionsClient):
     
     def __init__(
         self,
-        model_name: str = "llama-3.2-3b-instruct-4bit",
+        model_name: str = "foundation",
         api_key: Optional[str] = None,
         temperature: float = 0.0,
         max_tokens: int = 2048,

@@ -134,18 +134,36 @@ class OsaurusClient(MinionsClient):
         """
         List available models from the Osaurus server.
         
+        Calls the GET /models endpoint (OpenAI-compatible models list).
+        Supports path normalization: /v1/models, /api/models, /v1/api/models all work.
+        
         Returns:
-            Dict: Models data from the Osaurus API response
+            Dict: Models data from the Osaurus API response in OpenAI-compatible format:
+                {
+                    "object": "list",
+                    "data": [
+                        {
+                            "id": "model-name",
+                            "object": "model",
+                            ...
+                        },
+                        ...
+                    ]
+                }
         """
         try:
-            response = self.client.models.list()
-            return {
-                "object": "list", 
-                "data": [model.model_dump() for model in response.data]
-            }
-        except Exception as e:
-            self.logger.error(f"Error listing Osaurus models: {e}")
-            raise
+            # Try with /v1/models (current base_url already includes /v1)
+            models_url = f"{self.base_url}/models"
+            resp = requests.get(models_url, timeout=10)
+            resp.raise_for_status()
+            return resp.json()
+        except requests.exceptions.RequestException:
+            # Fallback to /models without /v1 prefix (path normalization)
+            base_url_no_v1 = self.base_url.replace("/v1", "")
+            models_url = f"{base_url_no_v1}/models"
+            resp = requests.get(models_url, timeout=10)
+            resp.raise_for_status()
+            return resp.json()
     
     def chat(
         self,

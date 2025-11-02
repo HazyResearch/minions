@@ -47,6 +47,8 @@ from minions.utils.retrievers import (
     embedding_retrieve_top_k_chunks,
 )
 
+from minions.utils.smart_router import SmartRouter
+
 
 def chunk_by_section(
     doc: str, max_chunk_size: int = 3000, overlap: int = 20
@@ -292,6 +294,60 @@ class Minions:
 
         self.max_rounds = max_rounds or self.max_rounds
         self.max_jobs_per_round = max_jobs_per_round or self.max_jobs_per_round
+
+        # Smart routing check - try local-only for simple queries
+        if self.local_client:
+            print("\n========== SMART ROUTING CHECK ==========")
+            smart_router = SmartRouter()
+            query_type = smart_router.classify_query_type(task)
+            print(f"Classified query type: {query_type}")
+
+            local_only_result = smart_router.get_local_only_response(
+                task, self.local_client, query_type
+            )
+
+            if local_only_result:
+                # Local model handled it successfully
+                print(f"✓ Smart routing: Using local-only response")
+                print(f"Estimated time saved: {local_only_result['time_saved']}")
+
+                # Calculate timing
+                end_time = time.time()
+                timing["total_time"] = end_time - start_time
+                timing["local_call_time"] = timing["total_time"]  # All time was local
+
+                # Build minimal result matching the expected format
+                result = {
+                    "final_answer": local_only_result["final_answer"],
+                    "meta": [{
+                        "routing": {
+                            "decision": local_only_result["routing_decision"],
+                            "query_type": query_type,
+                            "time_saved": local_only_result["time_saved"]
+                        }
+                    }],
+                    "log_file": None,
+                    "conversation_log": {
+                        "task": task,
+                        "doc_metadata": doc_metadata,
+                        "conversation": [],
+                        "generated_final_answer": local_only_result["final_answer"],
+                        "usage": {
+                            "remote": {},
+                            "local": local_only_result.get("usage", {}),
+                        },
+                        "timing": timing,
+                    },
+                    "timing": timing,
+                    "local_usage": local_only_result.get("usage", {}),
+                    "remote_usage": {},
+                }
+
+                print("\n========== TASK COMPLETED (LOCAL-ONLY) ==========")
+                return result
+            else:
+                print(f"✗ Smart routing: Escalating to full Minions protocol")
+        print("==========================================\n")
 
         # Initialize the log structure
         conversation_log = {

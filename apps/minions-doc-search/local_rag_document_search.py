@@ -11,6 +11,7 @@ Supported retrievers:
 - mlx: Apple Silicon optimized embeddings with MLX
 - gemini: Google Gemini embeddings via API
 - embeddinggemma: Google EmbeddingGemma-300m model via SentenceTransformers
+- openrouter: OpenRouter embeddings via API (supports various embedding models)
 - colbert: Liquid AI late-interaction retrieval with ColBERT + PLAID index
 - multimodal: ChromaDB + Ollama embeddings
 - qdrant: Qdrant + Ollama embeddings
@@ -21,6 +22,7 @@ Usage:
   python local_rag_document_search.py --retriever mlx
   python local_rag_document_search.py --retriever gemini
   python local_rag_document_search.py --retriever embeddinggemma
+  python local_rag_document_search.py --retriever openrouter
   python local_rag_document_search.py --retriever colbert
   python local_rag_document_search.py --retriever multimodal
   python local_rag_document_search.py --retriever qdrant
@@ -36,7 +38,7 @@ from typing import List, Tuple, Dict
 # Add the minions directory to the path
 sys.path.append(os.path.join(os.path.dirname(__file__), '../../minions'))
 
-from minions.utils.retrievers import bm25_retrieve_top_k_chunks, embedding_retrieve_top_k_chunks, colbert_retrieve_top_k_chunks, SentenceTransformerEmbeddings, MLXEmbeddings, GeminiEmbeddings
+from minions.utils.retrievers import bm25_retrieve_top_k_chunks, embedding_retrieve_top_k_chunks, colbert_retrieve_top_k_chunks, SentenceTransformerEmbeddings, MLXEmbeddings, GeminiEmbeddings, OpenRouterEmbeddings
 from minions.utils.multimodal_retrievers import retrieve_chunks_from_chroma, retrieve_chunks_from_qdrant
 from minions.clients.ollama import OllamaClient
 from pydantic import BaseModel
@@ -244,7 +246,7 @@ def search_documents(query, documents: List[str], file_paths: List[str], k: int 
         documents: List of document contents (treated as chunks)
         file_paths: List of corresponding file paths
         k: Number of top results to return
-        retriever_type: Type of retriever to use ("bm25", "embedding", "mlx", "gemini", "embeddinggemma", "colbert", "multimodal", "qdrant")
+        retriever_type: Type of retriever to use ("bm25", "embedding", "mlx", "gemini", "embeddinggemma", "openrouter", "colbert", "multimodal", "qdrant")
         weights: Dictionary of keyword weights for BM25 retrieval
         
     Returns:
@@ -266,6 +268,7 @@ def search_documents(query, documents: List[str], file_paths: List[str], k: int 
         "mlx": _retrieve_mlx,
         "gemini": _retrieve_gemini,
         "embeddinggemma": _retrieve_embeddinggemma,
+        "openrouter": _retrieve_openrouter,
         "colbert": _retrieve_colbert,
         "multimodal": _retrieve_multimodal,
         "qdrant": _retrieve_qdrant
@@ -372,6 +375,35 @@ def _retrieve_embeddinggemma(query: str, documents: List[str], k: int) -> List[s
     except Exception as e:
         print(f"Error loading EmbeddingGemma model: {e}")
         print("This might be due to model download or compatibility issues.")
+        print("Falling back to BM25...")
+        return _retrieve_bm25(query.split(), documents, k)
+
+
+def _retrieve_openrouter(query: str, documents: List[str], k: int) -> List[str]:
+    """OpenRouter embedding retrieval using OpenRouter API."""
+    print("Using OpenRouter embedding retrieval")
+    
+    try:
+        import os
+        # Get model from environment or use default
+        model_name = os.getenv("OPENROUTER_EMBEDDING_MODEL", "openai/text-embedding-3-small")
+        print(f"Using OpenRouter embedding model: {model_name}")
+        
+        openrouter_model = OpenRouterEmbeddings(model_name=model_name)
+        return embedding_retrieve_top_k_chunks([query], documents, k=k, embedding_model=openrouter_model)
+    except ImportError as e:
+        print(f"Error: {e}")
+        print("Make sure minions.clients.openrouter is available.")
+        print("Falling back to BM25...")
+        return _retrieve_bm25(query.split(), documents, k)
+    except ValueError as e:
+        print(f"Error: {e}")
+        print("Make sure to set OPENROUTER_API_KEY environment variable.")
+        print("Falling back to BM25...")
+        return _retrieve_bm25(query.split(), documents, k)
+    except Exception as e:
+        print(f"Error with OpenRouter retrieval: {e}")
+        print("This might be due to API key or model availability issues.")
         print("Falling back to BM25...")
         return _retrieve_bm25(query.split(), documents, k)
 
@@ -557,7 +589,7 @@ Examples:
         "--retriever", 
         type=str, 
         default="bm25",
-        choices=["bm25", "embedding", "mlx", "gemini", "embeddinggemma", "colbert", "multimodal", "qdrant"],
+        choices=["bm25", "embedding", "mlx", "gemini", "embeddinggemma", "openrouter", "colbert", "multimodal", "qdrant"],
         help="Type of retriever to use (default: bm25)"
     )
 

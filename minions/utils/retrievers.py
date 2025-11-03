@@ -31,6 +31,13 @@ try:
 except ImportError:
     GEMINI_AVAILABLE = False
 
+# OpenRouter Embeddings support
+try:
+    from minions.clients.openrouter import OpenRouterClient
+    OPENROUTER_AVAILABLE = True
+except ImportError:
+    OPENROUTER_AVAILABLE = False
+
 # Liquid AI ColBERT support
 try:
     from pylate import models, indexes, retrieve, rank
@@ -316,19 +323,120 @@ class GeminiEmbeddings(BaseEmbeddingModel):
         instance = cls(model_name)
         return instance.encode(texts, **kwargs)
 
-    @classmethod
-    def get_available_models(cls):
-        """
-        Get a list of available Gemini embedding models.
+
+class OpenRouterEmbeddings(BaseEmbeddingModel):
+    """
+    Implementation of embedding model using OpenRouter Embeddings API.
+    
+    This class provides an interface to use OpenRouter-based embedding models
+    with the existing retrieval system. OpenRouter supports various embedding
+    models from different providers.
+    """
+
+    _instances = {}  # Dictionary to store instances by model name
+    _default_model_name = "openai/text-embedding-3-small"
+
+    def __new__(cls, model_name=None, api_key=None, **kwargs):
+        if not OPENROUTER_AVAILABLE:
+            raise ImportError(
+                "OpenRouter client is required to use OpenRouterEmbeddings. "
+                "Please ensure minions.clients.openrouter is available."
+            )
+
+        model_name = model_name or cls._default_model_name
+        print(f"Using OpenRouter embedding model: {model_name}")
+
+        # Check if we already have an instance for this model
+        if model_name not in cls._instances:
+            instance = super(OpenRouterEmbeddings, cls).__new__(cls)
+            instance.model_name = model_name
+            instance.api_key = api_key
+            instance._client = OpenRouterClient(
+                model_name=model_name,
+                api_key=api_key,
+                **kwargs
+            )
+            cls._instances[model_name] = instance
         
-        Returns:
-            List[str]: List of model names
+        return cls._instances[model_name]
+
+    @staticmethod
+    def _get_api_key():
+        """Get API key from environment variables."""
+        import os
+        api_key = os.getenv("OPENROUTER_API_KEY")
+        if not api_key:
+            raise ValueError(
+                "OpenRouter API key not found. Please set OPENROUTER_API_KEY environment variable."
+            )
+        return api_key
+
+    def get_model(self):
+        """Get the OpenRouter client."""
+        return self._client
+
+    def encode(self, texts: Union[str, List[str]], **kwargs) -> np.ndarray:
         """
-        return [
-            "text-embedding-004",
-            "text-embedding-preview-0815",
-            "embedding-001",
-        ]
+        Encode texts to create embeddings using OpenRouter model.
+
+        Args:
+            texts: Single text or list of texts to encode
+            **kwargs: Additional arguments passed to embed() method
+
+        Returns:
+            Numpy array of embeddings
+        """
+        # Handle single text input
+        if isinstance(texts, str):
+            texts = [texts]
+
+        embeddings_list = []
+        
+        # Process texts in batches to handle API limits
+        batch_size = kwargs.get('batch_size', 100)  # Reasonable batch size
+        
+        for i in range(0, len(texts), batch_size):
+            batch_texts = texts[i:i + batch_size]
+            
+            try:
+                # Use the embed method from OpenRouterClient
+                batch_embeddings = self._client.embed(
+                    content=batch_texts,
+                    model=self.model_name,
+                    **{k: v for k, v in kwargs.items() if k != 'batch_size'}
+                )
+                
+                # Convert to list of lists if needed
+                if isinstance(batch_embeddings, list):
+                    embeddings_list.extend(batch_embeddings)
+                else:
+                    embeddings_list.append(batch_embeddings)
+                
+            except Exception as e:
+                print(f"Error generating embeddings for batch {i//batch_size + 1}: {e}")
+                # Create zero embeddings as fallback
+                # Try to get dimension from first successful embedding or use default
+                fallback_dim = 1536  # Default for text-embedding-3-small
+                if embeddings_list:
+                    fallback_dim = len(embeddings_list[0])
+                for _ in batch_texts:
+                    embeddings_list.append([0.0] * fallback_dim)
+
+        # Convert to numpy array
+        embeddings = np.array(embeddings_list, dtype=np.float32)
+        return embeddings
+
+    @classmethod
+    def get_model_by_name(cls, model_name=None, api_key=None, **kwargs):
+        """Get model by name (for backward compatibility)"""
+        instance = cls(model_name, api_key, **kwargs)
+        return instance.get_model()
+
+    @classmethod
+    def encode_by_name(cls, texts, model_name=None, api_key=None, **kwargs) -> np.ndarray:
+        """Encode texts using model by name (for backward compatibility)"""
+        instance = cls(model_name, api_key, **kwargs)
+        return instance.encode(texts, **kwargs)
 
 
 class LiquidAIColBERTEmbeddings(BaseEmbeddingModel):

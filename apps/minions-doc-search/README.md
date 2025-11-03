@@ -8,7 +8,12 @@ A powerful document search and question-answering tool that supports multiple re
 - **BM25**: Traditional keyword-based retrieval with AI-generated keywords and weights
 - **Embedding**: Dense vector embeddings using SentenceTransformers + FAISS
 - **MLX**: Apple Silicon optimized embeddings with MLX
+- **Gemini**: Google Gemini embeddings via API
+- **EmbeddingGemma**: Google EmbeddingGemma-300m model via SentenceTransformers
+- **OpenRouter**: OpenRouter embeddings via API (supports various embedding models)
+- **ColBERT**: Liquid AI late-interaction retrieval with ColBERT + PLAID index
 - **Multimodal**: ChromaDB + Ollama embeddings
+- **Qdrant**: Qdrant + Ollama embeddings
 
 ### AI-Powered Features
 - **Smart Keyword Generation**: Uses local LLMs to generate optimized keywords for BM25 search
@@ -45,6 +50,12 @@ python local_rag_document_search.py --retriever embedding
 # Use MLX embeddings (Apple Silicon)
 python local_rag_document_search.py --retriever mlx
 
+# Use Gemini embeddings
+python local_rag_document_search.py --retriever gemini
+
+# Use OpenRouter embeddings (requires OPENROUTER_API_KEY)
+python local_rag_document_search.py --retriever openrouter
+
 # Use multimodal retrieval
 python local_rag_document_search.py --retriever multimodal
 ```
@@ -63,10 +74,22 @@ python local_rag_document_search.py \
 
 ### Command Line Arguments
 
-- `--retriever`: Retrieval method (`bm25`, `embedding`, `mlx`, `multimodal`)
+- `--retriever`: Retrieval method (`bm25`, `embedding`, `mlx`, `gemini`, `embeddinggemma`, `openrouter`, `colbert`, `multimodal`, `qdrant`)
 - `--query`: Search query (default: FTE approval question)
 - `--top-k`: Number of results to return (default: 3)
 - `--model_name`: Ollama model for keyword generation and QA (default: `gemma3:4b`)
+
+### Environment Variables
+
+For OpenRouter embeddings:
+- `OPENROUTER_API_KEY`: Your OpenRouter API key (required)
+- `OPENROUTER_EMBEDDING_MODEL`: Embedding model to use (default: `openai/text-embedding-3-small`)
+
+Available OpenRouter embedding models include:
+- `openai/text-embedding-3-small`
+- `openai/text-embedding-3-large`
+- `openai/text-embedding-ada-002`
+- And more at https://openrouter.ai/models?output_modalities=embeddings
 - `--documents-path`: Path to directory containing .md files
 
 ## How It Works

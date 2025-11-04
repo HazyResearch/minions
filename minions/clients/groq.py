@@ -15,7 +15,10 @@ class GroqClient(MinionsClient):
         temperature: float = 0.0,
         max_tokens: int = 2048,
         base_url: Optional[str] = None,
+        use_responses_api: bool = False,
         local: bool = False,
+        tools: List[Dict[str, Any]] = None,
+        reasoning_effort: str = "low",
         **kwargs
     ):
         """
@@ -27,6 +30,9 @@ class GroqClient(MinionsClient):
             temperature: Sampling temperature (default: 0.0)
             max_tokens: Maximum number of tokens to generate (default: 2048)
             base_url: Base URL for the Groq API (default: "https://api.groq.com/openai/v1")
+            use_responses_api: Whether to use responses API (default: False)
+            tools: List of tools for function calling or MCP (default: None)
+            reasoning_effort: Reasoning effort level for reasoning models (default: "low")
             local: Whether this is a local client (default: False)
             **kwargs: Additional parameters passed to base class
         """
@@ -50,6 +56,76 @@ class GroqClient(MinionsClient):
             api_key=self.api_key,
             base_url=self.base_url
         )
+        
+        # Responses API configuration
+        self.use_responses_api = use_responses_api
+        self.tools = tools
+        self.reasoning_effort = reasoning_effort
+
+    def responses(
+        self, messages: List[Dict[str, Any]], **kwargs
+    ) -> Tuple[List[str], Usage]:
+        """
+        Handle completions using the Groq Responses API.
+
+        Args:
+            messages: List of message dictionaries with 'role' and 'content' keys
+            **kwargs: Additional arguments to pass to client.responses.create
+
+        Returns:
+            Tuple of (List[str], Usage) containing response strings and token usage
+        """
+        assert len(messages) > 0, "Messages cannot be empty."
+
+        if "response_format" in kwargs:
+            # Handle new format of structured outputs
+            kwargs["text"] = {"format": kwargs["response_format"]}
+            del kwargs["response_format"]
+            if self.tools:
+                del kwargs["text"]
+
+        try:
+            # Replace messages that have "system" with "developer" for Responses API
+            for message in messages:
+                if message["role"] == "system":
+                    message["role"] = "developer"
+
+            params = {
+                "model": self.model_name,
+                "input": messages,
+                "max_output_tokens": self.max_tokens,
+                "temperature": self.temperature,
+                **kwargs,
+            }
+
+            # Add tools if provided
+            if self.tools:
+                params["tools"] = self.tools
+
+            # Add reasoning configuration if needed
+            if "reasoning" in kwargs or self.reasoning_effort:
+                params["reasoning"] = {"effort": self.reasoning_effort}
+
+            response = self.client.responses.create(**params)
+            output_text = response.output
+
+        except Exception as e:
+            self.logger.error(f"Error during Groq Responses API call: {e}")
+            raise
+
+        # Extract the text output from the response
+        outputs = [output_text[0].content[0].text]
+
+        # Extract usage information if it exists
+        if response.usage is None:
+            usage = Usage(prompt_tokens=0, completion_tokens=0)
+        else:
+            usage = Usage(
+                prompt_tokens=response.usage.input_tokens,
+                completion_tokens=response.usage.output_tokens,
+            )
+
+        return outputs, usage
 
     def chat(self, messages: List[Dict[str, Any]], **kwargs) -> Tuple[List[str], Usage]:
         """
@@ -62,6 +138,10 @@ class GroqClient(MinionsClient):
         Returns:
             Tuple of (List[str], Usage) containing response strings and token usage
         """
+        # Use Responses API if enabled
+        if self.use_responses_api:
+            return self.responses(messages, **kwargs)
+        
         assert len(messages) > 0, "Messages cannot be empty."
 
         try:

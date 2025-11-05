@@ -16,7 +16,6 @@ from minions.clients.sambanova import SambanovaClient
 from minions.clients.moonshot import MoonshotClient
 from minions.clients.gemini import GeminiClient
 from minions.clients.grok import GrokClient
-from minions.clients.llama_api import LlamaApiClient
 from minions.clients.mistral import MistralClient
 from minions.clients.minimax import MiniMaxClient
 from minions.clients.sarvam import SarvamClient
@@ -50,7 +49,6 @@ __all__ = [
     "MoonshotClient",
     "GeminiClient",
     "GrokClient",
-    "LlamaApiClient",
     "MistralClient",
     "MiniMaxClient",
     "SarvamClient",

@@ -1,7 +1,15 @@
 import logging
 from typing import Any, Dict, List, Optional, Tuple
 import os
-import requests
+
+try:
+    from sarvamai import SarvamAI
+except ImportError:
+    print(
+        "sarvamai is required for SarvamClient. "
+        "Install it with: pip install sarvamai"
+    )
+    SarvamAI = None
 
 from minions.usage import Usage
 from minions.clients.base import MinionsClient
@@ -24,12 +32,12 @@ class SarvamClient(MinionsClient):
 
         Args:
             model_name: The name of the model to use (default: "sarvam-m")
-            api_key: Sarvam API key (optional, falls back to environment variable if not provided)
+            api_key: Sarvam API key (optional, falls back to SARVAM_API_KEY environment variable if not provided)
             temperature: Sampling temperature (default: 0.7)
             max_tokens: Maximum number of tokens to generate (default: 100)
             top_p: Top-p sampling parameter (default: 1.0)
             n: Number of completions to generate (default: 1)
-            base_url: Base URL for the Sarvam API (optional, falls back to SARVAM_BASE_URL environment variable or default URL)
+            base_url: Base URL for the Sarvam API (optional, kept for compatibility with base class)
             **kwargs: Additional parameters passed to base class
         """
         super().__init__(
@@ -45,20 +53,14 @@ class SarvamClient(MinionsClient):
         self.api_key = api_key or os.getenv("SARVAM_API_KEY")
         self.top_p = top_p
         self.n = n
-        self.base_url = base_url or os.getenv(
-            "SARVAM_BASE_URL", "https://api.sarvam.ai/v1"
-        )
 
         if not self.api_key:
             raise ValueError(
                 "Sarvam API key is required. Set SARVAM_API_KEY environment variable or pass api_key parameter."
             )
 
-        # Set up headers for API requests
-        self.headers = {
-            "Authorization": f"Bearer {self.api_key}",
-            "Content-Type": "application/json",
-        }
+        # Initialize the Sarvam AI client
+        self.client = SarvamAI(api_subscription_key=self.api_key)
 
     def chat(self, messages: List[Dict[str, Any]], **kwargs) -> Tuple[List[str], Usage, List[str]]:
         """
@@ -74,35 +76,17 @@ class SarvamClient(MinionsClient):
         assert len(messages) > 0, "Messages cannot be empty."
 
         try:
-            # Prepare the payload for the API request
-            payload = {
-                "model": self.model_name,
-                "messages": messages,
-                "temperature": self.temperature,
-                "top_p": self.top_p,
-                "max_tokens": self.max_tokens,
-                "n": self.n,
+            # Make the API request using the SDK
+            response_data = self.client.chat.completions(
+                model=self.model_name,
+                messages=messages,
+                temperature=self.temperature,
+                top_p=self.top_p,
+                max_tokens=self.max_tokens,
+                n=self.n,
                 **kwargs,
-            }
-
-            # Make the API request
-            response = requests.post(
-                f"{self.base_url}/chat/completions",
-                headers=self.headers,
-                json=payload,
-                timeout=60,  # 60 second timeout
             )
 
-            # Check if the request was successful
-            if response.status_code != 200:
-                self.logger.error(f"Sarvam API request failed: {response.status_code} - {response.text}")
-                raise Exception(f"Sarvam API request failed: {response.status_code} - {response.text}")
-
-            response_data = response.json()
-
-        except requests.exceptions.RequestException as e:
-            self.logger.error(f"Error during Sarvam API request: {e}")
-            raise
         except Exception as e:
             self.logger.error(f"Error during Sarvam API call: {e}")
             raise
@@ -141,28 +125,16 @@ class SarvamClient(MinionsClient):
             Raw response dictionary from the API or None if failed
         """
         try:
-            payload = {
-                "model": self.model_name,
-                "messages": messages,
-                "temperature": self.temperature,
-                "top_p": self.top_p,
-                "max_tokens": self.max_tokens,
-                "n": self.n,
+            response_data = self.client.chat.completions(
+                model=self.model_name,
+                messages=messages,
+                temperature=self.temperature,
+                top_p=self.top_p,
+                max_tokens=self.max_tokens,
+                n=self.n,
                 **kwargs,
-            }
-
-            response = requests.post(
-                f"{self.base_url}/chat/completions",
-                headers=self.headers,
-                json=payload,
-                timeout=60,
             )
-
-            if response.status_code == 200:
-                return response.json()
-            else:
-                self.logger.error(f"Request failed: {response.status_code} {response.text}")
-                return None
+            return response_data
 
         except Exception as e:
             self.logger.error(f"Error making request: {e}")

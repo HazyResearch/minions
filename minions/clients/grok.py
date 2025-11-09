@@ -20,6 +20,14 @@ class GrokClient(MinionsClient):
     ):
         """
         Initialize the Grok client.
+        
+        Available models (as of Nov 2025):
+            - grok-4: Flagship model for natural language, math, and reasoning (256K context)
+            - grok-4-fast-reasoning: Cost-efficient reasoning model (2M context)
+            - grok-4-0709: Specific Grok 4 version (256K context)
+            - grok-code-fast-1: Optimized for agentic coding tasks (256K context)
+            - grok-3-mini: Smaller efficient model
+            - grok-3-mini-fast: Faster version of mini model
 
         Args:
             model_name: The name of the model to use (default: "grok-4")
@@ -97,7 +105,14 @@ class GrokClient(MinionsClient):
         Returns:
             bool: True if the model supports reasoning
         """
-        reasoning_models = ["grok-3-mini", "grok-3-mini-fast", "grok-4"]
+        reasoning_models = [
+            "grok-3-mini", 
+            "grok-3-mini-fast", 
+            "grok-4",
+            "grok-4-fast-reasoning",
+            "grok-4-0709",
+            "grok-code-fast-1"
+        ]
         return any(reasoning_model in model_name.lower() for reasoning_model in reasoning_models)
 
     def chat(self, messages: List[Dict[str, Any]], **kwargs) -> Union[Tuple[List[str], Usage], Tuple[List[str], Usage, List[str]], Tuple[List[str], Usage, List[str], List[Optional[str]]]]:

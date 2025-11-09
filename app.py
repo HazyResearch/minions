@@ -107,14 +107,19 @@ API_PRICES = {
         "gpt-5-nano": {"input": 0.05, "cached_input": 0.005, "output": 0.40},
         "gpt-5-chat-latest": {"input": 1.25, "cached_input": 0.125, "output": 10.00},
     },
-    # Grok (xAI) model pricing per 1M tokens
+    # Grok (xAI) model pricing per 1M tokens (Updated Nov 2025)
     "Grok": {
         "grok-2": {"input": 2.00, "cached_input": 1.00, "output": 10.00},
-        "grok-3": {"input": 3.00, "cached_input": 1.50, "output": 15.00},
-        "grok-code-fast": {"input": 0.20, "cached_input": 0.02, "output": 1.5},
+        "grok-3": {"input": 3.00, "cached_input": 0.75, "output": 15.00},
         "grok-3-fast": {"input": 5.00, "cached_input": 2.50, "output": 25.00},
-        "grok-3-mini": {"input": 0.30, "cached_input": 0.15, "output": 0.50},
-        "grok-4-0709": {"input": 4.00, "cached_input": 2.00, "output": 20.00},
+        "grok-3-mini": {"input": 0.30, "cached_input": 0.075, "output": 0.50},
+        "grok-3-mini-fast": {"input": 0.30, "cached_input": 0.075, "output": 0.50},
+        "grok-4": {"input": 3.00, "cached_input": 0.75, "output": 15.00},
+        "grok-4-0709": {"input": 3.00, "cached_input": 0.75, "output": 15.00},
+        "grok-4-fast-reasoning": {"input": 0.20, "cached_input": 0.05, "output": 0.50},
+        "grok-4-fast-non-reasoning": {"input": 0.20, "cached_input": 0.05, "output": 0.50},
+        "grok-code-fast": {"input": 0.20, "cached_input": 0.02, "output": 1.5},
+        "grok-code-fast-1": {"input": 0.20, "cached_input": 0.02, "output": 1.50},
     },
     # Groq model pricing per 1M tokens
     "Groq": {
@@ -1488,7 +1493,7 @@ def validate_grok_key(api_key):
         from minions.clients.grok import GrokClient
 
         client = GrokClient(
-            model_name="grok-3-beta",  # Use a common model for testing
+            model_name="grok-4",  # Use the latest flagship model for testing
             api_key=api_key,
             temperature=0.0,
             max_tokens=1,
@@ -2598,13 +2603,15 @@ with st.sidebar:
             default_model_index = 0
         elif selected_provider == "Grok":
             model_mapping = {
-                "grok-4-0709 (Recommended)": "grok-4-0709",
-                "grok-4-fast-reasoning": "grok-4-fast-reasoning",
+                "grok-4 (Recommended)": "grok-4",
+                "grok-4-0709": "grok-4-0709",
+                "grok-4-fast-reasoning (Most cost-efficient reasoning)": "grok-4-fast-reasoning",
                 "grok-4-fast-non-reasoning": "grok-4-fast-non-reasoning",
+                "grok-code-fast-1 (Optimized for coding)": "grok-code-fast-1",
                 "grok-3": "grok-3",
-                "grok-code-fast": "grok-code-fast-1",
                 "grok-3-fast": "grok-3-fast",
                 "grok-3-mini": "grok-3-mini",
+                "grok-3-mini-fast": "grok-3-mini-fast",
                 "grok-2": "grok-2",
             }
             default_model_index = 0

@@ -139,6 +139,7 @@ API_PRICES = {
     # Novita AI pricing per 1M tokens
     "Novita": {
         "deepseek/deepseek-v3.1-terminus": {"input": 0.27, "cached_input": 0.27, "output": 1.00},
+        "moonshotai/kimi-k2-thinking": {"input": 0.60, "cached_input": 0.60, "output": 2.50},
     },
     "Anthropic": {
         "claude-opus-4-1-20250805": {"input": 15.00, "cached_input": 1.50, "output": 75.00},
@@ -2623,9 +2624,10 @@ with st.sidebar:
             default_model_index = 0
         elif selected_provider == "Novita":
             model_mapping = {
+                "Kimi K2 Thinking (Recommended - Reasoning)": "moonshotai/kimi-k2-thinking",
                 "GLM 4.6": "zai-org/glm-4.6",
                 "Deepseek V3.2 Exp": "deepseek/deepseek-v3.2-exp",
-                "Deepseek V3.1 Terminus (Recommended)": "deepseek/deepseek-v3.1-terminus",
+                "Deepseek V3.1 Terminus": "deepseek/deepseek-v3.1-terminus",
             }
             default_model_index = 0
         elif selected_provider == "LlamaAPI":

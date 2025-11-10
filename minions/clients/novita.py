@@ -80,7 +80,9 @@ class NovitaClient(OpenAIClient):
             "thudm/glm-4.1v-9b-thinking",
             "zai-org/glm-4.5",
             # LLaMA Series
-            "meta-llama/llama-4-maverick-17b-128e-instruct-fp8"
+            "meta-llama/llama-4-maverick-17b-128e-instruct-fp8",
+            # Moonshot AI Kimi Series
+            "moonshotai/kimi-k2-thinking"
         ]
         return any(self.model_name.startswith(prefix) for prefix in reasoning_model_prefixes)
     
@@ -179,6 +181,8 @@ class NovitaClient(OpenAIClient):
                 "microsoft/wizardlm-2-8x22b",
                 "google/gemma-2-9b-it",
                 "qwen/qwen2.5-72b-instruct",
+                # Reasoning models - Moonshot AI Kimi Series
+                "moonshotai/kimi-k2-thinking",
                 # Reasoning models - DeepSeek Series
                 "deepseek/deepseek-r1-0528",
                 "deepseek/deepseek-r1-0528-qwen3-8b",

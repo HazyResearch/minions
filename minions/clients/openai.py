@@ -22,6 +22,7 @@ class OpenAIClient(MinionsClient):
         tools: List[Dict[str, Any]] = None,
         reasoning_effort: str = "low",
         conversation_id: Optional[str] = None,
+        service_tier: Optional[str] = None,
         **kwargs
     ):
         """
@@ -37,6 +38,7 @@ class OpenAIClient(MinionsClient):
             tools: List of tools for function calling (default: None)
             reasoning_effort: Reasoning effort level for o1 models (default: "low")
             conversation_id: Conversation ID for responses API (optional, only used when use_responses_api=True)
+            service_tier: Service tier for request processing - "auto" or "priority" (default: None, which uses standard processing)
             local: If this is communicating with a local client (default: False)
             **kwargs: Additional parameters passed to base class
         """
@@ -74,6 +76,12 @@ class OpenAIClient(MinionsClient):
         self.reasoning_effort = reasoning_effort
         if "gpt5" in self.model_name and self.reasoning_effort == "low":
             self.reasoning_effort = "minimal"
+        
+        # Priority processing support via service_tier
+        self.service_tier = service_tier
+        if self.service_tier and self.service_tier not in ["auto", "priority"]:
+            self.logger.warning(f"Invalid service_tier '{self.service_tier}'. Valid values are 'auto' or 'priority'. Using standard processing.")
+            self.service_tier = None
 
         # If we are using a local client, we want to check to see if the
         # local server is running or not
@@ -113,6 +121,7 @@ class OpenAIClient(MinionsClient):
                 "input": messages,
                 "max_output_tokens": self.max_tokens,
                 "tools": self.tools,
+                "prompt_cache_key": "minions-v1",
                 **kwargs,
             }
             if "o1" in self.model_name or "o3" in self.model_name:
@@ -123,6 +132,10 @@ class OpenAIClient(MinionsClient):
             # Add conversation_id if provided
             if self.conversation_id is not None:
                 params["conversation"] = self.conversation_id
+            
+            # Add service_tier for priority processing if specified
+            if self.service_tier is not None:
+                params["service_tier"] = self.service_tier
 
 
             response = self.client.responses.create(
@@ -176,6 +189,10 @@ class OpenAIClient(MinionsClient):
                     params["temperature"] = self.temperature
                 if "o1" in self.model_name or "o3" in self.model_name:
                     params["reasoning_effort"] = self.reasoning_effort
+                
+                # Add service_tier for priority processing if specified
+                if self.service_tier is not None:
+                    params["service_tier"] = self.service_tier
 
                 response = self.client.chat.completions.create(**params)
             except Exception as e:

@@ -45,6 +45,13 @@ try:
 except ImportError:
     LIQUID_COLBERT_AVAILABLE = False
 
+# Ollama Embeddings support
+try:
+    from ollama import embed as ollama_embed
+    OLLAMA_AVAILABLE = True
+except ImportError:
+    OLLAMA_AVAILABLE = False
+
 
 ### EMBEDDING MODELS ###
 
@@ -436,6 +443,105 @@ class OpenRouterEmbeddings(BaseEmbeddingModel):
     def encode_by_name(cls, texts, model_name=None, api_key=None, **kwargs) -> np.ndarray:
         """Encode texts using model by name (for backward compatibility)"""
         instance = cls(model_name, api_key, **kwargs)
+        return instance.encode(texts, **kwargs)
+
+
+class OllamaEmbeddings(BaseEmbeddingModel):
+    """
+    Implementation of embedding model using Ollama Embeddings.
+    
+    This class provides an interface to use Ollama-based embedding models
+    with the existing retrieval system. Ollama supports various local embedding
+    models like llama3.2, nomic-embed-text, mxbai-embed-large, etc.
+    """
+
+    _instances = {}  # Dictionary to store instances by model name
+    _default_model_name = "llama3.2"
+
+    def __new__(cls, model_name=None):
+        if not OLLAMA_AVAILABLE:
+            raise ImportError(
+                "ollama is required to use OllamaEmbeddings. "
+                "Please install it with: pip install ollama"
+            )
+
+        model_name = model_name or cls._default_model_name
+        print(f"Using Ollama embedding model: {model_name}")
+
+        # Check if we already have an instance for this model
+        if model_name not in cls._instances:
+            instance = super(OllamaEmbeddings, cls).__new__(cls)
+            instance.model_name = model_name
+            cls._instances[model_name] = instance
+        
+        return cls._instances[model_name]
+
+    def get_model(self):
+        """Get the model name (Ollama doesn't use a client object)."""
+        return self.model_name
+
+    def encode(self, texts: Union[str, List[str]], **kwargs) -> np.ndarray:
+        """
+        Encode texts to create embeddings using Ollama model.
+
+        Args:
+            texts: Single text or list of texts to encode
+            **kwargs: Additional arguments (currently unused)
+
+        Returns:
+            Numpy array of embeddings
+        """
+        # Handle single text input
+        if isinstance(texts, str):
+            texts = [texts]
+
+        embeddings_list = []
+        
+        for text in texts:
+            try:
+                # Use the embed function from Ollama
+                response = ollama_embed(
+                    model=self.model_name,
+                    input=text
+                )
+                
+                # Extract embedding from response
+                # Ollama returns {'embeddings': [[...values...]]} for batch or single input
+                if 'embeddings' in response:
+                    embedding = response['embeddings']
+                    if isinstance(embedding, list) and len(embedding) > 0:
+                        # If it's a list of embeddings, take the first one
+                        embeddings_list.append(embedding[0] if isinstance(embedding[0], list) else embedding)
+                    else:
+                        embeddings_list.append(embedding)
+                elif 'embedding' in response:
+                    # Fallback for singular 'embedding' key
+                    embeddings_list.append(response['embedding'])
+                else:
+                    raise ValueError("No embeddings found in Ollama API response")
+                
+            except Exception as e:
+                print(f"Error generating embedding for text: {e}")
+                # Create zero embedding as fallback
+                fallback_dim = 4096  # Default embedding dimension for llama3.2
+                if embeddings_list:
+                    fallback_dim = len(embeddings_list[0])
+                embeddings_list.append([0.0] * fallback_dim)
+
+        # Convert to numpy array
+        embeddings = np.array(embeddings_list, dtype=np.float32)
+        return embeddings
+
+    @classmethod
+    def get_model_by_name(cls, model_name=None):
+        """Get model by name (for backward compatibility)"""
+        instance = cls(model_name)
+        return instance.get_model()
+
+    @classmethod
+    def encode_by_name(cls, texts, model_name=None, **kwargs) -> np.ndarray:
+        """Encode texts using model by name (for backward compatibility)"""
+        instance = cls(model_name)
         return instance.encode(texts, **kwargs)
 
 

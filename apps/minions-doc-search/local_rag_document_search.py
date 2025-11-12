@@ -12,6 +12,7 @@ Supported retrievers:
 - gemini: Google Gemini embeddings via API
 - embeddinggemma: Google EmbeddingGemma-300m model via SentenceTransformers
 - openrouter: OpenRouter embeddings via API (supports various embedding models)
+- ollama: Ollama embeddings with local models
 - colbert: Liquid AI late-interaction retrieval with ColBERT + PLAID index
 - multimodal: ChromaDB + Ollama embeddings
 - qdrant: Qdrant + Ollama embeddings
@@ -23,6 +24,7 @@ Usage:
   python local_rag_document_search.py --retriever gemini
   python local_rag_document_search.py --retriever embeddinggemma
   python local_rag_document_search.py --retriever openrouter
+  python local_rag_document_search.py --retriever ollama
   python local_rag_document_search.py --retriever colbert
   python local_rag_document_search.py --retriever multimodal
   python local_rag_document_search.py --retriever qdrant
@@ -38,7 +40,7 @@ from typing import List, Tuple, Dict
 # Add the minions directory to the path
 sys.path.append(os.path.join(os.path.dirname(__file__), '../../minions'))
 
-from minions.utils.retrievers import bm25_retrieve_top_k_chunks, embedding_retrieve_top_k_chunks, colbert_retrieve_top_k_chunks, SentenceTransformerEmbeddings, MLXEmbeddings, GeminiEmbeddings, OpenRouterEmbeddings
+from minions.utils.retrievers import bm25_retrieve_top_k_chunks, embedding_retrieve_top_k_chunks, colbert_retrieve_top_k_chunks, SentenceTransformerEmbeddings, MLXEmbeddings, GeminiEmbeddings, OpenRouterEmbeddings, OllamaEmbeddings
 from minions.utils.multimodal_retrievers import retrieve_chunks_from_chroma, retrieve_chunks_from_qdrant
 from minions.clients.ollama import OllamaClient
 from pydantic import BaseModel
@@ -246,7 +248,7 @@ def search_documents(query, documents: List[str], file_paths: List[str], k: int 
         documents: List of document contents (treated as chunks)
         file_paths: List of corresponding file paths
         k: Number of top results to return
-        retriever_type: Type of retriever to use ("bm25", "embedding", "mlx", "gemini", "embeddinggemma", "openrouter", "colbert", "multimodal", "qdrant")
+        retriever_type: Type of retriever to use ("bm25", "embedding", "mlx", "gemini", "embeddinggemma", "openrouter", "ollama", "colbert", "multimodal", "qdrant")
         weights: Dictionary of keyword weights for BM25 retrieval
         
     Returns:
@@ -269,6 +271,7 @@ def search_documents(query, documents: List[str], file_paths: List[str], k: int 
         "gemini": _retrieve_gemini,
         "embeddinggemma": _retrieve_embeddinggemma,
         "openrouter": _retrieve_openrouter,
+        "ollama": _retrieve_ollama,
         "colbert": _retrieve_colbert,
         "multimodal": _retrieve_multimodal,
         "qdrant": _retrieve_qdrant
@@ -404,6 +407,32 @@ def _retrieve_openrouter(query: str, documents: List[str], k: int) -> List[str]:
     except Exception as e:
         print(f"Error with OpenRouter retrieval: {e}")
         print("This might be due to API key or model availability issues.")
+        print("Falling back to BM25...")
+        return _retrieve_bm25(query.split(), documents, k)
+
+
+def _retrieve_ollama(query: str, documents: List[str], k: int) -> List[str]:
+    """Ollama embedding retrieval using local Ollama models."""
+    print("Using Ollama embedding retrieval with local models")
+    
+    try:
+        import os
+        # Get model from environment or use default
+        model_name = os.getenv("OLLAMA_EMBEDDING_MODEL", "llama3.2")
+        print(f"Using Ollama embedding model: {model_name}")
+        
+        ollama_model = OllamaEmbeddings(model_name=model_name)
+        return embedding_retrieve_top_k_chunks([query], documents, k=k, embedding_model=ollama_model)
+    except ImportError as e:
+        print(f"Error: {e}")
+        print("Make sure ollama is installed.")
+        print("Install with: pip install ollama")
+        print("\nFalling back to BM25...")
+        return _retrieve_bm25(query.split(), documents, k)
+    except Exception as e:
+        print(f"Error with Ollama retrieval: {e}")
+        print("This might be due to Ollama server not running or model availability issues.")
+        print("Make sure Ollama is running with: ollama serve")
         print("Falling back to BM25...")
         return _retrieve_bm25(query.split(), documents, k)
 
@@ -579,6 +608,7 @@ Examples:
   # Other retriever examples
   python local_rag_document_search.py --retriever mlx
   python local_rag_document_search.py --retriever gemini
+  python local_rag_document_search.py --retriever ollama
   python local_rag_document_search.py --retriever colbert
   python local_rag_document_search.py --retriever multimodal
   python local_rag_document_search.py --retriever qdrant
@@ -589,7 +619,7 @@ Examples:
         "--retriever", 
         type=str, 
         default="bm25",
-        choices=["bm25", "embedding", "mlx", "gemini", "embeddinggemma", "openrouter", "colbert", "multimodal", "qdrant"],
+        choices=["bm25", "embedding", "mlx", "gemini", "embeddinggemma", "openrouter", "ollama", "colbert", "multimodal", "qdrant"],
         help="Type of retriever to use (default: bm25)"
     )
 

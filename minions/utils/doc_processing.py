@@ -433,6 +433,7 @@ def extract_entities_from_text(
     model_id: str = "gpt-4o",
     api_key: Optional[str] = None,
     examples: Optional[List] = None,
+    model_url: Optional[str] = None,
     verbose: bool = False,
 ) -> List[str]:
     """
@@ -495,6 +496,7 @@ def extract_entities_from_text(
         prompt_description=prompt,
         model_id=model_id,
         api_key=api_key,
+        model_url=model_url,
         examples=examples,
         verbose=verbose,
     )

@@ -29,6 +29,7 @@ from minions.clients.cloudflare import CloudflareGatewayClient
 from minions.clients.notdiamond import NotDiamondAIClient
 from minions.clients.vercel_gateway import VercelGatewayClient
 from minions.clients.exa import ExaClient
+from minions.clients.baseten import BasetenClient
 
 __all__ = [
     "OllamaClient",
@@ -61,6 +62,7 @@ __all__ = [
     "NotDiamondAIClient",
     "VercelGatewayClient",
     "ExaClient",
+    "BasetenClient",
 ]
 
 try:

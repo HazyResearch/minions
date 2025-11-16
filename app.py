@@ -2296,6 +2296,7 @@ with st.sidebar:
             }
         elif local_provider == "Transformers":
             local_model_options = {
+                "Instella-3B-Instruct": "amd/Instella-3B-Instruct",
                 "Jamba-Reasoning-3B": "ai21labs/AI21-Jamba-Reasoning-3B",
                 "RND1-Base-0910": "radicalnumerics/RND1-Base-0910",
                 "LFM2-8B-A1B": "LiquidAI/LFM2-8B-A1B",

@@ -24,6 +24,7 @@ wheels/
 *.egg
 
 /minions_logs
+minion_reasoning_logs/
 
 
 # Virtual Environment

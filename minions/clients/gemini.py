@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from typing import Any, Dict, List, Optional, Union, Tuple
 import os
 import re
+import time
 
 from minions.usage import Usage
 from minions.clients.base import MinionsClient
@@ -24,6 +25,7 @@ class GeminiClient(MinionsClient):
         thinking_budget: Optional[int] = None,
         url_context: bool = False,
         use_search: bool = False,
+        file_search_store_names: Optional[List[str]] = None,
         local: bool = False,
         **kwargs
     ):
@@ -45,6 +47,9 @@ class GeminiClient(MinionsClient):
                        URLs are automatically detected and the tool is enabled dynamically if needed.
             use_search: Whether to enable Google Search tool. Can be combined with URL context for 
                        powerful search-then-analyze workflows.
+            file_search_store_names: Optional list of file search store names to use for RAG.
+                       File search stores must be created beforehand using create_file_search_store()
+                       and populated with files using upload_to_file_search_store().
             **kwargs: Additional parameters passed to base class
         """
         super().__init__(
@@ -67,7 +72,9 @@ class GeminiClient(MinionsClient):
         self.thinking_budget = thinking_budget
         self.url_context = url_context
         self.google_search = use_search
+        self.file_search_store_names = file_search_store_names or []
         self.last_url_context_metadata = None
+        self.last_grounding_metadata = None
 
         # If we want structured schema output:
         self.format_structured_output = None
@@ -76,8 +83,8 @@ class GeminiClient(MinionsClient):
 
         # Initialize the client based on the chosen API
         if self.use_openai_api:
-            if self.url_context or self.google_search:
-                raise ValueError("URL context and Google Search are not supported with OpenAI-compatible API. Use native Gemini API instead.")
+            if self.url_context or self.google_search or self.file_search_store_names:
+                raise ValueError("URL context, Google Search, and File Search are not supported with OpenAI-compatible API. Use native Gemini API instead.")
             try:
                 from openai import OpenAI
 
@@ -203,6 +210,17 @@ class GeminiClient(MinionsClient):
         return self.types.Tool(
             google_search=self.types.GoogleSearch()
         )
+    
+    def _create_file_search_tool(self):
+        """Create File Search tool for RAG capabilities."""
+        if not self.file_search_store_names:
+            return None
+        
+        return self.types.Tool(
+            file_search=self.types.FileSearch(
+                file_search_store_names=self.file_search_store_names
+            )
+        )
 
     def _detect_urls_in_messages(self, messages: List[Dict[str, Any]]) -> bool:
         """
@@ -298,6 +316,13 @@ class GeminiClient(MinionsClient):
             search_tool = self._create_google_search_tool()
             if search_tool:
                 tools.append(search_tool)
+        
+        # Add file search tool if store names are provided
+        if self.file_search_store_names:
+            file_search_tool = self._create_file_search_tool()
+            if file_search_tool:
+                tools.append(file_search_tool)
+                self.logger.info(f"Enabled File Search with {len(self.file_search_store_names)} store(s)")
         
         return tools if tools else None
 
@@ -527,16 +552,20 @@ class GeminiClient(MinionsClient):
 
                 # Extract URL context metadata if available
                 url_context_metadata = None
+                grounding_metadata = None
                 if hasattr(response, 'candidates') and response.candidates:
                     candidate = response.candidates[0]
                     if hasattr(candidate, 'url_context_metadata'):
                         url_context_metadata = candidate.url_context_metadata
+                    if hasattr(candidate, 'grounding_metadata'):
+                        grounding_metadata = candidate.grounding_metadata
 
                 return {
                     "text": response.text,
                     "usage": usage,
                     "finish_reason": "stop",  # Gemini doesn't provide this directly
                     "url_context_metadata": url_context_metadata,
+                    "grounding_metadata": grounding_metadata,
                 }
 
         # Run them all in parallel
@@ -547,6 +576,7 @@ class GeminiClient(MinionsClient):
         usage_total = Usage()
         done_reasons = []
         url_context_metadata = None
+        grounding_metadata = None
         for r in results:
             texts.append(r["text"])
             usage_total += r["usage"]
@@ -554,9 +584,13 @@ class GeminiClient(MinionsClient):
             # Collect URL context metadata if available
             if r.get("url_context_metadata"):
                 url_context_metadata = r["url_context_metadata"]
+            # Collect grounding metadata if available
+            if r.get("grounding_metadata"):
+                grounding_metadata = r["grounding_metadata"]
 
-        # Store URL context metadata for later retrieval
+        # Store metadata for later retrieval
         self.last_url_context_metadata = url_context_metadata
+        self.last_grounding_metadata = grounding_metadata
         
         if self.local:
             return texts, usage_total, done_reasons
@@ -582,6 +616,7 @@ class GeminiClient(MinionsClient):
         usage_total = Usage()
         done_reasons = []
         url_context_metadata = None
+        grounding_metadata = None
 
         try:
             if self.use_openai_api:
@@ -661,12 +696,15 @@ class GeminiClient(MinionsClient):
 
                 responses.append(response.text)
 
-                # Extract URL context metadata if available
+                # Extract URL context metadata and grounding metadata if available
                 if hasattr(response, 'candidates') and response.candidates:
                     candidate = response.candidates[0]
                     if hasattr(candidate, 'url_context_metadata'):
                         url_context_metadata = candidate.url_context_metadata
                         self.logger.info(f"URL context metadata: {url_context_metadata}")
+                    if hasattr(candidate, 'grounding_metadata'):
+                        grounding_metadata = candidate.grounding_metadata
+                        self.logger.info(f"Grounding metadata found with {len(getattr(grounding_metadata, 'grounding_chunks', []))} chunks")
 
                 # Extract usage information
                 usage_total += Usage(
@@ -679,8 +717,9 @@ class GeminiClient(MinionsClient):
             self.logger.error(f"Error during API call: {e}")
             raise
 
-        # Store URL context metadata for later retrieval
+        # Store metadata for later retrieval
         self.last_url_context_metadata = url_context_metadata
+        self.last_grounding_metadata = grounding_metadata
         
         if self.local:
             return responses, usage_total, done_reasons
@@ -695,6 +734,196 @@ class GeminiClient(MinionsClient):
             Optional[Dict[str, Any]]: URL context metadata if available, None otherwise
         """
         return self.last_url_context_metadata
+    
+    def get_grounding_metadata(self) -> Optional[Dict[str, Any]]:
+        """
+        Get grounding metadata from the last response.
+        This includes citations from File Search and other grounding sources.
+        
+        Returns:
+            Optional[Dict[str, Any]]: Grounding metadata if available, None otherwise
+        """
+        return self.last_grounding_metadata
+    
+    def create_file_search_store(self, display_name: str) -> str:
+        """
+        Create a new File Search store for RAG.
+        
+        Args:
+            display_name: Display name for the file search store
+            
+        Returns:
+            str: The name/ID of the created store (format: fileSearchStores/xxxxx)
+            
+        Example:
+            store_name = client.create_file_search_store("My Knowledge Base")
+        """
+        if self.use_openai_api:
+            raise ValueError("File Search is not supported with OpenAI-compatible API. Use native Gemini API instead.")
+        
+        try:
+            response = self.client.file_search_stores.create(
+                config={'display_name': display_name}
+            )
+            self.logger.info(f"Created File Search store: {response.name}")
+            return response.name
+        except Exception as e:
+            self.logger.error(f"Failed to create File Search store: {e}")
+            raise
+    
+    def list_file_search_stores(self) -> List[Dict[str, Any]]:
+        """
+        List all File Search stores.
+        
+        Returns:
+            List[Dict[str, Any]]: List of file search store information
+            
+        Example:
+            stores = client.list_file_search_stores()
+            for store in stores:
+                print(f"Store: {store['name']} - {store['display_name']}")
+        """
+        if self.use_openai_api:
+            raise ValueError("File Search is not supported with OpenAI-compatible API. Use native Gemini API instead.")
+        
+        try:
+            stores = self.client.file_search_stores.list()
+            result = []
+            for store in stores:
+                result.append({
+                    'name': store.name,
+                    'display_name': getattr(store, 'display_name', ''),
+                    'create_time': getattr(store, 'create_time', None),
+                })
+            return result
+        except Exception as e:
+            self.logger.error(f"Failed to list File Search stores: {e}")
+            raise
+    
+    def delete_file_search_store(self, store_name: str):
+        """
+        Delete a File Search store.
+        
+        Args:
+            store_name: Name of the store to delete (format: fileSearchStores/xxxxx)
+            
+        Example:
+            client.delete_file_search_store("fileSearchStores/abc123")
+        """
+        if self.use_openai_api:
+            raise ValueError("File Search is not supported with OpenAI-compatible API. Use native Gemini API instead.")
+        
+        try:
+            self.client.file_search_stores.delete(name=store_name)
+            self.logger.info(f"Deleted File Search store: {store_name}")
+        except Exception as e:
+            self.logger.error(f"Failed to delete File Search store: {e}")
+            raise
+    
+    def upload_to_file_search_store(
+        self,
+        file_path: str,
+        store_name: str,
+        display_name: Optional[str] = None,
+        wait_for_completion: bool = True,
+        timeout: int = 300
+    ) -> Dict[str, Any]:
+        """
+        Upload a file to a File Search store.
+        
+        Args:
+            file_path: Path to the file to upload
+            store_name: Name of the store to upload to (format: fileSearchStores/xxxxx)
+            display_name: Optional display name for the file (will be visible in citations)
+            wait_for_completion: Whether to wait for the import operation to complete
+            timeout: Maximum time to wait for completion (in seconds)
+            
+        Returns:
+            Dict[str, Any]: Operation result information
+            
+        Example:
+            result = client.upload_to_file_search_store(
+                file_path="document.pdf",
+                store_name="fileSearchStores/abc123",
+                display_name="Important Document"
+            )
+        """
+        if self.use_openai_api:
+            raise ValueError("File Search is not supported with OpenAI-compatible API. Use native Gemini API instead.")
+        
+        try:
+            config = {}
+            if display_name:
+                config['display_name'] = display_name
+            
+            # Start the upload operation
+            operation = self.client.file_search_stores.upload_to_file_search_store(
+                file=file_path,
+                file_search_store_name=store_name,
+                config=config if config else None
+            )
+            
+            self.logger.info(f"Started upload operation for {file_path} to {store_name}")
+            
+            # Wait for completion if requested
+            if wait_for_completion:
+                start_time = time.time()
+                while not operation.done:
+                    if time.time() - start_time > timeout:
+                        raise TimeoutError(f"Upload operation timed out after {timeout} seconds")
+                    
+                    time.sleep(2)  # Poll every 2 seconds
+                    operation = self.client.operations.get(operation)
+                    self.logger.debug(f"Upload operation status: {operation.done}")
+                
+                self.logger.info(f"Upload completed for {file_path}")
+                
+            return {
+                'operation_name': operation.name,
+                'done': operation.done,
+                'error': getattr(operation, 'error', None),
+            }
+        except Exception as e:
+            self.logger.error(f"Failed to upload file to File Search store: {e}")
+            raise
+    
+    def add_file_search_store(self, store_name: str):
+        """
+        Add a File Search store to be used in subsequent generations.
+        
+        Args:
+            store_name: Name of the store to add (format: fileSearchStores/xxxxx)
+            
+        Example:
+            client.add_file_search_store("fileSearchStores/abc123")
+        """
+        if store_name not in self.file_search_store_names:
+            self.file_search_store_names.append(store_name)
+            self.logger.info(f"Added File Search store: {store_name}")
+    
+    def remove_file_search_store(self, store_name: str):
+        """
+        Remove a File Search store from being used in generations.
+        
+        Args:
+            store_name: Name of the store to remove (format: fileSearchStores/xxxxx)
+            
+        Example:
+            client.remove_file_search_store("fileSearchStores/abc123")
+        """
+        if store_name in self.file_search_store_names:
+            self.file_search_store_names.remove(store_name)
+            self.logger.info(f"Removed File Search store: {store_name}")
+    
+    def clear_file_search_stores(self):
+        """
+        Clear all File Search stores from being used in generations.
+        
+        Example:
+            client.clear_file_search_stores()
+        """
+        self.file_search_store_names = []
+        self.logger.info("Cleared all File Search stores")
 
     def chat(
         self,

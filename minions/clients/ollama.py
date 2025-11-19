@@ -563,7 +563,16 @@ class OllamaTurboClient(MinionsClient):
         Returns:
             List[str]: List of model names
         """
-        return ["gpt-oss:20b", "gpt-oss:120b"]
+        return [
+            "gemini-3-pro-preview:cloud",
+            "gpt-oss:20b",
+            "gpt-oss:120b",
+            "kimi-k2-thinking:cloud",
+            "qwen3-vl:235b-cloud",
+            "deepseek-v3.1:671b-cloud",
+            "qwen3-coder:480b-cloud",
+            "minimax-m2:cloud"
+        ]
 
     def list_models(self):
         """

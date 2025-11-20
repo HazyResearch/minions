@@ -2274,6 +2274,7 @@ with st.sidebar:
         # Show different model options based on local provider selection
         if local_provider == "MLX":
             local_model_options = {
+                "VibeThinker-1.5B-mlx-4bit": "mlx-community/VibeThinker-1.5B-mlx-4bit",
                 "SmolLM3-3B-8bit (Recommended)": "mlx-community/SmolLM3-3B-8bit",
                 "AI21-Jamba-Reasoning-3B-4bit": "mlx-community/AI21-Jamba-Reasoning-3B-4bit",
                 "LFM2-8B-A1B-8bit": "mlx-community/LFM2-8B-A1B-8bit",   

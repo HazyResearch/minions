@@ -17,6 +17,7 @@ from minions.minions_deep_research import DeepResearchMinions
 from minions.utils.app_utils import render_deep_research_ui
 from minions.utils.firecrawl_util import scrape_url
 from minions.minion_cua import MinionCUA, KEYSTROKE_ALLOWED_APPS, SAFE_WEBSITE_DOMAINS
+from minions.minion_reasoning import MinionReasoning
 from minions.utils.inference_estimator import InferenceEstimator
 from minions.minions_deep_research import JobOutput as DeepResearchJobOutput
 
@@ -525,7 +526,7 @@ def message_callback(role, message, is_final=True):
                 elif isinstance(message, str):
                     message = message.replace("$", "\\$")
                     st.markdown(message)
-                else:
+                elif message is not None:
                     st.write(str(message))
         else:
             # Show working state when no content
@@ -669,9 +670,11 @@ def message_callback(role, message, is_final=True):
                         st.write(message["content"])
                 else:
                     st.write(message)
-            else:
+            elif isinstance(message, str):
                 message = message.replace("$", "\\$")
                 st.markdown(message)
+            elif message is not None:
+                st.write(str(message))
 
 
 def initialize_clients(
@@ -1104,6 +1107,20 @@ def initialize_clients(
 
         # Test if the class is correctly initialized
         print(f"Method type: {type(st.session_state.method).__name__}")
+    elif protocol == "Reasoning":
+        print(protocol)
+        print("Initializing Reasoning protocol...")
+
+        # Initialize with the MinionReasoning class
+        st.session_state.method = MinionReasoning(
+            local_client=st.session_state.local_client,
+            remote_client=st.session_state.remote_client,
+            num_attempts=3,  # Default to 3 attempts
+            worker_temperature=0.7,
+            callback=message_callback,
+        )
+
+        print(f"Method type: {type(st.session_state.method).__name__}")
     else:  # Minion protocol
         st.session_state.method = Minion(
             st.session_state.local_client,
@@ -1250,6 +1267,11 @@ def run_protocol(
 
         if "inference_estimator" in st.session_state:
             try:
+                # Calculate estimated_tokens if not already defined
+                if 'estimated_tokens' not in locals():
+                    padding = 8000
+                    estimated_tokens = int(len(context) / 4 + padding) if context else 4096
+
                 tokens_per_second, eta = st.session_state.inference_estimator.estimate(
                     estimated_tokens
                 )
@@ -1353,6 +1375,49 @@ def run_protocol(
                 context=[context],
                 max_rounds=5,
                 images=images,
+            )
+        elif protocol == "Reasoning":
+            # Reasoning protocol: Hybrid worker-supervisor reasoning with multiple attempts
+            st.info(f"Starting {num_reasoning_attempts} workers at temperature {reasoning_temperature}. Supervisor will select best based on reasoning quality.")
+
+            # Reinitialize protocol with current settings if they've changed
+            if (not hasattr(st.session_state, 'reasoning_num_attempts') or
+                st.session_state.reasoning_num_attempts != num_reasoning_attempts or
+                st.session_state.reasoning_temperature != reasoning_temperature):
+
+                # Recreate local client with worker temperature for Reasoning protocol
+                # This ensures the temperature slider actually affects the model
+                if local_provider == "Ollama":
+                    from minions.clients.ollama import OllamaClient
+                    reasoning_local_client = OllamaClient(
+                        model_name=st.session_state.local_model_name,
+                        temperature=reasoning_temperature,  # Use worker temperature!
+                        max_tokens=int(st.session_state.local_max_tokens),
+                        num_ctx=st.session_state.get('num_ctx', 4096),
+                        structured_output_schema=None,
+                        use_async=False,
+                    )
+                else:
+                    # For other providers, use the existing client
+                    # TODO: Add support for other providers
+                    reasoning_local_client = st.session_state.local_client
+
+                st.session_state.method = MinionReasoning(
+                    local_client=reasoning_local_client,
+                    remote_client=st.session_state.remote_client,
+                    num_attempts=num_reasoning_attempts,
+                    worker_temperature=reasoning_temperature,
+                    callback=message_callback,
+                )
+                st.session_state.reasoning_num_attempts = num_reasoning_attempts
+                st.session_state.reasoning_temperature = reasoning_temperature
+
+            output = st.session_state.method(
+                task=task,
+                context=[context] if context else None,
+                doc_metadata=doc_metadata,
+                reference_answer=None,
+                use_judge=False,
             )
 
         else:
@@ -2129,7 +2194,7 @@ with st.sidebar:
         # TODO: Once the protocol support is added to the
         # Lemonade client, remove this check
         if local_provider == "Lemonade":
-            protocol_options = ["Minion", "Minions", "Minions-MCP", "DeepResearch"]
+            protocol_options = ["Minion", "Minions", "Minions-MCP", "DeepResearch", "Reasoning"]
         else:
             protocol_options = [
                 "Minion",
@@ -2137,6 +2202,7 @@ with st.sidebar:
                 "Minions-MCP",
                 "Minion-CUA",
                 "DeepResearch",
+                "Reasoning",
             ]
         protocol = st.segmented_control(
             "Communication protocol", options=protocol_options, default="Minion"
@@ -2573,17 +2639,17 @@ with st.sidebar:
             default_model_index = 0
         elif selected_provider == "Together":
             model_mapping = {
-                "DeepSeek-R1-0528 (Recommended)": "deepseek-ai/DeepSeek-R1-0528",
+                "Qwen 2.5 72B (Recommended)": "Qwen/Qwen2.5-72B-Instruct-Turbo",
+                "Llama 3.3 70B": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
+                "DeepSeek-R1-0528": "deepseek-ai/DeepSeek-R1-0528",
                 "Qwen3-Next-80B-A3B-Thinking": "Qwen/Qwen3-Next-80B-A3B-Thinking",
-                "Qwen3 235B A22B Instruct 2507 FP8 (Recommended)": "Qwen/Qwen3-235B-A22B-Instruct-2507-FP8",
+                "Qwen3 235B A22B Instruct 2507 FP8": "Qwen/Qwen3-235B-A22B-Instruct-2507-FP8",
                 "GPT-OSS 120B": "chatgpt-oss-120b",
                 "GLM-4.5-Air": "THUDM/GLM-4.5-Air",
                 "DeepSeek-V3 (Legacy)": "deepseek-ai/DeepSeek-V3",
                 "Qwen3 235B A22B FP8 Throughput": "Qwen/Qwen3-235B-A22B-FP8-Throughput",
-                "Qwen 2.5 72B": "Qwen/Qwen2.5-72B-Instruct-Turbo",
                 "Meta Llama 3.1 405B": "meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo",
                 "DeepSeek-R1": "deepseek-ai/DeepSeek-R1",
-                "Llama 3.3 70B": "meta-llama/Llama-3.3-70B-Instruct-Turbo",
                 "QWQ-32B": "Qwen/QwQ-32B-Preview",
                 "Kimi K2 Instruct": "moonshotai/Kimi-K2-Instruct-0905",
                 "Llama 4 Maverick": "meta-llama/Llama-4-Maverick",
@@ -2921,131 +2987,162 @@ if protocol == "DeepResearch":
     render_deep_research_ui(minions_instance=st.session_state.method)
 
 else:
+    # Standard context input for all protocols
     st.subheader("Context")
     text_input = st.text_area("Optionally paste text here", value="", height=150)
-
     st.markdown("Or upload context from a webpage")
-    # Check if FIRECRAWL_API_KEY is set in environment or provided by user
-    firecrawl_api_key_env = os.getenv("FIRECRAWL_API_KEY", "")
 
-    # Display URL input and API key fields side by side
-    c1, c2 = st.columns(2)
-    with c2:
-        # make the text input not visible as it is a password input
-        firecrawl_api_key = st.text_input(
-            "FIRECRAWL_API_KEY", type="password", key="firecrawl_api_key"
+    # Reasoning-specific controls
+    if protocol == "Reasoning":
+        st.markdown("---")
+        st.subheader("⚙️ Reasoning Protocol Settings")
+        col1, col2 = st.columns(2)
+
+        with col1:
+            num_reasoning_attempts = st.slider(
+                "Number of Worker Attempts",
+                min_value=1,
+                max_value=10,
+                value=3,
+                help="Number of independent solution attempts to generate. More attempts = higher cost but potentially better answers."
+            )
+
+        with col2:
+            reasoning_temperature = st.slider(
+                "Worker Temperature",
+                min_value=0.0,
+                max_value=2.0,
+                value=0.7,
+                step=0.1,
+                help="Temperature for worker responses. Higher = more diverse attempts."
+            )
+
+        st.info(f"💡 Will generate {num_reasoning_attempts} independent attempts at temperature {reasoning_temperature}, then supervisor selects best based on reasoning quality")
+
+    # File upload UI for all protocols
+    if True:  # Changed from `if protocol != "Reasoning"`:
+        # Check if FIRECRAWL_API_KEY is set in environment or provided by user
+        firecrawl_api_key_env = os.getenv("FIRECRAWL_API_KEY", "")
+
+        # Display URL input and API key fields side by side
+        c1, c2 = st.columns(2)
+
+        with c2:
+            # make the text input not visible as it is a password input
+            firecrawl_api_key = st.text_input(
+                "FIRECRAWL_API_KEY", type="password", key="firecrawl_api_key"
+            )
+
+        # Set the API key in environment if provided by user
+        if firecrawl_api_key and firecrawl_api_key != firecrawl_api_key_env:
+            os.environ["FIRECRAWL_API_KEY"] = firecrawl_api_key
+
+        # Only show URL input if API key is available
+        with c1:
+            if firecrawl_api_key:
+                url_input = st.text_input("Or paste a URL here", value="")
+
+            else:
+                st.info("Set FIRECRAWL_API_KEY to enable URL scraping")
+                url_input = ""
+
+        uploaded_files = st.file_uploader(
+            "Or upload PDF / TXT / Source code / Images (Not more than a 100 pages total!)",
+            type=[
+                "txt",
+                "pdf",
+                "png",
+                "jpg",
+                "jpeg",
+                "c",
+                "cpp",
+                "h",
+                "hpp",
+                "hxx",
+                "cc",
+                "cxx",
+                "java",
+                "js",
+                "jsx",
+                "ts",
+                "tsx",
+                "py",
+                "rb",
+                "go",
+                "swift",
+                "vb",
+                "cs",
+                "php",
+                "pl",
+                "pm",
+                "perl",
+                "sh",
+                "bash",
+            ],
+            accept_multiple_files=True,
         )
 
-    # Set the API key in environment if provided by user
-    if firecrawl_api_key and firecrawl_api_key != firecrawl_api_key_env:
-        os.environ["FIRECRAWL_API_KEY"] = firecrawl_api_key
+        file_content = ""
+        images = []
+        # if url_input is not empty, scrape the url
+        if url_input:
+            # check if the FIRECRAWL_API_KEY is set
+            if not os.getenv("FIRECRAWL_API_KEY"):
+                st.error("FIRECRAWL_API_KEY is not set")
+                st.stop()
+            file_content = scrape_url(url_input)["markdown"]
 
-    # Only show URL input if API key is available
-    with c1:
-        if firecrawl_api_key:
-            url_input = st.text_input("Or paste a URL here", value="")
+        if uploaded_files:
+            all_file_contents = []
+            total_size = 0
+            file_names = []
+            for uploaded_file in uploaded_files:
+                try:
+                    file_type = uploaded_file.name.lower().split(".")[-1]
+                    current_content = ""
+                    file_names.append(uploaded_file.name)
 
-        else:
-            st.info("Set FIRECRAWL_API_KEY to enable URL scraping")
-            url_input = ""
+                    if file_type == "pdf":
+                        # check if docling is installed
+                        try:
+                            import docling_core
+                            from minions.utils.doc_processing import process_pdf_to_markdown
 
-    uploaded_files = st.file_uploader(
-        "Or upload PDF / TXT / Source code / Images (Not more than a 100 pages total!)",
-        type=[
-            "txt",
-            "pdf",
-            "png",
-            "jpg",
-            "jpeg",
-            "c",
-            "cpp",
-            "h",
-            "hpp",
-            "hxx",
-            "cc",
-            "cxx",
-            "java",
-            "js",
-            "jsx",
-            "ts",
-            "tsx",
-            "py",
-            "rb",
-            "go",
-            "swift",
-            "vb",
-            "cs",
-            "php",
-            "pl",
-            "pm",
-            "perl",
-            "sh",
-            "bash",
-        ],
-        accept_multiple_files=True,
-    )
-
-    file_content = ""
-    images = []
-    # if url_input is not empty, scrape the url
-    if url_input:
-        # check if the FIRECRAWL_API_KEY is set
-        if not os.getenv("FIRECRAWL_API_KEY"):
-            st.error("FIRECRAWL_API_KEY is not set")
-            st.stop()
-        file_content = scrape_url(url_input)["markdown"]
-
-    if uploaded_files:
-        all_file_contents = []
-        total_size = 0
-        file_names = []
-        for uploaded_file in uploaded_files:
-            try:
-                file_type = uploaded_file.name.lower().split(".")[-1]
-                current_content = ""
-                file_names.append(uploaded_file.name)
-
-                if file_type == "pdf":
-                    # check if docling is installed
-                    try:
-                        import docling_core
-                        from minions.utils.doc_processing import process_pdf_to_markdown
-
-                        current_content = (
-                            process_pdf_to_markdown(uploaded_file.read()) or ""
-                        )
-                    except:
-                        current_content = (
-                            extract_text_from_pdf(uploaded_file.read()) or ""
-                        )
-                elif file_type in ["png", "jpg", "jpeg"]:
-                    image_bytes = uploaded_file.read()
-                    image_base64 = base64.b64encode(image_bytes).decode("utf-8")
-                    images.append(image_base64)
-                    if st.session_state.current_local_model == "granite3.2-vision":
-                        current_content = "file is an image"
+                            current_content = (
+                                process_pdf_to_markdown(uploaded_file.read()) or ""
+                            )
+                        except:
+                            current_content = (
+                                extract_text_from_pdf(uploaded_file.read()) or ""
+                            )
+                    elif file_type in ["png", "jpg", "jpeg"]:
+                        image_bytes = uploaded_file.read()
+                        image_base64 = base64.b64encode(image_bytes).decode("utf-8")
+                        images.append(image_base64)
+                        if st.session_state.current_local_model == "granite3.2-vision":
+                            current_content = "file is an image"
+                        else:
+                            current_content = extract_text_from_image(image_base64) or ""
                     else:
-                        current_content = extract_text_from_image(image_base64) or ""
-                else:
-                    current_content = uploaded_file.getvalue().decode()
+                        current_content = uploaded_file.getvalue().decode()
 
-                if current_content:
-                    all_file_contents.append("\n--------------------")
-                    all_file_contents.append(
-                        f"### Content from {uploaded_file.name}:\n{current_content}"
-                    )
-                    total_size += uploaded_file.size
-            except Exception as e:
-                st.error(f"Error processing file {uploaded_file.name}: {str(e)}")
+                    if current_content:
+                        all_file_contents.append("\n--------------------")
+                        all_file_contents.append(
+                            f"### Content from {uploaded_file.name}:\n{current_content}"
+                        )
+                        total_size += uploaded_file.size
+                except Exception as e:
+                    st.error(f"Error processing file {uploaded_file.name}: {str(e)}")
 
-        if all_file_contents:
-            file_content = "\n".join(all_file_contents)
-            # Create doc_metadata string
-            doc_metadata = f"Input: {len(file_names)} documents ({', '.join(file_names)}). Total extracted text length: {len(file_content)} characters."
+            if all_file_contents:
+                file_content = "\n".join(all_file_contents)
+                # Create doc_metadata string
+                doc_metadata = f"Input: {len(file_names)} documents ({', '.join(file_names)}). Total extracted text length: {len(file_content)} characters."
+            else:
+                doc_metadata = ""
         else:
             doc_metadata = ""
-    else:
-        doc_metadata = ""
 
     if text_input and file_content:
         context = f"{text_input}\n## file upload:\n{file_content}"
@@ -3204,7 +3301,10 @@ else:
                 st.markdown("## 🚀 Query")
                 st.info(user_query)
                 st.markdown("## 🎯 Final Answer")
-                st.info(output["final_answer"])
+                if output and "final_answer" in output and output["final_answer"]:
+                    st.info(output["final_answer"])
+                else:
+                    st.warning("No answer was generated. Please check the error messages above.")
 
                 # Timing info
                 st.header("Runtime")

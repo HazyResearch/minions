@@ -75,7 +75,4 @@ class TogetherClient(MinionsClient):
         
         # Extract done reasons (finish_reason in OpenAI-compatible APIs)
         done_reasons = [choice.finish_reason for choice in response.choices]
-        if self.local:
-            return [choice.message.content for choice in response.choices], usage, done_reasons 
-        else:
-            return [choice.message.content for choice in response.choices], usage
+        return [choice.message.content for choice in response.choices], usage, done_reasons

@@ -121,6 +121,8 @@ API_PRICES = {
         "grok-4-0709": {"input": 3.00, "cached_input": 0.75, "output": 15.00},
         "grok-4-fast-reasoning": {"input": 0.20, "cached_input": 0.05, "output": 0.50},
         "grok-4-fast-non-reasoning": {"input": 0.20, "cached_input": 0.05, "output": 0.50},
+        "grok-4-1-fast-reasoning": {"input": 0.20, "cached_input": 0.05, "output": 2.00},
+        "grok-4-1-fast-non-reasoning": {"input": 0.20, "cached_input": 0.05, "output": 2.00},
         "grok-code-fast": {"input": 0.20, "cached_input": 0.02, "output": 1.5},
         "grok-code-fast-1": {"input": 0.20, "cached_input": 0.02, "output": 1.50},
     },
@@ -2680,6 +2682,8 @@ with st.sidebar:
             model_mapping = {
                 "grok-4 (Recommended)": "grok-4",
                 "grok-4-0709": "grok-4-0709",
+                "grok-4-1-fast-reasoning": "grok-4-1-fast-reasoning",
+                "grok-4-1-fast-non-reasoning": "grok-4-1-fast-non-reasoning",
                 "grok-4-fast-reasoning (Most cost-efficient reasoning)": "grok-4-fast-reasoning",
                 "grok-4-fast-non-reasoning": "grok-4-fast-non-reasoning",
                 "grok-code-fast-1 (Optimized for coding)": "grok-code-fast-1",

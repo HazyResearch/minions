@@ -23,6 +23,7 @@ class GeminiClient(MinionsClient):
         system_instruction: Optional[str] = None,
         use_openai_api: bool = False,
         thinking_budget: Optional[int] = None,
+        thinking_level: Optional[str] = None,
         url_context: bool = False,
         use_search: bool = False,
         file_search_store_names: Optional[List[str]] = None,
@@ -41,7 +42,9 @@ class GeminiClient(MinionsClient):
             tool_calling: Whether to support tool calling.
             system_instruction: Optional system instruction to use for all calls.
             use_openai_api: Whether to use OpenAI-compatible API endpoint for Gemini models.
-            thinking_budget: Optional thinking budget for reasoning models.
+            thinking_budget: Optional thinking budget for reasoning models (integer value).
+            thinking_level: Optional thinking level for reasoning models. Valid values: "low", "medium", "high".
+                          Can be used instead of or in addition to thinking_budget.
             url_context: Whether to enable URL context retrieval tool. When enabled, the model can
                        access content from URLs mentioned in messages (supports up to 20 URLs per request).
                        URLs are automatically detected and the tool is enabled dynamically if needed.
@@ -70,6 +73,7 @@ class GeminiClient(MinionsClient):
         self.system_instruction = system_instruction
         self.use_openai_api = use_openai_api
         self.thinking_budget = thinking_budget
+        self.thinking_level = thinking_level
         self.url_context = url_context
         self.google_search = use_search
         self.file_search_store_names = file_search_store_names or []
@@ -518,9 +522,14 @@ class GeminiClient(MinionsClient):
                 }
                 
                 # Add thinking config if specified
-                if self.thinking_budget is not None:
+                if self.thinking_budget is not None or self.thinking_level is not None:
+                    thinking_config_kwargs = {}
+                    if self.thinking_budget is not None:
+                        thinking_config_kwargs["thinking_budget"] = self.thinking_budget
+                    if self.thinking_level is not None:
+                        thinking_config_kwargs["thinking_level"] = self.thinking_level
                     config_kwargs["thinking_config"] = self.types.ThinkingConfig(
-                        thinking_budget=self.thinking_budget
+                        **thinking_config_kwargs
                     )
                 
                 # Add tools if available
@@ -674,9 +683,14 @@ class GeminiClient(MinionsClient):
                 }
                 
                 # Add thinking config if specified
-                if self.thinking_budget is not None:
+                if self.thinking_budget is not None or self.thinking_level is not None:
+                    thinking_config_kwargs = {}
+                    if self.thinking_budget is not None:
+                        thinking_config_kwargs["thinking_budget"] = self.thinking_budget
+                    if self.thinking_level is not None:
+                        thinking_config_kwargs["thinking_level"] = self.thinking_level
                     config_kwargs["thinking_config"] = self.types.ThinkingConfig(
-                        thinking_budget=self.thinking_budget
+                        **thinking_config_kwargs
                     )
                 
                 # Add tools if available

@@ -147,6 +147,7 @@ API_PRICES = {
         "moonshotai/kimi-k2-thinking": {"input": 0.60, "cached_input": 0.60, "output": 2.50},
     },
     "Anthropic": {
+        "claude-opus-4-5-20251101": {"input": 15.00, "cached_input": 1.50, "output": 75.00},
         "claude-opus-4-1-20250805": {"input": 15.00, "cached_input": 1.50, "output": 75.00},
         "claude-haiku-4-5-20251001": {"input": 1.00, "cached_input": 1.25, "output": 2.00},
     },
@@ -2634,6 +2635,7 @@ with st.sidebar:
             model_mapping = {
                 "Claude 4.5 Sonnet (Recommended)": " claude-sonnet-4-5",
                 "Claude 4.5 Haiku": "claude-haiku-4-5-20251001",
+                "Claude 4.5 Opus": "claude-opus-4-5-20251101",
                 "Claude 4 Opus (Recommended)": "claude-opus-4-20250514",
                 "Claude 4.1 Opus": "claude-opus-4-1-20250805",
                 "Claude 4 Sonnet": "claude-sonnet-4-20250514",

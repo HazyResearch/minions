@@ -21,6 +21,7 @@ class AnthropicClient(MinionsClient):
         use_code_interpreter: bool = False,
         use_thinking: bool = False,
         thinking_budget_tokens: int = 10000,
+        effort: Optional[str] = None,
         local: bool = False,
         **kwargs
     ):
@@ -38,6 +39,7 @@ class AnthropicClient(MinionsClient):
             use_code_interpreter: Whether to use the code interpreter (default: False)
             use_thinking: Whether to enable thinking mode (default: False)
             thinking_budget_tokens: Token budget for thinking when enabled (default: 10000)
+            effort: Control token usage: "high" (default), "medium", or "low". Only supported by claude-opus-4-5-20251101 (default: None)
             **kwargs: Additional parameters passed to base class
         """
         super().__init__(
@@ -59,10 +61,17 @@ class AnthropicClient(MinionsClient):
         self.use_thinking = use_thinking
         self.thinking_budget_tokens = thinking_budget_tokens
         
+        # Validate and store effort parameter
+        if effort is not None and effort not in ["high", "medium", "low"]:
+            raise ValueError(f"Invalid effort value: {effort}. Must be 'high', 'medium', or 'low'")
+        self.effort = effort
+        
         # Initialize client with appropriate headers
         beta_headers = []
         if self.use_code_interpreter:
             beta_headers.append("code-execution-2025-05-22")
+        if self.effort is not None:
+            beta_headers.append("effort-2025-11-24")
             
         if beta_headers:
             self.client = anthropic.Anthropic(
@@ -127,6 +136,8 @@ class AnthropicClient(MinionsClient):
                 beta_headers = []
                 if self.use_code_interpreter:
                     beta_headers.append("code-execution-2025-05-22")
+                if self.effort is not None:
+                    beta_headers.append("effort-2025-11-24")
                 beta_headers.append("web-fetch-2025-09-10")
                 
                 client_for_request = anthropic.Anthropic(
@@ -156,6 +167,12 @@ class AnthropicClient(MinionsClient):
                 "system": self.system_prompt,
                 **kwargs,
             }
+
+            # Add effort parameter if set
+            if self.effort is not None:
+                params["output_config"] = {
+                    "effort": self.effort
+                }
 
             # Add thinking parameter if enabled
             if self.use_thinking:

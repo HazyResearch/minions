@@ -252,6 +252,7 @@ API_PRICES = {
         "gpt-oss:120b-cloud": {"input": 0.60, "cached_input": 0.15, "output": 0.60},
         "deepseek-v3.1:671b-cloud": {"input": 0.20, "cached_input": 0.05, "output": 0.20},
         "kimi-k2-thinking:cloud": {"input": 0.20, "cached_input": 0.05, "output": 0.20},
+        "cogito-2.1:671b-cloud": {"input": 0.20, "cached_input": 0.05, "output": 0.20},
     },
 }
 
@@ -2744,6 +2745,7 @@ with st.sidebar:
                 "gpt-oss:120b-cloud": "gpt-oss:120b-cloud",
                 "qwen3-coder:480b-cloud": "qwen3-coder:480b-cloud",
                 "minimax-m2:cloud": "minimax-m2:cloud",
+                "cogito-2.1:671b-cloud": "cogito-2.1:671b-cloud",
             }
             default_model_index = 0
         elif selected_provider == "Secure":

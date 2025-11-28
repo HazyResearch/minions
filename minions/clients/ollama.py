@@ -571,7 +571,8 @@ class OllamaTurboClient(MinionsClient):
             "qwen3-vl:235b-cloud",
             "deepseek-v3.1:671b-cloud",
             "qwen3-coder:480b-cloud",
-            "minimax-m2:cloud"
+            "minimax-m2:cloud",
+            "cogito-2.1:671b-cloud"
         ]
 
     def list_models(self):

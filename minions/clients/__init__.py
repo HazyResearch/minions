@@ -30,6 +30,7 @@ from minions.clients.notdiamond import NotDiamondAIClient
 from minions.clients.vercel_gateway import VercelGatewayClient
 from minions.clients.exa import ExaClient
 from minions.clients.baseten import BasetenClient
+from minions.clients.nousresearch import NousResearchClient
 
 __all__ = [
     "OllamaClient",
@@ -63,6 +64,7 @@ __all__ = [
     "VercelGatewayClient",
     "ExaClient",
     "BasetenClient",
+    "NousResearchClient",
 ]
 
 try:

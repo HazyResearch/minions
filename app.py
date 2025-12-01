@@ -2368,6 +2368,7 @@ with st.sidebar:
             }
         elif local_provider == "Transformers":
             local_model_options = {
+                "Orchestrator-8B": "nvidia/Orchestrator-8B",
                 "Olmo-3-7B-Thinking": "allenai/Olmo-3-7B-Thinking",
                 "Instella-3B-Instruct": "amd/Instella-3B-Instruct",
                 "Jamba-Reasoning-3B": "ai21labs/AI21-Jamba-Reasoning-3B",

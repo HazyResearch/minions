@@ -2368,6 +2368,7 @@ with st.sidebar:
             }
         elif local_provider == "Transformers":
             local_model_options = {
+                "Trinity-Mini": "arcee-ai/Trinity-Mini", 
                 "Orchestrator-8B": "nvidia/Orchestrator-8B",
                 "Olmo-3-7B-Thinking": "allenai/Olmo-3-7B-Thinking",
                 "Instella-3B-Instruct": "amd/Instella-3B-Instruct",
@@ -2450,6 +2451,9 @@ with st.sidebar:
             # Initialize with default model options
             local_model_options = {
                 "llama3.2 (Recommended)": "llama3.2",
+                "ministral-3:14b (Recommended)": "ministral-3:14b",
+                "ministral-3:8b": "ministral-3:8b",
+                "ministral-3:3b": "ministral-3:3b",
                 "granite4 micro": "granite4:micro",
                 "granite4 micro-h": "granite4:micro-h",
                 "granite4 tiny-h": "granite4:tiny-h",
@@ -2612,6 +2616,7 @@ with st.sidebar:
         elif selected_provider == "OpenRouter":
             model_mapping = {
                 "MiniMax-M2 (Recommended)": "minimax/minimax-m2:free",
+                "Arcee Trinity Mini": "arcee-ai/trinity-mini:free",
                 "Qwen3 Max": "qwen/qwen3-max",
                 "grok-4-fast": "x-ai/grok-4-fast",
                 "Qwen3 235B A22B 2507": "qwen/qwen3-235b-a22b-07-25:free",

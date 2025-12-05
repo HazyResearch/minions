@@ -23,6 +23,7 @@ class OpenAIClient(MinionsClient):
         reasoning_effort: str = "low",
         conversation_id: Optional[str] = None,
         service_tier: Optional[str] = None,
+        verbosity: Optional[str] = None,
         **kwargs
     ):
         """
@@ -39,6 +40,7 @@ class OpenAIClient(MinionsClient):
             reasoning_effort: Reasoning effort level for o1 models (default: "low")
             conversation_id: Conversation ID for responses API (optional, only used when use_responses_api=True)
             service_tier: Service tier for request processing - "auto" or "priority" (default: None, which uses standard processing)
+            verbosity: Verbosity level for responses API - "low", "medium", or "high" (default: None)
             local: If this is communicating with a local client (default: False)
             **kwargs: Additional parameters passed to base class
         """
@@ -82,6 +84,12 @@ class OpenAIClient(MinionsClient):
         if self.service_tier and self.service_tier not in ["auto", "priority"]:
             self.logger.warning(f"Invalid service_tier '{self.service_tier}'. Valid values are 'auto' or 'priority'. Using standard processing.")
             self.service_tier = None
+        
+        # Verbosity level for responses API
+        self.verbosity = verbosity
+        if self.verbosity and self.verbosity not in ["low", "medium", "high"]:
+            self.logger.warning(f"Invalid verbosity '{self.verbosity}'. Valid values are 'low', 'medium', or 'high'. Using default.")
+            self.verbosity = None
 
         # If we are using a local client, we want to check to see if the
         # local server is running or not
@@ -136,7 +144,12 @@ class OpenAIClient(MinionsClient):
             # Add service_tier for priority processing if specified
             if self.service_tier is not None:
                 params["service_tier"] = self.service_tier
-
+            
+            # Add verbosity to text parameter if specified
+            if self.verbosity is not None:
+                if "text" not in params:
+                    params["text"] = {}
+                params["text"]["verbosity"] = self.verbosity
 
             response = self.client.responses.create(
                 **params,

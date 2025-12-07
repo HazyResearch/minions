@@ -2369,6 +2369,7 @@ with st.sidebar:
             }
         elif local_provider == "Transformers":
             local_model_options = {
+                "Rnj-1-Instruct (Recommended)": "EssentialAI/rnj-1-instruct",
                 "Trinity-Mini": "arcee-ai/Trinity-Mini", 
                 "Orchestrator-8B": "nvidia/Orchestrator-8B",
                 "Olmo-3-7B-Thinking": "allenai/Olmo-3-7B-Thinking",

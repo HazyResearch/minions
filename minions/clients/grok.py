@@ -21,6 +21,7 @@ class GrokClient(MinionsClient):
         search_excluded_domains: Optional[List[str]] = None,
         search_enable_image_understanding: bool = False,
         use_native_sdk: bool = False,
+        file_ids: Optional[List[str]] = None,
         **kwargs
     ):
         """
@@ -51,7 +52,10 @@ class GrokClient(MinionsClient):
                        Example: ["reddit.com"]
             search_enable_image_understanding: Whether to enable image understanding during web searches.
             use_native_sdk: Whether to use the native xai_sdk instead of OpenAI-compatible API.
-                       Automatically enabled when use_search is True.
+                       Automatically enabled when use_search or file_ids is set.
+            file_ids: Optional list of file IDs to attach to all chat messages.
+                       Files enable Grok's document_search tool for reasoning over documents.
+                       Use upload_file() to upload documents and get file IDs.
             **kwargs: Additional parameters passed to base class
         """
         super().__init__(
@@ -77,32 +81,38 @@ class GrokClient(MinionsClient):
         self.search_enable_image_understanding = search_enable_image_understanding
         self.last_search_results = None
         
-        # Use native SDK if search is enabled or explicitly requested
-        self.use_native_sdk = use_native_sdk or use_search
+        # File search configuration
+        self.file_ids = file_ids or []
+        self.uploaded_files = {}  # Cache of uploaded file info {file_id: file_info}
+        
+        # Use native SDK if search, files, or explicitly requested
+        self.use_native_sdk = use_native_sdk or use_search or bool(file_ids)
         
         # Initialize native xAI SDK client if needed
         if self.use_native_sdk:
             try:
                 from xai_sdk import Client as XAIClient
                 from xai_sdk.tools import web_search
-                from xai_sdk.chat import user as xai_user
+                from xai_sdk.chat import user as xai_user, file as xai_file
                 
                 self.xai_client = XAIClient(api_key=self.api_key)
                 self.xai_web_search = web_search
                 self.xai_user = xai_user
-                self.logger.info("Initialized native xAI SDK client for web search support")
+                self.xai_file = xai_file
+                self.logger.info("Initialized native xAI SDK client for web search and file support")
             except ImportError:
-                if use_search:
+                if use_search or file_ids:
                     raise ImportError(
-                        "Web search requires the xai_sdk package. "
+                        "Web search and file features require the xai_sdk package. "
                         "Install it with: pip install xai_sdk"
                     )
                 self.logger.warning(
-                    "xai_sdk not installed. Web search features will not be available. "
+                    "xai_sdk not installed. Web search and file features will not be available. "
                     "Install with: pip install xai_sdk"
                 )
                 self.use_native_sdk = False
                 self.use_search = False
+                self.file_ids = []
 
     @staticmethod
     def get_available_models() -> List[str]:
@@ -200,7 +210,25 @@ class GrokClient(MinionsClient):
                 tools.append(web_search_tool)
                 self.logger.info("Web search tool enabled")
         
+        # Note: document_search tool is automatically enabled when files are attached
+        # No need to explicitly add it to tools list
+        
         return tools if tools else None
+
+    def _find_first_user_message_index(self, messages: List[Dict[str, Any]]) -> int:
+        """
+        Find the index of the first user message in the messages list.
+        
+        Args:
+            messages: List of message dictionaries
+            
+        Returns:
+            Index of first user message, or -1 if not found
+        """
+        for i, msg in enumerate(messages):
+            if msg.get("role") == "user":
+                return i
+        return -1
 
     def get_search_results(self) -> Optional[Dict[str, Any]]:
         """
@@ -231,22 +259,7 @@ class GrokClient(MinionsClient):
         Example:
             client.enable_web_search(allowed_domains=["wikipedia.org", "arxiv.org"])
         """
-        if not hasattr(self, 'xai_client'):
-            try:
-                from xai_sdk import Client as XAIClient
-                from xai_sdk.tools import web_search
-                from xai_sdk.chat import user as xai_user
-                
-                self.xai_client = XAIClient(api_key=self.api_key)
-                self.xai_web_search = web_search
-                self.xai_user = xai_user
-                self.use_native_sdk = True
-                self.logger.info("Initialized native xAI SDK client for web search support")
-            except ImportError:
-                raise ImportError(
-                    "Web search requires the xai_sdk package. "
-                    "Install it with: pip install xai_sdk"
-                )
+        self._ensure_native_sdk()
         
         self.use_search = True
         self.search_allowed_domains = allowed_domains
@@ -286,6 +299,248 @@ class GrokClient(MinionsClient):
         self.search_excluded_domains = excluded_domains
         self.logger.info(f"Search domains updated: allowed={allowed_domains}, excluded={excluded_domains}")
 
+    # ==================== File Search Methods ====================
+    
+    def upload_file(self, file_path: str) -> Dict[str, Any]:
+        """
+        Upload a file to xAI for use with Grok's document_search tool.
+        
+        Supported formats: .txt, .md, .py, .js, .java, .csv, .json, .pdf, and other text-based formats.
+        Maximum file size: 48 MB.
+        
+        Args:
+            file_path: Path to the file to upload
+            
+        Returns:
+            Dict containing file information including 'id', 'filename', 'size', 'created_at'
+            
+        Raises:
+            ImportError: If xai_sdk is not installed
+            FileNotFoundError: If the file doesn't exist
+            
+        Example:
+            file_info = client.upload_file("/path/to/document.pdf")
+            print(f"Uploaded file ID: {file_info['id']}")
+            
+            # Use the file in chat
+            client.add_file(file_info['id'])
+        """
+        self._ensure_native_sdk()
+        
+        if not os.path.exists(file_path):
+            raise FileNotFoundError(f"File not found: {file_path}")
+        
+        try:
+            file = self.xai_client.files.upload(file_path)
+            file_info = {
+                'id': file.id,
+                'filename': getattr(file, 'filename', os.path.basename(file_path)),
+                'size': getattr(file, 'size', None),
+                'created_at': getattr(file, 'created_at', None),
+            }
+            # Cache the file info
+            self.uploaded_files[file.id] = file_info
+            self.logger.info(f"Uploaded file: {file_info['filename']} (ID: {file.id})")
+            return file_info
+        except Exception as e:
+            self.logger.error(f"Error uploading file: {e}")
+            raise
+
+    def upload_file_bytes(self, content: bytes, filename: str) -> Dict[str, Any]:
+        """
+        Upload file content as bytes to xAI.
+        
+        Args:
+            content: File content as bytes
+            filename: Name to assign to the file
+            
+        Returns:
+            Dict containing file information including 'id', 'filename', 'size', 'created_at'
+            
+        Example:
+            with open("document.pdf", "rb") as f:
+                file_info = client.upload_file_bytes(f.read(), "document.pdf")
+        """
+        self._ensure_native_sdk()
+        
+        try:
+            file = self.xai_client.files.upload(content, filename=filename)
+            file_info = {
+                'id': file.id,
+                'filename': filename,
+                'size': getattr(file, 'size', len(content)),
+                'created_at': getattr(file, 'created_at', None),
+            }
+            self.uploaded_files[file.id] = file_info
+            self.logger.info(f"Uploaded file: {filename} (ID: {file.id})")
+            return file_info
+        except Exception as e:
+            self.logger.error(f"Error uploading file bytes: {e}")
+            raise
+
+    def list_files(self, limit: int = 10, order: str = "desc", sort_by: str = "created_at") -> List[Dict[str, Any]]:
+        """
+        List uploaded files.
+        
+        Args:
+            limit: Maximum number of files to return (default: 10)
+            order: Sort order - "asc" or "desc" (default: "desc")
+            sort_by: Field to sort by (default: "created_at")
+            
+        Returns:
+            List of file information dictionaries
+            
+        Example:
+            files = client.list_files(limit=20)
+            for f in files:
+                print(f"File: {f['filename']} (ID: {f['id']})")
+        """
+        self._ensure_native_sdk()
+        
+        try:
+            response = self.xai_client.files.list(limit=limit, order=order, sort_by=sort_by)
+            files = []
+            for file in response.data:
+                file_info = {
+                    'id': file.id,
+                    'filename': getattr(file, 'filename', 'unknown'),
+                    'size': getattr(file, 'size', None),
+                    'created_at': getattr(file, 'created_at', None),
+                }
+                files.append(file_info)
+                self.uploaded_files[file.id] = file_info
+            return files
+        except Exception as e:
+            self.logger.error(f"Error listing files: {e}")
+            raise
+
+    def get_file(self, file_id: str) -> Dict[str, Any]:
+        """
+        Get information about a specific file.
+        
+        Args:
+            file_id: The ID of the file to retrieve
+            
+        Returns:
+            Dict containing file information
+            
+        Example:
+            file_info = client.get_file("file_abc123")
+            print(f"Filename: {file_info['filename']}")
+        """
+        self._ensure_native_sdk()
+        
+        try:
+            file = self.xai_client.files.retrieve(file_id)
+            file_info = {
+                'id': file.id,
+                'filename': getattr(file, 'filename', 'unknown'),
+                'size': getattr(file, 'size', None),
+                'created_at': getattr(file, 'created_at', None),
+            }
+            self.uploaded_files[file_id] = file_info
+            return file_info
+        except Exception as e:
+            self.logger.error(f"Error retrieving file {file_id}: {e}")
+            raise
+
+    def delete_file(self, file_id: str) -> bool:
+        """
+        Delete an uploaded file.
+        
+        Args:
+            file_id: The ID of the file to delete
+            
+        Returns:
+            True if deletion was successful
+            
+        Example:
+            client.delete_file("file_abc123")
+        """
+        self._ensure_native_sdk()
+        
+        try:
+            self.xai_client.files.delete(file_id)
+            # Remove from cache and active file IDs
+            self.uploaded_files.pop(file_id, None)
+            if file_id in self.file_ids:
+                self.file_ids.remove(file_id)
+            self.logger.info(f"Deleted file: {file_id}")
+            return True
+        except Exception as e:
+            self.logger.error(f"Error deleting file {file_id}: {e}")
+            raise
+
+    def add_file(self, file_id: str):
+        """
+        Add a file ID to be attached to chat messages.
+        When files are attached, Grok's document_search tool is automatically enabled.
+        
+        Args:
+            file_id: The ID of the file to attach
+            
+        Example:
+            file_info = client.upload_file("report.pdf")
+            client.add_file(file_info['id'])
+            response = client.chat([{"role": "user", "content": "What is the main conclusion?"}])
+        """
+        if file_id not in self.file_ids:
+            self.file_ids.append(file_id)
+            self.use_native_sdk = True
+            self.logger.info(f"Added file to chat: {file_id}")
+
+    def remove_file(self, file_id: str):
+        """
+        Remove a file ID from chat attachments (does not delete the file).
+        
+        Args:
+            file_id: The ID of the file to remove from attachments
+        """
+        if file_id in self.file_ids:
+            self.file_ids.remove(file_id)
+            self.logger.info(f"Removed file from chat: {file_id}")
+
+    def clear_files(self):
+        """
+        Clear all file attachments from chat (does not delete the files).
+        """
+        self.file_ids = []
+        self.logger.info("Cleared all file attachments")
+
+    def get_attached_files(self) -> List[str]:
+        """
+        Get the list of file IDs currently attached to chat.
+        
+        Returns:
+            List of file IDs
+        """
+        return self.file_ids.copy()
+
+    def _ensure_native_sdk(self):
+        """
+        Ensure the native xAI SDK is initialized.
+        
+        Raises:
+            ImportError: If xai_sdk is not installed
+        """
+        if not hasattr(self, 'xai_client'):
+            try:
+                from xai_sdk import Client as XAIClient
+                from xai_sdk.tools import web_search
+                from xai_sdk.chat import user as xai_user, file as xai_file
+                
+                self.xai_client = XAIClient(api_key=self.api_key)
+                self.xai_web_search = web_search
+                self.xai_user = xai_user
+                self.xai_file = xai_file
+                self.use_native_sdk = True
+                self.logger.info("Initialized native xAI SDK client")
+            except ImportError:
+                raise ImportError(
+                    "File operations require the xai_sdk package. "
+                    "Install it with: pip install xai_sdk"
+                )
+
     def chat(self, messages: List[Dict[str, Any]], **kwargs) -> Union[Tuple[List[str], Usage], Tuple[List[str], Usage, List[str]], Tuple[List[str], Usage, List[str], List[Optional[str]]]]:
         """
         Handle chat completions using the Grok API.
@@ -293,28 +548,37 @@ class GrokClient(MinionsClient):
         When use_search is enabled, the model can perform real-time web searches
         to provide up-to-date information. Search results can be retrieved using
         get_search_results() after the call.
+        
+        When files are attached (via file_ids or add_file()), the document_search
+        tool is automatically enabled, allowing Grok to search and reason over
+        your documents.
 
         Args:
             messages: List of message dictionaries with 'role' and 'content' keys
             **kwargs: Additional arguments to pass to the API
+                - file_ids: Optional list of file IDs to attach to this specific request
 
         Returns:
             Tuple containing response strings, token usage, and optionally finish reasons and reasoning content
         """
         assert len(messages) > 0, "Messages cannot be empty."
-
-        # Use native xAI SDK if web search is enabled
-        if self.use_native_sdk and self.use_search:
-            return self._chat_with_native_sdk(messages, **kwargs)
+        
+        # Check for per-request file_ids
+        request_file_ids = kwargs.pop('file_ids', None)
+        
+        # Use native xAI SDK if web search or files are enabled
+        if self.use_native_sdk and (self.use_search or self.file_ids or request_file_ids):
+            return self._chat_with_native_sdk(messages, file_ids=request_file_ids, **kwargs)
         else:
             return self._chat_with_openai_api(messages, **kwargs)
 
-    def _chat_with_native_sdk(self, messages: List[Dict[str, Any]], **kwargs) -> Union[Tuple[List[str], Usage], Tuple[List[str], Usage, List[str]]]:
+    def _chat_with_native_sdk(self, messages: List[Dict[str, Any]], file_ids: Optional[List[str]] = None, **kwargs) -> Union[Tuple[List[str], Usage], Tuple[List[str], Usage, List[str]]]:
         """
-        Handle chat completions using the native xAI SDK with web search support.
+        Handle chat completions using the native xAI SDK with web search and file support.
 
         Args:
             messages: List of message dictionaries with 'role' and 'content' keys
+            file_ids: Optional list of file IDs to attach to user messages (overrides instance file_ids)
             **kwargs: Additional arguments
 
         Returns:
@@ -333,13 +597,23 @@ class GrokClient(MinionsClient):
             
             chat = self.xai_client.chat.create(**chat_kwargs)
             
+            # Determine which file IDs to use (per-request takes precedence)
+            active_file_ids = file_ids if file_ids is not None else self.file_ids
+            
             # Convert messages to xAI SDK format and append to chat
-            for msg in messages:
+            for i, msg in enumerate(messages):
                 role = msg.get("role", "user")
                 content = msg.get("content", "")
                 
                 if role == "user":
-                    chat.append(self.xai_user(content))
+                    # Attach files to the first user message if we have file IDs
+                    if active_file_ids and i == self._find_first_user_message_index(messages):
+                        # Create file attachments
+                        file_attachments = [self.xai_file(fid) for fid in active_file_ids]
+                        chat.append(self.xai_user(content, *file_attachments))
+                        self.logger.info(f"Attached {len(active_file_ids)} file(s) to chat")
+                    else:
+                        chat.append(self.xai_user(content))
                 elif role == "system":
                     # System messages are handled differently in xai_sdk
                     # Prepend to first user message or handle as system instruction

@@ -2626,13 +2626,6 @@ with st.sidebar:
                 "Hermes 4 70B": "nousresearch/hermes-4-70b",
                 "Hermes 4 405B": "nousresearch/hermes-4-405b",
                 "Horizon Beta": "openrouter/horizon-beta",
-                "Claude 3.5 Sonnet (Recommended)": "anthropic/claude-3.5-sonnet",
-                "claude 3.7 Sonnet Latest": "anthropic/claude-3-7-sonnet-latest",
-                "Claude 3 Opus": "anthropic/claude-3-opus",
-                "GPT-4o": "openai/gpt-4o",
-                "Mistral Large": "mistralai/mistral-large",
-                "Llama 3 70B": "meta-llama/llama-3-70b-instruct",
-                "Gemini 1.5 Pro": "google/gemini-1.5-pro",
                 # Exacto variants (enhanced tool-calling accuracy)
                 "Kimi K2 Exacto": "moonshotai/kimi-k2-0905:exacto",
                 "DeepSeek v3.1 Terminus Exacto": "deepseek/deepseek-v3.1-terminus:exacto",
@@ -2649,7 +2642,6 @@ with st.sidebar:
                 "Claude 4 Opus (Recommended)": "claude-opus-4-20250514",
                 "Claude 4.1 Opus": "claude-opus-4-1-20250805",
                 "Claude 4 Sonnet": "claude-sonnet-4-20250514",
-                "claude-3-7-sonnet-latest (Recommended for web search)": "claude-3-7-sonnet-latest",
             }
             default_model_index = 0
         elif selected_provider == "Together":
@@ -2667,9 +2659,6 @@ with st.sidebar:
                 "DeepSeek-R1": "deepseek-ai/DeepSeek-R1",
                 "QWQ-32B": "Qwen/QwQ-32B-Preview",
                 "Kimi K2 Instruct": "moonshotai/Kimi-K2-Instruct-0905",
-                "Llama 4 Maverick": "meta-llama/Llama-4-Maverick",
-                "Llama 4 Scout": "meta-llama/Llama-4-Scout",
-                "Gemma 3 27B": "google/Gemma-3-27B",
             }
             default_model_index = 0
         elif selected_provider == "Perplexity":

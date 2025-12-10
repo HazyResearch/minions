@@ -2370,6 +2370,7 @@ with st.sidebar:
         elif local_provider == "Transformers":
             local_model_options = {
                 "Rnj-1-Instruct (Recommended)": "EssentialAI/rnj-1-instruct",
+                "nomos-1-8b": "NousResearch/nomos-1-8b",
                 "Trinity-Mini": "arcee-ai/Trinity-Mini", 
                 "Orchestrator-8B": "nvidia/Orchestrator-8B",
                 "Olmo-3-7B-Thinking": "allenai/Olmo-3-7B-Thinking",
@@ -2453,6 +2454,7 @@ with st.sidebar:
             # Initialize with default model options
             local_model_options = {
                 "llama3.2 (Recommended)": "llama3.2",
+                "rnj-1": "rnj-1:latest",
                 "ministral-3:14b (Recommended)": "ministral-3:14b",
                 "ministral-3:8b": "ministral-3:8b",
                 "ministral-3:3b": "ministral-3:3b",

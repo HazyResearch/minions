@@ -22,6 +22,8 @@ class AnthropicClient(MinionsClient):
         use_thinking: bool = False,
         thinking_budget_tokens: int = 10000,
         effort: Optional[str] = None,
+        use_context_management: bool = False,
+        context_management_config: Optional[Dict[str, Any]] = None,
         local: bool = False,
         **kwargs
     ):
@@ -40,6 +42,15 @@ class AnthropicClient(MinionsClient):
             use_thinking: Whether to enable thinking mode (default: False)
             thinking_budget_tokens: Token budget for thinking when enabled (default: 10000)
             effort: Control token usage: "high" (default), "medium", or "low". Only supported by claude-opus-4-5-20251101 (default: None)
+            use_context_management: Whether to enable context management (default: False)
+            context_management_config: Configuration for context management. If None and use_context_management 
+                is True, defaults to clearing tool uses. Example config:
+                {
+                    "edits": [
+                        {"type": "clear_tool_uses_20250919"},
+                        {"type": "clear_thinking_20251015", "keep": {"type": "thinking_turns", "value": 2}}
+                    ]
+                }
             **kwargs: Additional parameters passed to base class
         """
         super().__init__(
@@ -60,6 +71,8 @@ class AnthropicClient(MinionsClient):
         self.use_caching = use_caching
         self.use_thinking = use_thinking
         self.thinking_budget_tokens = thinking_budget_tokens
+        self.use_context_management = use_context_management
+        self.context_management_config = context_management_config
         
         # Validate and store effort parameter
         if effort is not None and effort not in ["high", "medium", "low"]:
@@ -72,6 +85,8 @@ class AnthropicClient(MinionsClient):
             beta_headers.append("code-execution-2025-05-22")
         if self.effort is not None:
             beta_headers.append("effort-2025-11-24")
+        if self.use_context_management:
+            beta_headers.append("context-management-2025-06-27")
             
         if beta_headers:
             self.client = anthropic.Anthropic(
@@ -138,6 +153,8 @@ class AnthropicClient(MinionsClient):
                     beta_headers.append("code-execution-2025-05-22")
                 if self.effort is not None:
                     beta_headers.append("effort-2025-11-24")
+                if self.use_context_management:
+                    beta_headers.append("context-management-2025-06-27")
                 beta_headers.append("web-fetch-2025-09-10")
                 
                 client_for_request = anthropic.Anthropic(
@@ -180,6 +197,18 @@ class AnthropicClient(MinionsClient):
                     "type": "enabled",
                     "budget_tokens": self.thinking_budget_tokens
                 }
+
+            # Add context management if enabled
+            if self.use_context_management:
+                if self.context_management_config is not None:
+                    params["context_management"] = self.context_management_config
+                else:
+                    # Default configuration: clear tool uses
+                    params["context_management"] = {
+                        "edits": [
+                            {"type": "clear_tool_uses_20250919"}
+                        ]
+                    }
 
             # Add web search tool if enabled
             if self.use_web_search:

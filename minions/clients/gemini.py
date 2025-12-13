@@ -28,6 +28,7 @@ class GeminiClient(MinionsClient):
         use_search: bool = False,
         file_search_store_names: Optional[List[str]] = None,
         local: bool = False,
+        use_interactions_api: bool = False,
         **kwargs
     ):
         """Initialize Gemini Client.
@@ -53,6 +54,10 @@ class GeminiClient(MinionsClient):
             file_search_store_names: Optional list of file search store names to use for RAG.
                        File search stores must be created beforehand using create_file_search_store()
                        and populated with files using upload_to_file_search_store().
+            local: If True, return 3-tuple (responses, usage, done_reasons) for compatibility with
+                   minion.py local client interface. If False (default), return 2-tuple (responses, usage).
+            use_interactions_api: If True, use the Interactions API instead of generate_content API.
+                       The Interactions API provides simpler chat interface with detailed usage metrics.
             **kwargs: Additional parameters passed to base class
         """
         super().__init__(
@@ -79,6 +84,12 @@ class GeminiClient(MinionsClient):
         self.file_search_store_names = file_search_store_names or []
         self.last_url_context_metadata = None
         self.last_grounding_metadata = None
+        self.last_interaction_response = None
+        self.use_interactions_api = use_interactions_api  # Flag to use Interactions API instead of generate_content
+        
+        # Validate use_interactions_api with use_openai_api
+        if use_interactions_api and use_openai_api:
+            raise ValueError("Interactions API is not available with OpenAI-compatible API. Use native Gemini API instead.")
 
         # If we want structured schema output:
         self.format_structured_output = None
@@ -377,6 +388,38 @@ class GeminiClient(MinionsClient):
             formatted_messages.append({"role": role, "content": content})
 
         return formatted_messages
+
+    def _format_interactions_input(self, messages: List[Dict[str, Any]]) -> List[Dict[str, str]]:
+        """
+        Format messages for the Interactions API.
+        
+        Args:
+            messages: List of message dictionaries with 'role' and 'content' keys
+            
+        Returns:
+            List[Dict[str, str]]: Formatted input for Interactions API
+        """
+        formatted_input = []
+        
+        for msg in messages:
+            role = msg.get("role", "user")
+            content = msg.get("content", "")
+            
+            # Map roles to Interactions API format
+            if role == "assistant":
+                role = "model"
+            elif role == "system":
+                # For system messages, we'll prepend to the first user message
+                # or create a user message if none exists
+                self.logger.warning("System messages are handled differently in Interactions API. Consider using system_instruction parameter instead.")
+                role = "user"
+            
+            formatted_input.append({
+                "role": role,
+                "content": content
+            })
+        
+        return formatted_input
 
     #
     #  ASYNC
@@ -943,12 +986,15 @@ class GeminiClient(MinionsClient):
         self,
         messages: Union[List[Dict[str, Any]], Dict[str, Any]],
         **kwargs,
-    ) -> Tuple[List[str], Usage, List[str]]:
+    ) -> Union[Tuple[List[str], Usage], Tuple[List[str], Usage, List[str]]]:
         """
         Handle chat completions, routing to async or sync implementation.
         
         The client will automatically detect URLs in the message content and enable
         URL context retrieval if URLs are found (unless explicitly disabled).
+        
+        If self.use_interactions_api is True, this will route to the Interactions API
+        instead of the generate_content API.
         
         After completion, you can retrieve URL context metadata using:
         get_url_context_metadata()
@@ -958,9 +1004,243 @@ class GeminiClient(MinionsClient):
             **kwargs: Additional keyword arguments
             
         Returns:
-            Tuple[List[str], Usage, List[str]]: Response texts, usage info, and finish reasons
+            If self.local is False:
+                Tuple[List[str], Usage]: Response texts and usage information
+            If self.local is True:
+                Tuple[List[str], Usage, List[str]]: Response texts, usage info, and finish reasons
         """
+        # Route to Interactions API if enabled
+        if self.use_interactions_api:
+            # Extract config from kwargs if present (for minion.py compatibility)
+            config = kwargs.pop('config', None)
+            return self.interactions_chat(messages, config=config, **kwargs)
+        
         if self.use_async:
             return self.achat(messages, **kwargs)
         else:
             return self.schat(messages, **kwargs)
+
+    def set_use_interactions_api(self, use_interactions: bool):
+        """
+        Set whether to use the Interactions API for chat calls.
+        
+        When enabled, calls to chat() will be routed to interactions_chat().
+        This provides a simple way to switch between APIs without changing
+        calling code.
+        
+        Args:
+            use_interactions: If True, use Interactions API; if False, use generate_content API
+            
+        Example:
+            client = GeminiClient(model_name="gemini-2.5-flash")
+            
+            # Use generate_content API (default)
+            responses, usage = client.chat(messages)
+            
+            # Switch to Interactions API
+            client.set_use_interactions_api(True)
+            responses, usage = client.chat(messages)  # Now uses Interactions API
+        """
+        if use_interactions and self.use_openai_api:
+            raise ValueError("Interactions API is not available with OpenAI-compatible API. Use native Gemini API instead.")
+        self.use_interactions_api = use_interactions
+        self.logger.info(f"Interactions API {'enabled' if use_interactions else 'disabled'}")
+
+    # ==========================================================================
+    # Interactions API Support
+    # ==========================================================================
+
+    def interactions_chat(
+        self,
+        messages: Union[List[Dict[str, Any]], Dict[str, Any]],
+        config: Optional[Dict[str, Any]] = None,
+        **kwargs,
+    ) -> Union[Tuple[List[str], Usage], Tuple[List[str], Usage, List[str]]]:
+        """
+        Handle chat using the Interactions API.
+        
+        The Interactions API provides a simpler interface for chat-like interactions
+        with Gemini models. It's designed for conversational use cases and provides
+        detailed usage information including token counts by modality.
+        
+        Args:
+            messages: List of message dictionaries or single message dictionary.
+                     Each message should have 'role' ('user' or 'model'/'assistant')
+                     and 'content' keys.
+            config: Optional configuration dictionary. Supports:
+                   - response_mime_type: MIME type for response (e.g., "application/json")
+                   - response_schema: Pydantic model for structured output
+            **kwargs: Additional keyword arguments passed to the API
+            
+        Returns:
+            If self.local is False:
+                Tuple[List[str], Usage]: Response texts and usage information
+            If self.local is True:
+                Tuple[List[str], Usage, List[str]]: Response texts, usage info, and finish reasons
+            
+        Example:
+            messages = [
+                {"role": "user", "content": "Hello!"},
+                {"role": "model", "content": "Hi there! How can I help?"},
+                {"role": "user", "content": "What is the capital of France?"}
+            ]
+            responses, usage = client.interactions_chat(messages)
+            print(responses[0])  # "The capital of France is Paris."
+            
+            # With structured output (compatible with minion.py)
+            from pydantic import BaseModel
+            class Output(BaseModel):
+                decision: str
+                message: str
+                answer: str
+            
+            responses, usage = client.interactions_chat(
+                messages=messages,
+                config={
+                    "response_mime_type": "application/json",
+                    "response_schema": Output,
+                }
+            )
+        """
+        if self.use_openai_api:
+            raise ValueError("Interactions API is not available with OpenAI-compatible API. Use native Gemini API instead.")
+        
+        # If the user provided a single dictionary, wrap it
+        if isinstance(messages, dict):
+            messages = [messages]
+        
+        # Format messages for Interactions API
+        formatted_input = self._format_interactions_input(messages)
+        
+        try:
+            # Build the create kwargs
+            create_kwargs = {
+                "model": self.model_name,
+                "input": formatted_input,
+            }
+            
+            # Add optional parameters if specified
+            if self.system_instruction:
+                create_kwargs["system_instruction"] = self.system_instruction
+            
+            # Handle config parameter (for compatibility with minion.py)
+            if config:
+                # Handle response_mime_type for JSON output
+                if "response_mime_type" in config:
+                    create_kwargs["response_mime_type"] = config["response_mime_type"]
+                
+                # Handle response_schema for structured output
+                if "response_schema" in config:
+                    create_kwargs["response_schema"] = config["response_schema"]
+            
+            # Add any additional kwargs (but filter out 'config' if passed)
+            filtered_kwargs = {k: v for k, v in kwargs.items() if k != 'config'}
+            create_kwargs.update(filtered_kwargs)
+            
+            # Make the API call
+            response = self.client.interactions.create(**create_kwargs)
+            
+            # Extract text from outputs
+            texts = self._extract_interaction_texts(response)
+            
+            # Extract usage information
+            usage = self._extract_interaction_usage(response)
+            
+            # Store the full response for additional metadata access
+            self.last_interaction_response = response
+            
+            # Return format depends on self.local flag (compatible with minion.py)
+            if self.local:
+                # Return 3-tuple with done_reasons for local client compatibility
+                done_reasons = ["stop"] * len(texts) if texts else ["stop"]
+                return texts, usage, done_reasons
+            else:
+                return texts, usage
+            
+        except Exception as e:
+            self.logger.error(f"Error during Interactions API call: {e}")
+            raise
+
+    def _extract_interaction_texts(self, response) -> List[str]:
+        """
+        Extract text content from an Interactions API response.
+        
+        Args:
+            response: The Interactions API response object
+            
+        Returns:
+            List[str]: List of text outputs from the response
+        """
+        texts = []
+        
+        if hasattr(response, 'outputs') and response.outputs:
+            for output in response.outputs:
+                # Try different ways to access text
+                if hasattr(output, 'text'):
+                    texts.append(output.text)
+                elif isinstance(output, dict) and 'text' in output:
+                    texts.append(output['text'])
+                elif hasattr(output, 'type') and output.type == 'text':
+                    text = getattr(output, 'text', '')
+                    if text:
+                        texts.append(text)
+        
+        return texts
+
+    def _extract_interaction_usage(self, response) -> Usage:
+        """
+        Extract usage information from an Interactions API response.
+        
+        Args:
+            response: The Interactions API response object
+            
+        Returns:
+            Usage: Usage object with token counts
+        """
+        usage_data = getattr(response, 'usage', None)
+        
+        if usage_data:
+            return Usage(
+                prompt_tokens=getattr(usage_data, 'total_input_tokens', 0),
+                completion_tokens=getattr(usage_data, 'total_output_tokens', 0),
+            )
+        
+        return Usage()
+
+
+
+    def get_last_interaction_response(self) -> Optional[Any]:
+        """
+        Get the full response object from the last Interactions API call.
+        
+        Returns:
+            Optional[Any]: The full interaction response object, or None if no call has been made
+        """
+        return self.last_interaction_response
+
+    def get_interaction_usage_details(self) -> Optional[Dict[str, Any]]:
+        """
+        Get detailed usage information from the last Interactions API call.
+        
+        This provides more detailed usage information than the standard Usage object,
+        including token counts by modality.
+        
+        Returns:
+            Optional[Dict[str, Any]]: Detailed usage information or None if no call has been made
+        """
+        if not self.last_interaction_response:
+            return None
+        
+        usage_data = getattr(self.last_interaction_response, 'usage', None)
+        if not usage_data:
+            return None
+        
+        return {
+            'input_tokens_by_modality': getattr(usage_data, 'input_tokens_by_modality', []),
+            'total_cached_tokens': getattr(usage_data, 'total_cached_tokens', 0),
+            'total_input_tokens': getattr(usage_data, 'total_input_tokens', 0),
+            'total_output_tokens': getattr(usage_data, 'total_output_tokens', 0),
+            'total_reasoning_tokens': getattr(usage_data, 'total_reasoning_tokens', 0),
+            'total_tokens': getattr(usage_data, 'total_tokens', 0),
+            'total_tool_use_tokens': getattr(usage_data, 'total_tool_use_tokens', 0),
+        }

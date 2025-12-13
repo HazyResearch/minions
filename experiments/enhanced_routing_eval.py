@@ -29,6 +29,10 @@ from experiments.test_data import TestDataset, TestQuery
 from minions.minions import Minions
 from minions.utils.complexity_scorer import ComplexityScorer, ComplexityScore
 from minions.utils.logprobs_uncertainty import LogprobsUncertaintyEstimator
+try:
+    from minions.clients.ollama import LowLogProbError
+except ImportError:
+    class LowLogProbError(Exception): pass
 
 
 @dataclass
@@ -163,11 +167,13 @@ class EnhancedRoutingEvaluator:
         remote_client,
         judge_client,
         use_logprobs: bool = True,
-        self_consistency_k: int = 3
+        self_consistency_k: int = 3,
+        logprob_threshold: float = -1.0
     ):
         self.local_client = local_client
         self.remote_client = remote_client
         self.judge = LLMJudge(judge_client)
+        self.logprob_threshold = logprob_threshold
 
         # Create separate client for self-consistency with temperature > 0
         from minions.clients import OllamaClient
@@ -288,15 +294,26 @@ class EnhancedRoutingEvaluator:
                 context_str = "\n\n".join(test_query.context)
                 messages[0]["content"] = f"Context:\n{context_str}\n\nQuery: {test_query.query}"
 
-            result = self.local_client.chat(messages=messages)
-            if isinstance(result, tuple):
-                local_answer = result[0][0] if isinstance(result[0], list) else result[0]
-            else:
-                local_answer = result[0] if isinstance(result, list) else result
+            try:
+                result = self.local_client.chat(
+                    messages=messages,
+                    monitor_logprobs=True,
+                    logprob_threshold=self.logprob_threshold
+                )
+                if isinstance(result, tuple):
+                    local_answer = result[0][0] if isinstance(result[0], list) else result[0]
+                else:
+                    local_answer = result[0] if isinstance(result, list) else result
 
-            local_time = time.time() - local_start
-            print(f"✓ Local answer in {local_time:.2f}s")
-            print(f"  {local_answer[:200]}...")
+                local_time = time.time() - local_start
+                print(f"✓ Local answer in {local_time:.2f}s")
+                print(f"  {local_answer[:200]}...")
+                
+            except LowLogProbError as e:
+                print(f"⚠ Low log probability detected! Falling back to Full Minions Protocol...")
+                local_time = time.time() - local_start
+                local_answer = f"Error: {e}"
+
         except Exception as e:
             local_answer = f"Error: {e}"
             local_time = time.time() - local_start
@@ -390,9 +407,9 @@ def main():
     print("\nInitializing clients...")
     from minions.clients import OllamaClient, TogetherClient
 
-    local_client = OllamaClient(model_name="llama3.2", temperature=0.0, max_tokens=4096, use_async=False)
-    remote_client = TogetherClient(model="Qwen/Qwen2.5-72B-Instruct-Turbo")
-    judge_client = TogetherClient(model="Qwen/Qwen2.5-72B-Instruct-Turbo")
+    local_client = OllamaClient(model_name="gemma3:4b", temperature=0.0, max_tokens=4096, use_async=False)
+    remote_client = TogetherClient(model="Qwen/Qwen2.5-72B-Instruct-Turbo", api_key=os.environ.get("TOGETHER_API_KEY"))
+    judge_client = TogetherClient(model="Qwen/Qwen2.5-72B-Instruct-Turbo", api_key=os.environ.get("TOGETHER_API_KEY"))
 
     print("✓ Clients ready")
 

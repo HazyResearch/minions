@@ -26,6 +26,16 @@ from minions.utils.chunking import (
     chunk_by_function_and_class,
 )
 
+# Import LowLogProbError (assuming it's available from the client module usually, but we need to check import path)
+# Since we modified minions/clients/ollama.py, we should import it from there.
+# However, to avoid circular imports if clients import utils that import minions... 
+# Let's try to import safely.
+try:
+    from minions.clients.ollama import LowLogProbError
+except ImportError:
+    # Fallback definition if import fails (though it shouldn't if standardized)
+    class LowLogProbError(Exception): pass
+
 
 from minions.prompts.minions import (
     WORKER_ICL_EXAMPLES,
@@ -164,6 +174,7 @@ class Minions:
             max_rounds: Maximum number of conversation rounds
             callback: Optional callback function to receive message updates
             log_dir: Directory for logging conversation history
+            logprob_threshold: Threshold for log probability to trigger fallback (optional)
         """
         self.local_client = local_client
         self.remote_client = remote_client
@@ -171,6 +182,7 @@ class Minions:
         self.max_jobs_per_round = 2048
         self.callback = callback
         self.log_dir = log_dir
+        self.logprob_threshold = kwargs.get("logprob_threshold", -1.0)
         self.num_samples = 1 or kwargs.get("num_samples", None)
         self.worker_batch_size = 1 or kwargs.get("worker_batch_size", None)
         self.max_code_attempts = kwargs.get("max_code_attempts", 10)
@@ -726,16 +738,67 @@ class Minions:
             )
 
             local_start_time = time.time()
-            worker_response, usage, done_reasons = self.local_client.chat(
-                worker_chats,
-            )
+            
+            try:
+                # Prepare kwargs for chat
+                chat_kwargs = {}
+                if self.logprob_threshold is not None:
+                    chat_kwargs["monitor_logprobs"] = True
+                    chat_kwargs["logprob_threshold"] = self.logprob_threshold
+
+                worker_response, usage, done_reasons = self.local_client.chat(
+                    worker_chats,
+                    **chat_kwargs
+                )
+            except LowLogProbError:
+                print(f"⚠ Low log probability detected from local model. Falling back to remote model...")
+                # Log fallback
+                conversation_log["conversation"].append(
+                    {
+                        "user": "system",
+                        "prompt": "Low log probability detected. Falling back to remote model.",
+                        "output": None,
+                    }
+                )
+                
+                # Use remote client instead
+                # Note: remote client might not support batched chat in same way if it's not parallelized internally,
+                # but MinionsClient base usually implies it does or iterates.
+                # Assuming remote_client.chat follows same signature minuts logprob args.
+                
+                # Check if we need to adjust inputs? No, worker_chats is list of messages.
+                worker_response, usage = self.remote_client.chat(
+                    worker_chats,
+                )
+                
+                # Remote client chat returns (responses, usage). 
+                # Does it return done_reasons? 
+                # Looking at usage in advice step (line 420): advice_response, usage = self.remote_client.chat
+                # It seems remote_client.chat returns 2 values.
+                # But local_client.chat returns 3 values (responses, usage, done_reasons).
+                # We need to construct done_reasons for remote fall back.
+                
+                done_reasons = ["stop"] * len(worker_response)
+                
+                # Add usage to remote usage instead of local
+                # (usage from failed local call is lost/ignored or we could add it? Let's ignore it as 'waste')
+                # Actually we should add it? No, if we fallback, we pay for remote.
+                
             current_time = time.time()
             timing["local_call_time"] += current_time - local_start_time
 
             local_usage += usage
 
             def extract_job_output(response: str) -> JobOutput:
-                output = JobOutput.model_validate_json(response)
+                # Clean up markdown code blocks if present
+                clean_response = response.strip()
+                if clean_response.startswith("```"):
+                    clean_response = clean_response.strip("`")
+                    if clean_response.startswith("json"):
+                        clean_response = clean_response[4:]
+                    clean_response = clean_response.strip()
+                
+                output = JobOutput.model_validate_json(clean_response)
                 return output
 
             jobs: List[Job] = []

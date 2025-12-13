@@ -11,6 +11,12 @@ from minions.usage import Usage
 from minions.clients.base import MinionsClient
 
 
+
+class LowLogProbError(Exception):
+    """Raised when generation log probability drops below threshold."""
+    pass
+
+
 class OllamaClient(MinionsClient):
     def __init__(
         self,
@@ -376,6 +382,8 @@ class OllamaClient(MinionsClient):
     def schat(
         self,
         messages: Union[List[Dict[str, Any]], Dict[str, Any]],
+        monitor_logprobs: bool = True,
+        logprob_threshold: float = -1.0,
         **kwargs,
     ) -> Tuple[List[str], Usage, List[str]]:
         """
@@ -408,68 +416,121 @@ class OllamaClient(MinionsClient):
         iteration = 0
         while iteration < self.max_tool_iterations:
 
-            try:
-                response = ollama.chat(
-                    model=self.model_name,
-                    messages=working_messages,
-                    **chat_kwargs,
-                    **kwargs,
-                )
-                
-                response_content = response["message"]["content"]
-                
-                # Track usage
+                if monitor_logprobs:
+                    kwargs["stream"] = True
+                    # Pass logprobs as a top-level argument to the library function if supported, 
+                    # or via options if that's how the library expects it. 
+                    # Based on probe, top-level 'logprobs=True' works for streaming.
+                    # Note: The ollama python library might sanitize kwargs, so valid parameters depend on library version.
+                    # We'll pass it in kwargs.
+                    # Using 'logprobs' kwarg for the ollama.chat call
+                    kwargs["logprobs"] = True
+
                 try:
-                    usage_total += Usage(
-                        prompt_tokens=response["prompt_eval_count"],
-                        completion_tokens=response["eval_count"],
+                    response = ollama.chat(
+                        model=self.model_name,
+                        messages=working_messages,
+                        **chat_kwargs,
+                        **kwargs,
                     )
-                except Exception:
-                    usage_total += Usage(prompt_tokens=0, completion_tokens=0)
-                
-                try:
-                    done_reasons.append(response["done_reason"])
-                except Exception:
-                    done_reasons.append("stop")
-
-                # Check if MCP tools are enabled and handle tool calls from Ollama response  
-                if self.mcp_tools_enabled and "tool_calls" in response["message"]:
-                    ollama_tool_calls = response["message"]["tool_calls"]
                     
-                    if ollama_tool_calls:
-                        # Execute tools
-                        tool_results = self._process_ollama_tool_calls(ollama_tool_calls)
+                    if monitor_logprobs:
+                        # Handle streaming response
+                        full_content = ""
+                        usage_total = Usage() # Initialize empty, fill if final chunk has it
+                        stop_reason = "stop"
                         
-                        # Add the model's response to conversation
-                        working_messages.append({
-                            "role": "assistant", 
-                            "content": response_content,
-                            "tool_calls": ollama_tool_calls
-                        })
+                        for chunk in response:
+                            # Check logprobs
+                            if hasattr(chunk, "logprobs") and chunk.logprobs:
+                                for token_logprob in chunk.logprobs:
+                                    if token_logprob.logprob < logprob_threshold:
+                                        self.logger.warning(
+                                            f"Logprob {token_logprob.logprob} below threshold {logprob_threshold} for token '{token_logprob.token}'. Aborting."
+                                        )
+                                        raise LowLogProbError(f"Logprob {token_logprob.logprob} < {logprob_threshold}")
+
+                            # Accumulate content
+                            if hasattr(chunk, "message") and chunk.message and chunk.message.content:
+                                full_content += chunk.message.content
+                                
+                            # Check for done stats (some versions send separate final chunk)
+                            if chunk.done:
+                                if hasattr(chunk, "prompt_eval_count"):
+                                    try:
+                                        usage_total += Usage(
+                                            prompt_tokens=chunk.prompt_eval_count,
+                                            completion_tokens=chunk.eval_count,
+                                        )
+                                    except:
+                                        pass
+                                if hasattr(chunk, "done_reason"):
+                                    stop_reason = chunk.done_reason
+
+                        responses.append(full_content)
+                        # Streaming usually doesn't return tool calls in the same simple way, 
+                        # skipping complex tool handling for streaming monitoring for now unless needed.
+                        done_reasons.append(stop_reason)
+                        break
+
+                    # Regular non-streaming handling
+                    response_content = response["message"]["content"]
+                    
+                    # Track usage
+                    try:
+                        usage_total += Usage(
+                            prompt_tokens=response["prompt_eval_count"],
+                            completion_tokens=response["eval_count"],
+                        )
+                    except Exception:
+                        usage_total += Usage(prompt_tokens=0, completion_tokens=0)
+                    
+                    try:
+                        done_reasons.append(response["done_reason"])
+                    except Exception:
+                        done_reasons.append("stop")
+
+                    # Check if MCP tools are enabled and handle tool calls from Ollama response  
+                    if self.mcp_tools_enabled and "tool_calls" in response["message"]:
+                        ollama_tool_calls = response["message"]["tool_calls"]
                         
-                        # Add tool results as tool message
-                        for i, tool_call in enumerate(ollama_tool_calls):
-                            tool_name = tool_call.get("function", {}).get("name", f"tool_{i}")
+                        if ollama_tool_calls:
+                            # Execute tools
+                            tool_results = self._process_ollama_tool_calls(ollama_tool_calls)
+                            
+                            # Add the model's response to conversation
                             working_messages.append({
-                                "role": "tool",
-                                "content": tool_results,
-                                "tool_call_id": f"call_{i}"
+                                "role": "assistant", 
+                                "content": response_content,
+                                "tool_calls": ollama_tool_calls
                             })
-                        
-                        iteration += 1
-                        continue  # Continue the loop for another iteration
-                
-                # No tool calls or tools disabled - this is the final response
-                responses.append(response_content)
-                
-                if "tool_calls" in response["message"]:
-                    tools.append(response["message"]["tool_calls"])
+                            
+                            # Add tool results as tool message
+                            for i, tool_call in enumerate(ollama_tool_calls):
+                                tool_name = tool_call.get("function", {}).get("name", f"tool_{i}")
+                                working_messages.append({
+                                    "role": "tool",
+                                    "content": tool_results,
+                                    "tool_call_id": f"call_{i}"
+                                })
+                            
+                            iteration += 1
+                            continue  # Continue the loop for another iteration
                     
-                break
+                    # No tool calls or tools disabled - this is the final response
+                    responses.append(response_content)
+                    
+                    if "tool_calls" in response["message"]:
+                        tools.append(response["message"]["tool_calls"])
+                        
+                    break
 
-            except Exception as e:
-                self.logger.error(f"Error during Ollama API call: {e}")
-                raise
+                except LowLogProbError:
+                    self.logger.warning("Low log probability detected. Reraising for caller to handle.")
+                    raise # Re-raise for caller to handle
+                except Exception as e:
+                    self.logger.error(f"Error during Ollama API call: {e}")
+                    raise
 
         # If we completed max iterations without a final response, use the last response
         if not responses and iteration >= self.max_tool_iterations:

@@ -5,9 +5,8 @@ This module provides test queries categorized by type with expected behaviors
 and ground truth answers for evaluation.
 """
 
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 from dataclasses import dataclass
-
 
 @dataclass
 class TestQuery:
@@ -133,6 +132,203 @@ LOOKUP_QUERIES = [
         ],
         difficulty="easy"
     ),
+    TestQuery(
+        query="Who wrote 'Romeo and Juliet'",
+        query_type="lookup",
+        expected_route="local",
+        ground_truth="William Shakespeare",
+        context=[
+            "Romeo and Juliet is a tragedy written by William Shakespeare early in his career.",
+            "It is among Shakespeare's most popular plays during his lifetime."
+        ],
+        difficulty="easy"
+    ),
+    TestQuery(
+        query="What is the chemical symbol for Gold",
+        query_type="lookup",
+        expected_route="local",
+        ground_truth="Au",
+        context=[
+            "Gold is a chemical element with the symbol Au (from Latin: aurum) and atomic number 79.",
+            "It is a bright, slightly reddish yellow, dense, soft, malleable, and ductile metal."
+        ],
+        difficulty="easy"
+    ),
+    TestQuery(
+        query="Define 'metaphor'",
+        query_type="lookup",
+        expected_route="local",
+        ground_truth="A figure of speech in which a word or phrase is applied to an object or action to which it is not literally applicable.",
+        context=[
+            "A metaphor is a figure of speech that describes an object or action in a way that isn't literally true.",
+            "It helps explain an idea or make a comparison."
+        ],
+        difficulty="easy"
+    ),
+    TestQuery(
+        query="What is the largest planet in our solar system",
+        query_type="lookup",
+        expected_route="local",
+        ground_truth="Jupiter",
+        context=[
+            "Jupiter is the fifth planet from the Sun and the largest in the Solar System.",
+            "It is a gas giant with a mass one-thousandth that of the Sun."
+        ],
+        difficulty="easy"
+    ),
+    TestQuery(
+        query="What does 'CPU' stand for",
+        query_type="lookup",
+        expected_route="local",
+        ground_truth="Central Processing Unit",
+        context=[
+            "A central processing unit (CPU), also called a central processor, main processor or just processor, is the electronic circuitry that executes instructions comprising a computer program.",
+            "The CPU performs basic arithmetic, logic, controlling, and input/output (I/O) operations."
+        ],
+        difficulty="easy"
+    ),
+    TestQuery(
+        query="Who painted the Mona Lisa",
+        query_type="lookup",
+        expected_route="local",
+        ground_truth="Leonardo da Vinci",
+        context=[
+            "The Mona Lisa is a half-length portrait painting by Italian artist Leonardo da Vinci.",
+            "It is considered an archetypal masterpiece of the Italian Renaissance."
+        ],
+        difficulty="easy"
+    ),
+    TestQuery(
+        query="What is the boiling point of water",
+        query_type="lookup",
+        expected_route="local",
+        ground_truth="100 degrees Celsius or 212 degrees Fahrenheit at sea level",
+        context=[
+            "The boiling point of water is 100 °C (212 °F) at standard pressure (1 atmosphere).",
+            "Boiling point decreases as altitude increases."
+        ],
+        difficulty="easy"
+    ),
+    TestQuery(
+        query="Define 'osmosis'",
+        query_type="lookup",
+        expected_route="local",
+        ground_truth="The movement of water molecules through a semipermeable membrane from a region of lower solute concentration to a region of higher solute concentration.",
+        context=[
+            "Osmosis is the spontaneous net movement or diffusion of solvent molecules through a selectively permeable membrane.",
+            "It occurs from a region of high water potential to a region of low water potential."
+        ],
+        difficulty="easy"
+    ),
+    TestQuery(
+        query="What is the speed of light",
+        query_type="lookup",
+        expected_route="local",
+        ground_truth="Approximately 299,792,458 meters per second",
+        context=[
+            "The speed of light in vacuum, commonly denoted c, is a universal physical constant.",
+            "Its exact value is defined as 299,792,458 metres per second."
+        ],
+        difficulty="easy"
+    ),
+    TestQuery(
+        query="Who discovered penicillin",
+        query_type="lookup",
+        expected_route="local",
+        ground_truth="Alexander Fleming",
+        context=[
+            "Alexander Fleming was a Scottish physician and microbiologist.",
+            "His best-known discoveries are the enzyme lysozyme in 1923 and the world's first broadly effective antibiotic substance benzylpenicillin (Penicillin G) from the mould Penicillium rubens in 1928."
+        ],
+        difficulty="easy"
+    ),
+    TestQuery(
+        query="What is a 'byte'",
+        query_type="lookup",
+        expected_route="local",
+        ground_truth="A unit of digital information that typically consists of eight bits.",
+        context=[
+            "The byte is a unit of digital information that most commonly consists of eight bits.",
+            "Historically, the byte was the number of bits used to encode a single character of text in a computer."
+        ],
+        difficulty="easy"
+    ),
+    TestQuery(
+        query="What is the currency of Japan",
+        query_type="lookup",
+        expected_route="local",
+        ground_truth="Japanese Yen",
+        context=[
+            "The yen is the official currency of Japan.",
+            "It is the third most traded currency in the foreign exchange market after the United States dollar and the Euro."
+        ],
+        difficulty="easy"
+    ),
+    TestQuery(
+        query="Define 'algorithm'",
+        query_type="lookup",
+        expected_route="local",
+        ground_truth="A process or set of rules to be followed in calculations or other problem-solving operations, especially by a computer.",
+        context=[
+            "In mathematics and computer science, an algorithm is a finite sequence of well-defined instructions.",
+            "Algorithms are used for solving a class of specific problems or to perform a computation."
+        ],
+        difficulty="easy"
+    ),
+    TestQuery(
+        query="What is the main gas in Earth's atmosphere",
+        query_type="lookup",
+        expected_route="local",
+        ground_truth="Nitrogen",
+        context=[
+            "The atmosphere of Earth is composed of nitrogen (about 78%), oxygen (about 21%), argon (about 0.9%), carbon dioxide (0.04%) and other gases in trace amounts.",
+            "Nitrogen is the most abundant gas in the atmosphere."
+        ],
+        difficulty="easy"
+    ),
+    TestQuery(
+        query="Who invented the telephone",
+        query_type="lookup",
+        expected_route="local",
+        ground_truth="Alexander Graham Bell",
+        context=[
+            "Alexander Graham Bell was a Scottish-born inventor, scientist, and engineer.",
+            "He is credited with patenting the first practical telephone."
+        ],
+        difficulty="easy"
+    ),
+    TestQuery(
+        query="What is the currency of the UK",
+        query_type="lookup",
+        expected_route="local",
+        ground_truth="Pound Sterling",
+        context=[
+            "The pound sterling (GBP) is the official currency of the United Kingdom.",
+            "It is the oldest currency in continuous use."
+        ],
+        difficulty="easy"
+    ),
+    TestQuery(
+        query="What is the capital of Australia",
+        query_type="lookup",
+        expected_route="local",
+        ground_truth="Canberra",
+        context=[
+            "Canberra is the capital city of Australia.",
+            "It is located at the northern end of the Australian Capital Territory."
+        ],
+        difficulty="easy"
+    ),
+    TestQuery(
+        query="Define 'photosynthesis'",
+        query_type="lookup",
+        expected_route="local",
+        ground_truth="Process by which plants use sunlight to synthesize foods",
+        context=[
+            "Photosynthesis is the process used by plants, algae and certain bacteria to harness energy from sunlight and turn it into chemical energy."
+        ],
+        difficulty="easy"
+    ),
 ]
 
 # Math queries - should route to local
@@ -201,6 +397,142 @@ MATH_QUERIES = [
         context=[],
         difficulty="medium"
     ),
+    TestQuery(
+        query="Solve for x: 2x + 5 = 15",
+        query_type="math",
+        expected_route="local",
+        ground_truth="x = 5",
+        context=[],
+        difficulty="easy"
+    ),
+    TestQuery(
+        query="What is 15% of 200",
+        query_type="math",
+        expected_route="local",
+        ground_truth="30",
+        context=[],
+        difficulty="easy"
+    ),
+    TestQuery(
+        query="Calculate the area of a circle with radius 3",
+        query_type="math",
+        expected_route="local",
+        ground_truth="Approximately 28.27",
+        context=["Area = pi * r^2", "pi is approximately 3.14159"],
+        difficulty="medium"
+    ),
+    TestQuery(
+        query="What is the prime factorization of 60",
+        query_type="math",
+        expected_route="local",
+        ground_truth="2^2 * 3 * 5",
+        context=[],
+        difficulty="medium"
+    ),
+    TestQuery(
+        query="If a train travels 60 miles in 1.5 hours, what is its average speed",
+        query_type="math",
+        expected_route="local",
+        ground_truth="40 mph",
+        context=[],
+        difficulty="medium"
+    ),
+    TestQuery(
+        query="Compute 2 to the power of 8",
+        query_type="math",
+        expected_route="local",
+        ground_truth="256",
+        context=[],
+        difficulty="easy"
+    ),
+    TestQuery(
+        query="What is the volume of a cube with side length 4",
+        query_type="math",
+        expected_route="local",
+        ground_truth="64",
+        context=["Volume = side^3"],
+        difficulty="easy"
+    ),
+    TestQuery(
+        query="Reduce the fraction 18/24 to lowest terms",
+        query_type="math",
+        expected_route="local",
+        ground_truth="3/4",
+        context=[],
+        difficulty="easy"
+    ),
+    TestQuery(
+        query="What is the sum of angles in a triangle",
+        query_type="math",
+        expected_route="local",
+        ground_truth="180 degrees",
+        context=[],
+        difficulty="easy"
+    ),
+    TestQuery(
+        query="Calculate the hypotenuse of a right triangle with legs 3 and 4",
+        query_type="math",
+        expected_route="local",
+        ground_truth="5",
+        context=["Pythagorean theorem: a^2 + b^2 = c^2"],
+        difficulty="easy"
+    ),
+    TestQuery(
+        query="What is 100 factorial divided by 99 factorial",
+        query_type="math",
+        expected_route="local",
+        ground_truth="100",
+        context=[],
+        difficulty="medium"
+    ),
+    TestQuery(
+        query="If you buy 3 items at $5.50 each, what is the total cost",
+        query_type="math",
+        expected_route="local",
+        ground_truth="$16.50",
+        context=[],
+        difficulty="easy"
+    ),
+    TestQuery(
+        query="What is the binary representation of 10",
+        query_type="math",
+        expected_route="local",
+        ground_truth="1010",
+        context=[],
+        difficulty="medium"
+    ),
+    TestQuery(
+        query="Solve for y: 3y - 9 = 0",
+        query_type="math",
+        expected_route="local",
+        ground_truth="y = 3",
+        context=[],
+        difficulty="easy"
+    ),
+    TestQuery(
+        query="What is the greatest common divisor of 12 and 18",
+        query_type="math",
+        expected_route="local",
+        ground_truth="6",
+        context=[],
+        difficulty="medium"
+    ),
+    TestQuery(
+        query="What is the cube root of 27",
+        query_type="math",
+        expected_route="local",
+        ground_truth="3",
+        context=[],
+        difficulty="easy"
+    ),
+    TestQuery(
+        query="Calculate 12 squared",
+        query_type="math",
+        expected_route="local",
+        ground_truth="144",
+        context=[],
+        difficulty="easy"
+    ),
 ]
 
 # Extract queries - moderate difficulty
@@ -230,11 +562,107 @@ EXTRACT_QUERIES = [
         difficulty="medium"
     ),
     TestQuery(
-        query="Extract all product names and their prices",
+        query="Identify the colors mentioned in the description",
         query_type="extract",
         expected_route="local",
-        ground_truth="Laptop - $999, Mouse - $25, Keyboard - $75",
-        context=["We offer: Laptop for $999, Mouse for $25, and Keyboard for $75."],
+        ground_truth="Red, blue, green",
+        context=["The flag has red stripes, a blue rectangle, and green stars."],
+        difficulty="medium"
+    ),
+    TestQuery(
+        query="Extract all phone numbers",
+        query_type="extract",
+        expected_route="local",
+        ground_truth="555-1234, 555-5678",
+        context=["Call us at 555-1234 or fax 555-5678 for assistance."],
+        difficulty="medium"
+    ),
+    TestQuery(
+        query="List the ingredients required",
+        query_type="extract",
+        expected_route="local",
+        ground_truth="Flour, sugar, eggs, milk",
+        context=["To make the cake, you will need flour, sugar, eggs, and milk."],
+        difficulty="medium"
+    ),
+    TestQuery(
+        query="What cities are listed as destinations",
+        query_type="extract",
+        expected_route="local",
+        ground_truth="London, Paris, Tokyo",
+        context=["The tour visits London, then moves to Paris, and ends in Tokyo."],
+        difficulty="medium"
+    ),
+    TestQuery(
+        query="Extract the dates of birth",
+        query_type="extract",
+        expected_route="local",
+        ground_truth="1990-05-12, 1985-11-23",
+        context=["Alice was born on 1990-05-12 and Bob on 1985-11-23."],
+        difficulty="medium"
+    ),
+    TestQuery(
+        query="Identify the programming languages mentioned",
+        query_type="extract",
+        expected_route="local",
+        ground_truth="Python, Java, C++",
+        context=["The project uses Python for backend, Java for android, and C++ for performance."],
+        difficulty="medium"
+    ),
+    TestQuery(
+        query="Extract the temperature readings",
+        query_type="extract",
+        expected_route="local",
+        ground_truth="22°C, 24°C, 20°C",
+        context=["Readings were 22°C in the morning, 24°C at noon, and 20°C at night."],
+        difficulty="medium"
+    ),
+    TestQuery(
+        query="List the stock tickers mentioned",
+        query_type="extract",
+        expected_route="local",
+        ground_truth="AAPL, GOOGL, MSFT",
+        context=["Tech giants like AAPL, GOOGL, and MSFT reported earnings."],
+        difficulty="medium"
+    ),
+    TestQuery(
+        query="Extract the authors of the paper",
+        query_type="extract",
+        expected_route="local",
+        ground_truth="Smith, Johnson, Williams",
+        context=["The study was conducted by Smith, Johnson, and Williams (2023)."],
+        difficulty="medium"
+    ),
+    TestQuery(
+        query="What are the dimensions of the box",
+        query_type="extract",
+        expected_route="local",
+        ground_truth="10cm x 20cm x 30cm",
+        context=["The package measures 10cm x 20cm x 30cm."],
+        difficulty="medium"
+    ),
+    TestQuery(
+        query="Extract the winning numbers",
+        query_type="extract",
+        expected_route="local",
+        ground_truth="5, 12, 19, 24",
+        context=["The winning numbers are 5, 12, 19, and 24."],
+        difficulty="medium"
+    ),
+    TestQuery(
+        query="Extract the names of the planets",
+        query_type="extract",
+        expected_route="local",
+        ground_truth="Mars, Venus, Jupiter",
+        context=["The mission will fly by Mars, Venus, and possibly Jupiter."],
+        difficulty="medium"
+    ),
+    TestQuery(
+        query="Identify the error codes",
+        query_type="extract",
+        expected_route="local",
+        ground_truth="404, 500",
+        context=["Server returned 404 for the first request and 500 for the second."],
         difficulty="medium"
     ),
 ]
@@ -364,6 +792,244 @@ MULTIHOP_QUERIES = [
         ],
         difficulty="hard"
     ),
+    TestQuery(
+        query="Explain the causes and consequences of the French Revolution",
+        query_type="multi-hop",
+        expected_route="remote",
+        ground_truth="Causes: social inequality, economic crisis, Enlightenment ideas. Consequences: end of monarchy, rise of Napoleon, spread of democratic ideals.",
+        context=[
+            "The French Revolution (1789-1799) was driven by social inequality between the Three Estates.",
+            "France faced a severe financial crisis due to war debts and poor harvests.",
+            "Enlightenment thinkers like Rousseau and Voltaire challenged the divine right of kings.",
+            "The revolution led to the execution of Louis XVI and the Reign of Terror.",
+            "It eventually resulted in the rise of Napoleon Bonaparte and the Napoleonic Wars.",
+            "Long-term effects included the spread of nationalism and liberalism across Europe."
+        ],
+        difficulty="hard"
+    ),
+    TestQuery(
+        query="Compare and contrast mitosis and meiosis",
+        query_type="multi-hop",
+        expected_route="remote",
+        ground_truth="Comparison should include: purpose (growth vs reproduction), number of divisions, daughter cells (2 diploid vs 4 haploid), and genetic variation.",
+        context=[
+            "Mitosis results in two genetically identical daughter cells.",
+            "Meiosis produces four genetically distinct haploid gametes.",
+            "Mitosis is used for growth and tissue repair.",
+            "Meiosis is used for sexual reproduction.",
+            "Crossing over occurs in Prophase I of meiosis, increasing genetic diversity.",
+            "Mitosis involves one division; meiosis involves two successive divisions."
+        ],
+        difficulty="hard"
+    ),
+    TestQuery(
+        query="Discuss the impact of the printing press on European society",
+        query_type="multi-hop",
+        expected_route="remote",
+        ground_truth="Should cover: increased literacy, spread of knowledge, Reformation, scientific revolution, and standardization of language.",
+        context=[
+            "Gutenberg's printing press (c. 1440) allowed for mass production of books.",
+            "It drastically reduced the cost of books, increasing literacy rates.",
+            "The spread of ideas facilitated the Protestant Reformation by disseminating Luther's theses.",
+            "It enabled the rapid sharing of scientific discoveries, fueling the Scientific Revolution.",
+            "Printing helped standardize vernicular languages and grammar."
+        ],
+        difficulty="hard"
+    ),
+    TestQuery(
+        query="Evaluate the pros and cons of nuclear energy",
+        query_type="multi-hop",
+        expected_route="remote",
+        ground_truth="Pros: low carbon emissions, high energy density, reliability. Cons: radioactive waste, accident risk, high initial cost.",
+        context=[
+            "Nuclear energy generates power through fission, producing zero carbon emissions during operation.",
+            "It provides a reliable baseload power source unlike intermittent renewables.",
+            "High energy density means a small amount of fuel produces vast energy.",
+            "Radioactive waste disposal remains a long-term environmental challenge.",
+            "Accidents like Chernobyl and Fukushima highlight safety risks.",
+            "Building nuclear plants is capital-intensive and time-consuming."
+        ],
+        difficulty="hard"
+    ),
+    TestQuery(
+        query="How does monetary policy influence inflation and unemployment",
+        query_type="multi-hop",
+        expected_route="remote",
+        ground_truth="Should explain: interest rates, money supply, the Phillips curve trade-off.",
+        context=[
+            "Central banks use interest rates to control money supply.",
+            "Higher interest rates reduce spending and inflation but can increase unemployment.",
+            "Lower interest rates stimulate the economy and reduce unemployment but can cause inflation.",
+            "The Phillips curve suggests an inverse relationship between inflation and unemployment in the short run.",
+            "Quantitative easing is a tool to increase money supply during recessions."
+        ],
+        difficulty="hard"
+    ),
+    TestQuery(
+        query="Analyze the themes in 'To Kill a Mockingbird'",
+        query_type="multi-hop",
+        expected_route="remote",
+        ground_truth="Themes: racial injustice, loss of innocence, moral education, empathy, and courage.",
+        context=[
+            "The novel explores racial injustice in the American South through the trial of Tom Robinson.",
+            "Scout and Jem's loss of innocence is central as they witness prejudice.",
+            "Atticus Finch represents moral courage and integrity.",
+            "The mockingbird symbolizes innocence effectively destroyed by evil.",
+            "Empathy is taught through Atticus's advice to 'climb into someone's skin and walk around in it'."
+        ],
+        difficulty="hard"
+    ),
+    TestQuery(
+        query="What are the physiological effects of stress on the human body",
+        query_type="multi-hop",
+        expected_route="remote",
+        ground_truth="Should cover: cortisol release, cardiovascular impact, immune system suppression, and mental health.",
+        context=[
+            "Stress triggers the 'fight or flight' response, releasing cortisol and adrenaline.",
+            "Chronic stress can lead to high blood pressure and heart disease.",
+            "It suppresses the immune system, making the body more susceptible to infections.",
+            "Long-term stress is linked to anxiety, depression, and sleep disorders.",
+            "Stress affects digestion and can cause headaches or muscle tension."
+        ],
+        difficulty="hard"
+    ),
+    TestQuery(
+        query="Explain the concept of 'opportunity cost' with examples",
+        query_type="multi-hop",
+        expected_route="remote",
+        ground_truth="Definition: the value of the next best alternative foregone. Examples: staying in school vs working, buying a car vs investing.",
+        context=[
+            "Opportunity cost is a fundamental economic concept representing potential benefits an individual, investor, or business misses out on when choosing one alternative over another.",
+            "It helps in making informed decisions by considering what is being given up.",
+            "Example: If you spend an hour studying, the opportunity cost is the hour of leisure you could have had.",
+            "It applies to resource allocation in production possibilities."
+        ],
+        difficulty="hard"
+    ),
+    TestQuery(
+        query="Describe the water cycle and its importance",
+        query_type="multi-hop",
+        expected_route="remote",
+        ground_truth="Stages: evaporation, condensation, precipitation, collection. Importance: fresh water distribution, climate regulation.",
+        context=[
+            "The water cycle describes the continuous movement of water on, above, and below the surface of the Earth.",
+            "Evaporation turns liquid water into vapor; transpiration releases water from plants.",
+            "Condensation forms clouds; precipitation returns water to Earth as rain or snow.",
+            "Runoff collects in bodies of water.",
+            "It is crucial for sustaining life, regulating temperature, and shaping landscapes."
+        ],
+        difficulty="hard"
+    ),
+    TestQuery(
+        query="What were the main causes of World War I",
+        query_type="multi-hop",
+        expected_route="remote",
+        ground_truth="M.A.I.N.: Militarism, Alliances, Imperialism, Nationalism, plus the assassination of Archduke Franz Ferdinand.",
+        context=[
+            "Militarism: Arms race between major powers like Britain and Germany.",
+            "Alliances: Complex web of treaties (Triple Entente vs Triple Alliance) pulled nations into war.",
+            "Imperialism: Competition for colonies and resources increased tension.",
+            "Nationalism: Desire for self-determination, especially in the Balkans.",
+            "The assassination of Archduke Franz Ferdinand in Sarajevo was the immediate trigger."
+        ],
+        difficulty="hard"
+    ),
+    TestQuery(
+        query="Compare classical and operant conditioning",
+        query_type="multi-hop",
+        expected_route="remote",
+        ground_truth="Classical: association between involuntary response and stimulus (Pavlov). Operant: association between voluntary behavior and consequence (Skinner).",
+        context=[
+            "Classical conditioning (Pavlov) involves learning through association of stimuli.",
+            "It deals with involuntary, reflexive responses.",
+            "Operant conditioning (Skinner) involves learning through rewards and punishments.",
+            "It modifies voluntary behaviors.",
+            "Both are forms of associative learning in behavioral psychology."
+        ],
+        difficulty="hard"
+    ),
+    TestQuery(
+        query="How does the greenhouse effect work",
+        query_type="multi-hop",
+        expected_route="remote",
+        ground_truth="Process: solar energy reaches Earth, some reflected, some absorbed and re-radiated as heat, greenhouse gases trap this heat.",
+        context=[
+            "The greenhouse effect is a natural process that warms the Earth's surface.",
+            "Sun's energy reaches Earth's atmosphere; some is reflected back to space.",
+            "The rest is absorbed and re-radiated by greenhouse gases (CO2, methane, water vapor).",
+            "This trapped heat maintains Earth's temperature at a habitable level.",
+            "Human activities have intensified this effect, leading to global warming."
+        ],
+        difficulty="hard"
+    ),
+    TestQuery(
+        query="Discuss the impact of the internet on globalization",
+        query_type="multi-hop",
+        expected_route="remote",
+        ground_truth="Should cover: communication speed, global commerce, cultural exchange, remote work, and digital divide.",
+        context=[
+            "The internet has drastically lowered communication costs and increased speed globally.",
+            "It enables e-commerce and global supply chains.",
+            "Cultural exchange is facilitated through social media and content streaming.",
+            "It allows for the outsourcing of services and rise of remote work.",
+            "However, it has created a 'digital divide' between connected and unconnected regions."
+        ],
+        difficulty="hard"
+    ),
+    TestQuery(
+        query="Analyze the role of enzymes in biological reactions",
+        query_type="multi-hop",
+        expected_route="remote",
+        ground_truth="Role: biological catalysts, lower activation energy, specific to substrates, affected by pH and temperature.",
+        context=[
+            "Enzymes are proteins that act as biological catalysts.",
+            "They speed up chemical reactions by lowering the activation energy.",
+            "Each enzyme is specific to a substrate (lock and key model).",
+            "Enzyme activity is influenced by factors like temperature, pH, and concentration.",
+            "They are essential for digestion, metabolism, and DNA replication."
+        ],
+        difficulty="hard"
+    ),
+    TestQuery(
+        query="How does vaccine-induced immunity work",
+        query_type="multi-hop",
+        expected_route="remote",
+        ground_truth="Process: vaccine introduces antigen, immune system produces antibodies and memory cells, faster response upon reinfection.",
+        context=[
+            "Vaccines stimulate the body's adaptive immunity.",
+            "They introduce a weakened or inactive part of a pathogen (antigen).",
+            "The immune system recognizes it as foreign and produces antibodies.",
+            "Memory B and T cells are formed, providing long-term protection.",
+            "Herd immunity occurs when a large portion of the population is vaccinated."
+        ],
+        difficulty="hard"
+    ),
+    TestQuery(
+        query="Discuss the ethical implications of AI surveillance",
+        query_type="multi-hop",
+        expected_route="remote",
+        ground_truth="Privacy, bias, lack of consent, potential for abuse, chilling effect on free speech.",
+        context=[
+             "AI surveillance enables mass monitoring of populations.",
+             "Facial recognition technology can be biased against certain demographics.",
+             "Privacy advocates argue it infringes on civil liberties.",
+             "Governments justify it for national security and crime prevention."
+        ],
+        difficulty="hard"
+    ),
+    TestQuery(
+        query="Compare the healthcare systems of the US and Canada",
+        query_type="multi-hop",
+        expected_route="remote",
+        ground_truth="US: mixed public/private, higher cost, variable access. Canada: single-payer publicly funded, lower cost, universal coverage, potential wait times.",
+        context=[
+             "The US healthcare system is a mix of private insurance and public programs like Medicare.",
+             "Canada has a publicly funded, single-payer health care system.",
+             "The US spends more per capita on healthcare than any other nation.",
+             "Canadian citizens have universal coverage for medically necessary services."
+        ],
+        difficulty="hard"
+    ),
 ]
 
 # Code queries - moderate
@@ -401,12 +1067,108 @@ CODE_QUERIES = [
         difficulty="medium"
     ),
     TestQuery(
-        query="Implement a binary search algorithm in Python",
+        query="Write a function to calculate the Fibonacci sequence up to n",
         query_type="code",
         expected_route="remote",
-        ground_truth="Should include: sorted array check, mid calculation, recursive/iterative approach",
+        ground_truth="Should include: base cases, iterative or recursive logic",
         context=[],
-        difficulty="hard"
+        difficulty="medium"
+    ),
+    TestQuery(
+        query="Create a class for a Bank Account with deposit and withdraw methods",
+        query_type="code",
+        expected_route="remote",
+        ground_truth="Class structure, balance attribute, methods with logic checks",
+        context=[],
+        difficulty="medium"
+    ),
+    TestQuery(
+        query="Write a SQL query to select all users over 18",
+        query_type="code",
+        expected_route="local",
+        ground_truth="SELECT * FROM users WHERE age > 18;",
+        context=[],
+        difficulty="easy"
+    ),
+    TestQuery(
+        query="Implement a bubble sort algorithm",
+        query_type="code",
+        expected_route="remote",
+        ground_truth="Nested loops, swapping logic",
+        context=[],
+        difficulty="medium"
+    ),
+    TestQuery(
+        query="Write a function to check if a string is a palindrome",
+        query_type="code",
+        expected_route="local",
+        ground_truth="Check string against its reverse, ignore case/spaces if needed",
+        context=[],
+        difficulty="easy"
+    ),
+    TestQuery(
+        query="Create a dictionary comprehension to square numbers from 1 to 5",
+        query_type="code",
+        expected_route="local",
+        ground_truth="{x: x**2 for x in range(1, 6)}",
+        context=[],
+        difficulty="easy"
+    ),
+    TestQuery(
+        query="Write a regular expression to validate an email address",
+        query_type="code",
+        expected_route="remote",
+        ground_truth="Regex pattern matching user, domain, extension",
+        context=[],
+        difficulty="medium"
+    ),
+    TestQuery(
+        query="Implement a function to merge two sorted lists",
+        query_type="code",
+        expected_route="remote",
+        ground_truth="Iterate through both lists, comparing elements, appending smaller",
+        context=[],
+        difficulty="medium"
+    ),
+    TestQuery(
+        query="Write a script to read a JSON file and print a specific key",
+        query_type="code",
+        expected_route="remote",
+        ground_truth="Import json, open file, json.load, print key",
+        context=[],
+        difficulty="medium"
+    ),
+    TestQuery(
+        query="Create a simple decorator to time a function execution",
+        query_type="code",
+        expected_route="remote",
+        ground_truth="Wrapper function, time.time, call func, print diff",
+        context=[],
+        difficulty="medium"
+    ),
+    TestQuery(
+        query="Write a function to flatten a nested list",
+        query_type="code",
+        expected_route="remote",
+        ground_truth="Recursive or iterative approach to process sub-lists",
+        context=[],
+        difficulty="medium"
+    ),
+    TestQuery(
+        query="Write a Python script to scrape a webpage using BeautifulSoup",
+        query_type="code",
+        expected_route="remote",
+        ground_truth="Import requests/BS4, get URL, parse content, find elements",
+        context=[],
+        difficulty="medium"
+    ),
+    TestQuery(
+        query="Create a React component for a counter",
+        query_type="code",
+        expected_route="remote",
+        ground_truth="Function component, useState hook, increment button",
+        context=[],
+        difficulty="medium"
     ),
 ]
 
@@ -429,10 +1191,66 @@ OPENENDED_QUERIES = [
         difficulty="medium"
     ),
     TestQuery(
-        query="What are some good books to read for personal development",
+        query="Suggest a healthy meal plan for a week",
         query_type="open-ended",
         expected_route="remote",
-        ground_truth="Should suggest diverse books across different development areas",
+        ground_truth="Balanced diet including proteins, veggies, carbs",
+        context=[],
+        difficulty="medium"
+    ),
+    TestQuery(
+        query="Write a short story about a time traveler",
+        query_type="open-ended",
+        expected_route="remote",
+        ground_truth="Creative narrative, plot structure, characters",
+        context=[],
+        difficulty="medium"
+    ),
+    TestQuery(
+        query="What are some creative gift ideas for a gardener",
+        query_type="open-ended",
+        expected_route="remote",
+        ground_truth="Tools, seeds, plants, decor, books",
+        context=[],
+        difficulty="medium"
+    ),
+    TestQuery(
+        query="Propose a marketing strategy for a new coffee shop",
+        query_type="open-ended",
+        expected_route="remote",
+        ground_truth="Social media, loyalty program, local events, partnerships",
+        context=[],
+        difficulty="medium"
+    ),
+    TestQuery(
+        query="Explain the plot of the movie Inception to a 5-year-old",
+        query_type="open-ended",
+        expected_route="remote",
+        ground_truth="Simplified explanation about dreams within dreams",
+        context=[],
+        difficulty="medium"
+    ),
+    TestQuery(
+        query="Draft a resignation letter",
+        query_type="open-ended",
+        expected_route="remote",
+        ground_truth="Professional tone, effective date, gratitude",
+        context=[],
+        difficulty="medium"
+    ),
+    TestQuery(
+        query="Suggest a workout routine for beginners",
+        query_type="open-ended",
+        expected_route="remote",
+        ground_truth="Mix of cardio and strength, warm-up/cool-down, manageable intensity",
+        context=[],
+        difficulty="medium"
+    ),
+    TestQuery(
+        query="Write a poem about the ocean",
+        query_type="open-ended",
+        expected_route="remote",
+        ground_truth="Creative writing about waves, depth, blue color, marine life",
         context=[],
         difficulty="medium"
     ),

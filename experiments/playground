@@ -1,0 +1,24 @@
+import PyPDF2
+import os
+
+def main():
+    path = "/Users/eric/Documents/cs329a/financebench/pdfs"
+    for file in os.listdir(path):
+        if not file.endswith(".pdf"):
+            continue
+        if os.path.exists(os.path.join(path, file[:-4] + ".txt")):
+            continue
+        print("Processing file: " + file)
+        try:
+            with open(os.path.join(path, file), "rb") as pdf_file:
+                pdf_reader = PyPDF2.PdfReader(pdf_file)
+                text_content = ""
+                for page in pdf_reader.pages:
+                    text_content += page.extract_text()
+            with open(os.path.join(path, file[:-4] + ".txt"), "w") as txt_file:
+                txt_file.write(text_content)
+        except Exception as e:
+            print(f"Error processing file {file}: {e}")
+
+if __name__ == "__main__":
+    main()

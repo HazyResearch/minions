@@ -213,9 +213,12 @@ class SmartRouter:
 
         # Try local-only response
         try:
-            local_response, usage, _ = local_client.chat([
-                {"role": "user", "content": f"Answer concisely: {query}"}
-            ])
+            local_response, usage, _ = local_client.chat(
+                messages=[
+                    {"role": "user", "content": f"Answer concisely: {query}"}
+                ],
+                logprobs=True
+            )
 
             response_text = local_response[0]
 

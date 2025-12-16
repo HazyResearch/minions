@@ -2372,6 +2372,7 @@ with st.sidebar:
         elif local_provider == "Transformers":
             local_model_options = {
                 "Rnj-1-Instruct (Recommended)": "EssentialAI/rnj-1-instruct",
+                "NVIDIA-Nemotron-3-Nano-30B-A3B-BF16": "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16",
                 "nomos-1-8b": "NousResearch/nomos-1-8b",
                 "Trinity-Mini": "arcee-ai/Trinity-Mini", 
                 "Orchestrator-8B": "nvidia/Orchestrator-8B",

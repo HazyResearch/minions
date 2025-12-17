@@ -35,9 +35,14 @@ class OpenAIClient(MinionsClient):
             temperature: Sampling temperature (default: 0.0)
             max_tokens: Maximum number of tokens to generate (default: 4096)
             base_url: Base URL for the OpenAI API (optional, falls back to OPENAI_BASE_URL environment variable or default URL)
-            use_responses_api: Whether to use responses API for o1-pro models (default: False)
+            use_responses_api: Whether to use responses API (default: False)
             tools: List of tools for function calling (default: None)
-            reasoning_effort: Reasoning effort level for o1 models (default: "low")
+            reasoning_effort: Reasoning effort level for reasoning models. Valid values depend on model:
+                - gpt-5, gpt-5-mini, gpt-5-nano: "minimal", "low", "medium", "high"
+                - gpt-5-codex, gpt-5.1-codex: "low", "medium", "high" (no "minimal")
+                - gpt-5.1-codex-max: "none", "medium", "high", "xhigh"
+                - gpt-5.2: "none", "low", "medium", "high", "xhigh"
+                (default: "low")
             conversation_id: Conversation ID for responses API (optional, only used when use_responses_api=True)
             service_tier: Service tier for request processing - "auto" or "priority" (default: None, which uses standard processing)
             verbosity: Verbosity level for responses API - "low", "medium", or "high" (default: None)
@@ -63,10 +68,7 @@ class OpenAIClient(MinionsClient):
 
         # Initialize the client
         self.client = openai.OpenAI(api_key=self.api_key, base_url=self.base_url)
-        if "o1-pro" in self.model_name:
-            self.use_responses_api = True
-        else:
-            self.use_responses_api = use_responses_api
+        self.use_responses_api = use_responses_api
 
         if not conversation_id and use_responses_api:
             self.conversation = self.client.conversations.create()
@@ -76,8 +78,9 @@ class OpenAIClient(MinionsClient):
 
         self.tools = tools
         self.reasoning_effort = reasoning_effort
-        if "gpt5" in self.model_name and self.reasoning_effort == "low":
-            self.reasoning_effort = "minimal"
+        
+        # Validate reasoning_effort for the specific model
+        self._validate_reasoning_effort()
         
         # Priority processing support via service_tier
         self.service_tier = service_tier
@@ -100,6 +103,48 @@ class OpenAIClient(MinionsClient):
                 raise RuntimeError(("Local OpenAI server at {} is "
                     "not running or reachable.".format(self.base_url)))
 
+    def _is_reasoning_model(self) -> bool:
+        """
+        Check if the current model is a reasoning model (GPT-5 family).
+        
+        Returns:
+            True if the model supports reasoning effort, False otherwise.
+        """
+        model_lower = self.model_name.lower()
+        return "gpt-5" in model_lower or "gpt5" in model_lower
+
+    def _validate_reasoning_effort(self):
+        """
+        Validate and warn about reasoning_effort compatibility with the model.
+        
+        Different GPT-5 model variants support different reasoning effort values:
+        - gpt-5, gpt-5-mini, gpt-5-nano: "minimal", "low", "medium", "high"
+        - gpt-5-codex, gpt-5.1-codex: "low", "medium", "high" (no "minimal")
+        - gpt-5.1-codex-max: "none", "medium", "high", "xhigh"
+        - gpt-5.2: "none", "low", "medium", "high", "xhigh"
+        """
+        if not self._is_reasoning_model():
+            return
+            
+        model_lower = self.model_name.lower()
+        
+        # Define supported reasoning efforts per model variant
+        if "gpt-5.2" in model_lower or "gpt5.2" in model_lower:
+            supported = ["none", "low", "medium", "high", "xhigh"]
+        elif "gpt-5.1-codex-max" in model_lower or "gpt5.1-codex-max" in model_lower:
+            supported = ["none", "medium", "high", "xhigh"]
+        elif "codex" in model_lower:
+            # gpt-5-codex, gpt-5.1-codex variants (but not codex-max which is handled above)
+            supported = ["low", "medium", "high"]
+        else:
+            # General gpt-5, gpt-5-mini, gpt-5-nano, gpt-5.1
+            supported = ["minimal", "low", "medium", "high"]
+        
+        if self.reasoning_effort not in supported:
+            self.logger.warning(
+                f"reasoning_effort '{self.reasoning_effort}' may not be supported for model '{self.model_name}'. "
+                f"Supported values are: {supported}. This may cause an API error."
+            )
 
     def get_conversation_id(self):
         return self.conversation_id
@@ -132,10 +177,10 @@ class OpenAIClient(MinionsClient):
                 "prompt_cache_key": "minions-v1",
                 **kwargs,
             }
-            if "o1" in self.model_name or "o3" in self.model_name:
+            
+            # Add reasoning effort for GPT-5 reasoning models
+            if self._is_reasoning_model():
                 params["reasoning"] = {"effort": self.reasoning_effort}
-                # delete "tools" from params
-                del params["tools"]
             
             # Add conversation_id if provided
             if self.conversation_id is not None:
@@ -197,10 +242,12 @@ class OpenAIClient(MinionsClient):
                     **kwargs,
                 }
 
-                # Only add temperature if NOT using the reasoning models (e.g., o3-mini model)
-                if "o1" not in self.model_name and "o3" not in self.model_name:
+                # Add temperature for non-reasoning models
+                if not self._is_reasoning_model():
                     params["temperature"] = self.temperature
-                if "o1" in self.model_name or "o3" in self.model_name:
+                
+                # Add reasoning_effort for GPT-5 reasoning models
+                if self._is_reasoning_model():
                     params["reasoning_effort"] = self.reasoning_effort
                 
                 # Add service_tier for priority processing if specified

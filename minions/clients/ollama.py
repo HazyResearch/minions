@@ -564,6 +564,7 @@ class OllamaTurboClient(MinionsClient):
             List[str]: List of model names
         """
         return [
+            "gemini-3-flash-preview:cloud",
             "gemini-3-pro-preview:cloud",
             "gpt-oss:20b",
             "gpt-oss:120b",

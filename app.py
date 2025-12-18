@@ -2742,8 +2742,9 @@ with st.sidebar:
             default_model_index = 0
         elif selected_provider == "Ollama":
             model_mapping = {
-                "gemini-3-pro-preview:cloud (Recommended)": "gemini-3-pro-preview:cloud",
-                "kimi-k2-thinking:cloud": "kimi-k2-thinking:cloud",
+                "gemini-3-flash-preview": "gemini-3-flash-preview:cloud",
+                "gemini-3-pro-preview": "gemini-3-pro-preview:cloud",
+                "kimi-k2-thinking": "kimi-k2-thinking:cloud",
                 "qwen3-vl:235b-cloud": "qwen3-vl:235b-cloud",
                 "kimi-k2:1t-cloud": "kimi-k2:1t-cloud",
                 "deepseek-v3.1:671b": "deepseek-v3.1:671b-cloud",

@@ -23,6 +23,7 @@ class OpenRouterClient(OpenAIClient):
         use_responses_api: bool = False,
         reasoning_effort: str = "low",
         fallback_models: Optional[List[str]] = None,
+        variant: Optional[str] = None,
         **kwargs
     ):
         """Initialize the OpenRouter client.
@@ -39,6 +40,8 @@ class OpenRouterClient(OpenAIClient):
             use_responses_api: Use responses API for reasoning models.
             reasoning_effort: Reasoning effort for reasoning models: "low", "medium", "high".
             fallback_models: List of fallback models if primary fails.
+            routing: Routing preference: "nitro" (throughput) or "floor" (price). 
+                     Appends suffix to model_name.
         """
         if api_key is None:
             api_key = os.environ.get("OPENROUTER_API_KEY")
@@ -57,6 +60,16 @@ class OpenRouterClient(OpenAIClient):
         if verbosity not in ["low", "medium", "high"]:
             raise ValueError(f"Invalid verbosity '{verbosity}'. Must be: low, medium, high")
         self.verbosity = verbosity
+
+        # Handle model variant preference (nitro/free/exacto/extended/thinking)
+        if variant:
+            if variant not in ["nitro", "free", "exacto", "extended", "thinking", "online"]:
+                raise ValueError("Variant must be either 'nitro', 'free', 'exacto', 'extended', 'thinking', or 'online'")
+            
+            # Append suffix if not already present
+            suffix = f":{variant}"
+            if not model_name.endswith(suffix):
+                model_name = f"{model_name}{suffix}"
 
         # Auto-enable responses API for reasoning models
         self.use_responses_api = use_responses_api or any(
@@ -86,7 +99,7 @@ class OpenRouterClient(OpenAIClient):
         self.logger.info(
             f"Initialized OpenRouter client: model={model_name}, "
             f"verbosity={verbosity}, responses_api={self.use_responses_api}, "
-            f"fallbacks={fallback_models}"
+            f"fallbacks={fallback_models}, routing={routing}"
         )
 
     def _get_extra_headers(self) -> Dict[str, str]:

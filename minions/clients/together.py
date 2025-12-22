@@ -1,6 +1,7 @@
 from typing import Any, Dict, List, Optional, Tuple
 import os
-from together import Together
+# CHANGE: Import TogetherError for v2 exception handling
+from together import Together, TogetherError
 
 from minions.usage import Usage
 from minions.clients.base import MinionsClient
@@ -18,13 +19,6 @@ class TogetherClient(MinionsClient):
     ):
         """
         Initialize the Together client.
-
-        Args:
-            model_name: The name of the model to use (default: "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo")
-            api_key: Together API key (optional, falls back to environment variable if not provided)
-            temperature: Sampling temperature (default: 0.0)
-            max_tokens: Maximum number of tokens to generate (default: 2048)
-            **kwargs: Additional parameters passed to base class
         """
         super().__init__(
             model_name=model_name,
@@ -37,22 +31,17 @@ class TogetherClient(MinionsClient):
         
         # Client-specific configuration
         self.api_key = api_key or os.getenv("TOGETHER_API_KEY")
+        # v2.0: Client instantiation remains the same
         self.client = Together(api_key=self.api_key)
 
     def chat(self, messages: List[Dict[str, Any]], **kwargs) -> Tuple[List[str], Usage, List[str]]:
         """
         Handle chat completions using the Together API.
-
-        Args:
-            messages: List of message dictionaries with 'role' and 'content' keys
-            **kwargs: Additional arguments to pass to client.chat.completions.create
-
-        Returns:
-            Tuple of (List[str], Usage, List[str]) containing response strings, token usage, and done reasons
         """
         assert len(messages) > 0, "Messages cannot be empty."
 
         try:
+            # v2.0: Enforce keyword arguments via dictionary unpacking
             params = {
                 "model": self.model_name,
                 "messages": messages,
@@ -62,17 +51,22 @@ class TogetherClient(MinionsClient):
             }
 
             response = self.client.chat.completions.create(**params)
+            
+        # CHANGE: Catch specific TogetherError instead of generic Exception
+        except TogetherError as e:
+            self.logger.error(f"Together API Error: {e}")
+            raise
         except Exception as e:
-            self.logger.error(f"Error during Together API call: {e}")
+            self.logger.error(f"Unexpected error during Together call: {e}")
             raise
 
-        # Extract usage information
+        # v2.0: Response is a Pydantic model, so attribute access (.usage) is correct
         usage = Usage(
             prompt_tokens=response.usage.prompt_tokens,
             completion_tokens=response.usage.completion_tokens
         )
         
-        # Extract done reasons (finish_reason in OpenAI-compatible APIs)
+        # v2.0: .finish_reason access is correct
         done_reasons = [choice.finish_reason for choice in response.choices]
         return [choice.message.content for choice in response.choices], usage, done_reasons
 
@@ -83,28 +77,9 @@ class TogetherClient(MinionsClient):
         **kwargs
     ) -> Dict[str, Any]:
         """
-        Compute log probabilities for the prompt and optional completion tokens
-        using the Together completions API.
-
-        Args:
-            prompt: The prompt text to compute probabilities for
-            completion: Optional completion text to compute probabilities for
-            **kwargs: Additional arguments:
-                - logprobs: Number of top logprobs to return per token (default: 1)
-                - model: Override the default model
-
-        Returns:
-            Dict[str, Any]: Dictionary containing token log probabilities
-                {
-                    'prompt_tokens': List of prompt tokens,
-                    'prompt_logprobs': List of log probabilities for prompt tokens,
-                    'completion_tokens': List of completion tokens (if completion provided),
-                    'completion_logprobs': List of log probabilities for completion tokens,
-                    'top_logprobs': (Optional) List of top logprob dicts per position
-                }
+        Compute log probabilities using the Together completions API.
         """
         try:
-            # Build the full text (prompt + optional completion)
             full_text = prompt
             if completion:
                 full_text = prompt + completion
@@ -112,7 +87,7 @@ class TogetherClient(MinionsClient):
             logprobs = kwargs.get("logprobs", 1)
             model = kwargs.get("model", self.model_name)
 
-            # Get logprobs for the full sequence using echo=True
+            # v2.0: Ensure all arguments are passed as keywords
             response = self.client.completions.create(
                 model=model,
                 prompt=full_text,
@@ -121,7 +96,6 @@ class TogetherClient(MinionsClient):
                 logprobs=logprobs,
             )
 
-            # Extract the response data
             choice = response.choices[0]
             
             result = {
@@ -131,14 +105,15 @@ class TogetherClient(MinionsClient):
                 'completion_logprobs': [],
             }
 
-            # Get tokens and logprobs from the response
+            # v2.0: Pydantic object access for logprobs
             if hasattr(choice, 'logprobs') and choice.logprobs:
-                tokens = choice.logprobs.tokens if hasattr(choice.logprobs, 'tokens') else []
-                token_logprobs = choice.logprobs.token_logprobs if hasattr(choice.logprobs, 'token_logprobs') else []
+                # Access attributes safely
+                tokens = getattr(choice.logprobs, 'tokens', [])
+                token_logprobs = getattr(choice.logprobs, 'token_logprobs', [])
                 
-                # If completion was provided, we need to split tokens between prompt and completion
                 if completion:
-                    # Find approximate split point by tokenizing prompt separately
+                    # Helper call to split prompt/completion
+                    # CHANGE: Ensure kwargs usage here as well
                     prompt_response = self.client.completions.create(
                         model=model,
                         prompt=prompt,
@@ -149,24 +124,26 @@ class TogetherClient(MinionsClient):
                     prompt_choice = prompt_response.choices[0]
                     
                     if hasattr(prompt_choice, 'logprobs') and prompt_choice.logprobs:
-                        prompt_token_count = len(prompt_choice.logprobs.tokens) if hasattr(prompt_choice.logprobs, 'tokens') else 0
+                        prompt_tokens_list = getattr(prompt_choice.logprobs, 'tokens', [])
+                        prompt_token_count = len(prompt_tokens_list)
                         
-                        # Split tokens and logprobs
                         result['prompt_tokens'] = tokens[:prompt_token_count]
                         result['prompt_logprobs'] = token_logprobs[:prompt_token_count]
                         result['completion_tokens'] = tokens[prompt_token_count:]
                         result['completion_logprobs'] = token_logprobs[prompt_token_count:]
                 else:
-                    # No completion, all tokens are prompt tokens
                     result['prompt_tokens'] = tokens
                     result['prompt_logprobs'] = token_logprobs
 
-                # Include top logprobs if available and requested
                 if logprobs > 1 and hasattr(choice.logprobs, 'top_logprobs'):
                     result['top_logprobs'] = choice.logprobs.top_logprobs
 
             return result
 
+        # CHANGE: Specific error handling
+        except TogetherError as e:
+            self.logger.error(f"Together API Error in get_sequence_probs: {e}")
+            raise
         except Exception as e:
             self.logger.error(f"Error computing sequence probabilities: {e}")
             raise

@@ -112,6 +112,7 @@ API_PRICES = {
         "gpt-5.1-codex-max": {"input": 1.25, "cached_input": 0.125, "output": 10.00},
         # GPT-5.2 Series
         "gpt-5.2": {"input": 1.75, "cached_input": 0.175, "output": 14.00},
+        "gpt-5.2-pro": {"input": 21, "cached_input": 8.75, "output": 168.00},
     },
     # Grok (xAI) model pricing per 1M tokens (Updated Nov 2025)
     "Grok": {
@@ -2561,6 +2562,7 @@ with st.sidebar:
                 "gpt-5.1-codex-max": "gpt-5.1-codex-max",
                 # GPT-5.2 family
                 "gpt-5.2": "gpt-5.2",
+                "gpt-5.2-pro": "gpt-5.2-pro",
             }
             default_model_index = 0
         elif selected_provider == "AzureOpenAI":

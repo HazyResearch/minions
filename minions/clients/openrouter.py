@@ -24,6 +24,7 @@ class OpenRouterClient(OpenAIClient):
         reasoning_effort: str = "low",
         fallback_models: Optional[List[str]] = None,
         variant: Optional[str] = None,
+        response_healing: bool = False,
         **kwargs
     ):
         """Initialize the OpenRouter client.
@@ -40,8 +41,8 @@ class OpenRouterClient(OpenAIClient):
             use_responses_api: Use responses API for reasoning models.
             reasoning_effort: Reasoning effort for reasoning models: "low", "medium", "high".
             fallback_models: List of fallback models if primary fails.
-            routing: Routing preference: "nitro" (throughput) or "floor" (price). 
-                     Appends suffix to model_name.
+            variant: Routing preference ("nitro", "online", etc.) Appends suffix to model_name.
+            response_healing: Whether to enable OpenRouter's JSON repair feature by default.
         """
         if api_key is None:
             api_key = os.environ.get("OPENROUTER_API_KEY")
@@ -56,6 +57,8 @@ class OpenRouterClient(OpenAIClient):
         self.site_url = site_url or os.environ.get("OPENROUTER_SITE_URL")
         self.site_name = site_name or os.environ.get("OPENROUTER_SITE_NAME")
         self.fallback_models = fallback_models
+        # CHANGE: Store default preference
+        self.response_healing = response_healing
 
         if verbosity not in ["low", "medium", "high"]:
             raise ValueError(f"Invalid verbosity '{verbosity}'. Must be: low, medium, high")
@@ -99,7 +102,7 @@ class OpenRouterClient(OpenAIClient):
         self.logger.info(
             f"Initialized OpenRouter client: model={model_name}, "
             f"verbosity={verbosity}, responses_api={self.use_responses_api}, "
-            f"fallbacks={fallback_models}, routing={routing}"
+            f"fallbacks={fallback_models}, healing={response_healing}"
         )
 
     def _get_extra_headers(self) -> Dict[str, str]:
@@ -163,13 +166,15 @@ class OpenRouterClient(OpenAIClient):
 
         Args:
             messages: List of message dicts with 'role' and 'content' keys.
-            **kwargs: Additional arguments for chat.completions.create.
-                     Can include plugins for PDF processing, etc.
+            **kwargs: Additional arguments. 'response_healing' (bool) can be passed here.
         """
         if self.use_responses_api:
             return self.responses(messages, **kwargs)
 
         assert len(messages) > 0, "Messages cannot be empty."
+
+        # CHANGE: Check for response healing override or default
+        enable_healing = kwargs.pop("response_healing", self.response_healing)
 
         params = {
             "model": self.model_name,
@@ -180,10 +185,31 @@ class OpenRouterClient(OpenAIClient):
             **kwargs,
         }
 
-        # Add fallback models if configured
+        # CHANGE: Apply Response Healing Logic
+        if enable_healing:
+            # 1. Ensure stream is False (healing incompatible with streaming)
+            params["stream"] = False
+            
+            # 2. Ensure JSON mode is requested if not already present
+            if "response_format" not in params:
+                params["response_format"] = {"type": "json_object"}
+            
+            # 3. Add the healing plugin via extra_body
+            extra_body = params.get("extra_body", {})
+            plugins = extra_body.get("plugins", [])
+            
+            # Avoid adding duplicate plugin entries
+            if not any(p.get("id") == "response-healing" for p in plugins):
+                plugins.append({"id": "response-healing"})
+            
+            extra_body["plugins"] = plugins
+            params["extra_body"] = extra_body
+
+        # Add fallback models if configured (and not already in extra_body)
         if self.fallback_models:
             params["extra_body"] = params.get("extra_body", {})
-            params["extra_body"]["models"] = self.fallback_models
+            if "models" not in params["extra_body"]:
+                params["extra_body"]["models"] = self.fallback_models
 
         try:
             response = self.client.chat.completions.create(**params)
@@ -213,13 +239,7 @@ class OpenRouterClient(OpenAIClient):
         encoding_format: str = "float",
         **kwargs
     ) -> List[List[float]]:
-        """Generate embeddings using the OpenRouter API.
-
-        Args:
-            content: Text to embed (string or list of strings).
-            model: Embedding model override. Defaults to instance model_name.
-            encoding_format: "float" or "base64".
-        """
+        """Generate embeddings using the OpenRouter API."""
         if isinstance(content, str):
             content = [content]
 

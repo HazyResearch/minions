@@ -19,6 +19,8 @@ class GroqClient(MinionsClient):
         local: bool = False,
         tools: List[Dict[str, Any]] = None,
         reasoning_effort: str = "low",
+        documents: Optional[List[Dict[str, Any]]] = None,
+        citation_options: Optional[str] = None,
         **kwargs
     ):
         """
@@ -34,6 +36,12 @@ class GroqClient(MinionsClient):
             tools: List of tools for function calling or MCP (default: None)
             reasoning_effort: Reasoning effort level for reasoning models (default: "low")
             local: Whether this is a local client (default: False)
+            documents: List of documents to provide context for the conversation. Each document
+                should be a dict containing text that can be referenced by the model.
+                Example: [{"type": "text", "text": "Document content here"}]
+            citation_options: Whether to enable citations in the response. Allowed values:
+                "enabled" (default), "disabled". When enabled, the model will include
+                citations for information retrieved from provided documents.
             **kwargs: Additional parameters passed to base class
         """
         super().__init__(
@@ -61,6 +69,10 @@ class GroqClient(MinionsClient):
         self.use_responses_api = use_responses_api
         self.tools = tools
         self.reasoning_effort = reasoning_effort
+        
+        # Documents configuration
+        self.documents = documents
+        self.citation_options = citation_options
 
     def responses(
         self, messages: List[Dict[str, Any]], **kwargs
@@ -127,12 +139,25 @@ class GroqClient(MinionsClient):
 
         return outputs, usage
 
-    def chat(self, messages: List[Dict[str, Any]], **kwargs) -> Tuple[List[str], Usage]:
+    def chat(
+        self,
+        messages: List[Dict[str, Any]],
+        documents: Optional[List[Dict[str, Any]]] = None,
+        citation_options: Optional[str] = None,
+        **kwargs
+    ) -> Tuple[List[str], Usage]:
         """
         Handle chat completions using the Groq API via OpenAI compatibility.
 
         Args:
             messages: List of message dictionaries with 'role' and 'content' keys
+            documents: List of documents to provide context for the conversation.
+                Each document should be a dict containing text that can be referenced
+                by the model. Overrides instance-level documents if provided.
+                Example: [{"type": "text", "text": "Document content here"}]
+            citation_options: Whether to enable citations in the response.
+                Allowed values: "enabled", "disabled". Overrides instance-level
+                setting if provided.
             **kwargs: Additional arguments to pass to client.chat.completions.create
 
         Returns:
@@ -144,6 +169,11 @@ class GroqClient(MinionsClient):
         
         assert len(messages) > 0, "Messages cannot be empty."
 
+        # Use provided documents or fall back to instance-level documents
+        docs = documents if documents is not None else self.documents
+        # Use provided citation_options or fall back to instance-level setting
+        citations = citation_options if citation_options is not None else self.citation_options
+
         try:
             params = {
                 "model": self.model_name,
@@ -152,6 +182,14 @@ class GroqClient(MinionsClient):
                 "temperature": self.temperature,
                 **kwargs,
             }
+            
+            # Add documents if provided
+            if docs is not None:
+                params["documents"] = docs
+            
+            # Add citation_options if provided
+            if citations is not None:
+                params["citation_options"] = citations
 
             response = self.client.chat.completions.create(**params)
         except Exception as e:
@@ -170,4 +208,4 @@ class GroqClient(MinionsClient):
         if self.local:
             return [choice.message.content for choice in response.choices], usage, finish_reasons
         else:
-            return [choice.message.content for choice in response.choices], usage 
+            return [choice.message.content for choice in response.choices], usage

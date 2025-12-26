@@ -2744,6 +2744,7 @@ with st.sidebar:
             default_model_index = 0
         elif selected_provider == "Ollama":
             model_mapping = {
+                "glm-4.7": "glm-4.7:cloud",
                 "gemini-3-flash-preview": "gemini-3-flash-preview:cloud",
                 "gemini-3-pro-preview": "gemini-3-pro-preview:cloud",
                 "kimi-k2-thinking": "kimi-k2-thinking:cloud",

@@ -565,6 +565,7 @@ class OllamaTurboClient(MinionsClient):
         """
         return [
             "gemini-3-flash-preview:cloud",
+            "glm-4.7:cloud",
             "gemini-3-pro-preview:cloud",
             "gpt-oss:20b",
             "gpt-oss:120b",

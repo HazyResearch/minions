@@ -212,6 +212,18 @@ export MISTRAL_API_KEY=<your-mistral-api-key>
 
 # MiniMax
 export MINIMAX_API_KEY=<your-minimax-api-key>
+
+# Gemini
+export GEMINI_API_KEY=<your-gemini-api-key>
+
+# Groq
+export GROQ_API_KEY=<your-groq-api-key>
+
+# Grok (xAI)
+export XAI_API_KEY=<your-xai-api-key>
+
+# Cohere
+export COHERE_API_KEY=<your-cohere-api-key>
 ```
 
 ## Minions Demo Application
@@ -593,7 +605,7 @@ docker rm minions-container
 
 To run Minion/Minions in a CLI, checkout `minions_cli.py`.
 
-Set your choice of local and remote models by running the following command. The format is `<provider>/<model_name>`. Choice of providers are `ollama`, `openai`, `anthropic`, `together`, `perplexity`, `openrouter`, `groq`, and `mlx`.
+Set your choice of local and remote models by running the following command. The format is `<provider>/<model_name>`. Choice of providers are `ollama`, `openai`, `anthropic`, `together`, `perplexity`, `openrouter`, `groq`, `deepseek`, and `mlx`.
 
 ```bash
 export MINIONS_LOCAL=ollama/llama3.2
@@ -655,7 +667,7 @@ print(f"Log saved to: {result['log_file']}")
 protocol.end_session()
 ```
 
-#### Command Line Interfacec
+#### Command Line Interface
 
 ```bash
 python secure/minions_secure.py \
@@ -682,6 +694,7 @@ The `apps/` directory contains specialized applications demonstrating various us
 - 📊 **[A2A-Minions](apps/minions-a2a/)** - Agent-to-Agent integration server
 - 🎭 **[Character Chat](apps/minions-character-chat/)** - Role-playing with AI personas
 - 🔍 **[Document Search](apps/minions-doc-search/)** - Multi-method document retrieval
+- 🐳 **[Docker](apps/minions-docker/)** - Containerized Minions with HTTP servers
 - 📚 **[Story Teller](apps/minions-story-teller/)** - Creative storytelling with illustrations
 - 🛠️ **[Tools Comparison](apps/minions-tools/)** - MCP tools performance comparison
 - 🌐 **[WebGPU App](apps/minions-webgpu/)** - Browser-based Minions protocol

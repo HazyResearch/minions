@@ -27,9 +27,11 @@ except ImportError:
 # Gemini Embeddings support
 try:
     from google import genai
+    from google.genai import types as genai_types
     GEMINI_AVAILABLE = True
 except ImportError:
     GEMINI_AVAILABLE = False
+    genai_types = None
 
 # OpenRouter Embeddings support
 try:
@@ -51,6 +53,13 @@ try:
     OLLAMA_AVAILABLE = True
 except ImportError:
     OLLAMA_AVAILABLE = False
+
+# Mistral Embeddings support
+try:
+    from mistralai import Mistral
+    MISTRAL_AVAILABLE = True
+except ImportError:
+    MISTRAL_AVAILABLE = False
 
 
 ### EMBEDDING MODELS ###
@@ -215,13 +224,25 @@ class GeminiEmbeddings(BaseEmbeddingModel):
     Implementation of embedding model using Google Gemini Embeddings.
     
     This class provides an interface to use Gemini-based embedding models
-    with the existing retrieval system.
+    with the existing retrieval system. Supports task-type optimization
+    and flexible output dimensionality.
+    
+    See: https://ai.google.dev/gemini-api/docs/embeddings
     """
 
     _instances = {}  # Dictionary to store instances by model name
-    _default_model_name = "text-embedding-004"
+    _default_model_name = "gemini-embedding-001"
+    
+    # Valid task types for optimizing embeddings
+    TASK_TYPES = [
+        "SEMANTIC_SIMILARITY",
+        "RETRIEVAL_DOCUMENT",
+        "RETRIEVAL_QUERY", 
+        "CLASSIFICATION",
+        "CLUSTERING",
+    ]
 
-    def __new__(cls, model_name=None):
+    def __new__(cls, model_name=None, task_type=None, output_dimensionality=None):
         if not GEMINI_AVAILABLE:
             raise ImportError(
                 "google-genai is required to use GeminiEmbeddings. "
@@ -229,17 +250,22 @@ class GeminiEmbeddings(BaseEmbeddingModel):
             )
 
         model_name = model_name or cls._default_model_name
+        
+        # Create a unique key based on model name and config
+        instance_key = f"{model_name}_{task_type}_{output_dimensionality}"
         print(f"Using Gemini embedding model: {model_name}")
 
-        # Check if we already have an instance for this model
-        if model_name not in cls._instances:
+        # Check if we already have an instance for this configuration
+        if instance_key not in cls._instances:
             instance = super(GeminiEmbeddings, cls).__new__(cls)
             instance.model_name = model_name
+            instance.task_type = task_type
+            instance.output_dimensionality = output_dimensionality
             instance.api_key = cls._get_api_key()
             instance._client = genai.Client(api_key=instance.api_key)
-            cls._instances[model_name] = instance
+            cls._instances[instance_key] = instance
         
-        return cls._instances[model_name]
+        return cls._instances[instance_key]
 
     @staticmethod
     def _get_api_key():
@@ -256,13 +282,28 @@ class GeminiEmbeddings(BaseEmbeddingModel):
         """Get the Gemini client."""
         return self._client
 
-    def encode(self, texts: Union[str, List[str]], **kwargs) -> np.ndarray:
+    def encode(
+        self, 
+        texts: Union[str, List[str]], 
+        task_type: str = None,
+        output_dimensionality: int = None,
+        **kwargs
+    ) -> np.ndarray:
         """
         Encode texts to create embeddings using Gemini model.
 
         Args:
             texts: Single text or list of texts to encode
-            **kwargs: Additional arguments (currently unused)
+            task_type: Optional task type to optimize embeddings. Valid values:
+                      - "SEMANTIC_SIMILARITY": Compare text similarity
+                      - "RETRIEVAL_DOCUMENT": Embed documents for retrieval
+                      - "RETRIEVAL_QUERY": Embed queries for retrieval
+                      - "CLASSIFICATION": Embed text for classification
+                      - "CLUSTERING": Embed text for clustering
+            output_dimensionality: Optional output dimension size (128-3072).
+                      Recommended values: 768, 1536, 3072.
+                      If not specified, defaults to model's full dimension (3072).
+            **kwargs: Additional arguments including batch_size
 
         Returns:
             Numpy array of embeddings
@@ -270,6 +311,10 @@ class GeminiEmbeddings(BaseEmbeddingModel):
         # Handle single text input
         if isinstance(texts, str):
             texts = [texts]
+
+        # Use instance defaults if not specified
+        task_type = task_type or self.task_type
+        output_dimensionality = output_dimensionality or self.output_dimensionality
 
         embeddings_list = []
         
@@ -280,10 +325,21 @@ class GeminiEmbeddings(BaseEmbeddingModel):
             batch_texts = texts[i:i + batch_size]
             
             try:
+                # Build config if we have task_type or output_dimensionality
+                config = None
+                if genai_types and (task_type or output_dimensionality):
+                    config_kwargs = {}
+                    if task_type:
+                        config_kwargs["task_type"] = task_type
+                    if output_dimensionality:
+                        config_kwargs["output_dimensionality"] = output_dimensionality
+                    config = genai_types.EmbedContentConfig(**config_kwargs)
+                
                 # Use the embed_content method from Gemini API
                 result = self._client.models.embed_content(
                     model=self.model_name,
                     contents=batch_texts,
+                    config=config,
                 )
                 
                 # Extract embeddings from the result
@@ -293,15 +349,15 @@ class GeminiEmbeddings(BaseEmbeddingModel):
                     if isinstance(result.embeddings, list):
                         for embedding in result.embeddings:
                             if hasattr(embedding, 'values'):
-                                batch_embeddings.append(embedding.values)
+                                batch_embeddings.append(list(embedding.values))
                             else:
-                                batch_embeddings.append(embedding)
+                                batch_embeddings.append(list(embedding))
                     else:
                         # Single embedding
                         if hasattr(result.embeddings, 'values'):
-                            batch_embeddings.append(result.embeddings.values)
+                            batch_embeddings.append(list(result.embeddings.values))
                         else:
-                            batch_embeddings.append(result.embeddings)
+                            batch_embeddings.append(list(result.embeddings))
                 else:
                     raise ValueError("No embeddings found in Gemini API response")
                 
@@ -310,7 +366,7 @@ class GeminiEmbeddings(BaseEmbeddingModel):
             except Exception as e:
                 print(f"Error generating embeddings for batch {i//batch_size + 1}: {e}")
                 # Create zero embeddings as fallback
-                fallback_dim = 768  # Default embedding dimension
+                fallback_dim = output_dimensionality or 3072  # Default embedding dimension
                 for _ in batch_texts:
                     embeddings_list.append([0.0] * fallback_dim)
 
@@ -319,16 +375,36 @@ class GeminiEmbeddings(BaseEmbeddingModel):
         return embeddings
 
     @classmethod
-    def get_model_by_name(cls, model_name=None):
+    def get_model_by_name(cls, model_name=None, task_type=None, output_dimensionality=None):
         """Get model by name (for backward compatibility)"""
-        instance = cls(model_name)
+        instance = cls(model_name, task_type, output_dimensionality)
         return instance.get_model()
 
     @classmethod
-    def encode_by_name(cls, texts, model_name=None, **kwargs) -> np.ndarray:
+    def encode_by_name(
+        cls, 
+        texts, 
+        model_name=None, 
+        task_type=None,
+        output_dimensionality=None,
+        **kwargs
+    ) -> np.ndarray:
         """Encode texts using model by name (for backward compatibility)"""
-        instance = cls(model_name)
-        return instance.encode(texts, **kwargs)
+        instance = cls(model_name, task_type, output_dimensionality)
+        return instance.encode(texts, task_type=task_type, output_dimensionality=output_dimensionality, **kwargs)
+    
+    @staticmethod
+    def get_available_models() -> List[str]:
+        """Get list of available Gemini embedding models."""
+        return [
+            "gemini-embedding-001",
+            "text-embedding-004",
+        ]
+    
+    @staticmethod
+    def get_task_types() -> List[str]:
+        """Get list of valid task types for embeddings."""
+        return GeminiEmbeddings.TASK_TYPES
 
 
 class OpenRouterEmbeddings(BaseEmbeddingModel):
@@ -679,6 +755,136 @@ class LiquidAIColBERTEmbeddings(BaseEmbeddingModel):
         """Encode texts using model by name (for backward compatibility)"""
         instance = cls(model_name)
         return instance.encode(texts, is_query=is_query, **kwargs)
+
+
+class MistralEmbeddings(BaseEmbeddingModel):
+    """
+    Implementation of embedding model using Mistral AI Embeddings.
+    
+    This class provides an interface to use Mistral-based embedding models
+    with the existing retrieval system. Mistral's embedding model generates
+    1024-dimensional vectors optimized for retrieval, classification, clustering,
+    and semantic similarity tasks.
+    
+    See: https://docs.mistral.ai/capabilities/embeddings/text_embeddings
+    """
+
+    _instances = {}  # Dictionary to store instances by model name
+    _default_model_name = "mistral-embed"
+
+    def __new__(cls, model_name=None, api_key=None):
+        if not MISTRAL_AVAILABLE:
+            raise ImportError(
+                "mistralai is required to use MistralEmbeddings. "
+                "Please install it with: pip install mistralai"
+            )
+
+        model_name = model_name or cls._default_model_name
+        print(f"Using Mistral embedding model: {model_name}")
+
+        # Check if we already have an instance for this model
+        if model_name not in cls._instances:
+            instance = super(MistralEmbeddings, cls).__new__(cls)
+            instance.model_name = model_name
+            instance.api_key = api_key or cls._get_api_key()
+            instance._client = Mistral(api_key=instance.api_key)
+            cls._instances[model_name] = instance
+        
+        return cls._instances[model_name]
+
+    @staticmethod
+    def _get_api_key():
+        """Get API key from environment variables."""
+        import os
+        api_key = os.getenv("MISTRAL_API_KEY")
+        if not api_key:
+            raise ValueError(
+                "Mistral API key not found. Please set MISTRAL_API_KEY environment variable."
+            )
+        return api_key
+
+    def get_model(self):
+        """Get the Mistral client."""
+        return self._client
+
+    def encode(
+        self, 
+        texts: Union[str, List[str]], 
+        **kwargs
+    ) -> np.ndarray:
+        """
+        Encode texts to create embeddings using Mistral model.
+
+        Args:
+            texts: Single text or list of texts to encode
+            **kwargs: Additional arguments including batch_size
+
+        Returns:
+            Numpy array of embeddings (dimension: 1024)
+        """
+        # Handle single text input
+        if isinstance(texts, str):
+            texts = [texts]
+
+        embeddings_list = []
+        
+        # Process texts in batches to handle API limits
+        batch_size = kwargs.get('batch_size', 100)
+        
+        for i in range(0, len(texts), batch_size):
+            batch_texts = texts[i:i + batch_size]
+            
+            try:
+                # Use the embeddings.create method from Mistral API
+                response = self._client.embeddings.create(
+                    model=self.model_name,
+                    inputs=batch_texts,
+                )
+                
+                # Extract embeddings from the response
+                batch_embeddings = []
+                if hasattr(response, 'data'):
+                    for item in response.data:
+                        if hasattr(item, 'embedding'):
+                            batch_embeddings.append(item.embedding)
+                        else:
+                            batch_embeddings.append(list(item))
+                else:
+                    raise ValueError("No embeddings found in Mistral API response")
+                
+                embeddings_list.extend(batch_embeddings)
+                
+            except Exception as e:
+                print(f"Error generating embeddings for batch {i//batch_size + 1}: {e}")
+                # Create zero embeddings as fallback (1024 is mistral-embed dimension)
+                fallback_dim = 1024
+                if embeddings_list:
+                    fallback_dim = len(embeddings_list[0])
+                for _ in batch_texts:
+                    embeddings_list.append([0.0] * fallback_dim)
+
+        # Convert to numpy array
+        embeddings = np.array(embeddings_list, dtype=np.float32)
+        return embeddings
+
+    @classmethod
+    def get_model_by_name(cls, model_name=None, api_key=None):
+        """Get model by name (for backward compatibility)"""
+        instance = cls(model_name, api_key)
+        return instance.get_model()
+
+    @classmethod
+    def encode_by_name(cls, texts, model_name=None, api_key=None, **kwargs) -> np.ndarray:
+        """Encode texts using model by name (for backward compatibility)"""
+        instance = cls(model_name, api_key)
+        return instance.encode(texts, **kwargs)
+
+    @staticmethod
+    def get_available_models() -> List[str]:
+        """Get list of available Mistral embedding models."""
+        return [
+            "mistral-embed",
+        ]
 
 
 ### RETRIEVERS ###

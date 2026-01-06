@@ -15,7 +15,7 @@ Now with:
 """
 
 import argparse
-from dataclasses import dataclass
+import subprocess
 from typing import Dict, List, Optional
 import sys
 
@@ -296,7 +296,121 @@ def format_params(params: int) -> str:
 
 
 # ──────────────────────────────────────────────────────────────────────────────
-# 3. CLI & top‑level
+# 3. HuggingFace Hub Model Memory Estimation (via hf-mem)
+#    https://github.com/alvarobartt/hf-mem
+# ──────────────────────────────────────────────────────────────────────────────
+
+def run_hf_mem(model_id: str, revision: str = "main") -> Optional[str]:
+    """
+    Run hf-mem CLI to estimate inference memory requirements for a HuggingFace model.
+    
+    Uses the hf-mem package (https://github.com/alvarobartt/hf-mem) to fetch
+    Safetensors metadata from the HuggingFace Hub and estimate memory requirements.
+    
+    Args:
+        model_id: HuggingFace model ID (e.g., "meta-llama/Llama-3.2-1B", "Qwen/Qwen2.5-7B")
+        revision: Git revision/branch (default: "main")
+    
+    Returns:
+        Output from hf-mem CLI as string, or None if failed.
+    
+    Example:
+        >>> output = run_hf_mem("meta-llama/Llama-3.2-1B")
+        >>> print(output)
+    
+    Note:
+        Requires hf-mem to be installed. Install with: pip install hf-mem
+        Or run directly with uvx: uvx hf-mem --model-id <model_id>
+    """
+    import os
+    
+    # Build command
+    cmd = ["uvx", "hf-mem", "--model-id", model_id]
+    if revision != "main":
+        cmd.extend(["--revision", revision])
+    
+    # Add HF_TOKEN if available
+    env = os.environ.copy()
+    
+    try:
+        result = subprocess.run(
+            cmd,
+            capture_output=True,
+            text=True,
+            timeout=60,
+            env=env,
+        )
+        
+        if result.returncode == 0:
+            return result.stdout
+        else:
+            # Try with pip-installed hf-mem
+            cmd[0] = "hf-mem"
+            cmd.remove("hf-mem")  # Remove duplicate
+            cmd = ["hf-mem", "--model-id", model_id]
+            if revision != "main":
+                cmd.extend(["--revision", revision])
+            
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=60,
+                env=env,
+            )
+            
+            if result.returncode == 0:
+                return result.stdout
+            else:
+                print(f"Error running hf-mem: {result.stderr}", file=sys.stderr)
+                return None
+                
+    except FileNotFoundError:
+        print("Error: hf-mem not found. Install with: pip install hf-mem", file=sys.stderr)
+        print("Or run directly with: uvx hf-mem --model-id <model_id>", file=sys.stderr)
+        return None
+    except subprocess.TimeoutExpired:
+        print("Error: hf-mem timed out", file=sys.stderr)
+        return None
+    except Exception as e:
+        print(f"Error running hf-mem: {e}", file=sys.stderr)
+        return None
+
+
+def estimate_hf_model_memory(model_id: str, revision: str = "main") -> None:
+    """
+    Estimate and print inference memory requirements for a HuggingFace model.
+    
+    Uses hf-mem (https://github.com/alvarobartt/hf-mem) to fetch Safetensors 
+    metadata via HTTP Range requests and estimate memory requirements without 
+    downloading the full model.
+    
+    Works with Transformers, Diffusers, and Sentence Transformers models.
+    
+    Args:
+        model_id: HuggingFace model ID (e.g., "MiniMaxAI/MiniMax-M2", "Qwen/Qwen2.5-7B")
+        revision: Git revision/branch (default: "main")
+    
+    Example:
+        >>> estimate_hf_model_memory("meta-llama/Llama-3.2-1B")
+        >>> estimate_hf_model_memory("Qwen/Qwen-Image")  # Diffusers model
+    
+    Note:
+        Requires hf-mem: pip install hf-mem (or use uvx hf-mem)
+    """
+    print(f"Fetching model metadata from HuggingFace Hub: {model_id}...")
+    output = run_hf_mem(model_id, revision)
+    
+    if output:
+        print(output)
+    else:
+        print(f"\nFailed to estimate memory for {model_id}")
+        print("Make sure hf-mem is installed: pip install hf-mem")
+        print(f"Or run directly: uvx hf-mem --model-id {model_id}")
+
+
+# ──────────────────────────────────────────────────────────────────────────────
+# 4. CLI & top‑level
 # ──────────────────────────────────────────────────────────────────────────────
 def main():
     p = argparse.ArgumentParser(
@@ -307,16 +421,22 @@ Examples:
   %(prog)s --model llama-3-8b --dtype fp16 --gpu rtx_4090_24gb
   %(prog)s --model qwen3-32b --dtype int4 --gpu m4_max_64gb --seq 4096
   %(prog)s --model deepseek-v3-671b --dtype fp8 --gpu h100_80gb --batch 4
+  %(prog)s --hf-model meta-llama/Llama-3.2-1B --dtype int4 --gpu rtx_4090_24gb
+  %(prog)s --hf-model Qwen/Qwen2.5-7B --dtype fp16
   %(prog)s --list-models
   %(prog)s --list-gpus
         """
     )
-    p.add_argument("--model", help="Model key (see --list-models)")
+    p.add_argument("--model", help="Model key from built-in database (see --list-models)")
+    p.add_argument("--hf-model", dest="hf_model", 
+                   help="HuggingFace model ID (e.g., meta-llama/Llama-3.2-1B). "
+                        "Fetches metadata directly from HuggingFace Hub.")
     p.add_argument("--dtype", default="fp16", choices=list(DTYPE_SIZE.keys()),
                    help="Data type/precision (default: fp16)")
     p.add_argument("--gpu", help="GPU key or integer GiB (see --list-gpus)")
     p.add_argument("--batch", type=int, default=1, help="Batch size (default: 1)")
     p.add_argument("--seq", type=int, default=2048, help="Sequence length in tokens (default: 2048)")
+    p.add_argument("--revision", default="main", help="HuggingFace model revision (default: main)")
     p.add_argument(
         "--list-models", action="store_true", help="Print available model keys and exit"
     )
@@ -400,13 +520,18 @@ Examples:
         
         sys.exit(0)
 
-    # Validation —
+    # Handle HuggingFace model fetching via hf-mem
+    if args.hf_model:
+        estimate_hf_model_memory(args.hf_model, args.revision)
+        sys.exit(0)
+
+    # Validation for built-in models —
     if args.model is None or args.gpu is None:
-        p.error("--model and --gpu are required unless listing.")
+        p.error("--model (or --hf-model) and --gpu are required unless listing.")
 
     if args.model not in MODEL_DB:
         print(f"Error: Unknown model '{args.model}'.", file=sys.stderr)
-        print("Use --list-models to see available options.", file=sys.stderr)
+        print("Use --list-models to see available options, or use --hf-model to fetch from HuggingFace Hub.", file=sys.stderr)
         sys.exit(1)
 
     meta = MODEL_DB[args.model]

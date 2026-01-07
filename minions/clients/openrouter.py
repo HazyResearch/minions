@@ -176,6 +176,7 @@ class OpenRouterClient(OpenAIClient):
         # CHANGE: Check for response healing override or default
         enable_healing = kwargs.pop("response_healing", self.response_healing)
 
+
         params = {
             "model": self.model_name,
             "messages": messages,
@@ -226,7 +227,7 @@ class OpenRouterClient(OpenAIClient):
         for choice in response.choices:
             content = choice.message.content
             if hasattr(choice.message, 'annotations'):
-                responses.append({'content': content, 'annotations': choice.message.annotations})
+                responses.append({'message': content, 'annotations': choice.message.annotations})
             else:
                 responses.append(content)
 

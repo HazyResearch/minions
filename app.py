@@ -2363,6 +2363,7 @@ with st.sidebar:
                 "VibeThinker-1.5B-mlx-4bit": "mlx-community/VibeThinker-1.5B-mlx-4bit",
                 "SmolLM3-3B-8bit (Recommended)": "mlx-community/SmolLM3-3B-8bit",
                 "AI21-Jamba-Reasoning-3B-4bit": "mlx-community/AI21-Jamba-Reasoning-3B-4bit",
+                "LFM2.5-1.2B-Instruct-MLX-4bit": "LiquidAI/LFM2.5-1.2B-Instruct-MLX-4bit",
                 "LFM2-8B-A1B-8bit": "mlx-community/LFM2-8B-A1B-8bit",   
                 "GLM-4.5-Air-mxfp4": "mlx-community/GLM-4.5-Air-mxfp4",
                 "Qwen3-0.6B-MLX-4bit": "Qwen/Qwen3-0.6B-MLX-4bit",

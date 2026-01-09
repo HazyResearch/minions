@@ -329,9 +329,10 @@ def extract_text_from_pdf(pdf_bytes):
 #         return None
 
 
+# Based on: https://github.com/patchy631/ai-engineering-hub/blob/main/gemma3-ocr/app.py
 def extract_text_from_image(path_to_file):
     try:
-        # set up ollama client with model name="granite3.2-vision"
+        # set up ollama client with model
         client = OllamaClient(
             model_name="gemma3:4b",
             use_async=False,
@@ -341,7 +342,10 @@ def extract_text_from_image(path_to_file):
             messages=[
                 {
                     "role": "user",
-                    "content": "Describe this image:",
+                    "content": """Analyze the text in the provided image. Extract all readable content
+                                and present it in a structured Markdown format that is clear, concise, 
+                                and well-organized. Ensure proper formatting (e.g., headings, lists, or
+                                code blocks) as necessary to represent the content effectively.""",
                     "images": [path_to_file],
                 }
             ],

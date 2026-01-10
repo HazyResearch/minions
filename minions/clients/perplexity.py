@@ -24,6 +24,8 @@ class PerplexityAIClient(MinionsClient):
         search_receny_filter: Optional[str] = None,
         search_after_date_filter: Optional[str] = None,
         search_before_date_filter: Optional[str] = None,
+        search_last_updated_filter: Optional[str] = None,
+        search_max_tokens: Optional[int] = None,
         base_url: Optional[str] = None,
         **kwargs
     ):
@@ -35,6 +37,11 @@ class PerplexityAIClient(MinionsClient):
             api_key: Perplexity API key (optional, falls back to environment variable if not provided)
             temperature: Sampling temperature (default: 0.0)
             max_tokens: Maximum number of tokens to generate (default: 4096)
+            search_receny_filter: Filter search results by recency (optional)
+            search_after_date_filter: Filter search results after a specific date (optional)
+            search_before_date_filter: Filter search results before a specific date (optional)
+            search_last_updated_filter: Filter search results by when content was last updated (optional)
+            search_max_tokens: Maximum tokens extracted per page in search results (optional)
             base_url: Base URL for the Perplexity API (optional, falls back to PERPLEXITY_BASE_URL environment variable or default URL)
             **kwargs: Additional parameters passed to base class
         """
@@ -60,6 +67,8 @@ class PerplexityAIClient(MinionsClient):
         self.search_receny_filter = search_receny_filter
         self.search_after_date_filter = search_after_date_filter
         self.search_before_date_filter = search_before_date_filter
+        self.search_last_updated_filter = search_last_updated_filter
+        self.search_max_tokens = search_max_tokens
 
     def chat(self, messages: List[Dict[str, Any]], **kwargs) -> Tuple[List[str], Usage]:
         """
@@ -151,7 +160,22 @@ class PerplexityAIClient(MinionsClient):
             queries = query
             
         try:
-            search = search_client.search(query=queries, search_after_date_filter=self.search_after_date_filter, search_before_date_filter=self.search_before_date_filter, search_recent_filter=self.search_receny_filter, **kwargs)
+            search_params = {
+                "query": queries,
+                "search_after_date_filter": self.search_after_date_filter,
+                "search_before_date_filter": self.search_before_date_filter,
+                "search_recent_filter": self.search_receny_filter,
+            }
+            
+            # Add last_updated_filter if specified (December 2025 enhancement)
+            if self.search_last_updated_filter is not None:
+                search_params["last_updated_filter"] = self.search_last_updated_filter
+            
+            # Add max_tokens if specified (December 2025 enhancement)
+            if self.search_max_tokens is not None:
+                search_params["max_tokens"] = self.search_max_tokens
+            
+            search = search_client.search(**search_params, **kwargs)
             results = search.results
             return results
             
@@ -175,7 +199,7 @@ class PerplexityAIClient(MinionsClient):
             "sonar-pro", 
             
             # Reasoning models - complex, multi-step tasks with step-by-step thinking
-            "sonar-reasoning",
+            # Note: sonar-reasoning was deprecated and removed as of December 15, 2025
             "sonar-reasoning-pro",
             
             # Research models - in-depth analysis and comprehensive reports

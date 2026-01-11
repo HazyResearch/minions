@@ -1240,7 +1240,73 @@ class GeminiClient(MinionsClient):
             'total_cached_tokens': getattr(usage_data, 'total_cached_tokens', 0),
             'total_input_tokens': getattr(usage_data, 'total_input_tokens', 0),
             'total_output_tokens': getattr(usage_data, 'total_output_tokens', 0),
-            'total_reasoning_tokens': getattr(usage_data, 'total_reasoning_tokens', 0),
+            'total_thought_tokens': getattr(usage_data, 'total_thought_tokens', 0),
             'total_tokens': getattr(usage_data, 'total_tokens', 0),
             'total_tool_use_tokens': getattr(usage_data, 'total_tool_use_tokens', 0),
         }
+
+    # ==========================================================================
+    # Embeddings API Support
+    # ==========================================================================
+
+    def embed(
+        self,
+        content: Union[str, List[str]],
+        model: str = "gemini-embedding-001",
+        task_type: Optional[str] = None,
+        output_dimensionality: Optional[int] = None,
+        **kwargs
+    ) -> List[List[float]]:
+        """
+        Generate embeddings using Gemini's embedding API.
+       
+        See: https://ai.google.dev/gemini-api/docs/embeddings
+        """
+        if self.use_openai_api:
+            raise ValueError("Embeddings are not supported with OpenAI-compatible API. Use native Gemini API instead.")
+        
+        # Ensure content is a list for batch processing
+        if isinstance(content, str):
+            content = [content]
+        
+        try:
+            # Build the config for embed_content
+            config_kwargs = {}
+            
+            if task_type:
+                config_kwargs["task_type"] = task_type
+            
+            if output_dimensionality:
+                config_kwargs["output_dimensionality"] = output_dimensionality
+            
+            # Add any additional kwargs to config
+            config_kwargs.update(kwargs)
+            
+            # Create EmbedContentConfig if we have config options
+            config = None
+            if config_kwargs:
+                config = self.types.EmbedContentConfig(**config_kwargs)
+            
+            # Make the API call
+            result = self.client.models.embed_content(
+                model=model,
+                contents=content,
+                config=config,
+            )
+            
+            # Extract embedding values from response
+            embeddings = []
+            if hasattr(result, 'embeddings') and result.embeddings:
+                for embedding in result.embeddings:
+                    if hasattr(embedding, 'values'):
+                        embeddings.append(list(embedding.values))
+                    elif isinstance(embedding, (list, tuple)):
+                        embeddings.append(list(embedding))
+            
+            self.logger.info(f"Generated {len(embeddings)} embeddings with dimension {len(embeddings[0]) if embeddings else 0}")
+            
+            return embeddings
+            
+        except Exception as e:
+            self.logger.error(f"Error generating embeddings: {e}")
+            raise

@@ -2,6 +2,8 @@ import logging
 from typing import Any, Dict, List, Optional, Tuple, Union
 import os
 
+import requests
+
 from minions.clients.openai import OpenAIClient
 from minions.usage import Usage
 
@@ -18,7 +20,11 @@ class VercelGatewayClient(OpenAIClient):
 
     Reference: https://vercel.com/docs/ai-gateway
     OpenAI Compatibility: https://vercel.com/docs/ai-gateway/openai-compatible-api
+    Usage & Billing: https://vercel.com/docs/ai-gateway/usage
     """
+
+    # Base URL for Usage & Billing API (different from the main gateway URL)
+    USAGE_API_BASE_URL = "https://api.ai-gateway.vercel.sh/v1"
 
     def __init__(
         self,
@@ -56,6 +62,7 @@ class VercelGatewayClient(OpenAIClient):
             base_url = os.environ.get("VERCEL_AI_GATEWAY_BASE_URL", "https://ai-gateway.vercel.sh/v1")
 
         self.provider_options = provider_options
+        self._api_key = api_key  # Store for usage/billing API calls
 
         # Initialize via OpenAI-compatible client
         super().__init__(
@@ -175,21 +182,6 @@ class VercelGatewayClient(OpenAIClient):
         Returns a list of all models available through the gateway, including
         models from all supported providers (OpenAI, Anthropic, xAI, etc.).
 
-        Returns:
-            Dict containing the models data with structure:
-                {
-                    "object": "list",
-                    "data": [
-                        {
-                            "id": "provider/model-name",
-                            "object": "model",
-                            "created": timestamp,
-                            "owned_by": "provider"
-                        },
-                        ...
-                    ]
-                }
-
         Reference: https://vercel.com/docs/ai-gateway/openai-compat#list-models
         """
         try:
@@ -226,4 +218,44 @@ class VercelGatewayClient(OpenAIClient):
             self.logger.error(f"Error retrieving model '{model_id}' via Vercel AI Gateway: {e}")
             raise
 
+    def get_credits(self) -> Dict[str, Any]:
+        """Check AI Gateway credit balance and usage information.
 
+        Reference: https://vercel.com/docs/ai-gateway/usage#credits
+        """
+        try:
+            response = requests.get(
+                f"{self.USAGE_API_BASE_URL}/credits",
+                headers={
+                    "Authorization": f"Bearer {self._api_key}",
+                    "Content-Type": "application/json",
+                },
+            )
+            response.raise_for_status()
+            return response.json()
+        except requests.exceptions.RequestException as e:
+            self.logger.error(f"Error fetching credits from Vercel AI Gateway: {e}")
+            raise
+
+    def get_generation(self, generation_id: str) -> Dict[str, Any]:
+        """Retrieve detailed information about a specific generation by its ID.
+
+        This endpoint allows you to look up usage data, costs, and metadata for
+        any generation created through the AI Gateway. Generation information is
+        available shortly after the generation completes.
+
+        Reference: https://vercel.com/docs/ai-gateway/usage#generation-lookup
+        """
+        try:
+            response = requests.get(
+                f"{self.USAGE_API_BASE_URL}/generations/{generation_id}",
+                headers={
+                    "Authorization": f"Bearer {self._api_key}",
+                    "Content-Type": "application/json",
+                },
+            )
+            response.raise_for_status()
+            return response.json()
+        except requests.exceptions.RequestException as e:
+            self.logger.error(f"Error fetching generation '{generation_id}' from Vercel AI Gateway: {e}")
+            raise

@@ -24,6 +24,7 @@ class AnthropicClient(MinionsClient):
         effort: Optional[str] = None,
         use_context_management: bool = False,
         context_management_config: Optional[Dict[str, Any]] = None,
+        use_strict_tools: bool = True,
         local: bool = False,
         **kwargs
     ):
@@ -51,6 +52,8 @@ class AnthropicClient(MinionsClient):
                         {"type": "clear_thinking_20251015", "keep": {"type": "thinking_turns", "value": 2}}
                     ]
                 }
+            use_strict_tools: Whether to enable strict mode for structured outputs with tools (default: True).
+                When enabled, tools will have strict: True added automatically for guaranteed schema conformance.
             **kwargs: Additional parameters passed to base class
         """
         super().__init__(
@@ -73,6 +76,7 @@ class AnthropicClient(MinionsClient):
         self.thinking_budget_tokens = thinking_budget_tokens
         self.use_context_management = use_context_management
         self.context_management_config = context_management_config
+        self.use_strict_tools = use_strict_tools
         
         # Validate and store effort parameter
         if effort is not None and effort not in ["high", "medium", "low"]:
@@ -239,7 +243,25 @@ class AnthropicClient(MinionsClient):
                 else:
                     params["tools"] = [code_interpreter_tool]
 
-            response = client_for_request.messages.create(**params)
+            # Apply strict mode to user-provided tools for structured outputs
+            if self.use_strict_tools and "tools" in params:
+                for tool in params["tools"]:
+                    # Only add strict to user-defined tools (those with input_schema)
+                    # Skip server-side tools like web_search, web_fetch, code_execution
+                    if "input_schema" in tool and "strict" not in tool:
+                        tool["strict"] = True
+
+            # Use beta API if strict tools are enabled and we have user-defined tools
+            has_user_tools = "tools" in params and any(
+                "input_schema" in tool for tool in params["tools"]
+            )
+            if self.use_strict_tools and has_user_tools:
+                response = client_for_request.beta.messages.create(
+                    betas=["structured-outputs-2025-11-13"],
+                    **params
+                )
+            else:
+                response = client_for_request.messages.create(**params)
         except Exception as e:
             self.logger.error(f"Error during Anthropic API call: {e}")
             raise

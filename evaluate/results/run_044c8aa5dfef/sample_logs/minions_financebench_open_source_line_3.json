@@ -1,0 +1,16 @@
+{
+  "sample_id": "financebench_open_source_line_3",
+  "protocol": "minions",
+  "question": "Is 3M a capital-intensive business based on FY2022 data?",
+  "predicted_answer": "Based on the available data, we cannot conclusively determine if 3M is a capital-intensive business for FY2022.",
+  "ground_truth": [
+    "No, the company is managing its CAPEX and Fixed Assets pretty efficiently, which is evident from below key metrics:\nCAPEX/Revenue Ratio: 5.1%\nFixed assets/Total Assets: 20%\nReturn on Assets= 12.4%"
+  ],
+  "cost_usd": 0.055290000000000006,
+  "input_tokens": 10264,
+  "output_tokens": 2963,
+  "execution_time": 58.4059898853302,
+  "is_correct": false,
+  "error": null,
+  "cached_at": "2026-01-15T13:57:04.661963"
+}

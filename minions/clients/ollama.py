@@ -373,6 +373,65 @@ class OllamaClient(MinionsClient):
                 "query": query
             }
 
+    def _is_batch_of_single_prompts(self, messages: List[Dict[str, Any]]) -> bool:
+        """
+        Detect if messages is a batch of individual prompts (for parallel processing)
+        vs a single conversation thread.
+        
+        Batch mode: List of individual user message dicts, each to be processed separately
+        Conversation mode: List of messages forming a single conversation thread
+        """
+        if len(messages) <= 1:
+            return False
+        
+        # Check if all messages are individual user prompts (batch mode pattern from Minions)
+        # In batch mode, each message is a single {"role": "user", "content": "..."} dict
+        all_single_user_messages = all(
+            isinstance(m, dict) 
+            and m.get('role') == 'user' 
+            and 'content' in m
+            for m in messages
+        )
+        
+        return all_single_user_messages
+    
+    def _single_chat_worker(self, single_message: Dict[str, Any], chat_kwargs: Dict, extra_kwargs: Dict) -> Tuple[str, Usage, str]:
+        """
+        Process a single chat message. Used for parallel batch processing.
+        Returns (response_content, usage, done_reason)
+        """
+        import ollama
+        
+        try:
+            response = ollama.chat(
+                model=self.model_name,
+                messages=[single_message],
+                **chat_kwargs,
+                **extra_kwargs,
+            )
+            
+            response_content = response["message"]["content"]
+            
+            # Track usage
+            try:
+                usage = Usage(
+                    prompt_tokens=response["prompt_eval_count"],
+                    completion_tokens=response["eval_count"],
+                )
+            except Exception:
+                usage = Usage(prompt_tokens=0, completion_tokens=0)
+            
+            try:
+                done_reason = response["done_reason"]
+            except Exception:
+                done_reason = "stop"
+            
+            return response_content, usage, done_reason
+            
+        except Exception as e:
+            self.logger.error(f"Error during single Ollama API call: {e}")
+            raise
+
     def schat(
         self,
         messages: Union[List[Dict[str, Any]], Dict[str, Any]],
@@ -380,16 +439,15 @@ class OllamaClient(MinionsClient):
     ) -> Tuple[List[str], Usage, List[str]]:
         """
         Handle synchronous chat completions with optional MCP tool calling.
+        Supports batch processing for parallel worker execution in Minions protocol.
         """
         import ollama
+        from concurrent.futures import ThreadPoolExecutor, as_completed
 
         # If the user provided a single dictionary, wrap it
         if isinstance(messages, dict):
             messages = [messages]
 
-        # Create a copy of messages to avoid modifying the original
-        working_messages = messages.copy()
-        
         chat_kwargs = self._prepare_options()
         
         # Add tools to chat kwargs if MCP is enabled
@@ -397,8 +455,53 @@ class OllamaClient(MinionsClient):
             chat_kwargs["tools"] = self.ollama_tools
         
         # Enable hybrid thinking mode if requested
+        extra_kwargs = kwargs.copy()
         if self.thinking:
-            kwargs["think"] = True
+            extra_kwargs["think"] = True
+
+        # BATCH PROCESSING: Handle list of individual prompts in parallel
+        if self._is_batch_of_single_prompts(messages):
+            print(f"[OllamaClient] Batch mode: Processing {len(messages)} prompts in parallel")
+            
+            responses = [None] * len(messages)
+            usage_total = Usage()
+            done_reasons = [None] * len(messages)
+            
+            # Use ThreadPoolExecutor for parallel processing
+            # Ollama can handle multiple requests concurrently
+            max_workers = min(len(messages), 8)  # Limit concurrency to avoid overwhelming Ollama
+            
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                # Submit all jobs with their index for ordered results
+                future_to_idx = {
+                    executor.submit(self._single_chat_worker, msg, chat_kwargs, extra_kwargs): idx
+                    for idx, msg in enumerate(messages)
+                }
+                
+                # Collect results as they complete
+                for future in as_completed(future_to_idx):
+                    idx = future_to_idx[future]
+                    try:
+                        response_content, usage, done_reason = future.result()
+                        responses[idx] = response_content
+                        usage_total += usage
+                        done_reasons[idx] = done_reason
+                    except Exception as e:
+                        self.logger.error(f"Worker {idx} failed: {e}")
+                        responses[idx] = f"Error: {str(e)}"
+                        done_reasons[idx] = "error"
+            
+            print(f"[OllamaClient] Batch complete: {len([r for r in responses if r])} responses")
+            
+            if self.local:
+                return responses, usage_total, done_reasons
+            else:
+                return responses, usage_total
+
+        # SINGLE CONVERSATION MODE: Original logic for conversation threads
+        # Create a copy of messages to avoid modifying the original
+        working_messages = messages.copy()
+        
         responses = []
         usage_total = Usage()
         done_reasons = []
@@ -413,7 +516,7 @@ class OllamaClient(MinionsClient):
                     model=self.model_name,
                     messages=working_messages,
                     **chat_kwargs,
-                    **kwargs,
+                    **extra_kwargs,
                 )
                 
                 response_content = response["message"]["content"]

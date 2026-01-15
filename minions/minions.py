@@ -152,6 +152,7 @@ class Minions:
         max_rounds=5,
         callback=None,
         log_dir="minions_logs",
+        max_chunk_size=3000,
         **kwargs,
     ):
         """Initialize the Minion with local and remote LLM clients.
@@ -162,6 +163,7 @@ class Minions:
             max_rounds: Maximum number of conversation rounds
             callback: Optional callback function to receive message updates
             log_dir: Directory for logging conversation history
+            max_chunk_size: Maximum size of chunks when using chunk_by_section
         """
         self.local_client = local_client
         self.remote_client = remote_client
@@ -169,6 +171,7 @@ class Minions:
         self.max_jobs_per_round = 2048
         self.callback = callback
         self.log_dir = log_dir
+        self.max_chunk_size = max_chunk_size
         self.num_samples = 1 or kwargs.get("num_samples", None)
         self.worker_batch_size = 1 or kwargs.get("worker_batch_size", None)
         self.max_code_attempts = kwargs.get("max_code_attempts", 10)
@@ -522,14 +525,22 @@ class Minions:
                     continue
 
                 # prepare the inputs for the code execution
+                # Create wrapper for chunk_by_section with configured max_chunk_size
+                def chunk_by_section_with_config(doc: str, max_chunk_size: int = self.max_chunk_size, overlap: int = 20):
+                    return chunk_by_section(doc, max_chunk_size=max_chunk_size, overlap=overlap)
+                
                 starting_globals = {
                     **USEFUL_IMPORTS,
-                    "chunk_by_section": chunk_by_section,
-                    f"{chunk_fn}": self.chunking_fn,
+                    "chunk_by_section": chunk_by_section_with_config,
                     "JobManifest": JobManifest,
                     "JobOutput": JobOutput,
                     "Job": Job,
                 }
+                # Add the chunk_fn alias, but if it's chunk_by_section, use our wrapper
+                if chunk_fn == "chunk_by_section":
+                    starting_globals[chunk_fn] = chunk_by_section_with_config
+                else:
+                    starting_globals[chunk_fn] = self.chunking_fn
 
                 if use_retrieval:
                     if use_retrieval == "embedding" and embedding_model_instance:

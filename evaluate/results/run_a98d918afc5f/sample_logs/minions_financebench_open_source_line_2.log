@@ -1,8 +1,8 @@
 Sample: financebench_open_source_line_2
 Protocol: minions
-Timestamp: 2026-01-15T13:39:28.897210
-Execution time: 15.38s
-Cost: $0.0151
+Timestamp: 2026-01-15T13:51:49.706319
+Execution time: 65.21s
+Cost: $0.0567
 Is correct: False
 Error: None
 

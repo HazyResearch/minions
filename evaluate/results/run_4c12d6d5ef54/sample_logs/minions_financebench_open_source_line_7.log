@@ -1,10 +1,10 @@
 Sample: financebench_open_source_line_7
 Protocol: minions
-Timestamp: 2026-01-16T11:25:23.697837
-Execution time: 8.01s
+Timestamp: 2026-01-16T11:29:58.177716
+Execution time: 0.00s
 Cost: $0.0000
-Is correct: False
-Error: Unknown done reason: error
+Is correct: None
+Error: The api_key client option must be set either by passing api_key to the client or by setting the OPENAI_API_KEY environment variable
 
 --- Question ---
 Which debt securities are registered to trade on a national securities exchange under 3M's name as of Q2 of 2023?

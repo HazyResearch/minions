@@ -1,0 +1,16 @@
+Sample: financebench_open_source_line_88
+Protocol: minions
+Timestamp: 2026-01-16T21:00:17.022000
+Execution time: 5.61s
+Cost: $0.0000
+Is correct: None
+Error: Error code: 429 - {'error': {'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.', 'type': 'insufficient_quota', 'param': None, 'code': 'insufficient_quota'}}
+
+--- Question ---
+Roughly how many times has JnJ sold its inventory in FY2022? Calculate inventory turnover ratio for FY2022; if conventional inventory management is not meaningful for the company then state that and explain why.
+
+--- Predicted Answer ---
+
+
+--- Ground Truth ---
+['JnJ sold its inventory 2.7 times in FY2022.']

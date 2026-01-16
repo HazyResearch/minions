@@ -1,0 +1,16 @@
+Sample: financebench_open_source_line_16
+Protocol: minions
+Timestamp: 2026-01-16T11:06:51.169922
+Execution time: 73.70s
+Cost: $0.0166
+Is correct: True
+Error: None
+
+--- Question ---
+What is the quantity of restructuring costs directly outlined in AES Corporation's income statements for FY2022? If restructuring costs are not explicitly outlined then state 0.
+
+--- Predicted Answer ---
+0
+
+--- Ground Truth ---
+['0']

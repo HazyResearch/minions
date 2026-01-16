@@ -1,0 +1,16 @@
+{
+  "sample_id": "financebench_open_source_line_16",
+  "protocol": "minions",
+  "question": "What is the quantity of restructuring costs directly outlined in AES Corporation's income statements for FY2022? If restructuring costs are not explicitly outlined then state 0.",
+  "predicted_answer": "0",
+  "ground_truth": [
+    "0"
+  ],
+  "cost_usd": 0.016640000000000002,
+  "input_tokens": 3544,
+  "output_tokens": 778,
+  "execution_time": 73.70019793510437,
+  "is_correct": true,
+  "error": null,
+  "cached_at": "2026-01-16T11:06:51.146538"
+}

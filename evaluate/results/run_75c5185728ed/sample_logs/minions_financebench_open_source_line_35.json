@@ -2,15 +2,15 @@
   "sample_id": "financebench_open_source_line_35",
   "protocol": "minions",
   "question": "What drove operating margin change as of the FY22 for AMD? If operating margin is not a useful metric for a company like this, then please state that and explain why.",
-  "predicted_answer": "",
+  "predicted_answer": "AMD's operating margin in FY22 was primarily affected by increased operating expenses, driven by amortization of acquisition-related intangibles from the Xilinx acquisition, higher research and development expenses, and stock-based compensation. The company's strategic focus on expanding its product portfolio and market presence through acquisitions also played a significant role. Market conditions, including competition and demand fluctuations, further influenced the operating margin.",
   "ground_truth": [
     "The decrease in AMD's operating income was primarily driven by amortization of intangible assets associated with the Xilinx acquisition"
   ],
-  "cost_usd": 0.0,
-  "input_tokens": 0,
-  "output_tokens": 0,
-  "execution_time": 252.508136510849,
+  "cost_usd": 0.17618,
+  "input_tokens": 58912,
+  "output_tokens": 2890,
+  "execution_time": 337.96029448509216,
   "is_correct": null,
-  "error": "Error code: 429 - {'error': {'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.', 'type': 'insufficient_quota', 'param': None, 'code': 'insufficient_quota'}}",
-  "cached_at": "2026-01-16T20:58:14.775215"
+  "error": null,
+  "cached_at": "2026-01-16T21:38:08.984631"
 }

@@ -1,10 +1,10 @@
 Sample: financebench_open_source_line_6
 Protocol: minions
-Timestamp: 2026-01-16T11:25:14.925880
-Execution time: 9.21s
+Timestamp: 2026-01-16T11:29:57.364435
+Execution time: 0.00s
 Cost: $0.0000
-Is correct: False
-Error: Unknown done reason: error
+Is correct: None
+Error: The api_key client option must be set either by passing api_key to the client or by setting the OPENAI_API_KEY environment variable
 
 --- Question ---
 Does 3M have a reasonably healthy liquidity profile based on its quick ratio for Q2 of FY2023? If the quick ratio is not relevant to measure liquidity, please state that and explain why.

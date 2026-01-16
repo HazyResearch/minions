@@ -2,15 +2,15 @@
   "sample_id": "financebench_open_source_line_27",
   "protocol": "minions",
   "question": "Does AMCOR have an improving gross margin profile as of FY2023? If gross margin is not a useful metric for a company like this, then state that and explain why.",
-  "predicted_answer": "",
+  "predicted_answer": "AMCOR does not have an improving gross margin profile as of FY2023.",
   "ground_truth": [
     "No. For AMCOR there has been a slight decline in gross margins by 0.8%."
   ],
-  "cost_usd": 0.0,
-  "input_tokens": 0,
-  "output_tokens": 0,
-  "execution_time": 96.46866798400879,
+  "cost_usd": 0.041217500000000004,
+  "input_tokens": 12427,
+  "output_tokens": 1015,
+  "execution_time": 86.41312050819397,
   "is_correct": null,
-  "error": "1 validation error for JobOutput\nanswer\n  Field required [type=missing, input_value={'explanation': 'The disc...e interest and taxes ('}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.12/v/missing",
-  "cached_at": "2026-01-16T14:45:12.721840"
+  "error": null,
+  "cached_at": "2026-01-16T16:17:37.950174"
 }

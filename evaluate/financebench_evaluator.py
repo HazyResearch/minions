@@ -28,6 +28,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from minions.clients.ollama import OllamaClient
 from minions.clients.openai import OpenAIClient
+from minions.clients.sglang import SGLangClient
 from minions.minion import Minion
 from minions.minions import Minions
 from minions.usage import Usage
@@ -660,27 +661,36 @@ Respond with only one word: "equal" or "unequal"."""
 class ProtocolRunner:
     """Runs different protocols for evaluation."""
     
-    def __init__(self, local_model: str, remote_model: str, local_temp: float = 0.2, remote_temp: float = 0.0, num_ctx: int = 4096):
+    def __init__(self, local_model: str, remote_model: str, local_temp: float = 0.2, remote_temp: float = 0.0, num_ctx: int = 4096, local_backend: str = "ollama", sglang_base_url: str = "http://localhost:8000/v1"):
         """Initialize protocol runner with model configurations."""
         self.local_model = local_model
         self.remote_model = remote_model
         self.local_temp = local_temp
         self.remote_temp = remote_temp
         self.num_ctx = num_ctx
+        self.local_backend = local_backend
+        self.sglang_base_url = sglang_base_url
         
         self._local_client = None
         self._remote_client = None
         self._minion = None
         self._minions = None
     
-    def _get_local_client(self) -> OllamaClient:
+    def _get_local_client(self):
         """Get or create local client."""
         if self._local_client is None:
-            self._local_client = OllamaClient(
-                model_name=self.local_model,
-                temperature=self.local_temp,
-                num_ctx=self.num_ctx
-            )
+            if self.local_backend == "sglang":
+                self._local_client = SGLangClient(
+                    model_name=self.local_model,
+                    base_url=self.sglang_base_url,
+                    temperature=self.local_temp,
+                )
+            else:
+                self._local_client = OllamaClient(
+                    model_name=self.local_model,
+                    temperature=self.local_temp,
+                    num_ctx=self.num_ctx
+                )
         return self._local_client
     
     def _get_remote_client(self) -> OpenAIClient:
@@ -838,12 +848,20 @@ class ProtocolRunner:
             citation: str | None
             answer: str | None
         
-        local_client = OllamaClient(
-            model_name=self.local_model,
-            temperature=self.local_temp,
-            structured_output_schema=StructuredLocalOutput,
-            num_ctx=self.num_ctx
-        )
+        if self.local_backend == "sglang":
+            local_client = SGLangClient(
+                model_name=self.local_model,
+                base_url=self.sglang_base_url,
+                temperature=self.local_temp,
+                structured_output_schema=StructuredLocalOutput,
+            )
+        else:
+            local_client = OllamaClient(
+                model_name=self.local_model,
+                temperature=self.local_temp,
+                structured_output_schema=StructuredLocalOutput,
+                num_ctx=self.num_ctx
+            )
         
         minions_instance = Minions(
             local_client=local_client,
@@ -1474,7 +1492,9 @@ def main():
         remote_model=config.models.remote.name,
         local_temp=config.models.local.temperature,
         remote_temp=config.models.remote.temperature,
-        num_ctx=config.models.local.num_ctx
+        num_ctx=config.models.local.num_ctx,
+        local_backend=getattr(config.models.local, 'backend', 'ollama'),
+        sglang_base_url=getattr(config.models.local, 'sglang_base_url', 'http://localhost:8000/v1')
     )
     
     # Build minions_kwargs from config

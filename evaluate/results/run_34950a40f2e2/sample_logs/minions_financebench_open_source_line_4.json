@@ -1,0 +1,16 @@
+{
+  "sample_id": "financebench_open_source_line_4",
+  "protocol": "minions",
+  "question": "What drove operating margin change as of FY2022 for 3M? If operating margin is not a useful metric for a company like this, then please state that and explain why.",
+  "predicted_answer": "The operating margin change for 3M in FY2022 was driven by a combination of factors. Key contributors to the decrease included increased raw material costs, significant litigation expenses, and declines in specific business segments such as Safety and Industrial. Additionally, the company faced challenges from supply chain disruptions and geopolitical tensions, which further impacted costs. On the positive side, 3M benefited from divestitures, which provided some financial gains, and implemented cost management strategies to mitigate some of the negative impacts. Overall, the operating margin was negatively affected by these combined factors.",
+  "ground_truth": [
+    "Operating Margin for 3M in FY2022 has decreased by 1.7% primarily due to: \n-Decrease in gross Margin\n-mostly one-off charges including Combat Arms Earplugs litigation, impairment related to exiting PFAS manufacturing, costs related to exiting Russia and divestiture-related restructuring\ncharges"
+  ],
+  "cost_usd": 0.0665425,
+  "input_tokens": 19105,
+  "output_tokens": 1878,
+  "execution_time": 309.71288204193115,
+  "is_correct": false,
+  "error": null,
+  "cached_at": "2026-01-16T12:00:37.491427"
+}

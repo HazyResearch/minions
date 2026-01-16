@@ -1,0 +1,16 @@
+Sample: financebench_open_source_line_149
+Protocol: minions
+Timestamp: 2026-01-16T21:07:07.336697
+Execution time: 1.85s
+Cost: $0.0000
+Is correct: None
+Error: Error code: 429 - {'error': {'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.', 'type': 'insufficient_quota', 'param': None, 'code': 'insufficient_quota'}}
+
+--- Question ---
+Based on the information provided primarily in the statement of income, what is the FY2018 - FY2019 change in unadjusted operating income % margin for Walmart? Answer in units of percents and round to one decimal place.
+
+--- Predicted Answer ---
+
+
+--- Ground Truth ---
+['0.2%']

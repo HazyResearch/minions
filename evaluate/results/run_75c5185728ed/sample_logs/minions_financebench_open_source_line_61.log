@@ -1,16 +1,16 @@
 Sample: financebench_open_source_line_61
 Protocol: minions
-Timestamp: 2026-01-16T20:59:02.980793
-Execution time: 1.77s
-Cost: $0.0000
+Timestamp: 2026-01-16T22:16:00.133815
+Execution time: 93.76s
+Cost: $0.0309
 Is correct: None
-Error: Error code: 429 - {'error': {'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.', 'type': 'insufficient_quota', 'param': None, 'code': 'insufficient_quota'}}
+Error: None
 
 --- Question ---
 Are there any product categories / service categories that represent more than 20% of Boeing's revenue for FY2022?
 
 --- Predicted Answer ---
-
+Yes, there are product/service categories that represent more than 20% of Boeing's revenue for FY2022.
 
 --- Ground Truth ---
 ["Yes. Boeing has product and service categories that represent more than 20% of Boeing's revenue for FY2022. These categories are Commercial Airplanes which comprises 39% of total revenue, Defence which comprises 35% of total revenue and Services which comprises 26% of total revenue."]

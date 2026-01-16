@@ -1,0 +1,16 @@
+{
+  "sample_id": "financebench_open_source_line_36",
+  "protocol": "minions",
+  "question": "Among operations, investing, and financing activities, which brought in the most (or lost the least) cash flow for AMD in FY22?",
+  "predicted_answer": "",
+  "ground_truth": [
+    "In 2022, AMD brought in the most cashflow from Operations"
+  ],
+  "cost_usd": 0.0,
+  "input_tokens": 0,
+  "output_tokens": 0,
+  "execution_time": 2.273291826248169,
+  "is_correct": null,
+  "error": "Error code: 429 - {'error': {'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.', 'type': 'insufficient_quota', 'param': None, 'code': 'insufficient_quota'}}",
+  "cached_at": "2026-01-16T20:58:17.959672"
+}

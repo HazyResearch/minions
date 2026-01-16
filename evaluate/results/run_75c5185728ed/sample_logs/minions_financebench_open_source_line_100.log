@@ -1,0 +1,16 @@
+Sample: financebench_open_source_line_100
+Protocol: minions
+Timestamp: 2026-01-16T21:00:27.748174
+Execution time: 7.13s
+Cost: $0.0000
+Is correct: None
+Error: Error code: 429 - {'error': {'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.', 'type': 'insufficient_quota', 'param': None, 'code': 'insufficient_quota'}}
+
+--- Question ---
+What is Kraft Heinz's FY2019 inventory turnover ratio? Inventory turnover ratio is defined as: (FY2019 COGS) / (average inventory between FY2018 and FY2019). Round your answer to two decimal places. Please base your judgments on the information provided primarily in the balance sheet and the P&L statement.
+
+--- Predicted Answer ---
+
+
+--- Ground Truth ---
+['6.25']

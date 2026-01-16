@@ -1,0 +1,16 @@
+{
+  "sample_id": "financebench_open_source_line_2",
+  "protocol": "minions",
+  "question": "Assume that you are a public equities analyst. Answer the following question by primarily using information that is shown in the balance sheet: what is the year end FY2018 net PPNE for 3M? Answer in USD billions.",
+  "predicted_answer": "$8.7 billion",
+  "ground_truth": [
+    "$8.70"
+  ],
+  "cost_usd": 0.0275975,
+  "input_tokens": 7231,
+  "output_tokens": 952,
+  "execution_time": 67.97512817382812,
+  "is_correct": true,
+  "error": null,
+  "cached_at": "2026-01-16T10:27:44.179722"
+}

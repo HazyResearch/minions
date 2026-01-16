@@ -2,15 +2,15 @@
   "sample_id": "financebench_open_source_line_10",
   "protocol": "minions",
   "question": "What is the FY2017 - FY2019 3 year average of capex as a % of revenue for Activision Blizzard? Answer in units of percents and round to one decimal place. Calculate (or extract) the answer from the statement of income and the cash flow statement.",
-  "predicted_answer": "",
+  "predicted_answer": "No answer found.",
   "ground_truth": [
     "1.9%"
   ],
-  "cost_usd": 0.0,
-  "input_tokens": 0,
-  "output_tokens": 0,
-  "execution_time": 298.8543071746826,
+  "cost_usd": 0.23654499999999998,
+  "input_tokens": 85518,
+  "output_tokens": 2275,
+  "execution_time": 436.3963186740875,
   "is_correct": null,
-  "error": "1 validation error for JobOutput\nanswer\n  Input should be a valid string [type=string_type, input_value={'FY2017': 'None', 'FY201...None', 'FY2019': 'None'}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.12/v/string_type",
-  "cached_at": "2026-01-16T15:34:11.174341"
+  "error": null,
+  "cached_at": "2026-01-16T17:07:32.340774"
 }

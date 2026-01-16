@@ -1,25 +1,19 @@
 Sample: financebench_open_source_line_10
 Protocol: minions
-Timestamp: 2026-01-16T14:03:01.815674
-Execution time: 455.29s
+Timestamp: 2026-01-16T15:34:11.188630
+Execution time: 298.85s
 Cost: $0.0000
 Is correct: None
-Error: 3 validation errors for JobOutput
-explanation
-  Field required [type=missing, input_value={}, input_type=dict]
-    For further information visit https://errors.pydantic.dev/2.12/v/missing
-citation
-  Field required [type=missing, input_value={}, input_type=dict]
-    For further information visit https://errors.pydantic.dev/2.12/v/missing
+Error: 1 validation error for JobOutput
 answer
-  Field required [type=missing, input_value={}, input_type=dict]
-    For further information visit https://errors.pydantic.dev/2.12/v/missing
+  Input should be a valid string [type=string_type, input_value={'FY2017': 'None', 'FY201...None', 'FY2019': 'None'}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.12/v/string_type
 
 --- Question ---
 What is the FY2017 - FY2019 3 year average of capex as a % of revenue for Activision Blizzard? Answer in units of percents and round to one decimal place. Calculate (or extract) the answer from the statement of income and the cash flow statement.
 
 --- Predicted Answer ---
-N/A
+
 
 --- Ground Truth ---
 ['1.9%']

@@ -1,0 +1,16 @@
+Sample: financebench_open_source_line_31
+Protocol: minions
+Timestamp: 2026-01-16T20:52:34.347931
+Execution time: 399.88s
+Cost: $0.0573
+Is correct: None
+Error: None
+
+--- Question ---
+Answer the following question as if you are an equity research analyst and have lost internet connection so you do not have access to financial metric providers. According to the details clearly outlined within the P&L statement and the statement of cash flows, what is the FY2015 depreciation and amortization (D&A from cash flow statement) % margin for AMD?
+
+--- Predicted Answer ---
+The FY2015 depreciation and amortization (D&A) % margin for AMD is approximately 4.18%. This is calculated by dividing the D&A expense of $167 million by the total revenue of $3,991 million and multiplying by 100.
+
+--- Ground Truth ---
+['4.2%']

@@ -1,0 +1,16 @@
+Sample: financebench_open_source_line_43
+Protocol: minions
+Timestamp: 2026-01-16T23:48:35.058086
+Execution time: 141.34s
+Cost: $0.0200
+Is correct: None
+Error: None
+
+--- Question ---
+How much has the effective tax rate of American Express changed between FY2021 and FY2022?
+
+--- Predicted Answer ---
+The effective tax rate of American Express decreased by 3.0 percentage points between FY2021 and FY2022.
+
+--- Ground Truth ---
+['The effective tax rate for American Express has changed/dropped from 24.6% in FY 2021 to 21.6% in FY 2022.']

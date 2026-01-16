@@ -1,0 +1,16 @@
+{
+  "sample_id": "financebench_open_source_line_86",
+  "protocol": "minions",
+  "question": "Are JnJ's FY2022 financials that of a high growth company?",
+  "predicted_answer": "",
+  "ground_truth": [
+    "No, JnJ's FY2022 financials are not of a high growth company as sales grew by 1.3% in FY2022."
+  ],
+  "cost_usd": 0.0,
+  "input_tokens": 0,
+  "output_tokens": 0,
+  "execution_time": 1.8285057544708252,
+  "is_correct": null,
+  "error": "Error code: 429 - {'error': {'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.', 'type': 'insufficient_quota', 'param': None, 'code': 'insufficient_quota'}}",
+  "cached_at": "2026-01-16T20:59:55.508082"
+}

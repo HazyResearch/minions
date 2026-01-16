@@ -1,0 +1,16 @@
+{
+  "sample_id": "financebench_open_source_line_27",
+  "protocol": "minions",
+  "question": "Does AMCOR have an improving gross margin profile as of FY2023? If gross margin is not a useful metric for a company like this, then state that and explain why.",
+  "predicted_answer": "AMCOR does not have an improving gross margin profile as of FY2023.",
+  "ground_truth": [
+    "No. For AMCOR there has been a slight decline in gross margins by 0.8%."
+  ],
+  "cost_usd": 0.040389999999999995,
+  "input_tokens": 11764,
+  "output_tokens": 1098,
+  "execution_time": 73.69081497192383,
+  "is_correct": null,
+  "error": null,
+  "cached_at": "2026-01-16T14:26:07.810813"
+}

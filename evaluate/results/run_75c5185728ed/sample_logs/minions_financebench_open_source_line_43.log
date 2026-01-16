@@ -1,16 +1,16 @@
 Sample: financebench_open_source_line_43
 Protocol: minions
-Timestamp: 2026-01-16T20:58:31.622651
-Execution time: 6.65s
-Cost: $0.0000
+Timestamp: 2026-01-16T21:56:27.241037
+Execution time: 500.64s
+Cost: $0.1523
 Is correct: None
-Error: Error code: 429 - {'error': {'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.', 'type': 'insufficient_quota', 'param': None, 'code': 'insufficient_quota'}}
+Error: None
 
 --- Question ---
 How much has the effective tax rate of American Express changed between FY2021 and FY2022?
 
 --- Predicted Answer ---
-
+The effective tax rate of American Express decreased by 3% from 24.6% in FY2021 to 21.6% in FY2022.
 
 --- Ground Truth ---
 ['The effective tax rate for American Express has changed/dropped from 24.6% in FY 2021 to 21.6% in FY 2022.']

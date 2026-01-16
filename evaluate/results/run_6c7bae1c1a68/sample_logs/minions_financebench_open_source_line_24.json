@@ -2,15 +2,15 @@
   "sample_id": "financebench_open_source_line_24",
   "protocol": "minions",
   "question": "Has AMCOR's quick ratio improved or declined between FY2023 and FY2022? If the quick ratio is not something that a financial analyst would ask about a company like this, then state that and explain why.",
-  "predicted_answer": "",
+  "predicted_answer": "Based on the partial and conflicting data, it appears that AMCOR's quick ratio has declined from FY2022 to FY2023. However, more reliable data for FY2022 is needed to confirm this trend.",
   "ground_truth": [
     "The quick ratio has slightly improved from 0.67 times to 0.69 times between FY 2023 and FY 2022.(3.4% jump)"
   ],
-  "cost_usd": 0.0,
-  "input_tokens": 0,
-  "output_tokens": 0,
-  "execution_time": 537.0301713943481,
+  "cost_usd": 0.09826750000000001,
+  "input_tokens": 26427,
+  "output_tokens": 3220,
+  "execution_time": 405.34391045570374,
   "is_correct": null,
-  "error": "3 validation errors for JobOutput\nexplanation\n  Field required [type=missing, input_value={}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.12/v/missing\ncitation\n  Field required [type=missing, input_value={}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.12/v/missing\nanswer\n  Field required [type=missing, input_value={}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.12/v/missing",
-  "cached_at": "2026-01-16T14:43:35.167757"
+  "error": null,
+  "cached_at": "2026-01-16T16:16:10.501457"
 }

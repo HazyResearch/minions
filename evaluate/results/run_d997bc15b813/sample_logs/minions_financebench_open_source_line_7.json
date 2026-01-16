@@ -1,0 +1,16 @@
+{
+  "sample_id": "financebench_open_source_line_7",
+  "protocol": "minions",
+  "question": "Which debt securities are registered to trade on a national securities exchange under 3M's name as of Q2 of 2023?",
+  "predicted_answer": "1.500% Notes due 2026, 1.750% Notes due 2030, and 1.500% Notes due 2031 are registered to trade on the New York Stock Exchange under 3M's name.",
+  "ground_truth": [
+    "Following debt securities registered under 3M's name are listed to trade on the New York Stock Exchange:\n-1.500% Notes due 2026 (Trading Symbol: MMM26)\n-1.750% Notes due 2030 (Trading Symbol: MMM30)\n-1.500% Notes due 2031 (Trading Symbol: MMM31)"
+  ],
+  "cost_usd": 0.02015,
+  "input_tokens": 4384,
+  "output_tokens": 919,
+  "execution_time": 45.46340560913086,
+  "is_correct": true,
+  "error": null,
+  "cached_at": "2026-01-16T10:43:50.397438"
+}

@@ -10,7 +10,9 @@
   "input_tokens": 29250,
   "output_tokens": 1253,
   "execution_time": 134.24140620231628,
-  "is_correct": null,
+  "is_correct": true,
   "error": null,
-  "cached_at": "2026-01-16T15:25:48.750385"
+  "cached_at": "2026-01-16T15:25:48.750385",
+  "correctness_confidence": 1.0,
+  "correctness_reasoning": "The predicted answer of 1.9% matches the ground truth answer exactly. Given the evaluation rules, the predicted answer is within the acceptable range of the ground truth answer, and thus it is correct."
 }

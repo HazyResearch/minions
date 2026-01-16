@@ -10,7 +10,9 @@
   "input_tokens": 0,
   "output_tokens": 0,
   "execution_time": 0.0,
-  "is_correct": null,
+  "is_correct": false,
   "error": "write() argument must be str, not float",
-  "cached_at": "2026-01-16T15:48:00.217024"
+  "cached_at": "2026-01-16T15:48:00.217024",
+  "correctness_confidence": 0.0,
+  "correctness_reasoning": "The predicted answer of 36.68 is significantly outside the 10% tolerance range of the ground truth answer of 93.86. The acceptable range would be 84.47 to 103.25."
 }

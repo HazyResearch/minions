@@ -10,7 +10,9 @@
   "input_tokens": 30764,
   "output_tokens": 2886,
   "execution_time": 171.8762402534485,
-  "is_correct": null,
+  "is_correct": false,
   "error": null,
-  "cached_at": "2026-01-16T15:21:27.405011"
+  "cached_at": "2026-01-16T15:21:27.405011",
+  "correctness_confidence": 0.8,
+  "correctness_reasoning": "The predicted answer does not align with the ground truth answer. The ground truth provides a specific quick ratio value (0.96) and a qualitative assessment (needs improvement to reach 1x), while the predicted answer states that it is not possible to calculate the quick ratio due to data issues. This discrepancy in the ability to assess the quick ratio leads to a different conclusion about 3M's liquidity profile."
 }

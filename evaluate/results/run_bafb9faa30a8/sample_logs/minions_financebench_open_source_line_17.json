@@ -10,7 +10,9 @@
   "input_tokens": 60506,
   "output_tokens": 3266,
   "execution_time": 504.47327518463135,
-  "is_correct": null,
+  "is_correct": true,
   "error": null,
-  "cached_at": "2026-01-16T15:42:23.381957"
+  "cached_at": "2026-01-16T15:42:23.381957",
+  "correctness_confidence": 0.9,
+  "correctness_reasoning": "The predicted answer correctly states that conventional inventory management is not meaningful for AES Corporation due to its business model in energy generation and distribution. Although it does not provide the inventory turnover ratio, it explains why this metric is not applicable, aligning with the qualitative aspect of the ground truth answer."
 }

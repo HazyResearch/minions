@@ -1,0 +1,16 @@
+Sample: financebench_open_source_line_15
+Protocol: minions
+Timestamp: 2026-01-16T11:12:29.160590
+Execution time: 0.00s
+Cost: $0.0000
+Is correct: None
+Error: Failed to connect to Ollama. Please check that Ollama is downloaded, running and accessible. https://ollama.com/download
+
+--- Question ---
+Does Adobe have an improving Free cashflow conversion as of FY2022?
+
+--- Predicted Answer ---
+N/A
+
+--- Ground Truth ---
+['Yes, the FCF conversion (using net income as the denominator) for Adobe has improved by ~13% from 143% in 2021 to 156% in 2022']

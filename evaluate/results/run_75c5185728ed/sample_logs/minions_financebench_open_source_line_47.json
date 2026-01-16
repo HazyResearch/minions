@@ -1,0 +1,16 @@
+{
+  "sample_id": "financebench_open_source_line_47",
+  "protocol": "minions",
+  "question": "Basing your judgments off of the cash flow statement and the income statement, what is American Water Works's FY2021 unadjusted operating income + depreciation and amortization from the cash flow statement (unadjusted EBITDA) in USD millions?",
+  "predicted_answer": "",
+  "ground_truth": [
+    "$1832.00"
+  ],
+  "cost_usd": 0.0,
+  "input_tokens": 0,
+  "output_tokens": 0,
+  "execution_time": 1.7625837326049805,
+  "is_correct": null,
+  "error": "Error code: 429 - {'error': {'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.', 'type': 'insufficient_quota', 'param': None, 'code': 'insufficient_quota'}}",
+  "cached_at": "2026-01-16T20:58:34.141401"
+}

@@ -16,6 +16,7 @@ Usage:
     )
 """
 
+import json
 import logging
 import os
 from typing import Any, Dict, List, Optional, Tuple, Union
@@ -25,6 +26,92 @@ import openai
 
 from minions.usage import Usage
 from minions.clients.base import MinionsClient
+
+
+def _extract_string_from_value(value: Any) -> str:
+    """
+    Extract a string from a value that might be a dict or other type.
+    
+    This handles cases where the model returns a dict instead of a string,
+    e.g., {"FY2017": "None", "FY2018": "None"} instead of "1.9%"
+    
+    Args:
+        value: The value to extract a string from
+        
+    Returns:
+        A string representation of the value
+    """
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value
+    if isinstance(value, dict):
+        # Try to extract meaningful content from dict
+        # Filter out "None" string values
+        meaningful_values = [
+            str(v) for v in value.values() 
+            if v is not None and str(v).lower() != "none" and str(v).strip()
+        ]
+        if meaningful_values:
+            return "; ".join(meaningful_values)
+        # If all values are None/empty, return empty string
+        return ""
+    if isinstance(value, (int, float)):
+        return str(value)
+    if isinstance(value, list):
+        return "; ".join(str(v) for v in value if v is not None)
+    return str(value)
+
+
+def _postprocess_json_output(output_text: str) -> str:
+    """
+    Post-process JSON output to ensure fields are strings, not dicts.
+    
+    This handles the case where the model returns structured data for
+    fields that should be plain strings, or returns an empty JSON object.
+    
+    Args:
+        output_text: Raw JSON output from the model
+        
+    Returns:
+        Corrected JSON string with all fields as strings
+    """
+    try:
+        data = json.loads(output_text)
+        if not isinstance(data, dict):
+            return output_text
+        
+        # Handle empty JSON {} - fill with default values
+        if not data:
+            return json.dumps({
+                "explanation": "No relevant information found in this chunk.",
+                "citation": "",
+                "answer": ""
+            })
+        
+        # Fields that should be strings
+        string_fields = ['explanation', 'citation', 'answer']
+        
+        corrected = {}
+        for key, value in data.items():
+            if key in string_fields:
+                corrected[key] = _extract_string_from_value(value)
+            else:
+                corrected[key] = value
+        
+        # Ensure required fields exist
+        if 'explanation' not in corrected:
+            corrected['explanation'] = "No explanation provided."
+        if 'citation' not in corrected:
+            corrected['citation'] = ""
+        if 'answer' not in corrected:
+            corrected['answer'] = ""
+        
+        return json.dumps(corrected)
+    except json.JSONDecodeError:
+        return output_text
+    except Exception:
+        return output_text
 
 
 class SGLangClient(MinionsClient):
@@ -77,6 +164,17 @@ class SGLangClient(MinionsClient):
         self.api_key = api_key or os.getenv("SGLANG_API_KEY", "not-needed")
         self.max_workers = max_workers
         self.structured_output_schema = structured_output_schema
+        
+        # Generate JSON schema for strict enforcement if Pydantic model provided
+        self.json_schema = None
+        if structured_output_schema is not None:
+            try:
+                # Get JSON schema from Pydantic model
+                if hasattr(structured_output_schema, 'model_json_schema'):
+                    self.json_schema = structured_output_schema.model_json_schema()
+                    self.logger.info(f"Generated JSON schema for strict enforcement: {list(self.json_schema.get('properties', {}).keys())}")
+            except Exception as e:
+                self.logger.warning(f"Could not generate JSON schema: {e}")
         
         # Initialize OpenAI client pointing to SGLang server
         self.client = openai.OpenAI(
@@ -163,17 +261,46 @@ class SGLangClient(MinionsClient):
                 "max_tokens": self.max_tokens,
             }
             
-            # Force JSON output when structured schema is set
-            if self.structured_output_schema is not None:
+            # Use strict JSON schema enforcement when available
+            use_strict_schema = False
+            if self.json_schema is not None:
+                # Try OpenAI's strict JSON schema format first
+                params["response_format"] = {
+                    "type": "json_schema",
+                    "json_schema": {
+                        "name": "job_output",
+                        "strict": True,
+                        "schema": self.json_schema
+                    }
+                }
+                use_strict_schema = True
+            elif self.structured_output_schema is not None:
+                # Fallback to basic JSON mode
                 params["response_format"] = {"type": "json_object"}
             
             # Add response_format if explicitly provided (overrides schema setting)
             if "response_format" in kwargs:
                 params["response_format"] = kwargs["response_format"]
+                use_strict_schema = False
             
-            response = self.client.chat.completions.create(**params)
+            try:
+                response = self.client.chat.completions.create(**params)
+            except Exception as schema_error:
+                # If strict schema fails (SGLang may not support it), fall back to basic JSON mode
+                if use_strict_schema and "json_schema" in str(schema_error).lower():
+                    self.logger.warning(f"Strict JSON schema not supported, falling back to json_object mode")
+                    params["response_format"] = {"type": "json_object"}
+                    response = self.client.chat.completions.create(**params)
+                else:
+                    raise
             
             output_text = response.choices[0].message.content or ""
+            
+            # Post-process JSON output to ensure fields are strings, not dicts
+            # This handles cases where the model returns structured data for
+            # fields that should be plain strings (e.g., answer: {"FY2017": "..."})
+            if self.structured_output_schema is not None and output_text:
+                output_text = _postprocess_json_output(output_text)
             
             # Extract finish_reason (maps to done_reason)
             done_reason = response.choices[0].finish_reason or "stop"

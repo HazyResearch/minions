@@ -10,7 +10,9 @@
   "input_tokens": 51635,
   "output_tokens": 2968,
   "execution_time": 455.7382707595825,
-  "is_correct": null,
+  "is_correct": false,
   "error": null,
-  "cached_at": "2026-01-16T16:04:01.686797"
+  "cached_at": "2026-01-16T16:04:01.686797",
+  "correctness_confidence": 1.0,
+  "correctness_reasoning": "The ground truth answer is -0.02, and the predicted answer is -1.53. Applying a 10% tolerance to the ground truth, the acceptable range is -0.022 to -0.018. The predicted answer of -1.53 is outside this range, so it is incorrect."
 }

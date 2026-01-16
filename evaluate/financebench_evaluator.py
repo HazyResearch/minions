@@ -987,11 +987,15 @@ class Evaluator:
             with open(cache_path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
             
+            # Ensure predicted_answer is always a string (cache may have numeric values)
+            raw_answer = data['predicted_answer']
+            predicted_answer = str(raw_answer) if raw_answer is not None else ''
+            
             return EvaluationResult(
                 sample_id=data['sample_id'],
                 protocol=data['protocol'],
                 question=data['question'],
-                predicted_answer=data['predicted_answer'],
+                predicted_answer=predicted_answer,
                 ground_truth=data['ground_truth'],
                 cost_usd=data['cost_usd'],
                 input_tokens=data['input_tokens'],
@@ -1026,7 +1030,7 @@ class Evaluator:
             f.write("\n--- Question ---\n")
             f.write(result.question)
             f.write("\n\n--- Predicted Answer ---\n")
-            f.write(result.predicted_answer or "N/A")
+            f.write(str(result.predicted_answer) if result.predicted_answer is not None else "N/A")
             f.write("\n\n--- Ground Truth ---\n")
             f.write(str(result.ground_truth))
             if log_content:
@@ -1175,7 +1179,8 @@ class Evaluator:
             )
         
         execution_time = time.time() - start_time
-        predicted_answer = result_dict.get('final_answer', '') or ''
+        raw_answer = result_dict.get('final_answer', '')
+        predicted_answer = str(raw_answer) if raw_answer is not None else ''
         
         if protocol.lower() == 'remote_only':
             print(f"\n--- Remote-Only Answer Log ---")

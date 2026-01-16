@@ -10,7 +10,9 @@
   "input_tokens": 26427,
   "output_tokens": 3220,
   "execution_time": 405.34391045570374,
-  "is_correct": null,
+  "is_correct": false,
   "error": null,
-  "cached_at": "2026-01-16T16:16:10.501457"
+  "cached_at": "2026-01-16T16:16:10.501457",
+  "correctness_confidence": 0.9,
+  "correctness_reasoning": "The predicted answer states that AMCOR's quick ratio has declined, which contradicts the ground truth answer indicating an improvement from 0.67 to 0.69. The predicted answer also mentions the need for more reliable data, which is not aligned with the ground truth. Therefore, the prediction is incorrect."
 }

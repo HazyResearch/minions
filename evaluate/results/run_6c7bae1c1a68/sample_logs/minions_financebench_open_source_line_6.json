@@ -10,7 +10,9 @@
   "input_tokens": 27577,
   "output_tokens": 2239,
   "execution_time": 167.89946293830872,
-  "is_correct": null,
+  "is_correct": false,
   "error": null,
-  "cached_at": "2026-01-16T15:24:51.756856"
+  "cached_at": "2026-01-16T15:24:51.756856",
+  "correctness_confidence": 0.8,
+  "correctness_reasoning": "The predicted answer states a quick ratio of 0.85, which is outside the 10% tolerance range of the ground truth quick ratio of 0.96 (acceptable range: 0.864 to 1.056). Additionally, both answers agree on the conclusion that 3M's liquidity profile is less than healthy, but the numerical discrepancy affects the correctness based on the evaluation rules."
 }

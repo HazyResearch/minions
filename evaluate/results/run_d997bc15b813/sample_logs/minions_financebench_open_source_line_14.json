@@ -12,5 +12,7 @@
   "execution_time": 144.66424441337585,
   "is_correct": false,
   "error": null,
-  "cached_at": "2026-01-16T11:04:02.885517"
+  "cached_at": "2026-01-16T11:04:02.885517",
+  "correctness_confidence": 0.8,
+  "correctness_reasoning": "The predicted answer does not match the ground truth answer in terms of the yes/no stance. The ground truth states that Adobe's operating margin declined, while the predicted answer does not explicitly confirm this decline. Additionally, the predicted operating margin of 34.7% is within the 10% tolerance of the ground truth's 34.6%, but the key conclusion about the decline is missing."
 }

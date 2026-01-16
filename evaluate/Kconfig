@@ -112,6 +112,101 @@ config LOCAL_NUM_CTX
 	  Must be supported by your local model.
 	  Affects all protocols that use the local model.
 
+config LOCAL_BACKEND_SGLANG
+	bool "Use SGLang backend (instead of Ollama)"
+	default n
+	help
+	  Use SGLang as the local inference backend.
+	  SGLang provides RadixAttention for KV cache sharing
+	  and supports custom logit processors for WFSA.
+	  Requires SGLang server running with --enable-custom-logit-processor.
+
+config SGLANG_BASE_URL
+	string "SGLang server URL"
+	default "http://localhost:8000"
+	depends on LOCAL_BACKEND_SGLANG
+	help
+	  URL of the SGLang server.
+	  Default: http://localhost:8000
+
+menu "WFSA Length Prior Settings"
+	depends on LOCAL_BACKEND_SGLANG
+
+comment "Beta values control brevity (higher = shorter outputs)"
+
+config WFSA_BETA_EXPLANATION
+	int "Beta for explanation field (x100)"
+	default 100
+	range 0 1000
+	help
+	  WFSA strength for explanation field, multiplied by 100.
+	  100 = 1.0, 200 = 2.0. Higher values encourage shorter outputs.
+
+config WFSA_BETA_CITATION
+	int "Beta for citation field (x100)"
+	default 200
+	range 0 1000
+	help
+	  WFSA strength for citation field, multiplied by 100.
+	  Citations should be brief, so default is higher.
+
+config WFSA_BETA_ANSWER
+	int "Beta for answer field (x100)"
+	default 150
+	range 0 1000
+	help
+	  WFSA strength for answer field, multiplied by 100.
+	  Balanced between explanation and citation.
+
+comment "Minimum tokens before EOS is allowed"
+
+config WFSA_MIN_TOKENS_EXPLANATION
+	int "Min tokens for explanation"
+	default 10
+	range 0 100
+	help
+	  Minimum tokens for explanation before EOS is allowed.
+	  Prevents degenerate empty outputs.
+
+config WFSA_MIN_TOKENS_CITATION
+	int "Min tokens for citation"
+	default 5
+	range 0 100
+	help
+	  Minimum tokens for citation before EOS is allowed.
+
+config WFSA_MIN_TOKENS_ANSWER
+	int "Min tokens for answer"
+	default 3
+	range 0 100
+	help
+	  Minimum tokens for answer before EOS is allowed.
+
+comment "Maximum tokens per field"
+
+config WFSA_MAX_TOKENS_EXPLANATION
+	int "Max tokens for explanation"
+	default 200
+	range 10 1000
+	help
+	  Maximum tokens for explanation field.
+
+config WFSA_MAX_TOKENS_CITATION
+	int "Max tokens for citation"
+	default 150
+	range 10 1000
+	help
+	  Maximum tokens for citation field.
+
+config WFSA_MAX_TOKENS_ANSWER
+	int "Max tokens for answer"
+	default 100
+	range 10 1000
+	help
+	  Maximum tokens for answer field.
+
+endmenu
+
 endmenu
 
 menu "Remote Model (Cloud)"

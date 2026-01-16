@@ -14,3 +14,8 @@ The FY2017 - FY2019 3-year average of capex as a percentage of revenue for Activ
 
 --- Ground Truth ---
 ['1.9%']
+
+--- Correctness Evaluation ---
+Is correct: True
+Confidence: 1.00
+Reasoning: The predicted answer matches the ground truth answer exactly, both stating that the FY2017 - FY2019 3-year average of capex as a percentage of revenue for Activision Blizzard is 1.9%. This falls within the 10% tolerance rule for numerical answers, and there are no discrepancies in the information provided.

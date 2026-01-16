@@ -14,3 +14,8 @@ What is the FY2017 operating cash flow ratio for Adobe? Operating cash flow rati
 
 --- Ground Truth ---
 ['0.83']
+
+--- Correctness Evaluation ---
+Is correct: True
+Confidence: 1.00
+Reasoning: The predicted answer matches the ground truth answer exactly. Given the evaluation rules, the predicted answer is within the 10% tolerance range of the ground truth answer. Therefore, the predicted answer is correct.

@@ -14,3 +14,8 @@ $8.7 billion
 
 --- Ground Truth ---
 ['$8.70']
+
+--- Correctness Evaluation ---
+Is correct: True
+Confidence: 1.00
+Reasoning: The predicted answer of $8.7 billion matches the ground truth answer of $8.70 billion. The numerical value is within the 10% tolerance range specified in the evaluation rules. Minor formatting differences are ignored, so the predicted answer is considered correct.

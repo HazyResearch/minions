@@ -14,3 +14,8 @@ The FY2019 fixed asset turnover ratio for Activision Blizzard is 24.26.
 
 --- Ground Truth ---
 ['24.26']
+
+--- Correctness Evaluation ---
+Is correct: True
+Confidence: 1.00
+Reasoning: The predicted answer matches the ground truth answer exactly, and the evaluation rules allow for a 10% tolerance in numerical answers. Since the predicted answer is exactly the same as the ground truth, it is correct with full confidence.

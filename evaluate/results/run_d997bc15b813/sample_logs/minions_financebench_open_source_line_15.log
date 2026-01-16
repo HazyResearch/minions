@@ -14,3 +14,8 @@ Yes, Adobe has an improving Free cash flow conversion as of FY2022.
 
 --- Ground Truth ---
 ['Yes, the FCF conversion (using net income as the denominator) for Adobe has improved by ~13% from 143% in 2021 to 156% in 2022']
+
+--- Correctness Evaluation ---
+Is correct: True
+Confidence: 1.00
+Reasoning: The predicted answer correctly states that Adobe has an improving Free cash flow conversion as of FY2022, which matches the stance of the ground truth answer. The ground truth provides specific numerical improvement details, but the predicted answer's lack of these details does not affect its correctness according to the evaluation rules.

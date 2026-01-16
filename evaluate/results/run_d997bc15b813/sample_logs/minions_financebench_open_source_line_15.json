@@ -10,7 +10,9 @@
   "input_tokens": 3702,
   "output_tokens": 959,
   "execution_time": 61.81195044517517,
-  "is_correct": false,
+  "is_correct": true,
   "error": null,
-  "cached_at": "2026-01-16T11:05:19.065758"
+  "cached_at": "2026-01-16T11:05:19.065758",
+  "correctness_confidence": 1.0,
+  "correctness_reasoning": "The predicted answer correctly states that Adobe has an improving Free cash flow conversion as of FY2022, which matches the stance of the ground truth answer. The ground truth provides specific numerical improvement details, but the predicted answer's lack of these details does not affect its correctness according to the evaluation rules."
 }

@@ -14,3 +14,8 @@ The document does not provide explicit operating margin data for Adobe for FY202
 
 --- Ground Truth ---
 ['No the operating margins of Adobe have recently declined from 36.8% in FY 2021 to 34.6% in FY2022. A drop by 2.2% in a year.']
+
+--- Correctness Evaluation ---
+Is correct: False
+Confidence: 0.80
+Reasoning: The predicted answer does not match the ground truth answer in terms of the yes/no stance. The ground truth states that Adobe's operating margin declined, while the predicted answer does not explicitly confirm this decline. Additionally, the predicted operating margin of 34.7% is within the 10% tolerance of the ground truth's 34.6%, but the key conclusion about the decline is missing.

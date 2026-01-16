@@ -12,5 +12,7 @@
   "execution_time": 45.46340560913086,
   "is_correct": true,
   "error": null,
-  "cached_at": "2026-01-16T10:43:50.397438"
+  "cached_at": "2026-01-16T10:43:50.397438",
+  "correctness_confidence": 1.0,
+  "correctness_reasoning": "The predicted answer correctly lists the same debt securities as the ground truth answer, including the details of the notes and their trading on the New York Stock Exchange under 3M's name. The key facts and conclusions align, and there are no discrepancies in the information provided."
 }

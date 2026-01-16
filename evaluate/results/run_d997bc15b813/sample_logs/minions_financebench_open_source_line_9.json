@@ -12,5 +12,7 @@
   "execution_time": 216.98144054412842,
   "is_correct": true,
   "error": null,
-  "cached_at": "2026-01-16T10:49:07.979471"
+  "cached_at": "2026-01-16T10:49:07.979471",
+  "correctness_confidence": 1.0,
+  "correctness_reasoning": "The predicted answer matches the ground truth answer exactly, and the evaluation rules allow for a 10% tolerance in numerical answers. Since the predicted answer is exactly the same as the ground truth, it is correct with full confidence."
 }

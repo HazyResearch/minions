@@ -14,3 +14,8 @@ The Safety and Industrial segment has dragged down 3M's overall growth in 2022, 
 
 --- Ground Truth ---
 ['The consumer segment shrunk by 0.9% organically.']
+
+--- Correctness Evaluation ---
+Is correct: False
+Confidence: 0.90
+Reasoning: The predicted answer identifies the Safety and Industrial segment as the one dragging down 3M's growth, while the ground truth specifies the Consumer segment. The key fact about which segment impacted growth does not align between the predicted and ground truth answers.

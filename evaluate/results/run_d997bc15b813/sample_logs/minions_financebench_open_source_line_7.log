@@ -14,3 +14,8 @@ Which debt securities are registered to trade on a national securities exchange 
 
 --- Ground Truth ---
 ["Following debt securities registered under 3M's name are listed to trade on the New York Stock Exchange:\n-1.500% Notes due 2026 (Trading Symbol: MMM26)\n-1.750% Notes due 2030 (Trading Symbol: MMM30)\n-1.500% Notes due 2031 (Trading Symbol: MMM31)"]
+
+--- Correctness Evaluation ---
+Is correct: True
+Confidence: 1.00
+Reasoning: The predicted answer correctly lists the same debt securities as the ground truth answer, including the details of the notes and their trading on the New York Stock Exchange under 3M's name. The key facts and conclusions align, and there are no discrepancies in the information provided.

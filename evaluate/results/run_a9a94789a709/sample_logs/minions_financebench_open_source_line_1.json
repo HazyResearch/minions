@@ -12,5 +12,7 @@
   "execution_time": 78.50147819519043,
   "is_correct": true,
   "error": null,
-  "cached_at": "2026-01-16T10:18:37.407071"
+  "cached_at": "2026-01-16T10:18:37.407071",
+  "correctness_confidence": 1.0,
+  "correctness_reasoning": "The predicted answer of $1,577 million matches the ground truth answer of $1577.00. The numerical values are identical, and the formatting difference is minor and acceptable according to the evaluation rules."
 }

@@ -12,5 +12,7 @@
   "execution_time": 186.86229157447815,
   "is_correct": false,
   "error": null,
-  "cached_at": "2026-01-16T10:40:27.343071"
+  "cached_at": "2026-01-16T10:40:27.343071",
+  "correctness_confidence": 0.9,
+  "correctness_reasoning": "The predicted answer identifies the Safety and Industrial segment as the one dragging down 3M's growth, while the ground truth specifies the Consumer segment. The key fact about which segment impacted growth does not align between the predicted and ground truth answers."
 }

@@ -12,5 +12,7 @@
   "execution_time": 67.97512817382812,
   "is_correct": true,
   "error": null,
-  "cached_at": "2026-01-16T10:27:44.179722"
+  "cached_at": "2026-01-16T10:27:44.179722",
+  "correctness_confidence": 1.0,
+  "correctness_reasoning": "The predicted answer of $8.7 billion matches the ground truth answer of $8.70 billion. The numerical value is within the 10% tolerance range specified in the evaluation rules. Minor formatting differences are ignored, so the predicted answer is considered correct."
 }

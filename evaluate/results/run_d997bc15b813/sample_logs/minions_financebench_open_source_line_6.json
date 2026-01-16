@@ -12,5 +12,7 @@
   "execution_time": 144.65102887153625,
   "is_correct": false,
   "error": null,
-  "cached_at": "2026-01-16T10:42:59.033847"
+  "cached_at": "2026-01-16T10:42:59.033847",
+  "correctness_confidence": 0.9,
+  "correctness_reasoning": "The predicted answer states that the quick ratio cannot be determined due to inconsistent data, while the ground truth provides a specific quick ratio value of 0.96. The stance on whether 3M has a healthy liquidity profile does not match, as the ground truth concludes 'No' based on the quick ratio, while the predicted answer does not provide a definitive stance. Therefore, the predicted answer does not align with the ground truth."
 }

@@ -12,5 +12,7 @@
   "execution_time": 73.70019793510437,
   "is_correct": true,
   "error": null,
-  "cached_at": "2026-01-16T11:06:51.146538"
+  "cached_at": "2026-01-16T11:06:51.146538",
+  "correctness_confidence": 1.0,
+  "correctness_reasoning": "The predicted answer '0' matches the ground truth answer '0'. Since the question is about a numerical value and both answers are exactly the same, the prediction is correct."
 }

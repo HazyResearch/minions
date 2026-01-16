@@ -1,16 +1,16 @@
 Sample: financebench_open_source_line_58
 Protocol: minions
-Timestamp: 2026-01-16T20:59:00.395009
-Execution time: 4.79s
-Cost: $0.0000
+Timestamp: 2026-01-16T22:14:25.151374
+Execution time: 266.17s
+Cost: $0.0938
 Is correct: None
-Error: Error code: 429 - {'error': {'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.', 'type': 'insufficient_quota', 'param': None, 'code': 'insufficient_quota'}}
+Error: None
 
 --- Question ---
 What is the FY2019 - FY2020 total revenue growth rate for Block (formerly known as Square)? Answer in units of percents and round to one decimal place. Approach the question asked by assuming the standpoint of an investment banking analyst who only has access to the statement of income.
 
 --- Predicted Answer ---
-
+The total revenue growth rate for Block from FY2019 to FY2020 is 101.4%.
 
 --- Ground Truth ---
 ['101.5%']

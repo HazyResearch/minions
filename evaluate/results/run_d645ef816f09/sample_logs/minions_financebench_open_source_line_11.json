@@ -1,0 +1,16 @@
+{
+  "sample_id": "financebench_open_source_line_11",
+  "protocol": "minions",
+  "question": "You are an investment banker and your only resource(s) to answer the following question is (are): the statement of financial position and the cash flow statement. Here's the question: what is the FY2015 operating cash flow ratio for Adobe? Operating cash flow ratio is defined as: cash from operations / total current liabilities. Round your answer to two decimal places.",
+  "predicted_answer": "0.59",
+  "ground_truth": [
+    "0.66"
+  ],
+  "cost_usd": 0.06668,
+  "input_tokens": 18572,
+  "output_tokens": 2025,
+  "execution_time": 130.7412850856781,
+  "is_correct": null,
+  "error": null,
+  "cached_at": "2026-01-16T22:47:33.626810"
+}

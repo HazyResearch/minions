@@ -1,0 +1,16 @@
+{
+  "sample_id": "financebench_open_source_line_112",
+  "protocol": "minions",
+  "question": "Has Microsoft increased its debt on balance sheet between FY2023 and the FY2022 period?",
+  "predicted_answer": "",
+  "ground_truth": [
+    "No. Microsoft decreased its debt by $2.5bn in FY 2023 vs FY 2022."
+  ],
+  "cost_usd": 0.0,
+  "input_tokens": 0,
+  "output_tokens": 0,
+  "execution_time": 1.8812940120697021,
+  "is_correct": null,
+  "error": "Error code: 429 - {'error': {'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.', 'type': 'insufficient_quota', 'param': None, 'code': 'insufficient_quota'}}",
+  "cached_at": "2026-01-16T21:00:46.204647"
+}

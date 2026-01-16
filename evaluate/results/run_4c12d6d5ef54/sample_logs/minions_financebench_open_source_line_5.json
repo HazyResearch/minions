@@ -9,8 +9,8 @@
   "cost_usd": 0.0,
   "input_tokens": 0,
   "output_tokens": 0,
-  "execution_time": 9.07010555267334,
-  "is_correct": false,
-  "error": "Unknown done reason: error",
-  "cached_at": "2026-01-16T11:25:04.893757"
+  "execution_time": 0.0,
+  "is_correct": null,
+  "error": "The api_key client option must be set either by passing api_key to the client or by setting the OPENAI_API_KEY environment variable",
+  "cached_at": "2026-01-16T11:29:56.428572"
 }

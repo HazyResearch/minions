@@ -1,0 +1,16 @@
+{
+  "sample_id": "financebench_open_source_line_42",
+  "protocol": "minions",
+  "question": "What drove gross margin change as of the FY2022 for American Express? If gross margin is not a useful metric for a company like this, then please state that and explain why.",
+  "predicted_answer": "Gross margin is not a useful metric for American Express. The company's financial performance in FY2022 was influenced by net interest income, operating expenses, and revenue growth.",
+  "ground_truth": [
+    "Performance is not measured through gross margin"
+  ],
+  "cost_usd": 0.0342575,
+  "input_tokens": 9263,
+  "output_tokens": 1110,
+  "execution_time": 177.7246277332306,
+  "is_correct": null,
+  "error": null,
+  "cached_at": "2026-01-16T23:46:13.272535"
+}

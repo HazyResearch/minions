@@ -2,15 +2,15 @@
   "sample_id": "financebench_open_source_line_57",
   "protocol": "minions",
   "question": "Considering the data in the balance sheet, what is Block's (formerly known as Square) FY2016 working capital ratio? Define working capital ratio as total current assets divided by total current liabilities. Round your answer to two decimal places.",
-  "predicted_answer": "",
+  "predicted_answer": "2.01",
   "ground_truth": [
     "1.73"
   ],
-  "cost_usd": 0.0,
-  "input_tokens": 0,
-  "output_tokens": 0,
-  "execution_time": 4.701366901397705,
+  "cost_usd": 0.020695,
+  "input_tokens": 4858,
+  "output_tokens": 855,
+  "execution_time": 100.4851701259613,
   "is_correct": null,
-  "error": "Error code: 429 - {'error': {'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.', 'type': 'insufficient_quota', 'param': None, 'code': 'insufficient_quota'}}",
-  "cached_at": "2026-01-16T20:58:54.783512"
+  "error": null,
+  "cached_at": "2026-01-16T22:09:57.972664"
 }

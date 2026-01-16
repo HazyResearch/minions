@@ -1,0 +1,16 @@
+Sample: financebench_open_source_line_4
+Protocol: minions
+Timestamp: 2026-01-16T11:12:20.990756
+Execution time: 0.00s
+Cost: $0.0000
+Is correct: None
+Error: Failed to connect to Ollama. Please check that Ollama is downloaded, running and accessible. https://ollama.com/download
+
+--- Question ---
+What drove operating margin change as of FY2022 for 3M? If operating margin is not a useful metric for a company like this, then please state that and explain why.
+
+--- Predicted Answer ---
+N/A
+
+--- Ground Truth ---
+['Operating Margin for 3M in FY2022 has decreased by 1.7% primarily due to: \n-Decrease in gross Margin\n-mostly one-off charges including Combat Arms Earplugs litigation, impairment related to exiting PFAS manufacturing, costs related to exiting Russia and divestiture-related restructuring\ncharges']

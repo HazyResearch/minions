@@ -2,15 +2,15 @@
   "sample_id": "financebench_open_source_line_74",
   "protocol": "minions",
   "question": "Does Corning have positive working capital based on FY2022 data? If working capital is not a useful or relevant metric for this company, then please state that and explain why.",
-  "predicted_answer": "",
+  "predicted_answer": "Due to the inconsistency and incompleteness of the data regarding current assets and liabilities, it is not possible to reliably determine whether Corning has positive working capital based on FY2022 data.",
   "ground_truth": [
     "Yes. Corning had a positive working capital amount of $831 million by FY 2022 close. This answer considers only operating current assets and current liabilities that were clearly shown in the balance sheet."
   ],
-  "cost_usd": 0.0,
-  "input_tokens": 0,
-  "output_tokens": 0,
-  "execution_time": 1.8644516468048096,
+  "cost_usd": 0.0771375,
+  "input_tokens": 19639,
+  "output_tokens": 2804,
+  "execution_time": 352.98691511154175,
   "is_correct": null,
-  "error": "Error code: 429 - {'error': {'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.', 'type': 'insufficient_quota', 'param': None, 'code': 'insufficient_quota'}}",
-  "cached_at": "2026-01-16T20:59:32.947010"
+  "error": null,
+  "cached_at": "2026-01-16T23:03:48.332893"
 }

@@ -1,0 +1,16 @@
+Sample: financebench_open_source_line_70
+Protocol: minions
+Timestamp: 2026-01-16T20:59:22.029897
+Execution time: 4.84s
+Cost: $0.0000
+Is correct: None
+Error: Error code: 429 - {'error': {'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.', 'type': 'insufficient_quota', 'param': None, 'code': 'insufficient_quota'}}
+
+--- Question ---
+What is Coca Cola's FY2022 dividend payout ratio (using total cash dividends paid and net income attributable to shareholders)? Round answer to two decimal places. Answer the question asked by assuming you only have access to information clearly displayed in the cash flow statement and the income statement.
+
+--- Predicted Answer ---
+
+
+--- Ground Truth ---
+['0.8']

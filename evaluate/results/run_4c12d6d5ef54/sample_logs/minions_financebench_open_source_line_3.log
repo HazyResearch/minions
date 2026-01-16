@@ -1,10 +1,10 @@
 Sample: financebench_open_source_line_3
 Protocol: minions
-Timestamp: 2026-01-16T11:24:44.127531
-Execution time: 12.38s
+Timestamp: 2026-01-16T11:29:54.722431
+Execution time: 0.00s
 Cost: $0.0000
-Is correct: False
-Error: Unknown done reason: error
+Is correct: None
+Error: The api_key client option must be set either by passing api_key to the client or by setting the OPENAI_API_KEY environment variable
 
 --- Question ---
 Is 3M a capital-intensive business based on FY2022 data?

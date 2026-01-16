@@ -1,0 +1,16 @@
+{
+  "sample_id": "financebench_open_source_line_6",
+  "protocol": "minions",
+  "question": "Does 3M have a reasonably healthy liquidity profile based on its quick ratio for Q2 of FY2023? If the quick ratio is not relevant to measure liquidity, please state that and explain why.",
+  "predicted_answer": "",
+  "ground_truth": [
+    "No. The quick ratio for 3M was 0.96 by Jun'23 close, which needs a bit of an improvement to touch the 1x mark"
+  ],
+  "cost_usd": 0.0,
+  "input_tokens": 0,
+  "output_tokens": 0,
+  "execution_time": 0.0,
+  "is_correct": null,
+  "error": "Failed to connect to Ollama. Please check that Ollama is downloaded, running and accessible. https://ollama.com/download",
+  "cached_at": "2026-01-16T11:12:22.434333"
+}

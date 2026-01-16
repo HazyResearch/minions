@@ -1,16 +1,16 @@
 Sample: financebench_open_source_line_84
 Protocol: minions
-Timestamp: 2026-01-16T20:59:46.639426
-Execution time: 1.89s
-Cost: $0.0000
+Timestamp: 2026-01-16T23:31:03.046614
+Execution time: 96.76s
+Cost: $0.0208
 Is correct: None
-Error: Error code: 429 - {'error': {'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.', 'type': 'insufficient_quota', 'param': None, 'code': 'insufficient_quota'}}
+Error: None
 
 --- Question ---
 According to the information provided in the statement of cash flows, what is the FY2020 free cash flow (FCF) for General Mills? FCF here is defined as: (cash from operations - capex). Answer in USD millions.
 
 --- Predicted Answer ---
-
+$3,239 million
 
 --- Ground Truth ---
 ['$3215.00']

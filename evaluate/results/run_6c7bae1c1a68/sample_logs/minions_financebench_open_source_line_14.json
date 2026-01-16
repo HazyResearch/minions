@@ -10,7 +10,9 @@
   "input_tokens": 41377,
   "output_tokens": 3534,
   "execution_time": 294.14887142181396,
-  "is_correct": null,
+  "is_correct": false,
   "error": null,
-  "cached_at": "2026-01-16T15:46:58.445842"
+  "cached_at": "2026-01-16T15:46:58.445842",
+  "correctness_confidence": 0.9,
+  "correctness_reasoning": "The predicted answer does not match the ground truth. The ground truth clearly states that Adobe's operating margin declined from 36.8% in FY2021 to 34.6% in FY2022, indicating a worsening margin profile. The predicted answer incorrectly suggests that the operating margin cannot be determined and implies that it may not be a useful metric, which contradicts the ground truth."
 }

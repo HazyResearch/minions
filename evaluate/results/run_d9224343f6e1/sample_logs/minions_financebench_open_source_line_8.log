@@ -1,0 +1,16 @@
+Sample: financebench_open_source_line_8
+Protocol: minions
+Timestamp: 2026-01-16T11:12:24.064599
+Execution time: 0.00s
+Cost: $0.0000
+Is correct: None
+Error: Failed to connect to Ollama. Please check that Ollama is downloaded, running and accessible. https://ollama.com/download
+
+--- Question ---
+Does 3M maintain a stable trend of dividend distribution?
+
+--- Predicted Answer ---
+N/A
+
+--- Ground Truth ---
+['Yes, not only they distribute the dividends on a routine basis, 3M has also been increasing the per share dividend for consecutive 65 years']

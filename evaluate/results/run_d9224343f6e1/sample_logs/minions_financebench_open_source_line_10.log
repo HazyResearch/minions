@@ -1,0 +1,16 @@
+Sample: financebench_open_source_line_10
+Protocol: minions
+Timestamp: 2026-01-16T11:12:25.460606
+Execution time: 0.00s
+Cost: $0.0000
+Is correct: None
+Error: Failed to connect to Ollama. Please check that Ollama is downloaded, running and accessible. https://ollama.com/download
+
+--- Question ---
+What is the FY2017 - FY2019 3 year average of capex as a % of revenue for Activision Blizzard? Answer in units of percents and round to one decimal place. Calculate (or extract) the answer from the statement of income and the cash flow statement.
+
+--- Predicted Answer ---
+N/A
+
+--- Ground Truth ---
+['1.9%']

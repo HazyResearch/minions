@@ -1,8 +1,8 @@
 Sample: financebench_open_source_line_20
 Protocol: minions
-Timestamp: 2026-01-16T14:34:37.033246
-Execution time: 122.83s
-Cost: $0.0707
+Timestamp: 2026-01-16T16:09:24.138782
+Execution time: 70.27s
+Cost: $0.0181
 Is correct: None
 Error: None
 
@@ -10,7 +10,7 @@ Error: None
 What is Amazon's year-over-year change in revenue from FY2016 to FY2017 (in units of percents and round to one decimal place)? Calculate what was asked by utilizing the line items clearly shown in the statement of income.
 
 --- Predicted Answer ---
-The year-over-year change in Amazon's revenue from FY2016 to FY2017 is approximately 30.8%.
+Amazon's year-over-year change in revenue from FY2016 to FY2017 is 18.5%.
 
 --- Ground Truth ---
 ['30.8%']

@@ -1,10 +1,10 @@
 Sample: financebench_open_source_line_2
 Protocol: minions
-Timestamp: 2026-01-16T11:24:30.948895
-Execution time: 8.89s
+Timestamp: 2026-01-16T11:29:53.668540
+Execution time: 0.00s
 Cost: $0.0000
-Is correct: False
-Error: Unknown done reason: error
+Is correct: None
+Error: The api_key client option must be set either by passing api_key to the client or by setting the OPENAI_API_KEY environment variable
 
 --- Question ---
 Assume that you are a public equities analyst. Answer the following question by primarily using information that is shown in the balance sheet: what is the year end FY2018 net PPNE for 3M? Answer in USD billions.

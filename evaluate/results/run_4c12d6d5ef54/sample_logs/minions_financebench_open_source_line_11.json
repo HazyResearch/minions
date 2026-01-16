@@ -1,0 +1,16 @@
+{
+  "sample_id": "financebench_open_source_line_11",
+  "protocol": "minions",
+  "question": "You are an investment banker and your only resource(s) to answer the following question is (are): the statement of financial position and the cash flow statement. Here's the question: what is the FY2015 operating cash flow ratio for Adobe? Operating cash flow ratio is defined as: cash from operations / total current liabilities. Round your answer to two decimal places.",
+  "predicted_answer": "",
+  "ground_truth": [
+    "0.66"
+  ],
+  "cost_usd": 0.0,
+  "input_tokens": 0,
+  "output_tokens": 0,
+  "execution_time": 0.0,
+  "is_correct": null,
+  "error": "The api_key client option must be set either by passing api_key to the client or by setting the OPENAI_API_KEY environment variable",
+  "cached_at": "2026-01-16T11:30:01.658648"
+}

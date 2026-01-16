@@ -1,0 +1,16 @@
+{
+  "sample_id": "financebench_open_source_line_8",
+  "protocol": "minions",
+  "question": "Does 3M maintain a stable trend of dividend distribution?",
+  "predicted_answer": "",
+  "ground_truth": [
+    "Yes, not only they distribute the dividends on a routine basis, 3M has also been increasing the per share dividend for consecutive 65 years"
+  ],
+  "cost_usd": 0.0,
+  "input_tokens": 0,
+  "output_tokens": 0,
+  "execution_time": 8.074736833572388,
+  "is_correct": false,
+  "error": "Unknown done reason: error",
+  "cached_at": "2026-01-16T11:25:32.562236"
+}

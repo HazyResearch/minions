@@ -1,0 +1,16 @@
+{
+  "sample_id": "financebench_open_source_line_150",
+  "protocol": "minions",
+  "question": "What is the FY2018 - FY2020 3 year average unadjusted EBITDA % margin for Walmart? Define unadjusted EBITDA as unadjusted operating income + depreciation and amortization from the cash flow statement. Answer in units of percents and round to one decimal place. Calculate what was asked by utilizing the line items clearly shown in the P&L statement and the cash flow statement.",
+  "predicted_answer": "",
+  "ground_truth": [
+    "6.2%"
+  ],
+  "cost_usd": 0.0,
+  "input_tokens": 0,
+  "output_tokens": 0,
+  "execution_time": 1.7304534912109375,
+  "is_correct": null,
+  "error": "Error code: 429 - {'error': {'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.', 'type': 'insufficient_quota', 'param': None, 'code': 'insufficient_quota'}}",
+  "cached_at": "2026-01-16T21:07:10.048589"
+}

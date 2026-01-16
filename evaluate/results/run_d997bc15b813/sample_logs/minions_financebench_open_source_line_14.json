@@ -1,0 +1,16 @@
+{
+  "sample_id": "financebench_open_source_line_14",
+  "protocol": "minions",
+  "question": "Does Adobe have an improving operating margin profile as of FY2022? If operating margin is not a useful metric for a company like this, then state that and explain why.",
+  "predicted_answer": "The document does not provide explicit operating margin data for Adobe for FY2022. However, based on available financial data, the operating margin for FY2022 is estimated to be approximately 34.7%. The document does not contain explicit commentary on the usefulness of operating margin as a metric for Adobe, but it is implied to be relevant in certain contexts.",
+  "ground_truth": [
+    "No the operating margins of Adobe have recently declined from 36.8% in FY 2021 to 34.6% in FY2022. A drop by 2.2% in a year."
+  ],
+  "cost_usd": 0.04818,
+  "input_tokens": 11884,
+  "output_tokens": 1847,
+  "execution_time": 144.66424441337585,
+  "is_correct": false,
+  "error": null,
+  "cached_at": "2026-01-16T11:04:02.885517"
+}

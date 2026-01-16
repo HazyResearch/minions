@@ -1,16 +1,16 @@
 Sample: financebench_open_source_line_36
 Protocol: minions
-Timestamp: 2026-01-16T20:58:17.974407
-Execution time: 2.27s
-Cost: $0.0000
+Timestamp: 2026-01-16T21:39:55.694221
+Execution time: 105.58s
+Cost: $0.0545
 Is correct: None
-Error: Error code: 429 - {'error': {'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.', 'type': 'insufficient_quota', 'param': None, 'code': 'insufficient_quota'}}
+Error: None
 
 --- Question ---
 Among operations, investing, and financing activities, which brought in the most (or lost the least) cash flow for AMD in FY22?
 
 --- Predicted Answer ---
-
+Operating activities brought in the most cash flow for AMD in FY22, with a net cash flow of $3,565 million.
 
 --- Ground Truth ---
 ['In 2022, AMD brought in the most cashflow from Operations']

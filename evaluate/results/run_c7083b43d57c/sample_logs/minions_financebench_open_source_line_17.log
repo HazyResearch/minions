@@ -1,0 +1,16 @@
+Sample: financebench_open_source_line_17
+Protocol: minions
+Timestamp: 2026-01-16T11:42:22.779824
+Execution time: 0.00s
+Cost: $0.0000
+Is correct: None
+Error: Failed to connect to Ollama. Please check that Ollama is downloaded, running and accessible. https://ollama.com/download
+
+--- Question ---
+Roughly how many times has AES Corporation sold its inventory in FY2022? Calculate inventory turnover ratio for the FY2022; if conventional inventory management is not meaningful for the company then state that and explain why.
+
+--- Predicted Answer ---
+N/A
+
+--- Ground Truth ---
+['AES has converted inventory 9.5 times in FY 2022.']

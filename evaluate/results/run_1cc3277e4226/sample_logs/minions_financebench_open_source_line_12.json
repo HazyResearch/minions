@@ -1,0 +1,16 @@
+{
+  "sample_id": "financebench_open_source_line_12",
+  "protocol": "minions",
+  "question": "What is Adobe's year-over-year change in unadjusted operating income from FY2015 to FY2016 (in units of percents and round to one decimal place)? Give a solution to the question by using the income statement.",
+  "predicted_answer": "53.8%",
+  "ground_truth": [
+    "65.4%"
+  ],
+  "cost_usd": 0.033755,
+  "input_tokens": 9726,
+  "output_tokens": 944,
+  "execution_time": 60.19013738632202,
+  "is_correct": null,
+  "error": null,
+  "cached_at": "2026-01-16T13:58:46.946402"
+}

@@ -1,0 +1,16 @@
+Sample: financebench_open_source_line_71
+Protocol: minions
+Timestamp: 2026-01-16T20:59:24.674869
+Execution time: 1.82s
+Cost: $0.0000
+Is correct: None
+Error: Error code: 429 - {'error': {'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.', 'type': 'insufficient_quota', 'param': None, 'code': 'insufficient_quota'}}
+
+--- Question ---
+Based on the information provided primarily in the balance sheet and the statement of income, what is FY2020 days payable outstanding (DPO) for Corning? DPO is defined as: 365 * (average accounts payable between FY2019 and FY2020) / (FY2020 COGS + change in inventory between FY2019 and FY2020). Round your answer to two decimal places.
+
+--- Predicted Answer ---
+
+
+--- Ground Truth ---
+['63.86']

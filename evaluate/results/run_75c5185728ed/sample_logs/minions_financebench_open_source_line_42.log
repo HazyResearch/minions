@@ -1,0 +1,16 @@
+Sample: financebench_open_source_line_42
+Protocol: minions
+Timestamp: 2026-01-16T20:58:24.173887
+Execution time: 2.37s
+Cost: $0.0000
+Is correct: None
+Error: Error code: 429 - {'error': {'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.', 'type': 'insufficient_quota', 'param': None, 'code': 'insufficient_quota'}}
+
+--- Question ---
+What drove gross margin change as of the FY2022 for American Express? If gross margin is not a useful metric for a company like this, then please state that and explain why.
+
+--- Predicted Answer ---
+
+
+--- Ground Truth ---
+['Performance is not measured through gross margin']

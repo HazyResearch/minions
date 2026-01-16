@@ -1,16 +1,16 @@
 Sample: financebench_open_source_line_69
 Protocol: minions
-Timestamp: 2026-01-16T20:59:16.302188
-Execution time: 1.79s
-Cost: $0.0000
+Timestamp: 2026-01-16T22:28:21.848791
+Execution time: 106.99s
+Cost: $0.0223
 Is correct: None
-Error: Error code: 429 - {'error': {'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.', 'type': 'insufficient_quota', 'param': None, 'code': 'insufficient_quota'}}
+Error: None
 
 --- Question ---
 What is Coca Cola's FY2021 COGS % margin? Calculate what was asked by utilizing the line items clearly shown in the income statement.
 
 --- Predicted Answer ---
-
+70.75%
 
 --- Ground Truth ---
 ['39.7%']

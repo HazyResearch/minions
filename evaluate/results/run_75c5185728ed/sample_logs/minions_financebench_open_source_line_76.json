@@ -2,15 +2,15 @@
   "sample_id": "financebench_open_source_line_76",
   "protocol": "minions",
   "question": "What is the FY2018 fixed asset turnover ratio for CVS Health? Fixed asset turnover ratio is defined as: FY2018 revenue / (average PP&E between FY2017 and FY2018). Round your answer to two decimal places. Calculate what was asked by utilizing the line items clearly shown in the P&L statement and the balance sheet.",
-  "predicted_answer": "",
+  "predicted_answer": "7.61",
   "ground_truth": [
     "17.98"
   ],
-  "cost_usd": 0.0,
-  "input_tokens": 0,
-  "output_tokens": 0,
-  "execution_time": 1.8090906143188477,
+  "cost_usd": 0.18205500000000002,
+  "input_tokens": 61250,
+  "output_tokens": 2893,
+  "execution_time": 735.3812348842621,
   "is_correct": null,
-  "error": "Error code: 429 - {'error': {'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.', 'type': 'insufficient_quota', 'param': None, 'code': 'insufficient_quota'}}",
-  "cached_at": "2026-01-16T20:59:35.601001"
+  "error": null,
+  "cached_at": "2026-01-16T23:16:04.948240"
 }

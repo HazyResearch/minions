@@ -1,0 +1,16 @@
+Sample: financebench_open_source_line_68
+Protocol: minions
+Timestamp: 2026-01-16T20:59:13.629878
+Execution time: 1.92s
+Cost: $0.0000
+Is correct: None
+Error: Error code: 429 - {'error': {'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.', 'type': 'insufficient_quota', 'param': None, 'code': 'insufficient_quota'}}
+
+--- Question ---
+What is the FY2017 return on assets (ROA) for Coca Cola? ROA is defined as: FY2017 net income / (average total assets between FY2016 and FY2017). Round your answer to two decimal places. Give a response to the question by relying on the details shown in the balance sheet and the P&L statement.
+
+--- Predicted Answer ---
+
+
+--- Ground Truth ---
+['0.01']

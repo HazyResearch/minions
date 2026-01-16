@@ -2,15 +2,15 @@
   "sample_id": "financebench_open_source_line_77",
   "protocol": "minions",
   "question": "Is CVS Health a capital-intensive business based on FY2022 data?",
-  "predicted_answer": "",
+  "predicted_answer": "Yes, CVS Health is a capital-intensive business based on FY2022 data.",
   "ground_truth": [
     "Yes, CVS Health requires an extensive asset base to operate, which is evident from its ROA of only 1.82% in 2022 and 3.39% in 2021, though it should be noted that a significant portion of this asset base is goodwill, and CVS's fixed assets/total assets ratio is on the lower side of 5.6%."
   ],
-  "cost_usd": 0.0,
-  "input_tokens": 0,
-  "output_tokens": 0,
-  "execution_time": 1.7773876190185547,
+  "cost_usd": 0.03133,
+  "input_tokens": 8124,
+  "output_tokens": 1102,
+  "execution_time": 207.6062262058258,
   "is_correct": null,
-  "error": "Error code: 429 - {'error': {'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.', 'type': 'insufficient_quota', 'param': None, 'code': 'insufficient_quota'}}",
-  "cached_at": "2026-01-16T20:59:38.256661"
+  "error": null,
+  "cached_at": "2026-01-16T23:19:33.692007"
 }

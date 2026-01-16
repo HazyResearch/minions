@@ -1,9 +1,9 @@
 Sample: financebench_open_source_line_13
 Protocol: minions
-Timestamp: 2026-01-16T15:42:03.256944
-Execution time: 166.42s
-Cost: $0.0727
-Is correct: True
+Timestamp: 2026-01-16T17:16:10.294773
+Execution time: 171.91s
+Cost: $0.0656
+Is correct: None
 Error: None
 
 --- Question ---
@@ -14,8 +14,3 @@ What is the FY2017 operating cash flow ratio for Adobe? Operating cash flow rati
 
 --- Ground Truth ---
 ['0.83']
-
---- Correctness Evaluation ---
-Is correct: True
-Confidence: 1.00
-Reasoning: The predicted answer matches the ground truth answer exactly. Since the numerical answer is within the 10% tolerance range specified by the evaluation rules, the predicted answer is considered correct.

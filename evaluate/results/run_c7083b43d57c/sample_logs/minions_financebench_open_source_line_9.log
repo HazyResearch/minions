@@ -1,0 +1,16 @@
+Sample: financebench_open_source_line_9
+Protocol: minions
+Timestamp: 2026-01-16T11:42:16.944809
+Execution time: 0.00s
+Cost: $0.0000
+Is correct: None
+Error: Failed to connect to Ollama. Please check that Ollama is downloaded, running and accessible. https://ollama.com/download
+
+--- Question ---
+What is the FY2019 fixed asset turnover ratio for Activision Blizzard? Fixed asset turnover ratio is defined as: FY2019 revenue / (average PP&E between FY2018 and FY2019). Round your answer to two decimal places. Base your judgments on the information provided primarily in the statement of income and the statement of financial position.
+
+--- Predicted Answer ---
+N/A
+
+--- Ground Truth ---
+['24.26']

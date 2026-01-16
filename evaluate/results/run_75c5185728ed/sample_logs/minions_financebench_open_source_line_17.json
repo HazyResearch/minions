@@ -1,0 +1,16 @@
+{
+  "sample_id": "financebench_open_source_line_17",
+  "protocol": "minions",
+  "question": "Roughly how many times has AES Corporation sold its inventory in FY2022? Calculate inventory turnover ratio for the FY2022; if conventional inventory management is not meaningful for the company then state that and explain why.",
+  "predicted_answer": "Conventional inventory management is not applicable to AES Corporation, and the inventory turnover ratio cannot be calculated due to the absence of a financial average inventory value.",
+  "ground_truth": [
+    "AES has converted inventory 9.5 times in FY 2022."
+  ],
+  "cost_usd": 0.15236750000000002,
+  "input_tokens": 51679,
+  "output_tokens": 2317,
+  "execution_time": 392.43205547332764,
+  "is_correct": null,
+  "error": null,
+  "cached_at": "2026-01-16T20:25:05.602940"
+}

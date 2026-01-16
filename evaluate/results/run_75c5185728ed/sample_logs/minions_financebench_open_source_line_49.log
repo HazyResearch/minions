@@ -1,0 +1,16 @@
+Sample: financebench_open_source_line_49
+Protocol: minions
+Timestamp: 2026-01-16T20:58:43.897620
+Execution time: 1.75s
+Cost: $0.0000
+Is correct: None
+Error: Error code: 429 - {'error': {'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.', 'type': 'insufficient_quota', 'param': None, 'code': 'insufficient_quota'}}
+
+--- Question ---
+In agreement with the information outlined in the income statement, what is the FY2015 - FY2017 3 year average net profit margin (as a %) for Best Buy? Answer in units of percents and round to one decimal place.
+
+--- Predicted Answer ---
+
+
+--- Ground Truth ---
+['2.8%']

@@ -1,0 +1,16 @@
+Sample: financebench_open_source_line_102
+Protocol: minions
+Timestamp: 2026-01-16T21:00:33.131258
+Execution time: 1.71s
+Cost: $0.0000
+Is correct: None
+Error: Error code: 429 - {'error': {'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.', 'type': 'insufficient_quota', 'param': None, 'code': 'insufficient_quota'}}
+
+--- Question ---
+What is Lockheed Martin's FY2021 net working capital? Define net working capital as total current assets less total current liabilities. Answer in USD millions. Respond to the question by assuming the perspective of an investment analyst who can only use the details shown within the balance sheet.
+
+--- Predicted Answer ---
+
+
+--- Ground Truth ---
+['$5818.00']

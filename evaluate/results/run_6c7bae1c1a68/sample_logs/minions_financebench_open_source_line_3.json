@@ -2,15 +2,15 @@
   "sample_id": "financebench_open_source_line_3",
   "protocol": "minions",
   "question": "Is 3M a capital-intensive business based on FY2022 data?",
-  "predicted_answer": "3M is moderately capital-intensive based on FY2022 data.",
+  "predicted_answer": "",
   "ground_truth": [
     "No, the company is managing its CAPEX and Fixed Assets pretty efficiently, which is evident from below key metrics:\nCAPEX/Revenue Ratio: 5.1%\nFixed assets/Total Assets: 20%\nReturn on Assets= 12.4%"
   ],
-  "cost_usd": 0.16265000000000002,
-  "input_tokens": 56252,
-  "output_tokens": 2202,
-  "execution_time": 342.45518231391907,
+  "cost_usd": 0.0,
+  "input_tokens": 0,
+  "output_tokens": 0,
+  "execution_time": 93.35504508018494,
   "is_correct": null,
-  "error": null,
-  "cached_at": "2026-01-16T13:45:15.749396"
+  "error": "1 validation error for JobOutput\nanswer\n  Input should be a valid string [type=string_type, input_value={'capital_expenditures': ... 'fixed_assets': 'None'}, input_type=dict]\n    For further information visit https://errors.pydantic.dev/2.12/v/string_type",
+  "cached_at": "2026-01-16T15:19:55.570073"
 }

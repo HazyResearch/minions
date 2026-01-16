@@ -1,85 +1,174 @@
 """
-SGLang Client for MinionS with WFSA Length Prior.
+SGLang Client for MinionS with Length Penalty.
+
+Uses SGLang's OpenAI-compatible API with logit_bias to implement a length
+penalty that encourages shorter outputs. Higher beta values = stronger
+preference for shorter responses (via EOS token boost).
 
 SGLang provides RadixAttention which automatically shares KV cache across
-parallel requests with common prefixes (document chunks). This client uses
-SGLang's native /generate endpoint with custom logit processors to implement
-a WFSA-based length prior that encourages shorter outputs.
+parallel requests with common prefixes (document chunks).
 
 Usage:
-    # Start SGLang server with custom logit processor enabled:
-    # python -m sglang.launch_server --model-path meta-llama/Llama-3.1-8B-Instruct \
-    #   --port 8000 --enable-custom-logit-processor
-    
     client = SGLangClient(
         model_name="meta-llama/Llama-3.1-8B-Instruct",
         base_url="http://localhost:8000",
         temperature=0.2,
-        beta_explanation=1.0,
-        beta_citation=2.0,
-        beta_answer=1.5,
+        beta_explanation=1.0,  # Length penalty for explanations
+        beta_citation=2.0,     # Length penalty for citations  
+        beta_answer=1.5,       # Length penalty for answers
     )
 """
 
 import json
 import logging
 import os
-import pickle
-import base64
+import threading
 import uuid
 from typing import Any, Dict, List, Optional, Tuple, Union
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-import requests
 import openai
-from transformers import AutoTokenizer
+
+# AutoTokenizer is optional - used to get model-specific stop token IDs
+try:
+    from transformers import AutoTokenizer
+    HAS_TRANSFORMERS = True
+except ImportError:
+    HAS_TRANSFORMERS = False
+    AutoTokenizer = None
+
+# CustomLogitProcessor for per-step length penalty
+try:
+    from sglang.srt.sampling.custom_logit_processor import CustomLogitProcessor
+    HAS_CUSTOM_LOGIT_PROCESSOR = True
+except ImportError:
+    HAS_CUSTOM_LOGIT_PROCESSOR = False
+    CustomLogitProcessor = None
 
 from minions.usage import Usage
 from minions.clients.base import MinionsClient
+from minions.prompts.minions import (
+    WORKER_PROMPT_EXPLANATION,
+    WORKER_PROMPT_CITATION,
+    WORKER_PROMPT_ANSWER,
+)
 
 
-class LengthPriorWFSA:
-    """
-    WFSA (Weighted Finite-State Acceptor) for length prior.
-    
-    Implements a 1-state WFSA that assigns a length prior:
-      - States: one nonfinal state (s), one final state (f)
-      - Transitions:
-        - For any non-stop token: s -> s with weight -c
-        - For stop token (EOS/EOT): s -> f with weight 0
-    
-    This defines log q(y) = -c * |y| (shorter strings get higher weight).
-    When decoded with product-of-experts:
-        argmax log p_LM(y|x) + lambda * log q(y)
-    
-    We just add a constant EOS boost (beta = lambda * c) at every step,
-    which is equivalent to subtracting beta from all non-stop tokens.
-    """
-    
-    def __call__(self, logits, custom_param_list):
+# Define LengthPenaltyProcessor if CustomLogitProcessor is available
+if HAS_CUSTOM_LOGIT_PROCESSOR:
+    class LengthPenaltyProcessor(CustomLogitProcessor):
         """
-        Apply WFSA length prior by boosting stop token logits.
+        Per-step length penalty: logits[stop_id] += scaled_beta at each decoding step.
+        Makes stopping more likely earlier in generation.
         
-        Args:
-            logits: Tensor of shape [batch_size, vocab_size]
-            custom_param_list: List of dicts with 'beta' and 'stop_ids' per request
-            
-        Returns:
-            Modified logits with EOS boost applied
+        This follows SGLang's CustomLogitProcessor interface where:
+        - __call__(logits, custom_param_list) is called at each step
+        - custom_param_list contains per-request params like {"beta": 2.0, "stop_ids": [128001]}
+        - The processor is serialized via .to_str() and passed to the server
+        
+        Beta scaling: The raw beta (e.g., 1.5) is scaled by 10x to have meaningful effect
+        on logits. This is less aggressive than logit_bias (which used 20x) because
+        the per-step application compounds over multiple tokens.
         """
-        assert logits.shape[0] == len(custom_param_list)
-        
-        for i, params in enumerate(custom_param_list):
-            beta = float(params.get("beta", 2.0))
-            stop_ids = params.get("stop_ids", [])
-            for tid in stop_ids:
-                logits[i, int(tid)] += beta
-        
-        return logits
+        def __call__(self, logits, custom_param_list):
+            assert logits.shape[0] == len(custom_param_list)
+            for i, p in enumerate(custom_param_list):
+                beta = float(p.get("beta", 2.0))
+                stop_ids = p.get("stop_ids", [])
+                # Scale beta to have meaningful effect (similar to logit_bias which used beta * 20)
+                # Use 10x since per-step application compounds; cap at 50 to avoid extremes
+                scaled_beta = min(beta * 10, 50)
+                for tid in stop_ids:
+                    logits[i, int(tid)] += scaled_beta
+            return logits
+else:
+    LengthPenaltyProcessor = None
+
+
+def _extract_string_from_value(value: Any) -> str:
+    """
+    Extract a string from a value that might be a dict or other type.
     
-    def to_str(self) -> str:
-        """Serialize the processor for transmission to SGLang server."""
-        return base64.b64encode(pickle.dumps(self)).decode()
+    This handles cases where the model returns a dict instead of a string,
+    e.g., {"FY2017": "None", "FY2018": "None"} instead of "1.9%"
+    
+    Args:
+        value: The value to extract a string from
+        
+    Returns:
+        A string representation of the value
+    """
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value
+    if isinstance(value, dict):
+        # Try to extract meaningful content from dict
+        # Filter out "None" string values
+        meaningful_values = [
+            str(v) for v in value.values() 
+            if v is not None and str(v).lower() != "none" and str(v).strip()
+        ]
+        if meaningful_values:
+            return "; ".join(meaningful_values)
+        # If all values are None/empty, return empty string
+        return ""
+    if isinstance(value, (int, float)):
+        return str(value)
+    if isinstance(value, list):
+        return "; ".join(str(v) for v in value if v is not None)
+    return str(value)
+
+
+def _postprocess_json_output(output_text: str) -> str:
+    """
+    Post-process JSON output to ensure fields are strings, not dicts.
+    
+    This handles the case where the model returns structured data for
+    fields that should be plain strings, or returns an empty JSON object.
+    
+    Args:
+        output_text: Raw JSON output from the model
+        
+    Returns:
+        Corrected JSON string with all fields as strings
+    """
+    try:
+        data = json.loads(output_text)
+        if not isinstance(data, dict):
+            return output_text
+        
+        # Handle empty JSON {} - fill with default values
+        if not data:
+            return json.dumps({
+                "explanation": "No relevant information found in this chunk.",
+                "citation": "",
+                "answer": ""
+            })
+        
+        # Fields that should be strings
+        string_fields = ['explanation', 'citation', 'answer']
+        
+        corrected = {}
+        for key, value in data.items():
+            if key in string_fields:
+                corrected[key] = _extract_string_from_value(value)
+            else:
+                corrected[key] = value
+        
+        # Ensure required fields exist
+        if 'explanation' not in corrected:
+            corrected['explanation'] = "No explanation provided."
+        if 'citation' not in corrected:
+            corrected['citation'] = ""
+        if 'answer' not in corrected:
+            corrected['answer'] = ""
+        
+        return json.dumps(corrected)
+    except json.JSONDecodeError:
+        return output_text
+    except Exception:
+        return output_text
 
 
 class SGLangClient(MinionsClient):
@@ -165,29 +254,38 @@ class SGLangClient(MinionsClient):
         self.max_tokens_citation = max_tokens_citation
         self.max_tokens_answer = max_tokens_answer
         
-        # Initialize tokenizer to get stop token IDs
-        try:
-            self.tokenizer = AutoTokenizer.from_pretrained(model_name)
-            self.eos_token_id = self.tokenizer.eos_token_id
-            # Get additional stop tokens for Llama-3 instruct format
-            eot_id = self.tokenizer.convert_tokens_to_ids("<|eot_id|>")
-            self.stop_ids = [self.eos_token_id]
-            if eot_id is not None and eot_id != self.tokenizer.unk_token_id:
-                self.stop_ids.append(eot_id)
-        except Exception as e:
-            self.logger.warning(f"Could not load tokenizer: {e}. Using default stop IDs.")
-            self.tokenizer = None
-            self.eos_token_id = 128001  # Llama-3 default EOS
-            self.stop_ids = [128001, 128009]  # EOS and EOT for Llama-3
+        # Generate JSON schema for strict enforcement if Pydantic model provided
+        self.json_schema = None
+        if structured_output_schema is not None:
+            try:
+                # Get JSON schema from Pydantic model
+                if hasattr(structured_output_schema, 'model_json_schema'):
+                    self.json_schema = structured_output_schema.model_json_schema()
+                    self.logger.info(f"Generated JSON schema for strict enforcement: {list(self.json_schema.get('properties', {}).keys())}")
+            except Exception as e:
+                self.logger.warning(f"Could not generate JSON schema: {e}")
         
-        # Create WFSA processor
-        self.wfsa_processor = LengthPriorWFSA()
-        self.wfsa_processor_str = self.wfsa_processor.to_str()
+        # Initialize stop token IDs for length penalty
+        # These are the EOS/EOT tokens that get boosted via logit_bias
+        self.stop_ids = [128001, 128009]  # Default: Llama-3 EOS and EOT tokens
         
-        # Track if WFSA is supported - default to False since SGLang's custom
-        # logit processor API requires specific JSON format that varies by version.
-        # The OpenAI-compatible fallback with logit_bias works reliably.
-        self._wfsa_supported = False
+        if HAS_TRANSFORMERS:
+            try:
+                tokenizer = AutoTokenizer.from_pretrained(model_name)
+                self.stop_ids = [tokenizer.eos_token_id]
+                # Get additional stop tokens for Llama-3 instruct format
+                eot_id = tokenizer.convert_tokens_to_ids("<|eot_id|>")
+                if eot_id is not None and eot_id != tokenizer.unk_token_id:
+                    self.stop_ids.append(eot_id)
+                self.logger.debug(f"[SGLang] Loaded stop IDs from tokenizer: {self.stop_ids}")
+            except Exception as e:
+                self.logger.warning(f"[SGLang] Could not load tokenizer, using default Llama-3 stop IDs: {e}")
+        
+        # Track whether server supports CustomLogitProcessor
+        # Will be validated on first request
+        self._custom_processor_supported = HAS_CUSTOM_LOGIT_PROCESSOR and LengthPenaltyProcessor is not None
+        self._custom_processor_validated = False  # Not yet tested against server
+        self._processor_lock = threading.Lock()  # Thread-safe validation
         
         # Create OpenAI client for fallback (uses /v1 endpoint)
         self.openai_client = openai.OpenAI(
@@ -203,100 +301,114 @@ class SGLangClient(MinionsClient):
         }
         
         self.logger.info(
-            f"SGLang client initialized: {self.base_url}, model={model_name}, "
-            f"betas=(exp={beta_explanation}, cit={beta_citation}, ans={beta_answer})"
+            f"[SGLang] Client initialized: {self.base_url}, model={model_name}"
         )
+        self.logger.info(
+            f"[SGLang] Length penalty betas: (exp={beta_explanation}, cit={beta_citation}, ans={beta_answer}), "
+            f"EOS tokens={self.stop_ids}"
+        )
+        if self._custom_processor_supported:
+            self.logger.info(
+                "[SGLang] CustomLogitProcessor available - will validate on first request. "
+                "Server needs --enable-custom-logit-processor flag."
+            )
+        else:
+            self.logger.info(
+                "[SGLang] CustomLogitProcessor not available - using logit_bias fallback"
+            )
     
-    def _generate_with_wfsa(
+    def _generate_with_length_penalty(
         self,
         text: str,
         beta: float,
         max_new_tokens: int,
-        min_new_tokens: int = 0,
         stop_sequences: Optional[List[str]] = None,
-        rid: Optional[str] = None,
     ) -> Tuple[str, int, int, str]:
         """
-        Generate text using SGLang with WFSA length prior.
+        Generate text with per-step length penalty.
         
-        Tries native /generate endpoint with custom logit processor first.
-        Falls back to OpenAI-compatible API with logit_bias if native fails.
+        Uses CustomLogitProcessor if available (applies penalty each decoding step),
+        otherwise falls back to logit_bias (static one-time boost).
         
         Args:
             text: Input text/prompt
-            beta: WFSA strength (EOS boost)
+            beta: Length penalty strength (EOS boost per step)
             max_new_tokens: Maximum tokens to generate
-            min_new_tokens: Minimum tokens before EOS allowed
             stop_sequences: List of stop strings
-            rid: Request ID for continuation (KV cache reuse)
             
         Returns:
-            Tuple of (generated_text, prompt_tokens, completion_tokens, new_rid)
+            Tuple of (generated_text, prompt_tokens, completion_tokens, request_id)
         """
-        # Try native endpoint with WFSA if supported
-        if self._wfsa_supported:
-            result = self._try_native_generate(text, beta, max_new_tokens, min_new_tokens, stop_sequences, rid)
-            if result is not None:
+        # Try CustomLogitProcessor if supported and not yet proven unsupported
+        if self._custom_processor_supported:
+            result = self._generate_with_custom_processor(text, beta, max_new_tokens, stop_sequences)
+            
+            # Check if it actually worked
+            if result[0] and not result[0].startswith("Error:"):
+                if not self._custom_processor_validated:
+                    with self._processor_lock:
+                        if not self._custom_processor_validated:
+                            self._custom_processor_validated = True
+                            self.logger.debug("[SGLang] ✓ CustomLogitProcessor validated - per-step length penalty ACTIVE")
                 return result
-            # Mark WFSA as not supported for future calls
-            self._wfsa_supported = False
-            self.logger.warning("WFSA not supported, falling back to OpenAI-compatible API with logit_bias")
+            
+            # Custom processor failed - disable it for future requests (thread-safe)
+            with self._processor_lock:
+                if self._custom_processor_supported:  # Check again inside lock
+                    self._custom_processor_supported = False
+                    self.logger.warning(
+                        "[SGLang] ✗ CustomLogitProcessor FAILED - server may not have --enable-custom-logit-processor. "
+                        "Falling back to logit_bias for all future requests."
+                    )
         
-        # Fallback to OpenAI-compatible API with logit_bias
+        # Fallback to logit_bias (static boost)
         return self._generate_with_logit_bias(text, beta, max_new_tokens, stop_sequences)
     
-    def _try_native_generate(
+    def _generate_with_custom_processor(
         self,
         text: str,
         beta: float,
         max_new_tokens: int,
-        min_new_tokens: int,
-        stop_sequences: Optional[List[str]],
-        rid: Optional[str],
-    ) -> Optional[Tuple[str, int, int, str]]:
-        """Try native /generate endpoint with custom logit processor."""
-        url = f"{self.base_url}/generate"
+        stop_sequences: Optional[List[str]] = None,
+    ) -> Tuple[str, int, int, str]:
+        """
+        Generate using CustomLogitProcessor for per-step length penalty.
         
-        payload = {
-            "text": text,
-            "sampling_params": {
-                "temperature": self.temperature,
-                "max_new_tokens": max_new_tokens,
-                "min_new_tokens": min_new_tokens,
-                "custom_params": {
-                    "beta": beta,
-                    "stop_ids": self.stop_ids,
-                },
-            },
-            "custom_logit_processor": self.wfsa_processor_str,
-        }
+        This passes the serialized LengthPenaltyProcessor to SGLang via extra_body,
+        which applies the EOS boost at each decoding step rather than as a static bias.
         
-        if stop_sequences:
-            payload["sampling_params"]["stop"] = stop_sequences
-        
-        if rid:
-            payload["rid"] = rid
-        
+        Requires SGLang server started with --enable-custom-logit-processor flag.
+        """
         try:
-            response = requests.post(url, json=payload, timeout=120)
+            params = {
+                "model": self.model_name,
+                "messages": [{"role": "user", "content": text}],
+                "temperature": self.temperature,
+                "max_tokens": max_new_tokens,
+                "extra_body": {
+                    "custom_logit_processor": LengthPenaltyProcessor().to_str(),
+                    "custom_params": {
+                        "stop_ids": self.stop_ids,
+                        "beta": beta,
+                    },
+                },
+            }
             
-            if response.status_code != 200:
-                error_detail = response.text[:500] if response.text else "No error details"
-                self.logger.error(f"Native generate failed ({response.status_code}): {error_detail}")
-                return None
+            if stop_sequences:
+                params["stop"] = stop_sequences
             
-            result = response.json()
-            generated_text = result.get("text", "")
-            meta = result.get("meta_info", {})
-            prompt_tokens = meta.get("prompt_tokens", 0)
-            completion_tokens = meta.get("completion_tokens", 0)
-            new_rid = meta.get("id", rid or str(uuid.uuid4()))
+            self.logger.debug(f"[SGLang] Using CustomLogitProcessor with beta={beta}, stop_ids={self.stop_ids}")
+            response = self.openai_client.chat.completions.create(**params)
             
-            return generated_text, prompt_tokens, completion_tokens, new_rid
+            generated_text = response.choices[0].message.content or ""
+            prompt_tokens = response.usage.prompt_tokens if response.usage else 0
+            completion_tokens = response.usage.completion_tokens if response.usage else 0
+            
+            return generated_text, prompt_tokens, completion_tokens, str(uuid.uuid4())
             
         except Exception as e:
-            self.logger.error(f"Native generate exception: {e}")
-            return None
+            self.logger.error(f"[SGLang] CustomLogitProcessor error: {e}")
+            return f"Error: {str(e)}", 0, 0, ""
     
     def _generate_with_logit_bias(
         self,
@@ -308,7 +420,10 @@ class SGLangClient(MinionsClient):
         """Generate using OpenAI-compatible API with logit_bias for EOS boost."""
         try:
             # Build logit_bias dict: boost EOS tokens by beta
-            logit_bias = {str(tid): int(beta * 10) for tid in self.stop_ids}  # Scale beta
+            # Scale beta aggressively (20x) to encourage shorter outputs
+            # logit_bias range is typically -100 to +100
+            logit_bias = {str(tid): min(int(beta * 20), 100) for tid in self.stop_ids}
+            self.logger.debug(f"[SGLang] Using logit_bias for EOS boost: {logit_bias}")
             
             params = {
                 "model": self.model_name,
@@ -333,114 +448,15 @@ class SGLangClient(MinionsClient):
             self.logger.error(f"OpenAI-compatible generate error: {e}")
             return f"Error: {str(e)}", 0, 0, ""
     
-    def _generate_job_output_sequential(
-        self,
-        prompt: str,
-    ) -> Tuple[str, Usage, str]:
-        """
-        Generate JobOutput by generating each field sequentially with WFSA.
-        
-        If WFSA (native /generate endpoint) is supported, generates fields one at a time
-        reusing the KV cache between generations for efficiency.
-        
-        If WFSA is not supported, falls back to single-shot JSON generation.
-        
-        Args:
-            prompt: The full worker prompt
-            
-        Returns:
-            Tuple of (json_response, usage, done_reason)
-        """
-        # If WFSA is not supported, use single-shot generation
-        if not self._wfsa_supported:
-            return self._generate_job_output_single_shot(prompt)
-        
-        total_prompt_tokens = 0
-        total_completion_tokens = 0
-        
-        # Start with the prompt and JSON opening
-        current_text = prompt + '\n{"explanation": "'
-        rid = None
-        
-        # Generate explanation field
-        explanation, pt, ct, rid = self._generate_with_wfsa(
-            text=current_text,
-            beta=self.beta_explanation,
-            max_new_tokens=self.max_tokens_explanation,
-            min_new_tokens=self.min_tokens_explanation,
-            stop_sequences=['"', '\n'],
-            rid=rid,
-        )
-        total_prompt_tokens += pt
-        total_completion_tokens += ct
-        
-        # If WFSA failed and we switched to fallback, use single-shot for rest
-        if not self._wfsa_supported:
-            return self._generate_job_output_single_shot(prompt)
-        
-        # Clean up explanation (remove trailing quote if present)
-        explanation = explanation.rstrip('"').strip()
-        
-        # Continue with citation field
-        current_text = current_text + explanation + '", "citation": "'
-        citation, pt, ct, rid = self._generate_with_wfsa(
-            text=current_text,
-            beta=self.beta_citation,
-            max_new_tokens=self.max_tokens_citation,
-            min_new_tokens=self.min_tokens_citation,
-            stop_sequences=['"', '\n'],
-            rid=rid,
-        )
-        total_prompt_tokens += pt
-        total_completion_tokens += ct
-        
-        # Clean up citation
-        citation = citation.rstrip('"').strip()
-        if citation.lower() in ['none', 'null', '']:
-            citation = None
-        
-        # Continue with answer field
-        if citation:
-            current_text = current_text + citation + '", "answer": "'
-        else:
-            current_text = current_text + 'null, "answer": "'
-        
-        answer, pt, ct, rid = self._generate_with_wfsa(
-            text=current_text,
-            beta=self.beta_answer,
-            max_new_tokens=self.max_tokens_answer,
-            min_new_tokens=self.min_tokens_answer,
-            stop_sequences=['"', '\n', '}'],
-            rid=rid,
-        )
-        total_prompt_tokens += pt
-        total_completion_tokens += ct
-        
-        # Clean up answer
-        answer = answer.rstrip('"').rstrip('}').strip()
-        if answer.lower() in ['none', 'null', '']:
-            answer = None
-        
-        # Assemble final JSON
-        result = {
-            "explanation": explanation,
-            "citation": citation,
-            "answer": answer,
-        }
-        
-        json_response = json.dumps(result)
-        usage = Usage(prompt_tokens=total_prompt_tokens, completion_tokens=total_completion_tokens)
-        
-        return json_response, usage, "stop"
-    
     def _generate_job_output_single_shot(
         self,
         prompt: str,
     ) -> Tuple[str, Usage, str]:
         """
-        Generate JobOutput in a single API call (fallback when WFSA not available).
+        Generate JobOutput in a single API call.
         
-        Uses OpenAI-compatible API with response_format=json_object.
+        Uses CustomLogitProcessor if available for per-step length penalty,
+        otherwise falls back to logit_bias.
         
         Args:
             prompt: The full worker prompt
@@ -449,18 +465,34 @@ class SGLangClient(MinionsClient):
             Tuple of (json_response, usage, done_reason)
         """
         try:
-            # Build logit_bias with average beta to encourage shorter outputs
             avg_beta = (self.beta_explanation + self.beta_citation + self.beta_answer) / 3
-            logit_bias = {str(tid): int(avg_beta * 5) for tid in self.stop_ids}
+            max_tokens = self.max_tokens_explanation + self.max_tokens_citation + self.max_tokens_answer
             
-            response = self.openai_client.chat.completions.create(
-                model=self.model_name,
-                messages=[{"role": "user", "content": prompt}],
-                temperature=self.temperature,
-                max_tokens=self.max_tokens_explanation + self.max_tokens_citation + self.max_tokens_answer,
-                response_format={"type": "json_object"},
-                logit_bias=logit_bias,
-            )
+            params = {
+                "model": self.model_name,
+                "messages": [{"role": "user", "content": prompt}],
+                "temperature": self.temperature,
+                "max_tokens": max_tokens,
+                "response_format": {"type": "json_object"},
+            }
+            
+            # Use CustomLogitProcessor if supported, otherwise logit_bias
+            if self._custom_processor_supported:
+                params["extra_body"] = {
+                    "custom_logit_processor": LengthPenaltyProcessor().to_str(),
+                    "custom_params": {
+                        "stop_ids": self.stop_ids,
+                        "beta": avg_beta,
+                    },
+                }
+                self.logger.debug(f"[SGLang] Single-shot with CustomLogitProcessor, beta={avg_beta}")
+            else:
+                # Fallback to logit_bias (static boost)
+                logit_bias = {str(tid): min(int(avg_beta * 15), 100) for tid in self.stop_ids}
+                params["logit_bias"] = logit_bias
+                self.logger.debug(f"[SGLang] Single-shot with logit_bias: {logit_bias}")
+            
+            response = self.openai_client.chat.completions.create(**params)
             
             json_response = response.choices[0].message.content or "{}"
             
@@ -497,6 +529,181 @@ class SGLangClient(MinionsClient):
                 "answer": None,
             }
             return json.dumps(error_result), Usage(), "error"
+    
+    def _parse_worker_prompt(self, prompt: str) -> Tuple[str, str, str]:
+        """
+        Parse a worker prompt to extract context, task, and advice.
+        
+        The prompt follows the WORKER_PROMPT_SHORT format with sections
+        separated by "--------------------------------".
+        
+        Args:
+            prompt: The full worker prompt
+            
+        Returns:
+            Tuple of (context, task, advice)
+        """
+        separator = "-" * 32
+        
+        # Default values
+        context = ""
+        task = ""
+        advice = ""
+        
+        try:
+            # Split by separator
+            parts = prompt.split(separator)
+            
+            if len(parts) >= 1:
+                # First part contains context
+                context_part = parts[0]
+                # Remove "Here is a document excerpt:" prefix if present
+                if "document excerpt:" in context_part.lower():
+                    context = context_part.split(":", 1)[-1].strip()
+                else:
+                    context = context_part.strip()
+            
+            if len(parts) >= 2:
+                # Second part contains task
+                task_part = parts[1]
+                # Remove "And here is your task:" prefix if present
+                if "task:" in task_part.lower():
+                    task = task_part.split(":", 1)[-1].strip()
+                else:
+                    task = task_part.strip()
+            
+            if len(parts) >= 3:
+                # Third part contains advice
+                advice_part = parts[2]
+                # Remove "And here is additional higher-level advice..." prefix if present
+                if "advice" in advice_part.lower():
+                    advice = advice_part.split(":", 1)[-1].strip()
+                else:
+                    advice = advice_part.strip()
+            
+        except Exception as e:
+            self.logger.warning(f"[SGLang] Error parsing worker prompt: {e}")
+            # Return the whole prompt as context if parsing fails
+            context = prompt
+        
+        return context, task, advice
+    
+    def _generate_job_output_sequential(
+        self,
+        prompt: str,
+    ) -> Tuple[str, Usage, str]:
+        """
+        Generate JobOutput using 3 sequential API calls for KV cache reuse.
+        
+        This generates explanation, citation, and answer sequentially, with each
+        subsequent call building on the previous results. All calls share a common
+        prefix (context + task + advice) which SGLang's RadixAttention caches.
+        
+        Each field uses its own beta value for per-step length penalty via
+        CustomLogitProcessor (or logit_bias fallback).
+        
+        Args:
+            prompt: The full worker prompt (will be parsed to extract context, task, advice)
+            
+        Returns:
+            Tuple of (json_response, usage, done_reason)
+        """
+        total_prompt_tokens = 0
+        total_completion_tokens = 0
+        
+        # Parse the incoming prompt to extract components
+        context, task, advice = self._parse_worker_prompt(prompt)
+        
+        self.logger.debug(f"[SGLang] Sequential generation: context={len(context)} chars, task={len(task)} chars")
+        
+        # Step 1: Generate explanation
+        explanation_prompt = WORKER_PROMPT_EXPLANATION.format(
+            context=context,
+            task=task,
+            advice=advice,
+        )
+        
+        explanation, pt1, ct1, _ = self._generate_with_length_penalty(
+            text=explanation_prompt,
+            beta=self.beta_explanation,
+            max_new_tokens=self.max_tokens_explanation,
+        )
+        total_prompt_tokens += pt1
+        total_completion_tokens += ct1
+        
+        # Clean up explanation (remove "None" variations)
+        explanation = explanation.strip()
+        if explanation.lower() in ("none", "none.", '"none"', "'none'"):
+            explanation = ""
+        
+        self.logger.debug(f"[SGLang] Generated explanation: {len(explanation)} chars")
+        
+        # Step 2: Generate citation (with explanation context)
+        citation_prompt = WORKER_PROMPT_CITATION.format(
+            context=context,
+            task=task,
+            advice=advice,
+            explanation=explanation,
+        )
+        
+        citation, pt2, ct2, _ = self._generate_with_length_penalty(
+            text=citation_prompt,
+            beta=self.beta_citation,
+            max_new_tokens=self.max_tokens_citation,
+        )
+        total_prompt_tokens += pt2
+        total_completion_tokens += ct2
+        
+        # Clean up citation
+        citation = citation.strip()
+        if citation.lower() in ("none", "none.", '"none"', "'none'"):
+            citation = None
+        
+        self.logger.debug(f"[SGLang] Generated citation: {len(citation) if citation else 0} chars")
+        
+        # Step 3: Generate answer (with explanation and citation context)
+        answer_prompt = WORKER_PROMPT_ANSWER.format(
+            context=context,
+            task=task,
+            advice=advice,
+            explanation=explanation,
+            citation=citation or "None",
+        )
+        
+        answer, pt3, ct3, _ = self._generate_with_length_penalty(
+            text=answer_prompt,
+            beta=self.beta_answer,
+            max_new_tokens=self.max_tokens_answer,
+        )
+        total_prompt_tokens += pt3
+        total_completion_tokens += ct3
+        
+        # Clean up answer
+        answer = answer.strip()
+        if answer.lower() in ("none", "none.", '"none"', "'none'"):
+            answer = None
+        
+        self.logger.debug(f"[SGLang] Generated answer: {len(answer) if answer else 0} chars")
+        
+        # Combine into JSON response
+        result = {
+            "explanation": explanation or "No relevant information found.",
+            "citation": citation,
+            "answer": answer,
+        }
+        json_response = json.dumps(result)
+        
+        usage = Usage(
+            prompt_tokens=total_prompt_tokens,
+            completion_tokens=total_completion_tokens,
+        )
+        
+        self.logger.debug(
+            f"[SGLang] Sequential generation complete: "
+            f"prompt_tokens={total_prompt_tokens}, completion_tokens={total_completion_tokens}"
+        )
+        
+        return json_response, usage, "stop"
     
     def _is_batch_of_single_prompts(self, messages) -> bool:
         """
@@ -577,16 +784,20 @@ class SGLangClient(MinionsClient):
                     prompt += f"Assistant: {content}\n\n"
             prompt += "Assistant: "
         
-        # Generate with WFSA using sequential field generation
+        # Generate with per-step length penalty using sequential field generation
+        # This generates explanation, citation, answer in 3 separate calls for KV cache reuse
         if self.structured_output_schema is not None:
-            return self._generate_job_output_sequential(prompt)
+            json_response, usage, done_reason = self._generate_job_output_sequential(prompt)
+            # Post-process JSON output to ensure fields are strings, not dicts
+            if json_response:
+                json_response = _postprocess_json_output(json_response)
+            return json_response, usage, done_reason
         else:
             # For non-structured output, use single generation with default beta
-            text, pt, ct, _ = self._generate_with_wfsa(
+            text, pt, ct, _ = self._generate_with_length_penalty(
                 text=prompt,
                 beta=self.beta_answer,  # Use answer beta as default
                 max_new_tokens=self.max_tokens,
-                min_new_tokens=0,
             )
             usage = Usage(prompt_tokens=pt, completion_tokens=ct)
             return text, usage, "stop"
@@ -613,7 +824,7 @@ class SGLangClient(MinionsClient):
         """
         # BATCH MODE: Handle list of individual prompts in parallel
         if self._is_batch_of_single_prompts(messages):
-            self.logger.info(f"[SGLang] Batch mode: Processing {len(messages)} prompts in parallel")
+            self.logger.debug(f"[SGLang] Batch mode: Processing {len(messages)} prompts in parallel")
             
             responses = [None] * len(messages)
             usage_total = Usage()
@@ -621,7 +832,7 @@ class SGLangClient(MinionsClient):
             
             # Group messages by chunk prefix for optimal KV cache reuse
             prefix_groups = self._group_by_prefix(messages)
-            self.logger.info(f"[SGLang] Grouped into {len(prefix_groups)} prefix groups for KV cache optimization")
+            self.logger.debug(f"[SGLang] Grouped into {len(prefix_groups)} prefix groups for KV cache optimization")
             
             max_workers = min(len(messages), self.max_workers)
             
@@ -649,7 +860,7 @@ class SGLangClient(MinionsClient):
                         })
                         done_reasons[idx] = "error"
             
-            self.logger.info(f"[SGLang] Batch complete: {len([r for r in responses if r])} responses")
+            self.logger.debug(f"[SGLang] Batch complete: {len([r for r in responses if r])} responses")
             return responses, usage_total, done_reasons
         
         # SINGLE CONVERSATION MODE

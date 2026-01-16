@@ -1,0 +1,16 @@
+{
+  "sample_id": "financebench_open_source_line_4",
+  "protocol": "minions",
+  "question": "What drove operating margin change as of FY2022 for 3M? If operating margin is not a useful metric for a company like this, then please state that and explain why.",
+  "predicted_answer": "The operating margin change for 3M in FY2022 was driven by a combination of factors including significant litigation costs, environmental expenses, raw material price increases, divestiture impacts, and currency fluctuations. Notable charges included a $0.8 billion pre-tax charge for PFAS exit and a $1.2 billion charge for Combat Arms litigation. While these factors were identified, the specific impact of each on the operating margin was not quantified in the document.",
+  "ground_truth": [
+    "Operating Margin for 3M in FY2022 has decreased by 1.7% primarily due to: \n-Decrease in gross Margin\n-mostly one-off charges including Combat Arms Earplugs litigation, impairment related to exiting PFAS manufacturing, costs related to exiting Russia and divestiture-related restructuring\ncharges"
+  ],
+  "cost_usd": 0.1709525,
+  "input_tokens": 55569,
+  "output_tokens": 3203,
+  "execution_time": 407.9596755504608,
+  "is_correct": null,
+  "error": null,
+  "cached_at": "2026-01-16T19:49:31.910199"
+}

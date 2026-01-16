@@ -1,0 +1,25 @@
+Sample: financebench_open_source_line_9
+Protocol: minions
+Timestamp: 2026-01-16T15:29:11.355219
+Execution time: 258.65s
+Cost: $0.0000
+Is correct: None
+Error: 3 validation errors for JobOutput
+explanation
+  Field required [type=missing, input_value={}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.12/v/missing
+citation
+  Field required [type=missing, input_value={}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.12/v/missing
+answer
+  Field required [type=missing, input_value={}, input_type=dict]
+    For further information visit https://errors.pydantic.dev/2.12/v/missing
+
+--- Question ---
+What is the FY2019 fixed asset turnover ratio for Activision Blizzard? Fixed asset turnover ratio is defined as: FY2019 revenue / (average PP&E between FY2018 and FY2019). Round your answer to two decimal places. Base your judgments on the information provided primarily in the statement of income and the statement of financial position.
+
+--- Predicted Answer ---
+
+
+--- Ground Truth ---
+['24.26']

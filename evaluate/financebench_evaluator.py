@@ -1034,11 +1034,15 @@ class Evaluator:
             with open(cache_path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
             
+            # Ensure predicted_answer is always a string (cache may have numeric values)
+            raw_answer = data['predicted_answer']
+            predicted_answer = str(raw_answer) if raw_answer is not None else ''
+            
             return EvaluationResult(
                 sample_id=data['sample_id'],
                 protocol=data['protocol'],
                 question=data['question'],
-                predicted_answer=data['predicted_answer'],
+                predicted_answer=predicted_answer,
                 ground_truth=data['ground_truth'],
                 cost_usd=data['cost_usd'],
                 input_tokens=data['input_tokens'],
@@ -1073,7 +1077,7 @@ class Evaluator:
             f.write("\n--- Question ---\n")
             f.write(result.question)
             f.write("\n\n--- Predicted Answer ---\n")
-            f.write(result.predicted_answer or "N/A")
+            f.write(str(result.predicted_answer) if result.predicted_answer is not None else "N/A")
             f.write("\n\n--- Ground Truth ---\n")
             f.write(str(result.ground_truth))
             if log_content:
@@ -1222,7 +1226,8 @@ class Evaluator:
             )
         
         execution_time = time.time() - start_time
-        predicted_answer = result_dict.get('final_answer', '') or ''
+        raw_answer = result_dict.get('final_answer', '')
+        predicted_answer = str(raw_answer) if raw_answer is not None else ''
         
         if protocol.lower() == 'remote_only':
             print(f"\n--- Remote-Only Answer Log ---")
@@ -1355,6 +1360,34 @@ class Evaluator:
         """Print summary table to console."""
         summary = self._aggregate_all_results()
         
+        # Print per-query details first
+        print("\n" + "="*80)
+        print("PER-QUERY DETAILS")
+        print("="*80)
+        
+        for protocol in self.protocols:
+            results = self.results.get(protocol, [])
+            if not results:
+                continue
+            
+            print(f"\n{protocol.upper()}:")
+            print("-"*80)
+            if self.skip_accuracy:
+                print(f"{'Sample ID':<45} {'Cost ($)':<12} {'Input Tok':<12} {'Output Tok':<12}")
+            else:
+                print(f"{'Sample ID':<40} {'Correct':<10} {'Cost ($)':<12} {'Input Tok':<12} {'Output Tok':<12}")
+            print("-"*80)
+            
+            for r in results:
+                sample_id = r.sample_id[:42] + "..." if len(r.sample_id) > 45 else r.sample_id
+                if self.skip_accuracy:
+                    print(f"{sample_id:<45} {r.cost_usd:<12.4f} {r.input_tokens:<12} {r.output_tokens:<12}")
+                else:
+                    correct_str = "✓" if r.is_correct else ("✗" if r.is_correct is False else "?")
+                    sample_id = r.sample_id[:37] + "..." if len(r.sample_id) > 40 else r.sample_id
+                    print(f"{sample_id:<40} {correct_str:<10} {r.cost_usd:<12.4f} {r.input_tokens:<12} {r.output_tokens:<12}")
+        
+        # Print aggregate summary
         print("\n" + "="*80)
         print("EVALUATION SUMMARY")
         print("="*80)
@@ -1463,6 +1496,36 @@ class Evaluator:
                     f.write(f"Total runtime: {seconds:.1f}s\n")
                 f.write("\n")
             
+            # Write per-query details
+            f.write("="*80 + "\n")
+            f.write("PER-QUERY DETAILS\n")
+            f.write("="*80 + "\n")
+            
+            for protocol in self.protocols:
+                results = self.results.get(protocol, [])
+                if not results:
+                    continue
+                
+                f.write(f"\n{protocol.upper()}:\n")
+                f.write("-"*80 + "\n")
+                if self.skip_accuracy:
+                    f.write(f"{'Sample ID':<45} {'Cost ($)':<12} {'Input Tok':<12} {'Output Tok':<12}\n")
+                else:
+                    f.write(f"{'Sample ID':<40} {'Correct':<10} {'Cost ($)':<12} {'Input Tok':<12} {'Output Tok':<12}\n")
+                f.write("-"*80 + "\n")
+                
+                for r in results:
+                    sample_id = r.sample_id[:42] + "..." if len(r.sample_id) > 45 else r.sample_id
+                    if self.skip_accuracy:
+                        f.write(f"{sample_id:<45} {r.cost_usd:<12.4f} {r.input_tokens:<12} {r.output_tokens:<12}\n")
+                    else:
+                        correct_str = "Y" if r.is_correct else ("N" if r.is_correct is False else "?")
+                        sample_id = r.sample_id[:37] + "..." if len(r.sample_id) > 40 else r.sample_id
+                        f.write(f"{sample_id:<40} {correct_str:<10} {r.cost_usd:<12.4f} {r.input_tokens:<12} {r.output_tokens:<12}\n")
+            
+            f.write("\n")
+            
+            # Write aggregate summary
             f.write("="*80 + "\n")
             f.write("EVALUATION SUMMARY\n")
             f.write("="*80 + "\n")

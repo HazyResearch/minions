@@ -1,0 +1,16 @@
+{
+  "sample_id": "financebench_open_source_line_14",
+  "protocol": "minions",
+  "question": "Does Adobe have an improving operating margin profile as of FY2022? If operating margin is not a useful metric for a company like this, then state that and explain why.",
+  "predicted_answer": "Based on the available information, Adobe's operating margin profile as of FY2022 cannot be conclusively determined due to inconsistent and incomplete data. However, alternative metrics such as Annualized Recurring Revenue (ARR), revenue growth, and customer acquisition and retention rates are more relevant for assessing Adobe's performance, given its subscription-based business model and focus on digital media and experience offerings.",
+  "ground_truth": [
+    "No the operating margins of Adobe have recently declined from 36.8% in FY 2021 to 34.6% in FY2022. A drop by 2.2% in a year."
+  ],
+  "cost_usd": 0.054365,
+  "input_tokens": 13610,
+  "output_tokens": 2034,
+  "execution_time": 186.45803785324097,
+  "is_correct": false,
+  "error": null,
+  "cached_at": "2026-01-16T12:26:57.705385"
+}

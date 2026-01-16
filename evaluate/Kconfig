@@ -116,6 +116,7 @@ config LOCAL_BACKEND_SGLANG
 	bool "Use SGLang backend (instead of Ollama)"
 	default n
 	help
+<<<<<<< HEAD
 	  Use SGLang as the local inference backend.
 	  SGLang provides RadixAttention for KV cache sharing
 	  and supports custom logit processors for WFSA.
@@ -206,6 +207,20 @@ config WFSA_MAX_TOKENS_ANSWER
 	  Maximum tokens for answer field.
 
 endmenu
+=======
+	  Use SGLang as the local inference backend instead of Ollama.
+	  SGLang provides RadixAttention for automatic KV cache sharing
+	  across parallel requests with common prefixes.
+	  Requires SGLang server running.
+
+config SGLANG_BASE_URL
+	string "SGLang server URL"
+	default "http://localhost:8000/v1"
+	depends on LOCAL_BACKEND_SGLANG
+	help
+	  URL of the SGLang server (including /v1 for OpenAI-compatible API).
+	  Default: http://localhost:8000/v1
+>>>>>>> original_clean
 
 endmenu
 

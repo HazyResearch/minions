@@ -6,13 +6,11 @@
   "ground_truth": [
     "65.4%"
   ],
-  "cost_usd": 0.07932499999999999,
-  "input_tokens": 23998,
-  "output_tokens": 1933,
-  "execution_time": 178.3969099521637,
-  "is_correct": true,
+  "cost_usd": 0.0408725,
+  "input_tokens": 12169,
+  "output_tokens": 1045,
+  "execution_time": 85.03558397293091,
+  "is_correct": null,
   "error": null,
-  "cached_at": "2026-01-16T15:39:15.927203",
-  "correctness_confidence": 1.0,
-  "correctness_reasoning": "The predicted answer of 65.4% matches the ground truth answer exactly. Since the numerical answer is within the 10% tolerance range specified by the evaluation rules, the prediction is considered correct."
+  "cached_at": "2026-01-16T17:13:17.459277"
 }

@@ -1,7 +1,7 @@
 Sample: financebench_open_source_line_1
 Protocol: minions
-Timestamp: 2026-01-16T11:18:50.736628
-Execution time: 9.83s
+Timestamp: 2026-01-16T11:21:31.560404
+Execution time: 10.26s
 Cost: $0.0000
 Is correct: False
 Error: Unknown done reason: error

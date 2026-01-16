@@ -1,0 +1,16 @@
+{
+  "sample_id": "financebench_open_source_line_53",
+  "protocol": "minions",
+  "question": "Among operations, investing, and financing activities, which brought in the most (or lost the least) cash flow for Best Buy in FY2023?",
+  "predicted_answer": "",
+  "ground_truth": [
+    "Best Buy generated the most cash flow from operating activities in FY 2023 ($1.8 bn)"
+  ],
+  "cost_usd": 0.0,
+  "input_tokens": 0,
+  "output_tokens": 0,
+  "execution_time": 1.984459638595581,
+  "is_correct": null,
+  "error": "Error code: 429 - {'error': {'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.', 'type': 'insufficient_quota', 'param': None, 'code': 'insufficient_quota'}}",
+  "cached_at": "2026-01-16T20:58:49.258456"
+}

@@ -425,21 +425,9 @@ class FinanceBenchDataset:
             return None
     
     def _is_numerical_question(self, sample: FinanceBenchSample) -> bool:
-        """Check if a question is a numerical reasoning question."""
-        if sample.question_reasoning and 'numerical' in sample.question_reasoning.lower():
-            return True
-        
-        for ans in sample.answer:
-            if re.search(r'\d+[.,]?\d*', ans):
-                return True
-        
-        numerical_keywords = [
-            'how much', 'how many', 'what is the', 'calculate', 'total', 'sum',
-            'difference', 'ratio', 'percentage', 'percent', 'billion', 'million',
-            'thousand', 'amount', 'value', 'cost', 'price', 'revenue', 'income'
-        ]
-        question_lower = sample.question.lower()
-        return any(keyword in question_lower for keyword in numerical_keywords)
+        """Check if a question is a numerical reasoning question based on FinanceBench labels."""
+        # Only use the FinanceBench question_reasoning label - no fallbacks
+        return bool(sample.question_reasoning and 'numerical' in sample.question_reasoning.lower())
 
 
 def _normalize_usage(usage: Any) -> Usage:

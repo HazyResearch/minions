@@ -2,17 +2,15 @@
   "sample_id": "financebench_open_source_line_20",
   "protocol": "minions",
   "question": "What is Amazon's year-over-year change in revenue from FY2016 to FY2017 (in units of percents and round to one decimal place)? Calculate what was asked by utilizing the line items clearly shown in the statement of income.",
-  "predicted_answer": "Amazon's year-over-year change in revenue from FY2016 to FY2017 is 18.5%.",
+  "predicted_answer": "30.8%",
   "ground_truth": [
     "30.8%"
   ],
-  "cost_usd": 0.018125000000000002,
-  "input_tokens": 3618,
-  "output_tokens": 908,
-  "execution_time": 70.26532936096191,
-  "is_correct": false,
+  "cost_usd": 0.0361875,
+  "input_tokens": 10899,
+  "output_tokens": 894,
+  "execution_time": 59.26144886016846,
+  "is_correct": null,
   "error": null,
-  "cached_at": "2026-01-16T16:09:24.113766",
-  "correctness_confidence": 1.0,
-  "correctness_reasoning": "The predicted answer of 18.5% is outside the 10% tolerance range of the ground truth answer, which is 30.8%. The acceptable range would be 27.72% to 33.88%."
+  "cached_at": "2026-01-16T17:44:11.825664"
 }

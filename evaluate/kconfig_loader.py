@@ -37,6 +37,8 @@ class LocalModelConfig:
     name: str = "llama3.2:3b"
     temperature: float = 0.2
     num_ctx: int = 4096
+    backend: str = "ollama"  # "ollama" or "sglang"
+    sglang_base_url: str = "http://localhost:8000/v1"
 
 
 @dataclass
@@ -119,6 +121,8 @@ class EvaluatorConfig:
                     'name': self.models.local.name,
                     'temperature': self.models.local.temperature,
                     'num_ctx': self.models.local.num_ctx,
+                    'backend': self.models.local.backend,
+                    'sglang_base_url': self.models.local.sglang_base_url,
                 },
                 'remote': {
                     'name': self.models.remote.name,
@@ -258,6 +262,13 @@ class KconfigLoader:
         config.models.local.name = values.get('LOCAL_MODEL_NAME', 'llama3.2:3b')
         config.models.local.temperature = int(values.get('LOCAL_TEMPERATURE', '20')) / 100.0
         config.models.local.num_ctx = int(values.get('LOCAL_NUM_CTX', '4096'))
+        
+        # Local backend: sglang or ollama
+        if values.get('LOCAL_BACKEND_SGLANG', 'n') == 'y':
+            config.models.local.backend = 'sglang'
+            config.models.local.sglang_base_url = values.get('SGLANG_BASE_URL', 'http://localhost:8000/v1')
+        else:
+            config.models.local.backend = 'ollama'
         
         config.models.remote.name = values.get('REMOTE_MODEL_NAME', 'gpt-4o')
         config.models.remote.temperature = int(values.get('REMOTE_TEMPERATURE', '0')) / 100.0

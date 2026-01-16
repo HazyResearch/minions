@@ -1,0 +1,16 @@
+{
+  "sample_id": "financebench_open_source_line_147",
+  "protocol": "minions",
+  "question": "Has Verizon increased its debt on balance sheet between 2022 and the 2021 fiscal period?",
+  "predicted_answer": "",
+  "ground_truth": [
+    "No. Verizon's debt decreased by $229 million."
+  ],
+  "cost_usd": 0.0,
+  "input_tokens": 0,
+  "output_tokens": 0,
+  "execution_time": 2.0170085430145264,
+  "is_correct": null,
+  "error": "Error code: 429 - {'error': {'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.', 'type': 'insufficient_quota', 'param': None, 'code': 'insufficient_quota'}}",
+  "cached_at": "2026-01-16T21:07:01.685142"
+}

@@ -2,15 +2,15 @@
   "sample_id": "financebench_open_source_line_73",
   "protocol": "minions",
   "question": "How much has the effective tax rate of Corning changed between FY2021 and FY2022?",
-  "predicted_answer": "",
+  "predicted_answer": "The effective tax rate of Corning increased by 2.7 percentage points from FY2021 to FY2022.",
   "ground_truth": [
     "The effective tax rate of Corning has changed from 20% in FY2021 to 23% in FY 2022."
   ],
-  "cost_usd": 0.0,
-  "input_tokens": 0,
-  "output_tokens": 0,
-  "execution_time": 1.8743104934692383,
+  "cost_usd": 0.0843975,
+  "input_tokens": 21691,
+  "output_tokens": 3017,
+  "execution_time": 297.45780754089355,
   "is_correct": null,
-  "error": "Error code: 429 - {'error': {'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.', 'type': 'insufficient_quota', 'param': None, 'code': 'insufficient_quota'}}",
-  "cached_at": "2026-01-16T20:59:30.226390"
+  "error": null,
+  "cached_at": "2026-01-16T22:57:54.232664"
 }

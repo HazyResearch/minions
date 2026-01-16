@@ -1,0 +1,16 @@
+Sample: financebench_open_source_line_7
+Protocol: minions
+Timestamp: 2026-01-16T11:12:23.234598
+Execution time: 0.00s
+Cost: $0.0000
+Is correct: None
+Error: Failed to connect to Ollama. Please check that Ollama is downloaded, running and accessible. https://ollama.com/download
+
+--- Question ---
+Which debt securities are registered to trade on a national securities exchange under 3M's name as of Q2 of 2023?
+
+--- Predicted Answer ---
+N/A
+
+--- Ground Truth ---
+["Following debt securities registered under 3M's name are listed to trade on the New York Stock Exchange:\n-1.500% Notes due 2026 (Trading Symbol: MMM26)\n-1.750% Notes due 2030 (Trading Symbol: MMM30)\n-1.500% Notes due 2031 (Trading Symbol: MMM31)"]

@@ -1,0 +1,16 @@
+{
+  "sample_id": "financebench_open_source_line_7",
+  "protocol": "minions",
+  "question": "Which debt securities are registered to trade on a national securities exchange under 3M's name as of Q2 of 2023?",
+  "predicted_answer": "",
+  "ground_truth": [
+    "Following debt securities registered under 3M's name are listed to trade on the New York Stock Exchange:\n-1.500% Notes due 2026 (Trading Symbol: MMM26)\n-1.750% Notes due 2030 (Trading Symbol: MMM30)\n-1.500% Notes due 2031 (Trading Symbol: MMM31)"
+  ],
+  "cost_usd": 0.0,
+  "input_tokens": 0,
+  "output_tokens": 0,
+  "execution_time": 0.0,
+  "is_correct": null,
+  "error": "Failed to connect to Ollama. Please check that Ollama is downloaded, running and accessible. https://ollama.com/download",
+  "cached_at": "2026-01-16T11:12:23.220413"
+}

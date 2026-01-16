@@ -498,6 +498,38 @@ class OllamaClient(MinionsClient):
             return self.achat(messages, **kwargs)
         else:
             return self.schat(messages, **kwargs)
+    
+    def responses(
+        self,
+        input: str,
+        model: Optional[str] = None,
+        host: str = "http://localhost:11434",
+        **kwargs,
+    ):
+        """
+        Use the OpenAI-compatible Responses API (requires Ollama v0.13.3+).
+        
+        Args:
+            input: The input text/prompt
+            model: Model name (defaults to self.model_name)
+            host: Ollama server URL (default: "http://localhost:11434")
+            **kwargs: Additional arguments passed to responses.create()
+            
+        Returns:
+            The response object with output_text attribute
+        """
+        from openai import OpenAI
+        
+        openai_client = OpenAI(
+            base_url=f"{host}/v1/",
+            api_key="ollama",
+        )
+        
+        return openai_client.responses.create(
+            model=model or self.model_name,
+            input=input,
+            **kwargs
+        )
 
     def embed(
         self,

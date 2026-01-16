@@ -6,11 +6,11 @@
   "ground_truth": [
     "0.83"
   ],
-  "cost_usd": 0.0690625,
-  "input_tokens": 19173,
-  "output_tokens": 2113,
-  "execution_time": 115.94224333763123,
+  "cost_usd": 0.07272500000000001,
+  "input_tokens": 21222,
+  "output_tokens": 1967,
+  "execution_time": 166.41602063179016,
   "is_correct": null,
   "error": null,
-  "cached_at": "2026-01-16T14:11:40.269046"
+  "cached_at": "2026-01-16T15:42:03.239470"
 }

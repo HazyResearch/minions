@@ -1,0 +1,16 @@
+{
+  "sample_id": "financebench_open_source_line_5",
+  "protocol": "minions",
+  "question": "If we exclude the impact of M&A, which segment has dragged down 3M's overall growth in 2022?",
+  "predicted_answer": "",
+  "ground_truth": [
+    "The consumer segment shrunk by 0.9% organically."
+  ],
+  "cost_usd": 0.0,
+  "input_tokens": 0,
+  "output_tokens": 0,
+  "execution_time": 0.0,
+  "is_correct": null,
+  "error": "Failed to connect to Ollama. Please check that Ollama is downloaded, running and accessible. https://ollama.com/download",
+  "cached_at": "2026-01-16T11:12:21.692404"
+}

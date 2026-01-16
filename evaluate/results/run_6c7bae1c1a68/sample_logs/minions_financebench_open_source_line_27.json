@@ -6,13 +6,11 @@
   "ground_truth": [
     "No. For AMCOR there has been a slight decline in gross margins by 0.8%."
   ],
-  "cost_usd": 0.041217500000000004,
-  "input_tokens": 12427,
-  "output_tokens": 1015,
-  "execution_time": 86.41312050819397,
-  "is_correct": true,
+  "cost_usd": 0.0658075,
+  "input_tokens": 22207,
+  "output_tokens": 1029,
+  "execution_time": 91.9273681640625,
+  "is_correct": null,
   "error": null,
-  "cached_at": "2026-01-16T16:17:37.950174",
-  "correctness_confidence": 1.0,
-  "correctness_reasoning": "The predicted answer correctly states that AMCOR does not have an improving gross margin profile as of FY2023, which matches the stance of the ground truth answer. The evaluation rules for yes/no questions require the stance to match exactly, which it does in this case."
+  "cached_at": "2026-01-16T17:52:41.955151"
 }

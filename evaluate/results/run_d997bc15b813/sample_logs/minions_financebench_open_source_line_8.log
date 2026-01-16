@@ -1,0 +1,16 @@
+Sample: financebench_open_source_line_8
+Protocol: minions
+Timestamp: 2026-01-16T10:45:13.315365
+Execution time: 72.04s
+Cost: $0.0243
+Is correct: False
+Error: None
+
+--- Question ---
+Does 3M maintain a stable trend of dividend distribution?
+
+--- Predicted Answer ---
+Yes, 3M maintains a stable trend of dividend distribution.
+
+--- Ground Truth ---
+['Yes, not only they distribute the dividends on a routine basis, 3M has also been increasing the per share dividend for consecutive 65 years']

@@ -1,16 +1,16 @@
 Sample: financebench_open_source_line_117
 Protocol: minions
-Timestamp: 2026-01-16T21:02:26.895374
-Execution time: 1.81s
-Cost: $0.0000
+Timestamp: 2026-01-17T00:37:07.734687
+Execution time: 99.90s
+Cost: $0.0217
 Is correct: None
-Error: Error code: 429 - {'error': {'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.', 'type': 'insufficient_quota', 'param': None, 'code': 'insufficient_quota'}}
+Error: None
 
 --- Question ---
 When primarily referencing the income statement and the statement of financial position, what is the FY2021 inventory turnover ratio for Nike? Inventory turnover ratio is defined as: (FY2021 COGS) / (average inventory between FY2020 and FY2021). Round your answer to two decimal places.
 
 --- Predicted Answer ---
-
+3.45
 
 --- Ground Truth ---
 ['3.46']

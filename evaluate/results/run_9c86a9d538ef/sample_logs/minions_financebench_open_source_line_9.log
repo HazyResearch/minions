@@ -1,0 +1,16 @@
+Sample: financebench_open_source_line_9
+Protocol: minions
+Timestamp: 2026-01-17T15:53:57.337428
+Execution time: 150.36s
+Cost: $0.0872
+Is correct: None
+Error: None
+
+--- Question ---
+What is the FY2019 fixed asset turnover ratio for Activision Blizzard? Fixed asset turnover ratio is defined as: FY2019 revenue / (average PP&E between FY2018 and FY2019). Round your answer to two decimal places. Base your judgments on the information provided primarily in the statement of income and the statement of financial position.
+
+--- Predicted Answer ---
+24.26
+
+--- Ground Truth ---
+['24.26']

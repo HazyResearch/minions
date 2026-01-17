@@ -1,0 +1,16 @@
+{
+  "sample_id": "financebench_open_source_line_19",
+  "protocol": "minions",
+  "question": "What is Amazon's FY2017 days payable outstanding (DPO)? DPO is defined as: 365 * (average accounts payable between FY2016 and FY2017) / (FY2017 COGS + change in inventory between FY2016 and FY2017). Round your answer to two decimal places. Address the question by using the line items and information shown within the balance sheet and the P&L statement.",
+  "predicted_answer": "93.84",
+  "ground_truth": [
+    "93.86"
+  ],
+  "cost_usd": 0.169715,
+  "input_tokens": 54434,
+  "output_tokens": 3363,
+  "execution_time": 214.3711018562317,
+  "is_correct": null,
+  "error": null,
+  "cached_at": "2026-01-17T10:58:41.726896"
+}

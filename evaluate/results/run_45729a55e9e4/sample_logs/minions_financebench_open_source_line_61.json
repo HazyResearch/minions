@@ -1,0 +1,16 @@
+{
+  "sample_id": "financebench_open_source_line_61",
+  "protocol": "minions",
+  "question": "Are there any product categories / service categories that represent more than 20% of Boeing's revenue for FY2022?",
+  "predicted_answer": "The categories 'Commercial Airplanes,' 'Defense, Space & Security,' and 'Global Services' each represent more than 20% of Boeing's revenue for FY2022.",
+  "ground_truth": [
+    "Yes. Boeing has product and service categories that represent more than 20% of Boeing's revenue for FY2022. These categories are Commercial Airplanes which comprises 39% of total revenue, Defence which comprises 35% of total revenue and Services which comprises 26% of total revenue."
+  ],
+  "cost_usd": 0.0290175,
+  "input_tokens": 8163,
+  "output_tokens": 861,
+  "execution_time": 85.66869020462036,
+  "is_correct": null,
+  "error": null,
+  "cached_at": "2026-01-17T19:57:43.742494"
+}

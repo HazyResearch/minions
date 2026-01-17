@@ -1,0 +1,16 @@
+{
+  "sample_id": "financebench_open_source_line_47",
+  "protocol": "minions",
+  "question": "Basing your judgments off of the cash flow statement and the income statement, what is American Water Works's FY2021 unadjusted operating income + depreciation and amortization from the cash flow statement (unadjusted EBITDA) in USD millions?",
+  "predicted_answer": "The unadjusted EBITDA for American Water Works's FY2021 is $1,832 million (operating income of $1,196 million plus depreciation and amortization of $636 million).",
+  "ground_truth": [
+    "$1832.00"
+  ],
+  "cost_usd": 0.23460250000000005,
+  "input_tokens": 73497,
+  "output_tokens": 5086,
+  "execution_time": 625.6279997825623,
+  "is_correct": null,
+  "error": null,
+  "cached_at": "2026-01-17T19:29:20.200164"
+}

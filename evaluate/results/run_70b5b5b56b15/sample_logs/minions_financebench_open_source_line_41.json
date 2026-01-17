@@ -1,0 +1,16 @@
+{
+  "sample_id": "financebench_open_source_line_41",
+  "protocol": "minions",
+  "question": "Does AMEX have an improving operating margin profile as of 2022? If operating margin is not a useful metric for a company like this, then state that and explain why.",
+  "predicted_answer": "AMEX does not have an improving operating margin profile as of 2022, with an estimated operating margin of 18.0% compared to 25.6% in 2021. However, operating margin may not be a useful metric for AMEX due to its unique business model, which relies heavily on transaction volume and other financial metrics such as net interest margin and return on equity.",
+  "ground_truth": [
+    "Performance is not measured through operating margin"
+  ],
+  "cost_usd": 0.5406925,
+  "input_tokens": 194997,
+  "output_tokens": 5320,
+  "execution_time": 927.118111371994,
+  "is_correct": null,
+  "error": null,
+  "cached_at": "2026-01-17T12:05:45.342357"
+}

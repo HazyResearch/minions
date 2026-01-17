@@ -78,6 +78,7 @@ class MinionsProtocolConfig:
     num_tasks_per_round: int = 3
     chunk_fn: str = "chunk_by_section"
     max_chunk_size: int = 3000
+    pages_per_chunk: int = 5
     max_jobs_per_round: Optional[int] = None
     use_retrieval: Optional[str] = None
     retrieval_model: Optional[str] = None
@@ -88,6 +89,7 @@ class MinionsProtocolConfig:
             'num_tasks_per_round': self.num_tasks_per_round,
             'chunk_fn': self.chunk_fn,
             'max_chunk_size': self.max_chunk_size,
+            'pages_per_chunk': self.pages_per_chunk,
             'max_jobs_per_round': self.max_jobs_per_round,
             'use_retrieval': self.use_retrieval,
             'retrieval_model': self.retrieval_model,
@@ -332,6 +334,9 @@ class KconfigLoader:
             config.protocols.minions.chunk_fn = 'chunk_by_section'
         elif values.get('MINIONS_CHUNK_BY_PAGE', 'n') == 'y':
             config.protocols.minions.chunk_fn = 'chunk_by_page'
+        elif values.get('MINIONS_CHUNK_MULTIPLE_PAGES', 'n') == 'y':
+            config.protocols.minions.chunk_fn = 'chunk_on_multiple_pages'
+            config.protocols.minions.pages_per_chunk = int(values.get('MINIONS_PAGES_PER_CHUNK', '5'))
         elif values.get('MINIONS_CHUNK_BY_PARAGRAPH', 'n') == 'y':
             config.protocols.minions.chunk_fn = 'chunk_by_paragraph'
         elif values.get('MINIONS_CHUNK_HIERARCHICAL', 'n') == 'y':

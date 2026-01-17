@@ -327,6 +327,21 @@ config MINIONS_CHUNK_BY_PAGE
 	  Split document by pages.
 	  Good for PDFs with clear page boundaries.
 
+config MINIONS_CHUNK_MULTIPLE_PAGES
+	bool "By Multiple Pages (Paper Default)"
+	help
+	  Group N pages into each chunk.
+	  Best for PDFs. Paper uses pages_per_chunk=5.
+
+config MINIONS_PAGES_PER_CHUNK
+	int "Pages per chunk"
+	default 5
+	range 1 100
+	depends on MINIONS_CHUNK_MULTIPLE_PAGES
+	help
+	  Number of pages to group into each chunk.
+	  Paper shows 5 pages/chunk is optimal for FinanceBench.
+
 config MINIONS_CHUNK_BY_PARAGRAPH
 	bool "By Paragraph"
 	help

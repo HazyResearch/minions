@@ -903,7 +903,8 @@ class ProtocolRunner:
             remote_client=self._get_remote_client(),
             max_rounds=max_rounds,
             log_dir=minions_log_dir,
-            max_chunk_size=kwargs.get('max_chunk_size', 3000)
+            max_chunk_size=kwargs.get('max_chunk_size', 3000),
+            pages_per_chunk=kwargs.get('pages_per_chunk', 5)
         )
         
         try:
@@ -1462,6 +1463,8 @@ class Evaluator:
             lines.append(f"    num_tasks_per_round: {minions.get('num_tasks_per_round', 3)}")
             lines.append(f"    chunk_fn: {minions.get('chunk_fn', 'chunk_by_section')}")
             lines.append(f"    max_chunk_size: {minions.get('max_chunk_size', 3000)}")
+            if minions.get('chunk_fn') == 'chunk_on_multiple_pages':
+                lines.append(f"    pages_per_chunk: {minions.get('pages_per_chunk', 5)}")
             if minions.get('use_retrieval'):
                 lines.append(f"    use_retrieval: {minions.get('use_retrieval')}")
             lines.append("")

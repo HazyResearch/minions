@@ -1,0 +1,16 @@
+Sample: financebench_open_source_line_49
+Protocol: minions
+Timestamp: 2026-01-17T00:00:08.774691
+Execution time: 278.36s
+Cost: $0.0803
+Is correct: None
+Error: None
+
+--- Question ---
+In agreement with the information outlined in the income statement, what is the FY2015 - FY2017 3 year average net profit margin (as a %) for Best Buy? Answer in units of percents and round to one decimal place.
+
+--- Predicted Answer ---
+2.7%
+
+--- Ground Truth ---
+['2.8%']

@@ -1,0 +1,16 @@
+{
+  "sample_id": "financebench_open_source_line_53",
+  "protocol": "minions",
+  "question": "Among operations, investing, and financing activities, which brought in the most (or lost the least) cash flow for Best Buy in FY2023?",
+  "predicted_answer": "Operating activities brought in the most cash flow for Best Buy in FY2023.",
+  "ground_truth": [
+    "Best Buy generated the most cash flow from operating activities in FY 2023 ($1.8 bn)"
+  ],
+  "cost_usd": 0.046435000000000004,
+  "input_tokens": 15270,
+  "output_tokens": 826,
+  "execution_time": 98.55048990249634,
+  "is_correct": null,
+  "error": null,
+  "cached_at": "2026-01-17T00:03:00.873273"
+}

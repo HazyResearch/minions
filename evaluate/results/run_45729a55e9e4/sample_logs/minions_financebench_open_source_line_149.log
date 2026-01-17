@@ -1,0 +1,16 @@
+Sample: financebench_open_source_line_149
+Protocol: minions
+Timestamp: 2026-01-17T22:26:02.425714
+Execution time: 195.81s
+Cost: $0.0993
+Is correct: None
+Error: None
+
+--- Question ---
+Based on the information provided primarily in the statement of income, what is the FY2018 - FY2019 change in unadjusted operating income % margin for Walmart? Answer in units of percents and round to one decimal place.
+
+--- Predicted Answer ---
+No answer found.
+
+--- Ground Truth ---
+['0.2%']

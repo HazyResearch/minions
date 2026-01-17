@@ -1,0 +1,16 @@
+Sample: financebench_open_source_line_58
+Protocol: minions
+Timestamp: 2026-01-17T17:44:22.165194
+Execution time: 162.44s
+Cost: $0.0284
+Is correct: None
+Error: None
+
+--- Question ---
+What is the FY2019 - FY2020 total revenue growth rate for Block (formerly known as Square)? Answer in units of percents and round to one decimal place. Approach the question asked by assuming the standpoint of an investment banking analyst who only has access to the statement of income.
+
+--- Predicted Answer ---
+101.4%
+
+--- Ground Truth ---
+['101.5%']

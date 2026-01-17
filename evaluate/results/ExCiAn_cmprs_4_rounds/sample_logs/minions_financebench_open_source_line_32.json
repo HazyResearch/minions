@@ -1,0 +1,16 @@
+{
+  "sample_id": "financebench_open_source_line_32",
+  "protocol": "minions",
+  "question": "Does AMD have a reasonably healthy liquidity profile based on its quick ratio for FY22? If the quick ratio is not relevant to measure liquidity, please state that and explain why.",
+  "predicted_answer": "AMD's quick ratio for FY22 is approximately 4.49, indicating a reasonably healthy liquidity profile.",
+  "ground_truth": [
+    "Yes. The quick ratio is 1.57, calculated as (cash and cash equivalents+Short term investments+Accounts receivable, net+receivables from related parties)/ (current liabilities)."
+  ],
+  "cost_usd": 0.02021,
+  "input_tokens": 4228,
+  "output_tokens": 964,
+  "execution_time": 84.58453726768494,
+  "is_correct": null,
+  "error": null,
+  "cached_at": "2026-01-17T16:48:59.424672"
+}

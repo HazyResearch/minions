@@ -1,0 +1,16 @@
+{
+  "sample_id": "financebench_open_source_line_51",
+  "protocol": "minions",
+  "question": "Are Best Buy's gross margins historically consistent (not fluctuating more than roughly 2% each year)? If gross margins are not a relevant metric for a company like this, then please state that and explain why.",
+  "predicted_answer": "Best Buy's gross margins are not historically consistent, as they have fluctuated more than 2% over the past three years.",
+  "ground_truth": [
+    "Yes, the margins have been consistent, there has been a minor decline of 1.1% in gross margins between FY2022 and FY2023."
+  ],
+  "cost_usd": 0.036745,
+  "input_tokens": 10634,
+  "output_tokens": 1016,
+  "execution_time": 62.461256980895996,
+  "is_correct": null,
+  "error": null,
+  "cached_at": "2026-01-17T17:33:54.179913"
+}

@@ -1,0 +1,16 @@
+{
+  "sample_id": "financebench_open_source_line_82",
+  "protocol": "minions",
+  "question": "What is the FY2019 cash conversion cycle (CCC) for General Mills? CCC is defined as: DIO + DSO - DPO. DIO is defined as: 365 * (average inventory between FY2018 and FY2019) / (FY2019 COGS). DSO is defined as: 365 * (average accounts receivable between FY2018 and FY2019) / (FY2019 Revenue). DPO is defined as: 365 * (average accounts payable between FY2018 and FY2019) / (FY2019 COGS + change in inventory between FY2018 and FY2019). Round your answer to two decimal places. Address the question by using the line items and information shown within the income statement and the balance sheet.",
+  "predicted_answer": "The CCC can be calculated using the formulas for DIO, DSO, and DPO with the provided financial data.",
+  "ground_truth": [
+    "-3.7"
+  ],
+  "cost_usd": 0.2856925,
+  "input_tokens": 91273,
+  "output_tokens": 5751,
+  "execution_time": 412.17518305778503,
+  "is_correct": null,
+  "error": null,
+  "cached_at": "2026-01-17T13:07:25.332317"
+}

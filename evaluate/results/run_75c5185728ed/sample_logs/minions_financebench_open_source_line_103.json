@@ -2,15 +2,15 @@
   "sample_id": "financebench_open_source_line_103",
   "protocol": "minions",
   "question": "What is Lockheed Martin's 2 year total revenue CAGR from FY2020 to FY2022 (in units of percents and round to one decimal place)? Provide a response to the question by primarily using the statement of income.",
-  "predicted_answer": "",
+  "predicted_answer": "CAGR = ((66,000 / 65,398)^(1/2) - 1) * 100 = 0.5%",
   "ground_truth": [
     "0.4%"
   ],
-  "cost_usd": 0.0,
-  "input_tokens": 0,
-  "output_tokens": 0,
-  "execution_time": 6.659427881240845,
+  "cost_usd": 0.09974249999999998,
+  "input_tokens": 31197,
+  "output_tokens": 2175,
+  "execution_time": 204.7818284034729,
   "is_correct": null,
-  "error": "Error code: 429 - {'error': {'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.', 'type': 'insufficient_quota', 'param': None, 'code': 'insufficient_quota'}}",
-  "cached_at": "2026-01-16T21:00:40.694318"
+  "error": null,
+  "cached_at": "2026-01-17T00:19:11.878272"
 }

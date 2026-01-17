@@ -1,0 +1,16 @@
+Sample: financebench_open_source_line_68
+Protocol: minions
+Timestamp: 2026-01-17T20:10:33.329504
+Execution time: 206.11s
+Cost: $0.1167
+Is correct: None
+Error: None
+
+--- Question ---
+What is the FY2017 return on assets (ROA) for Coca Cola? ROA is defined as: FY2017 net income / (average total assets between FY2016 and FY2017). Round your answer to two decimal places. Give a response to the question by relying on the details shown in the balance sheet and the P&L statement.
+
+--- Predicted Answer ---
+1.47%
+
+--- Ground Truth ---
+['0.01']

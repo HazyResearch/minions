@@ -1,0 +1,16 @@
+Sample: financebench_open_source_line_24
+Protocol: minions
+Timestamp: 2026-01-17T11:11:23.955273
+Execution time: 708.22s
+Cost: $0.3867
+Is correct: None
+Error: None
+
+--- Question ---
+Has AMCOR's quick ratio improved or declined between FY2023 and FY2022? If the quick ratio is not something that a financial analyst would ask about a company like this, then state that and explain why.
+
+--- Predicted Answer ---
+Due to inconsistent and incomplete data, it is not possible to determine whether AMCOR's quick ratio has improved or declined between FY2023 and FY2022. The necessary financial figures are either missing or vary across different document sections.
+
+--- Ground Truth ---
+['The quick ratio has slightly improved from 0.67 times to 0.69 times between FY 2023 and FY 2022.(3.4% jump)']

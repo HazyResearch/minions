@@ -2,15 +2,15 @@
   "sample_id": "financebench_open_source_line_148",
   "protocol": "minions",
   "question": "What is FY2018 days payable outstanding (DPO) for Walmart? DPO is defined as: 365 * (average accounts payable between FY2017 and FY2018) / (FY2018 COGS + change in inventory between FY2017 and FY2018). Round your answer to two decimal places. Please base your judgments on the information provided primarily in the statement of financial position and the P&L statement.",
-  "predicted_answer": "",
+  "predicted_answer": "42.72",
   "ground_truth": [
     "42.69"
   ],
-  "cost_usd": 0.0,
-  "input_tokens": 0,
-  "output_tokens": 0,
-  "execution_time": 1.76631498336792,
+  "cost_usd": 0.22846500000000003,
+  "input_tokens": 81766,
+  "output_tokens": 2405,
+  "execution_time": 579.943309545517,
   "is_correct": null,
-  "error": "Error code: 429 - {'error': {'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.', 'type': 'insufficient_quota', 'param': None, 'code': 'insufficient_quota'}}",
-  "cached_at": "2026-01-16T21:07:04.447214"
+  "error": null,
+  "cached_at": "2026-01-17T01:15:19.098262"
 }

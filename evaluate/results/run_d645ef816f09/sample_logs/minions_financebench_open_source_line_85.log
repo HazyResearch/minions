@@ -1,0 +1,16 @@
+Sample: financebench_open_source_line_85
+Protocol: minions
+Timestamp: 2026-01-17T01:28:43.862306
+Execution time: 224.78s
+Cost: $0.0697
+Is correct: None
+Error: None
+
+--- Question ---
+We want to calculate a financial metric. Please help us compute it by basing your answers off of the cash flow statement and the income statement. Here's the question: what is the FY2022 retention ratio (using total cash dividends paid and net income attributable to shareholders) for General Mills? Round answer to two decimal places.
+
+--- Predicted Answer ---
+The FY2022 retention ratio for General Mills is approximately 0.54.
+
+--- Ground Truth ---
+['0.54']

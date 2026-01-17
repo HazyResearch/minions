@@ -1,0 +1,16 @@
+Sample: financebench_open_source_line_112
+Protocol: minions
+Timestamp: 2026-01-17T15:09:09.736926
+Execution time: 415.87s
+Cost: $0.1738
+Is correct: None
+Error: None
+
+--- Question ---
+Has Microsoft increased its debt on balance sheet between FY2023 and the FY2022 period?
+
+--- Predicted Answer ---
+The available data does not allow us to determine whether Microsoft's debt increased between FY2022 and FY2023 due to inconsistent and unreliable figures.
+
+--- Ground Truth ---
+['No. Microsoft decreased its debt by $2.5bn in FY 2023 vs FY 2022.']

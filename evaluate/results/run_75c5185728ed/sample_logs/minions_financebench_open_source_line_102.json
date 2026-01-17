@@ -2,15 +2,15 @@
   "sample_id": "financebench_open_source_line_102",
   "protocol": "minions",
   "question": "What is Lockheed Martin's FY2021 net working capital? Define net working capital as total current assets less total current liabilities. Answer in USD millions. Respond to the question by assuming the perspective of an investment analyst who can only use the details shown within the balance sheet.",
-  "predicted_answer": "",
+  "predicted_answer": "5818",
   "ground_truth": [
     "$5818.00"
   ],
-  "cost_usd": 0.0,
-  "input_tokens": 0,
-  "output_tokens": 0,
-  "execution_time": 1.7102816104888916,
+  "cost_usd": 0.024870000000000003,
+  "input_tokens": 6464,
+  "output_tokens": 871,
+  "execution_time": 102.47802019119263,
   "is_correct": null,
-  "error": "Error code: 429 - {'error': {'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.', 'type': 'insufficient_quota', 'param': None, 'code': 'insufficient_quota'}}",
-  "cached_at": "2026-01-16T21:00:33.094436"
+  "error": null,
+  "cached_at": "2026-01-17T00:15:46.034496"
 }

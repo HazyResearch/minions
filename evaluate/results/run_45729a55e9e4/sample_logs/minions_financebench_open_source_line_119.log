@@ -1,0 +1,16 @@
+Sample: financebench_open_source_line_119
+Protocol: minions
+Timestamp: 2026-01-17T21:57:07.819556
+Execution time: 430.69s
+Cost: $0.1645
+Is correct: None
+Error: None
+
+--- Question ---
+Does Paypal have positive working capital based on FY2022 data? If working capital is not a useful or relevant metric for this company, then please state that and explain why.
+
+--- Predicted Answer ---
+PayPal has positive working capital of $12,416 million for FY2022.
+
+--- Ground Truth ---
+['Yes. Paypal has a positive working capital of $ 1.6Bn as of FY2022 end.']

@@ -2,15 +2,15 @@
   "sample_id": "financebench_open_source_line_118",
   "protocol": "minions",
   "question": "Among operations, investing, and financing activities, which brought in the most (or lost the least) cash flow for Nike in FY2023?",
-  "predicted_answer": "",
+  "predicted_answer": "Operating activities brought in the most cash flow for Nike in FY2023.",
   "ground_truth": [
     "Among the three, cash flow from operations was the highest for Nike in FY2023."
   ],
-  "cost_usd": 0.0,
-  "input_tokens": 0,
-  "output_tokens": 0,
-  "execution_time": 1.8473777770996094,
+  "cost_usd": 0.051315,
+  "input_tokens": 17766,
+  "output_tokens": 690,
+  "execution_time": 85.75940465927124,
   "is_correct": null,
-  "error": "Error code: 429 - {'error': {'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.', 'type': 'insufficient_quota', 'param': None, 'code': 'insufficient_quota'}}",
-  "cached_at": "2026-01-16T21:02:29.789880"
+  "error": null,
+  "cached_at": "2026-01-17T00:38:34.591186"
 }

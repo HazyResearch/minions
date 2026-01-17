@@ -21,6 +21,7 @@ class GroqClient(MinionsClient):
         reasoning_effort: str = "low",
         documents: Optional[List[Dict[str, Any]]] = None,
         citation_options: Optional[str] = None,
+        service_tier: Optional[str] = None,
         **kwargs
     ):
         """
@@ -42,6 +43,8 @@ class GroqClient(MinionsClient):
             citation_options: Whether to enable citations in the response. Allowed values:
                 "enabled" (default), "disabled". When enabled, the model will include
                 citations for information retrieved from provided documents.
+            service_tier: Tune for latency, throughput, reliability. Options:
+                "performance" (enterprise), "on_demand" (default), "flex" (best effort), "auto" (let groq decide)
             **kwargs: Additional parameters passed to base class
         """
         super().__init__(
@@ -73,6 +76,9 @@ class GroqClient(MinionsClient):
         # Documents configuration
         self.documents = documents
         self.citation_options = citation_options
+        
+        # Service tier configuration
+        self.service_tier = service_tier
 
     def responses(
         self, messages: List[Dict[str, Any]], **kwargs
@@ -117,6 +123,10 @@ class GroqClient(MinionsClient):
             # Add reasoning configuration if needed
             if "reasoning" in kwargs or self.reasoning_effort:
                 params["reasoning"] = {"effort": self.reasoning_effort}
+            
+            # Add service tier if specified
+            if self.service_tier:
+                params["service_tier"] = self.service_tier
 
             response = self.client.responses.create(**params)
             output_text = response.output
@@ -190,6 +200,10 @@ class GroqClient(MinionsClient):
             # Add citation_options if provided
             if citations is not None:
                 params["citation_options"] = citations
+            
+            # Add service tier if specified
+            if self.service_tier:
+                params["service_tier"] = self.service_tier
 
             response = self.client.chat.completions.create(**params)
         except Exception as e:

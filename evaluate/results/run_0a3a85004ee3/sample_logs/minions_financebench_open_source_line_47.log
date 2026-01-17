@@ -1,0 +1,16 @@
+Sample: financebench_open_source_line_47
+Protocol: minions
+Timestamp: 2026-01-17T11:44:25.024477
+Execution time: 233.66s
+Cost: $0.0667
+Is correct: None
+Error: None
+
+--- Question ---
+Basing your judgments off of the cash flow statement and the income statement, what is American Water Works's FY2021 unadjusted operating income + depreciation and amortization from the cash flow statement (unadjusted EBITDA) in USD millions?
+
+--- Predicted Answer ---
+1832
+
+--- Ground Truth ---
+['$1832.00']

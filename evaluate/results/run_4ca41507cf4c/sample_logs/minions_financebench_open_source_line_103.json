@@ -1,0 +1,16 @@
+{
+  "sample_id": "financebench_open_source_line_103",
+  "protocol": "minions",
+  "question": "What is Lockheed Martin's 2 year total revenue CAGR from FY2020 to FY2022 (in units of percents and round to one decimal place)? Provide a response to the question by primarily using the statement of income.",
+  "predicted_answer": "0.4%",
+  "ground_truth": [
+    "0.4%"
+  ],
+  "cost_usd": 0.02413,
+  "input_tokens": 5028,
+  "output_tokens": 1156,
+  "execution_time": 97.3648247718811,
+  "is_correct": null,
+  "error": null,
+  "cached_at": "2026-01-17T22:00:52.476809"
+}

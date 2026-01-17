@@ -2,15 +2,15 @@
   "sample_id": "financebench_open_source_line_119",
   "protocol": "minions",
   "question": "Does Paypal have positive working capital based on FY2022 data? If working capital is not a useful or relevant metric for this company, then please state that and explain why.",
-  "predicted_answer": "",
+  "predicted_answer": "PayPal has positive working capital for FY2022.",
   "ground_truth": [
     "Yes. Paypal has a positive working capital of $ 1.6Bn as of FY2022 end."
   ],
-  "cost_usd": 0.0,
-  "input_tokens": 0,
-  "output_tokens": 0,
-  "execution_time": 6.35851263999939,
+  "cost_usd": 0.0802975,
+  "input_tokens": 24531,
+  "output_tokens": 1897,
+  "execution_time": 191.17230820655823,
   "is_correct": null,
-  "error": "Error code: 429 - {'error': {'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.', 'type': 'insufficient_quota', 'param': None, 'code': 'insufficient_quota'}}",
-  "cached_at": "2026-01-16T21:02:37.213941"
+  "error": null,
+  "cached_at": "2026-01-17T00:41:46.713894"
 }

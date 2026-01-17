@@ -1,0 +1,16 @@
+Sample: financebench_open_source_line_74
+Protocol: minions
+Timestamp: 2026-01-17T12:41:24.506411
+Execution time: 338.55s
+Cost: $0.2024
+Is correct: None
+Error: None
+
+--- Question ---
+Does Corning have positive working capital based on FY2022 data? If working capital is not a useful or relevant metric for this company, then please state that and explain why.
+
+--- Predicted Answer ---
+Corning has positive working capital of $2,278 million for FY2022.
+
+--- Ground Truth ---
+['Yes. Corning had a positive working capital amount of $831 million by FY 2022 close. This answer considers only operating current assets and current liabilities that were clearly shown in the balance sheet.']

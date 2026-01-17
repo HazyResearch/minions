@@ -1,0 +1,16 @@
+Sample: financebench_open_source_line_41
+Protocol: minions
+Timestamp: 2026-01-17T19:14:27.315383
+Execution time: 213.25s
+Cost: $0.0422
+Is correct: None
+Error: None
+
+--- Question ---
+Does AMEX have an improving operating margin profile as of 2022? If operating margin is not a useful metric for a company like this, then state that and explain why.
+
+--- Predicted Answer ---
+AMEX has an improving operating margin profile as of 2022, but operating margin may not be the most critical metric for evaluating its performance.
+
+--- Ground Truth ---
+['Performance is not measured through operating margin']

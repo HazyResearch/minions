@@ -1,0 +1,16 @@
+Sample: financebench_open_source_line_35
+Protocol: minions
+Timestamp: 2026-01-17T16:50:38.866665
+Execution time: 98.89s
+Cost: $0.0336
+Is correct: None
+Error: None
+
+--- Question ---
+What drove operating margin change as of the FY22 for AMD? If operating margin is not a useful metric for a company like this, then please state that and explain why.
+
+--- Predicted Answer ---
+The operating margin change was driven by a combination of increased revenue offset by higher costs, particularly due to the Xilinx acquisition, competitive pressures from Intel, and macroeconomic challenges. The operating margin is a useful metric for AMD as it highlights the impact of strategic decisions and market conditions on profitability.
+
+--- Ground Truth ---
+["The decrease in AMD's operating income was primarily driven by amortization of intangible assets associated with the Xilinx acquisition"]

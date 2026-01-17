@@ -1,0 +1,18 @@
+{
+  "sample_id": "financebench_open_source_line_86",
+  "protocol": "minions",
+  "question": "Are JnJ's FY2022 financials that of a high growth company?",
+  "predicted_answer": "No, J&J's FY2022 financials do not reflect those of a high growth company.",
+  "ground_truth": [
+    "No, JnJ's FY2022 financials are not of a high growth company as sales grew by 1.3% in FY2022."
+  ],
+  "cost_usd": 0.0637375,
+  "input_tokens": 19259,
+  "output_tokens": 1559,
+  "execution_time": 269.27684688568115,
+  "is_correct": true,
+  "error": null,
+  "cached_at": "2026-01-16T23:39:10.312861",
+  "correctness_confidence": 1.0,
+  "correctness_reasoning": "The predicted answer correctly matches the stance of the ground truth answer, stating that J&J's FY2022 financials do not reflect those of a high growth company. Both answers agree on the conclusion, which is the key requirement for a yes/no question."
+}

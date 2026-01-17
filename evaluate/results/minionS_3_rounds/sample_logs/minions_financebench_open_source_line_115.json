@@ -1,0 +1,18 @@
+{
+  "sample_id": "financebench_open_source_line_115",
+  "protocol": "minions",
+  "question": "We need to calculate a reasonable approximation (or exact number if possible) of a financial metric. Basing your judgment by information plainly provided in the statement of income, what is Nike's three year average of cost of goods sold as a % of revenue from FY2016 to FY2018? Answer in units of percents and round to one decimal place.",
+  "predicted_answer": "55.1%",
+  "ground_truth": [
+    "55.1%"
+  ],
+  "cost_usd": 0.0247825,
+  "input_tokens": 6185,
+  "output_tokens": 932,
+  "execution_time": 81.59389758110046,
+  "is_correct": true,
+  "error": null,
+  "cached_at": "2026-01-17T00:35:26.688426",
+  "correctness_confidence": 1.0,
+  "correctness_reasoning": "The predicted answer matches the ground truth answer exactly. Both state that Nike's three-year average of cost of goods sold as a percentage of revenue from FY2016 to FY2018 is 55.1%. This is within the 10% tolerance allowed for numerical answers, confirming the predicted answer is correct."
+}

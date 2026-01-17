@@ -1,0 +1,18 @@
+{
+  "sample_id": "financebench_open_source_line_57",
+  "protocol": "minions",
+  "question": "Considering the data in the balance sheet, what is Block's (formerly known as Square) FY2016 working capital ratio? Define working capital ratio as total current assets divided by total current liabilities. Round your answer to two decimal places.",
+  "predicted_answer": "2.01",
+  "ground_truth": [
+    "1.73"
+  ],
+  "cost_usd": 0.020695,
+  "input_tokens": 4858,
+  "output_tokens": 855,
+  "execution_time": 100.4851701259613,
+  "is_correct": false,
+  "error": null,
+  "cached_at": "2026-01-16T22:09:57.972664",
+  "correctness_confidence": 0.0,
+  "correctness_reasoning": "The predicted answer of 2.01 is outside the 10% tolerance range of the ground truth answer 1.73. The acceptable range is 1.557 to 1.903."
+}

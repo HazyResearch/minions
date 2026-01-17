@@ -1,0 +1,16 @@
+Sample: financebench_open_source_line_149
+Protocol: minions
+Timestamp: 2026-01-17T02:58:54.861361
+Execution time: 203.77s
+Cost: $0.0738
+Is correct: None
+Error: None
+
+--- Question ---
+Based on the information provided primarily in the statement of income, what is the FY2018 - FY2019 change in unadjusted operating income % margin for Walmart? Answer in units of percents and round to one decimal place.
+
+--- Predicted Answer ---
+The change in operating income percentage margin from FY2018 to FY2019 is approximately 0.3%.
+
+--- Ground Truth ---
+['0.2%']

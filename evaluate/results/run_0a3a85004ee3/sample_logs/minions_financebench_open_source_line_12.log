@@ -1,0 +1,16 @@
+Sample: financebench_open_source_line_12
+Protocol: minions
+Timestamp: 2026-01-17T10:45:04.082588
+Execution time: 65.41s
+Cost: $0.0470
+Is correct: None
+Error: None
+
+--- Question ---
+What is Adobe's year-over-year change in unadjusted operating income from FY2015 to FY2016 (in units of percents and round to one decimal place)? Give a solution to the question by using the income statement.
+
+--- Predicted Answer ---
+The year-over-year change in operating income from FY2015 to FY2016 is approximately 65.4%.
+
+--- Ground Truth ---
+['65.4%']

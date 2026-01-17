@@ -1,0 +1,18 @@
+{
+  "sample_id": "financebench_open_source_line_97",
+  "protocol": "minions",
+  "question": "Are JPM's gross margins historically consistent (not fluctuating more than roughly 2% each year)? If gross margins are not a relevant metric for a company like this, then please state that and explain why.",
+  "predicted_answer": "Gross margin is not a relevant metric for JPMorgan Chase, as it is a financial institution. Instead, metrics like net interest margin, return on assets, return on equity, and efficiency ratio are more appropriate. Unfortunately, the document does not provide sufficient historical data on these metrics to determine their consistency.",
+  "ground_truth": [
+    "Since JPM is a financial institution, gross margin is not a relevant metric."
+  ],
+  "cost_usd": 0.21358249999999998,
+  "input_tokens": 72457,
+  "output_tokens": 3244,
+  "execution_time": 815.6824324131012,
+  "is_correct": true,
+  "error": null,
+  "cached_at": "2026-01-17T00:07:01.736061",
+  "correctness_confidence": 1.0,
+  "correctness_reasoning": "The predicted answer correctly identifies that gross margin is not a relevant metric for JPMorgan Chase, a financial institution. It also provides additional context by mentioning more appropriate metrics for financial institutions, which aligns with the ground truth answer. The additional context does not contradict the ground truth and is therefore acceptable."
+}

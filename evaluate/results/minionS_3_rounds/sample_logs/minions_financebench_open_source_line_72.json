@@ -1,0 +1,18 @@
+{
+  "sample_id": "financebench_open_source_line_72",
+  "protocol": "minions",
+  "question": "Taking into account the information outlined in the income statement, what is the FY2019 - FY2021 3 year average unadjusted operating income % margin for Corning? Answer in units of percents and round to one decimal place.",
+  "predicted_answer": "No answer found.",
+  "ground_truth": [
+    "10.3%"
+  ],
+  "cost_usd": 0.1144125,
+  "input_tokens": 34241,
+  "output_tokens": 2881,
+  "execution_time": 507.5008850097656,
+  "is_correct": false,
+  "error": null,
+  "cached_at": "2026-01-16T22:52:55.692493",
+  "correctness_confidence": 0.9,
+  "correctness_reasoning": "The predicted answer is 'No answer found,' which does not provide any numerical value to compare against the ground truth answer of 10.3%. Therefore, it cannot be considered correct within the 10% tolerance range."
+}

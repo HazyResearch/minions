@@ -1,0 +1,16 @@
+Sample: financebench_open_source_line_32
+Protocol: minions
+Timestamp: 2026-01-17T18:58:25.518777
+Execution time: 636.20s
+Cost: $0.3100
+Is correct: None
+Error: None
+
+--- Question ---
+Does AMD have a reasonably healthy liquidity profile based on its quick ratio for FY22? If the quick ratio is not relevant to measure liquidity, please state that and explain why.
+
+--- Predicted Answer ---
+Based on the available information, AMD appears to have a reasonably healthy liquidity profile for FY22. Although the quick ratio cannot be calculated due to incomplete data on current liabilities, AMD's liquidity position is supported by $5.9 billion in cash, cash equivalents, and short-term investments, along with a $3.0 billion revolving credit facility.
+
+--- Ground Truth ---
+['Yes. The quick ratio is 1.57, calculated as (cash and cash equivalents+Short term investments+Accounts receivable, net+receivables from related parties)/ (current liabilities).']

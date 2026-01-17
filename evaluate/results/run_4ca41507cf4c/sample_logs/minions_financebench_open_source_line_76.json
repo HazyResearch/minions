@@ -1,0 +1,16 @@
+{
+  "sample_id": "financebench_open_source_line_76",
+  "protocol": "minions",
+  "question": "What is the FY2018 fixed asset turnover ratio for CVS Health? Fixed asset turnover ratio is defined as: FY2018 revenue / (average PP&E between FY2017 and FY2018). Round your answer to two decimal places. Calculate what was asked by utilizing the line items clearly shown in the P&L statement and the balance sheet.",
+  "predicted_answer": "17.98",
+  "ground_truth": [
+    "17.98"
+  ],
+  "cost_usd": 0.18580999999999998,
+  "input_tokens": 65380,
+  "output_tokens": 2236,
+  "execution_time": 771.859974861145,
+  "is_correct": null,
+  "error": null,
+  "cached_at": "2026-01-17T20:53:24.646920"
+}

@@ -2,15 +2,15 @@
   "sample_id": "financebench_open_source_line_124",
   "protocol": "minions",
   "question": "What is the FY2022 unadjusted EBITDA less capex for PepsiCo? Define unadjusted EBITDA as unadjusted operating income + depreciation and amortization [from cash flow statement]. Answer in USD millions. Respond to the question by assuming the perspective of an investment analyst who can only use the details shown within the statement of cash flows and the income statement.",
-  "predicted_answer": "",
+  "predicted_answer": "8990",
   "ground_truth": [
     "$9068.00"
   ],
-  "cost_usd": 0.0,
-  "input_tokens": 0,
-  "output_tokens": 0,
-  "execution_time": 1.66703462600708,
+  "cost_usd": 0.17328749999999998,
+  "input_tokens": 59483,
+  "output_tokens": 2458,
+  "execution_time": 474.47758173942566,
   "is_correct": null,
-  "error": "Error code: 429 - {'error': {'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.', 'type': 'insufficient_quota', 'param': None, 'code': 'insufficient_quota'}}",
-  "cached_at": "2026-01-16T21:02:39.955337"
+  "error": null,
+  "cached_at": "2026-01-17T00:49:42.189759"
 }

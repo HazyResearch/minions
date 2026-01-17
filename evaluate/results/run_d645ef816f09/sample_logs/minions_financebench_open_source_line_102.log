@@ -1,0 +1,16 @@
+Sample: financebench_open_source_line_102
+Protocol: minions
+Timestamp: 2026-01-17T02:02:56.924235
+Execution time: 87.48s
+Cost: $0.0179
+Is correct: None
+Error: None
+
+--- Question ---
+What is Lockheed Martin's FY2021 net working capital? Define net working capital as total current assets less total current liabilities. Answer in USD millions. Respond to the question by assuming the perspective of an investment analyst who can only use the details shown within the balance sheet.
+
+--- Predicted Answer ---
+5,818 million USD
+
+--- Ground Truth ---
+['$5818.00']

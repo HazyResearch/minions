@@ -2,15 +2,15 @@
   "sample_id": "financebench_open_source_line_115",
   "protocol": "minions",
   "question": "We need to calculate a reasonable approximation (or exact number if possible) of a financial metric. Basing your judgment by information plainly provided in the statement of income, what is Nike's three year average of cost of goods sold as a % of revenue from FY2016 to FY2018? Answer in units of percents and round to one decimal place.",
-  "predicted_answer": "",
+  "predicted_answer": "55.1%",
   "ground_truth": [
     "55.1%"
   ],
-  "cost_usd": 0.0,
-  "input_tokens": 0,
-  "output_tokens": 0,
-  "execution_time": 6.007466077804565,
+  "cost_usd": 0.0247825,
+  "input_tokens": 6185,
+  "output_tokens": 932,
+  "execution_time": 81.59389758110046,
   "is_correct": null,
-  "error": "Error code: 429 - {'error': {'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.', 'type': 'insufficient_quota', 'param': None, 'code': 'insufficient_quota'}}",
-  "cached_at": "2026-01-16T21:02:23.959150"
+  "error": null,
+  "cached_at": "2026-01-17T00:35:26.688426"
 }

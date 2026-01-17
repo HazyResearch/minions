@@ -1,0 +1,16 @@
+Sample: financebench_open_source_line_69
+Protocol: minions
+Timestamp: 2026-01-17T00:29:27.457741
+Execution time: 134.45s
+Cost: $0.0250
+Is correct: None
+Error: None
+
+--- Question ---
+What is Coca Cola's FY2021 COGS % margin? Calculate what was asked by utilizing the line items clearly shown in the income statement.
+
+--- Predicted Answer ---
+The COGS % margin for Coca Cola in FY2021 is approximately 39.73%.
+
+--- Ground Truth ---
+['39.7%']

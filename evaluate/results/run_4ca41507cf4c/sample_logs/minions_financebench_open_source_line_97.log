@@ -1,0 +1,16 @@
+Sample: financebench_open_source_line_97
+Protocol: minions
+Timestamp: 2026-01-17T21:46:48.526628
+Execution time: 761.47s
+Cost: $0.3078
+Is correct: None
+Error: None
+
+--- Question ---
+Are JPM's gross margins historically consistent (not fluctuating more than roughly 2% each year)? If gross margins are not a relevant metric for a company like this, then please state that and explain why.
+
+--- Predicted Answer ---
+Gross margins are not a relevant metric for JPMorgan Chase. Instead, focus on net interest margin, ROA, and ROE.
+
+--- Ground Truth ---
+['Since JPM is a financial institution, gross margin is not a relevant metric.']

@@ -44,6 +44,34 @@ def chunk_by_page(doc: str, page_markers: Optional[List[str]] = None) -> List[st
     return pages
 
 
+def chunk_on_multiple_pages(
+    doc: str, 
+    pages_per_chunk: int = 5,
+    page_markers: Optional[List[str]] = None
+) -> List[str]:
+    """
+    Split document by pages, then group N pages into each chunk.
+    Matches the paper's FinanceBench setup where pages_per_chunk=5 is optimal.
+    
+    Args:
+        doc: The document text to chunk
+        pages_per_chunk: Number of pages to group into each chunk (default: 5)
+        page_markers: Optional list of regex patterns to detect page boundaries
+        
+    Returns:
+        List of chunks, each containing up to pages_per_chunk pages
+    """
+    # First split into individual pages
+    pages = chunk_by_page(doc, page_markers)
+    
+    # Group pages into chunks
+    chunks = []
+    for i in range(0, len(pages), pages_per_chunk):
+        chunk = "\n".join(pages[i:i + pages_per_chunk])
+        chunks.append(chunk)
+    return chunks
+
+
 def chunk_sentences(
     sentences: List[str], max_chunk_size: int, overlap_sentences: int
 ) -> List[str]:

@@ -1,0 +1,16 @@
+Sample: financebench_open_source_line_73
+Protocol: minions
+Timestamp: 2026-01-17T20:31:59.710599
+Execution time: 89.51s
+Cost: $0.0166
+Is correct: None
+Error: None
+
+--- Question ---
+How much has the effective tax rate of Corning changed between FY2021 and FY2022?
+
+--- Predicted Answer ---
+The effective tax rate of Corning increased by 2.0 percentage points from FY2021 to FY2022.
+
+--- Ground Truth ---
+['The effective tax rate of Corning has changed from 20% in FY2021 to 23% in FY 2022.']

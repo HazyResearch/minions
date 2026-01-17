@@ -1,16 +1,16 @@
 Sample: financebench_open_source_line_125
 Protocol: minions
-Timestamp: 2026-01-16T21:06:52.924212
-Execution time: 251.83s
-Cost: $0.0000
+Timestamp: 2026-01-17T00:54:00.682447
+Execution time: 257.44s
+Cost: $0.0272
 Is correct: None
-Error: Error code: 429 - {'error': {'message': 'You exceeded your current quota, please check your plan and billing details. For more information on this error, read the docs: https://platform.openai.com/docs/guides/error-codes/api-errors.', 'type': 'insufficient_quota', 'param': None, 'code': 'insufficient_quota'}}
+Error: None
 
 --- Question ---
 What is the FY2022 unadjusted EBITDA % margin for PepsiCo? Calculate unadjusted EBITDA using unadjusted operating income and D&A (from cash flow statement). Give a response to the question by relying on the details shown in the statement of cash flows and the P&L statement.
 
 --- Predicted Answer ---
-
+The FY2022 unadjusted EBITDA % margin for PepsiCo is approximately 16.52%.
 
 --- Ground Truth ---
 ['16.5%']

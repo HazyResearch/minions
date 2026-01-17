@@ -1,0 +1,16 @@
+Sample: financebench_open_source_line_88
+Protocol: minions
+Timestamp: 2026-01-17T21:18:15.197534
+Execution time: 142.67s
+Cost: $0.0263
+Is correct: None
+Error: None
+
+--- Question ---
+Roughly how many times has JnJ sold its inventory in FY2022? Calculate inventory turnover ratio for FY2022; if conventional inventory management is not meaningful for the company then state that and explain why.
+
+--- Predicted Answer ---
+The inventory turnover ratio for J&J in FY2022 is approximately 1, but conventional inventory management may not be meaningful.
+
+--- Ground Truth ---
+['JnJ sold its inventory 2.7 times in FY2022.']

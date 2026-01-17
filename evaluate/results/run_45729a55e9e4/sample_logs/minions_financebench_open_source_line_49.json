@@ -1,0 +1,16 @@
+{
+  "sample_id": "financebench_open_source_line_49",
+  "protocol": "minions",
+  "question": "In agreement with the information outlined in the income statement, what is the FY2015 - FY2017 3 year average net profit margin (as a %) for Best Buy? Answer in units of percents and round to one decimal place.",
+  "predicted_answer": "3.1%",
+  "ground_truth": [
+    "2.8%"
+  ],
+  "cost_usd": 0.02584,
+  "input_tokens": 6520,
+  "output_tokens": 954,
+  "execution_time": 156.5365858078003,
+  "is_correct": null,
+  "error": null,
+  "cached_at": "2026-01-17T19:45:30.260984"
+}

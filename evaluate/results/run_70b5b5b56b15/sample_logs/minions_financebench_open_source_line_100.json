@@ -1,0 +1,16 @@
+{
+  "sample_id": "financebench_open_source_line_100",
+  "protocol": "minions",
+  "question": "What is Kraft Heinz's FY2019 inventory turnover ratio? Inventory turnover ratio is defined as: (FY2019 COGS) / (average inventory between FY2018 and FY2019). Round your answer to two decimal places. Please base your judgments on the information provided primarily in the balance sheet and the P&L statement.",
+  "predicted_answer": "6.25",
+  "ground_truth": [
+    "6.25"
+  ],
+  "cost_usd": 0.1199275,
+  "input_tokens": 38551,
+  "output_tokens": 2355,
+  "execution_time": 286.64516615867615,
+  "is_correct": null,
+  "error": null,
+  "cached_at": "2026-01-17T14:43:11.632689"
+}

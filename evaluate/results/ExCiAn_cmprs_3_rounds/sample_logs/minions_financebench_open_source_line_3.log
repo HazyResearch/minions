@@ -1,0 +1,21 @@
+Sample: financebench_open_source_line_3
+Protocol: minions
+Timestamp: 2026-01-16T22:32:41.187515
+Execution time: 317.93s
+Cost: $0.0287
+Is correct: False
+Error: None
+
+--- Question ---
+Is 3M a capital-intensive business based on FY2022 data?
+
+--- Predicted Answer ---
+Yes, 3M is a capital-intensive business based on FY2022 data.
+
+--- Ground Truth ---
+['No, the company is managing its CAPEX and Fixed Assets pretty efficiently, which is evident from below key metrics:\nCAPEX/Revenue Ratio: 5.1%\nFixed assets/Total Assets: 20%\nReturn on Assets= 12.4%']
+
+--- Correctness Evaluation ---
+Is correct: False
+Confidence: 1.00
+Reasoning: The predicted answer states that 3M is a capital-intensive business, which directly contradicts the ground truth answer. The evaluation rules for yes/no questions require the stance to match exactly, and in this case, they do not. Therefore, the predicted answer is incorrect.

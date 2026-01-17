@@ -1,0 +1,18 @@
+{
+  "sample_id": "financebench_open_source_line_63",
+  "protocol": "minions",
+  "question": "Does Boeing have an improving gross margin profile as of FY2022? If gross margin is not a useful metric for a company like this, then state that and explain why.",
+  "predicted_answer": "Gross margin is not a useful metric for Boeing due to the complexity of its business, which involves long-term contracts, significant research and development expenses, and high fixed costs. Alternative metrics such as operating margin, EBITDA, and return on sales are more relevant for evaluating Boeing's financial performance.",
+  "ground_truth": [
+    "Yes. Boeing has an improving gross margin profile as of FY2022. Gross profit improved from $3,017 million in FY2021 to $3,502 million in FY2022. Gross margin % improved from 4.8% in FY2021 to 5.3% in FY2022."
+  ],
+  "cost_usd": 0.21536000000000002,
+  "input_tokens": 75188,
+  "output_tokens": 2739,
+  "execution_time": 500.65278601646423,
+  "is_correct": false,
+  "error": null,
+  "cached_at": "2026-01-17T00:23:11.005200",
+  "correctness_confidence": 0.8,
+  "correctness_reasoning": "The predicted answer states that gross margin is not a useful metric for Boeing, which contradicts the ground truth answer that indicates an improving gross margin profile. The ground truth provides specific numerical improvements in gross profit and gross margin percentage, which are not addressed in the predicted answer. Therefore, the predicted answer does not align with the ground truth."
+}

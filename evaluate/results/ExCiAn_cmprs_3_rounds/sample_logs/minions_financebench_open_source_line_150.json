@@ -1,0 +1,18 @@
+{
+  "sample_id": "financebench_open_source_line_150",
+  "protocol": "minions",
+  "question": "What is the FY2018 - FY2020 3 year average unadjusted EBITDA % margin for Walmart? Define unadjusted EBITDA as unadjusted operating income + depreciation and amortization from the cash flow statement. Answer in units of percents and round to one decimal place. Calculate what was asked by utilizing the line items clearly shown in the P&L statement and the cash flow statement.",
+  "predicted_answer": "The FY2018 - FY2020 3-year average unadjusted EBITDA % margin for Walmart is 6.3%.",
+  "ground_truth": [
+    "6.2%"
+  ],
+  "cost_usd": 0.1148225,
+  "input_tokens": 32493,
+  "output_tokens": 3359,
+  "execution_time": 534.5677216053009,
+  "is_correct": true,
+  "error": null,
+  "cached_at": "2026-01-17T03:07:49.966036",
+  "correctness_confidence": 0.9,
+  "correctness_reasoning": "The predicted answer of 6.3% is within the 10% tolerance range of the ground truth answer of 6.2%. Therefore, it is considered correct according to the evaluation rules."
+}

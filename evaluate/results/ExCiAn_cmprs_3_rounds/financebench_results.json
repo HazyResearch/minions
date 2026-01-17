@@ -1,0 +1,897 @@
+{
+  "timestamp": "2026-01-17_03-07-50",
+  "protocols": [
+    "minions"
+  ],
+  "total_samples": 67,
+  "results": {
+    "minions": [
+      {
+        "sample_id": "financebench_open_source_line_3",
+        "protocol": "minions",
+        "question": "Is 3M a capital-intensive business based on FY2022 data?",
+        "predicted_answer": "Yes, 3M is a capital-intensive business based on FY2022 data.",
+        "ground_truth": [
+          "No, the company is managing its CAPEX and Fixed Assets pretty efficiently, which is evident from below key metrics:\nCAPEX/Revenue Ratio: 5.1%\nFixed assets/Total Assets: 20%\nReturn on Assets= 12.4%"
+        ],
+        "cost_usd": 0.0286675,
+        "input_tokens": 6999,
+        "output_tokens": 1117,
+        "execution_time": 317.92543029785156
+      },
+      {
+        "sample_id": "financebench_open_source_line_4",
+        "protocol": "minions",
+        "question": "What drove operating margin change as of FY2022 for 3M? If operating margin is not a useful metric for a company like this, then please state that and explain why.",
+        "predicted_answer": "The operating margin for FY2022 was 20.8%, down from 22.3% in FY2021, primarily due to increased costs and litigation expenses.",
+        "ground_truth": [
+          "Operating Margin for 3M in FY2022 has decreased by 1.7% primarily due to: \n-Decrease in gross Margin\n-mostly one-off charges including Combat Arms Earplugs litigation, impairment related to exiting PFAS manufacturing, costs related to exiting Russia and divestiture-related restructuring\ncharges"
+        ],
+        "cost_usd": 0.07125999999999999,
+        "input_tokens": 23860,
+        "output_tokens": 1161,
+        "execution_time": 195.63997554779053
+      },
+      {
+        "sample_id": "financebench_open_source_line_6",
+        "protocol": "minions",
+        "question": "Does 3M have a reasonably healthy liquidity profile based on its quick ratio for Q2 of FY2023? If the quick ratio is not relevant to measure liquidity, please state that and explain why.",
+        "predicted_answer": "3M has a borderline healthy liquidity profile with a quick ratio of approximately 0.96 for Q2 of FY2023.",
+        "ground_truth": [
+          "No. The quick ratio for 3M was 0.96 by Jun'23 close, which needs a bit of an improvement to touch the 1x mark"
+        ],
+        "cost_usd": 0.076965,
+        "input_tokens": 21234,
+        "output_tokens": 2388,
+        "execution_time": 233.91656303405762
+      },
+      {
+        "sample_id": "financebench_open_source_line_9",
+        "protocol": "minions",
+        "question": "What is the FY2019 fixed asset turnover ratio for Activision Blizzard? Fixed asset turnover ratio is defined as: FY2019 revenue / (average PP&E between FY2018 and FY2019). Round your answer to two decimal places. Base your judgments on the information provided primarily in the statement of income and the statement of financial position.",
+        "predicted_answer": "The fixed asset turnover ratio for FY2019 is approximately 24.26.",
+        "ground_truth": [
+          "24.26"
+        ],
+        "cost_usd": 0.08615,
+        "input_tokens": 25516,
+        "output_tokens": 2236,
+        "execution_time": 169.8234670162201
+      },
+      {
+        "sample_id": "financebench_open_source_line_10",
+        "protocol": "minions",
+        "question": "What is the FY2017 - FY2019 3 year average of capex as a % of revenue for Activision Blizzard? Answer in units of percents and round to one decimal place. Calculate (or extract) the answer from the statement of income and the cash flow statement.",
+        "predicted_answer": "No answer found.",
+        "ground_truth": [
+          "1.9%"
+        ],
+        "cost_usd": 0.140285,
+        "input_tokens": 51334,
+        "output_tokens": 1195,
+        "execution_time": 160.33376574516296
+      },
+      {
+        "sample_id": "financebench_open_source_line_11",
+        "protocol": "minions",
+        "question": "You are an investment banker and your only resource(s) to answer the following question is (are): the statement of financial position and the cash flow statement. Here's the question: what is the FY2015 operating cash flow ratio for Adobe? Operating cash flow ratio is defined as: cash from operations / total current liabilities. Round your answer to two decimal places.",
+        "predicted_answer": "0.59",
+        "ground_truth": [
+          "0.66"
+        ],
+        "cost_usd": 0.06668,
+        "input_tokens": 18572,
+        "output_tokens": 2025,
+        "execution_time": 130.7412850856781
+      },
+      {
+        "sample_id": "financebench_open_source_line_12",
+        "protocol": "minions",
+        "question": "What is Adobe's year-over-year change in unadjusted operating income from FY2015 to FY2016 (in units of percents and round to one decimal place)? Give a solution to the question by using the income statement.",
+        "predicted_answer": "The year-over-year change in unadjusted operating income from FY2015 to FY2016 is approximately 65.4%.",
+        "ground_truth": [
+          "65.4%"
+        ],
+        "cost_usd": 0.0573525,
+        "input_tokens": 11141,
+        "output_tokens": 2950,
+        "execution_time": 279.6967420578003
+      },
+      {
+        "sample_id": "financebench_open_source_line_13",
+        "protocol": "minions",
+        "question": "What is the FY2017 operating cash flow ratio for Adobe? Operating cash flow ratio is defined as: cash from operations / total current liabilities. Round your answer to two decimal places. Please utilize information provided primarily within the balance sheet and the cash flow statement.",
+        "predicted_answer": "0.00",
+        "ground_truth": [
+          "0.83"
+        ],
+        "cost_usd": 0.0179225,
+        "input_tokens": 3653,
+        "output_tokens": 879,
+        "execution_time": 87.91439962387085
+      },
+      {
+        "sample_id": "financebench_open_source_line_14",
+        "protocol": "minions",
+        "question": "Does Adobe have an improving operating margin profile as of FY2022? If operating margin is not a useful metric for a company like this, then state that and explain why.",
+        "predicted_answer": "Adobe does not have an improving operating margin profile as of FY2022. The operating margin decreased compared to the previous year.",
+        "ground_truth": [
+          "No the operating margins of Adobe have recently declined from 36.8% in FY 2021 to 34.6% in FY2022. A drop by 2.2% in a year."
+        ],
+        "cost_usd": 0.0411825,
+        "input_tokens": 11193,
+        "output_tokens": 1320,
+        "execution_time": 177.32595872879028
+      },
+      {
+        "sample_id": "financebench_open_source_line_17",
+        "protocol": "minions",
+        "question": "Roughly how many times has AES Corporation sold its inventory in FY2022? Calculate inventory turnover ratio for the FY2022; if conventional inventory management is not meaningful for the company then state that and explain why.",
+        "predicted_answer": "Conventional inventory management is not applicable to AES Corporation, so calculating an inventory turnover ratio is not relevant.",
+        "ground_truth": [
+          "AES has converted inventory 9.5 times in FY 2022."
+        ],
+        "cost_usd": 0.0333025,
+        "input_tokens": 9473,
+        "output_tokens": 962,
+        "execution_time": 259.35883927345276
+      },
+      {
+        "sample_id": "financebench_open_source_line_18",
+        "protocol": "minions",
+        "question": "Based on the information provided primarily in the statement of financial position and the statement of income, what is AES's FY2022 return on assets (ROA)? ROA is defined as: FY2022 net income / (average total assets between FY2021 and FY2022). Round your answer to two decimal places.",
+        "predicted_answer": "-1.53%",
+        "ground_truth": [
+          "-0.02"
+        ],
+        "cost_usd": 0.028939999999999997,
+        "input_tokens": 7376,
+        "output_tokens": 1050,
+        "execution_time": 247.52084350585938
+      },
+      {
+        "sample_id": "financebench_open_source_line_19",
+        "protocol": "minions",
+        "question": "What is Amazon's FY2017 days payable outstanding (DPO)? DPO is defined as: 365 * (average accounts payable between FY2016 and FY2017) / (FY2017 COGS + change in inventory between FY2016 and FY2017). Round your answer to two decimal places. Address the question by using the line items and information shown within the balance sheet and the P&L statement.",
+        "predicted_answer": "Amazon's FY2017 days payable outstanding (DPO) is approximately 92.47 days.",
+        "ground_truth": [
+          "93.86"
+        ],
+        "cost_usd": 0.1628675,
+        "input_tokens": 51163,
+        "output_tokens": 3496,
+        "execution_time": 344.1556131839752
+      },
+      {
+        "sample_id": "financebench_open_source_line_20",
+        "protocol": "minions",
+        "question": "What is Amazon's year-over-year change in revenue from FY2016 to FY2017 (in units of percents and round to one decimal place)? Calculate what was asked by utilizing the line items clearly shown in the statement of income.",
+        "predicted_answer": "30.8%",
+        "ground_truth": [
+          "30.8%"
+        ],
+        "cost_usd": 0.045,
+        "input_tokens": 14520,
+        "output_tokens": 870,
+        "execution_time": 60.1579704284668
+      },
+      {
+        "sample_id": "financebench_open_source_line_24",
+        "protocol": "minions",
+        "question": "Has AMCOR's quick ratio improved or declined between FY2023 and FY2022? If the quick ratio is not something that a financial analyst would ask about a company like this, then state that and explain why.",
+        "predicted_answer": "AMCOR's quick ratio has improved from FY2022 to FY2023.",
+        "ground_truth": [
+          "The quick ratio has slightly improved from 0.67 times to 0.69 times between FY 2023 and FY 2022.(3.4% jump)"
+        ],
+        "cost_usd": 0.08016000000000001,
+        "input_tokens": 27528,
+        "output_tokens": 1134,
+        "execution_time": 153.5671455860138
+      },
+      {
+        "sample_id": "financebench_open_source_line_27",
+        "protocol": "minions",
+        "question": "Does AMCOR have an improving gross margin profile as of FY2023? If gross margin is not a useful metric for a company like this, then state that and explain why.",
+        "predicted_answer": "AMCOR does not have an improving gross margin profile as of FY2023.",
+        "ground_truth": [
+          "No. For AMCOR there has been a slight decline in gross margins by 0.8%."
+        ],
+        "cost_usd": 0.041955,
+        "input_tokens": 13082,
+        "output_tokens": 925,
+        "execution_time": 79.40796422958374
+      },
+      {
+        "sample_id": "financebench_open_source_line_31",
+        "protocol": "minions",
+        "question": "Answer the following question as if you are an equity research analyst and have lost internet connection so you do not have access to financial metric providers. According to the details clearly outlined within the P&L statement and the statement of cash flows, what is the FY2015 depreciation and amortization (D&A from cash flow statement) % margin for AMD?",
+        "predicted_answer": "The D&A % margin for FY2015 is approximately 4.18%.",
+        "ground_truth": [
+          "4.2%"
+        ],
+        "cost_usd": 0.1275925,
+        "input_tokens": 41097,
+        "output_tokens": 2485,
+        "execution_time": 301.0628271102905
+      },
+      {
+        "sample_id": "financebench_open_source_line_32",
+        "protocol": "minions",
+        "question": "Does AMD have a reasonably healthy liquidity profile based on its quick ratio for FY22? If the quick ratio is not relevant to measure liquidity, please state that and explain why.",
+        "predicted_answer": "AMD has a reasonably healthy liquidity profile with a quick ratio of 1.77 for FY22.",
+        "ground_truth": [
+          "Yes. The quick ratio is 1.57, calculated as (cash and cash equivalents+Short term investments+Accounts receivable, net+receivables from related parties)/ (current liabilities)."
+        ],
+        "cost_usd": 0.0808175,
+        "input_tokens": 22911,
+        "output_tokens": 2354,
+        "execution_time": 198.16066813468933
+      },
+      {
+        "sample_id": "financebench_open_source_line_35",
+        "protocol": "minions",
+        "question": "What drove operating margin change as of the FY22 for AMD? If operating margin is not a useful metric for a company like this, then please state that and explain why.",
+        "predicted_answer": "AMD's operating margin in FY22 was influenced by several factors. Key drivers included the acquisition of Xilinx and Pensando, which led to increased amortization of acquisition-related intangibles and integration costs. The company also faced higher R&D and marketing expenses, driven by strategic investments and headcount growth. Market conditions, such as a weak PC market and inventory corrections, further impacted the margin. Additionally, strategic decisions like stock repurchase programs and changes in accounting policies related to GILTI tax and R&D capitalization affected the financial outcomes.",
+        "ground_truth": [
+          "The decrease in AMD's operating income was primarily driven by amortization of intangible assets associated with the Xilinx acquisition"
+        ],
+        "cost_usd": 0.16879,
+        "input_tokens": 56108,
+        "output_tokens": 2852,
+        "execution_time": 401.51970982551575
+      },
+      {
+        "sample_id": "financebench_open_source_line_36",
+        "protocol": "minions",
+        "question": "Among operations, investing, and financing activities, which brought in the most (or lost the least) cash flow for AMD in FY22?",
+        "predicted_answer": "Operating activities brought in the most cash flow for AMD in FY22.",
+        "ground_truth": [
+          "In 2022, AMD brought in the most cashflow from Operations"
+        ],
+        "cost_usd": 0.0603475,
+        "input_tokens": 20335,
+        "output_tokens": 951,
+        "execution_time": 94.57247757911682
+      },
+      {
+        "sample_id": "financebench_open_source_line_41",
+        "protocol": "minions",
+        "question": "Does AMEX have an improving operating margin profile as of 2022? If operating margin is not a useful metric for a company like this, then state that and explain why.",
+        "predicted_answer": "Operating margin is not a useful metric for AMEX as of 2022. Instead, metrics such as Return on Equity (ROE), Return on Assets (ROA), and Net Interest Margin (NIM) are more relevant for assessing the company's financial performance. The gathered information does not provide a consistent or reliable operating margin figure, reinforcing the idea that other financial metrics are more appropriate for evaluating AMEX.",
+        "ground_truth": [
+          "Performance is not measured through operating margin"
+        ],
+        "cost_usd": 0.262115,
+        "input_tokens": 91958,
+        "output_tokens": 3222,
+        "execution_time": 651.1814353466034
+      },
+      {
+        "sample_id": "financebench_open_source_line_42",
+        "protocol": "minions",
+        "question": "What drove gross margin change as of the FY2022 for American Express? If gross margin is not a useful metric for a company like this, then please state that and explain why.",
+        "predicted_answer": "Gross margin is not a useful metric for American Express. The company's financial performance in FY2022 was influenced by net interest income, operating expenses, and revenue growth.",
+        "ground_truth": [
+          "Performance is not measured through gross margin"
+        ],
+        "cost_usd": 0.0342575,
+        "input_tokens": 9263,
+        "output_tokens": 1110,
+        "execution_time": 177.7246277332306
+      },
+      {
+        "sample_id": "financebench_open_source_line_43",
+        "protocol": "minions",
+        "question": "How much has the effective tax rate of American Express changed between FY2021 and FY2022?",
+        "predicted_answer": "The effective tax rate of American Express decreased by 3.0 percentage points between FY2021 and FY2022.",
+        "ground_truth": [
+          "The effective tax rate for American Express has changed/dropped from 24.6% in FY 2021 to 21.6% in FY 2022."
+        ],
+        "cost_usd": 0.02002,
+        "input_tokens": 4592,
+        "output_tokens": 854,
+        "execution_time": 141.3402190208435
+      },
+      {
+        "sample_id": "financebench_open_source_line_47",
+        "protocol": "minions",
+        "question": "Basing your judgments off of the cash flow statement and the income statement, what is American Water Works's FY2021 unadjusted operating income + depreciation and amortization from the cash flow statement (unadjusted EBITDA) in USD millions?",
+        "predicted_answer": "$1,832 million",
+        "ground_truth": [
+          "$1832.00"
+        ],
+        "cost_usd": 0.06485,
+        "input_tokens": 18656,
+        "output_tokens": 1821,
+        "execution_time": 244.78572463989258
+      },
+      {
+        "sample_id": "financebench_open_source_line_48",
+        "protocol": "minions",
+        "question": "Does American Water Works have positive working capital based on FY2022 data? If working capital is not a useful or relevant metric for this company, then please state that and explain why.",
+        "predicted_answer": "American Water Works does not have positive working capital based on FY2022 data.",
+        "ground_truth": [
+          "No, American Water Works had negative working capital of -$1561M in FY 2022."
+        ],
+        "cost_usd": 0.021407500000000003,
+        "input_tokens": 5275,
+        "output_tokens": 822,
+        "execution_time": 169.33024716377258
+      },
+      {
+        "sample_id": "financebench_open_source_line_49",
+        "protocol": "minions",
+        "question": "In agreement with the information outlined in the income statement, what is the FY2015 - FY2017 3 year average net profit margin (as a %) for Best Buy? Answer in units of percents and round to one decimal place.",
+        "predicted_answer": "2.7%",
+        "ground_truth": [
+          "2.8%"
+        ],
+        "cost_usd": 0.08032,
+        "input_tokens": 23200,
+        "output_tokens": 2232,
+        "execution_time": 278.3581123352051
+      },
+      {
+        "sample_id": "financebench_open_source_line_51",
+        "protocol": "minions",
+        "question": "Are Best Buy's gross margins historically consistent (not fluctuating more than roughly 2% each year)? If gross margins are not a relevant metric for a company like this, then please state that and explain why.",
+        "predicted_answer": "Best Buy's gross margins are historically consistent, with fluctuations not exceeding 2% annually.",
+        "ground_truth": [
+          "Yes, the margins have been consistent, there has been a minor decline of 1.1% in gross margins between FY2022 and FY2023."
+        ],
+        "cost_usd": 0.023794999999999997,
+        "input_tokens": 5826,
+        "output_tokens": 923,
+        "execution_time": 72.79742741584778
+      },
+      {
+        "sample_id": "financebench_open_source_line_53",
+        "protocol": "minions",
+        "question": "Among operations, investing, and financing activities, which brought in the most (or lost the least) cash flow for Best Buy in FY2023?",
+        "predicted_answer": "Operating activities brought in the most cash flow for Best Buy in FY2023.",
+        "ground_truth": [
+          "Best Buy generated the most cash flow from operating activities in FY 2023 ($1.8 bn)"
+        ],
+        "cost_usd": 0.046435000000000004,
+        "input_tokens": 15270,
+        "output_tokens": 826,
+        "execution_time": 98.55048990249634
+      },
+      {
+        "sample_id": "financebench_open_source_line_57",
+        "protocol": "minions",
+        "question": "Considering the data in the balance sheet, what is Block's (formerly known as Square) FY2016 working capital ratio? Define working capital ratio as total current assets divided by total current liabilities. Round your answer to two decimal places.",
+        "predicted_answer": "The working capital ratio for Block (formerly known as Square) for FY2016 is 1.73.",
+        "ground_truth": [
+          "1.73"
+        ],
+        "cost_usd": 0.07387250000000001,
+        "input_tokens": 18813,
+        "output_tokens": 2684,
+        "execution_time": 412.9536964893341
+      },
+      {
+        "sample_id": "financebench_open_source_line_58",
+        "protocol": "minions",
+        "question": "What is the FY2019 - FY2020 total revenue growth rate for Block (formerly known as Square)? Answer in units of percents and round to one decimal place. Approach the question asked by assuming the standpoint of an investment banking analyst who only has access to the statement of income.",
+        "predicted_answer": "101.4%",
+        "ground_truth": [
+          "101.5%"
+        ],
+        "cost_usd": 0.01794,
+        "input_tokens": 3684,
+        "output_tokens": 873,
+        "execution_time": 181.1328558921814
+      },
+      {
+        "sample_id": "financebench_open_source_line_61",
+        "protocol": "minions",
+        "question": "Are there any product categories / service categories that represent more than 20% of Boeing's revenue for FY2022?",
+        "predicted_answer": "Commercial Airplanes, Defense, Space & Security, and Global Services each represent more than 20% of Boeing's revenue for FY2022.",
+        "ground_truth": [
+          "Yes. Boeing has product and service categories that represent more than 20% of Boeing's revenue for FY2022. These categories are Commercial Airplanes which comprises 39% of total revenue, Defence which comprises 35% of total revenue and Services which comprises 26% of total revenue."
+        ],
+        "cost_usd": 0.03233,
+        "input_tokens": 9836,
+        "output_tokens": 774,
+        "execution_time": 113.70667958259583
+      },
+      {
+        "sample_id": "financebench_open_source_line_63",
+        "protocol": "minions",
+        "question": "Does Boeing have an improving gross margin profile as of FY2022? If gross margin is not a useful metric for a company like this, then state that and explain why.",
+        "predicted_answer": "Gross margin is not a useful metric for Boeing due to the complexity of its business, which involves long-term contracts, significant research and development expenses, and high fixed costs. Alternative metrics such as operating margin, EBITDA, and return on sales are more relevant for evaluating Boeing's financial performance.",
+        "ground_truth": [
+          "Yes. Boeing has an improving gross margin profile as of FY2022. Gross profit improved from $3,017 million in FY2021 to $3,502 million in FY2022. Gross margin % improved from 4.8% in FY2021 to 5.3% in FY2022."
+        ],
+        "cost_usd": 0.21536000000000002,
+        "input_tokens": 75188,
+        "output_tokens": 2739,
+        "execution_time": 500.65278601646423
+      },
+      {
+        "sample_id": "financebench_open_source_line_68",
+        "protocol": "minions",
+        "question": "What is the FY2017 return on assets (ROA) for Coca Cola? ROA is defined as: FY2017 net income / (average total assets between FY2016 and FY2017). Round your answer to two decimal places. Give a response to the question by relying on the details shown in the balance sheet and the P&L statement.",
+        "predicted_answer": "1.46%",
+        "ground_truth": [
+          "0.01"
+        ],
+        "cost_usd": 0.12158500000000001,
+        "input_tokens": 40258,
+        "output_tokens": 2094,
+        "execution_time": 241.18292212486267
+      },
+      {
+        "sample_id": "financebench_open_source_line_69",
+        "protocol": "minions",
+        "question": "What is Coca Cola's FY2021 COGS % margin? Calculate what was asked by utilizing the line items clearly shown in the income statement.",
+        "predicted_answer": "The COGS % margin for Coca Cola in FY2021 is approximately 39.73%.",
+        "ground_truth": [
+          "39.7%"
+        ],
+        "cost_usd": 0.025002500000000004,
+        "input_tokens": 5969,
+        "output_tokens": 1008,
+        "execution_time": 134.45461702346802
+      },
+      {
+        "sample_id": "financebench_open_source_line_70",
+        "protocol": "minions",
+        "question": "What is Coca Cola's FY2022 dividend payout ratio (using total cash dividends paid and net income attributable to shareholders)? Round answer to two decimal places. Answer the question asked by assuming you only have access to information clearly displayed in the cash flow statement and the income statement.",
+        "predicted_answer": "79.80%",
+        "ground_truth": [
+          "0.8"
+        ],
+        "cost_usd": 0.06647249999999999,
+        "input_tokens": 18661,
+        "output_tokens": 1982,
+        "execution_time": 221.04044222831726
+      },
+      {
+        "sample_id": "financebench_open_source_line_71",
+        "protocol": "minions",
+        "question": "Based on the information provided primarily in the balance sheet and the statement of income, what is FY2020 days payable outstanding (DPO) for Corning? DPO is defined as: 365 * (average accounts payable between FY2019 and FY2020) / (FY2020 COGS + change in inventory between FY2019 and FY2020). Round your answer to two decimal places.",
+        "predicted_answer": "219.61",
+        "ground_truth": [
+          "63.86"
+        ],
+        "cost_usd": 0.173575,
+        "input_tokens": 59250,
+        "output_tokens": 2545,
+        "execution_time": 438.0918080806732
+      },
+      {
+        "sample_id": "financebench_open_source_line_72",
+        "protocol": "minions",
+        "question": "Taking into account the information outlined in the income statement, what is the FY2019 - FY2021 3 year average unadjusted operating income % margin for Corning? Answer in units of percents and round to one decimal place.",
+        "predicted_answer": "10.3",
+        "ground_truth": [
+          "10.3%"
+        ],
+        "cost_usd": 0.08895499999999999,
+        "input_tokens": 30926,
+        "output_tokens": 1164,
+        "execution_time": 159.51207423210144
+      },
+      {
+        "sample_id": "financebench_open_source_line_73",
+        "protocol": "minions",
+        "question": "How much has the effective tax rate of Corning changed between FY2021 and FY2022?",
+        "predicted_answer": "The effective tax rate for Corning changed by 2.8% from FY2021 to FY2022, increasing from 20.2% to 23%.",
+        "ground_truth": [
+          "The effective tax rate of Corning has changed from 20% in FY2021 to 23% in FY 2022."
+        ],
+        "cost_usd": 0.0947075,
+        "input_tokens": 30507,
+        "output_tokens": 1844,
+        "execution_time": 209.0470747947693
+      },
+      {
+        "sample_id": "financebench_open_source_line_74",
+        "protocol": "minions",
+        "question": "Does Corning have positive working capital based on FY2022 data? If working capital is not a useful or relevant metric for this company, then please state that and explain why.",
+        "predicted_answer": "Based on the available data, Corning appears to have positive working capital for FY2022, as the total current assets exceed the total current liabilities.",
+        "ground_truth": [
+          "Yes. Corning had a positive working capital amount of $831 million by FY 2022 close. This answer considers only operating current assets and current liabilities that were clearly shown in the balance sheet."
+        ],
+        "cost_usd": 0.0934475,
+        "input_tokens": 25835,
+        "output_tokens": 2886,
+        "execution_time": 322.93453454971313
+      },
+      {
+        "sample_id": "financebench_open_source_line_76",
+        "protocol": "minions",
+        "question": "What is the FY2018 fixed asset turnover ratio for CVS Health? Fixed asset turnover ratio is defined as: FY2018 revenue / (average PP&E between FY2017 and FY2018). Round your answer to two decimal places. Calculate what was asked by utilizing the line items clearly shown in the P&L statement and the balance sheet.",
+        "predicted_answer": "Using the first set of PP&E values, the fixed asset turnover ratio is $194,579 / $10,820.5 = 17.98. Using the second set, it is $194,579 / $25,579.5 = 7.61. Therefore, the fixed asset turnover ratio for FY2018 is between 7.61 and 17.98, depending on the PP&E values used.",
+        "ground_truth": [
+          "17.98"
+        ],
+        "cost_usd": 0.1474675,
+        "input_tokens": 43691,
+        "output_tokens": 3824,
+        "execution_time": 1263.874563217163
+      },
+      {
+        "sample_id": "financebench_open_source_line_77",
+        "protocol": "minions",
+        "question": "Is CVS Health a capital-intensive business based on FY2022 data?",
+        "predicted_answer": "Yes, CVS Health is a capital-intensive business based on FY2022 data.",
+        "ground_truth": [
+          "Yes, CVS Health requires an extensive asset base to operate, which is evident from its ROA of only 1.82% in 2022 and 3.39% in 2021, though it should be noted that a significant portion of this asset base is goodwill, and CVS's fixed assets/total assets ratio is on the lower side of 5.6%."
+        ],
+        "cost_usd": 0.033255,
+        "input_tokens": 8006,
+        "output_tokens": 1324,
+        "execution_time": 242.84246301651
+      },
+      {
+        "sample_id": "financebench_open_source_line_82",
+        "protocol": "minions",
+        "question": "What is the FY2019 cash conversion cycle (CCC) for General Mills? CCC is defined as: DIO + DSO - DPO. DIO is defined as: 365 * (average inventory between FY2018 and FY2019) / (FY2019 COGS). DSO is defined as: 365 * (average accounts receivable between FY2018 and FY2019) / (FY2019 Revenue). DPO is defined as: 365 * (average accounts payable between FY2018 and FY2019) / (FY2019 COGS + change in inventory between FY2018 and FY2019). Round your answer to two decimal places. Address the question by using the line items and information shown within the income statement and the balance sheet.",
+        "predicted_answer": "No answer found.",
+        "ground_truth": [
+          "-3.7"
+        ],
+        "cost_usd": 0.23309,
+        "input_tokens": 85680,
+        "output_tokens": 1889,
+        "execution_time": 183.9941143989563
+      },
+      {
+        "sample_id": "financebench_open_source_line_83",
+        "protocol": "minions",
+        "question": "By drawing conclusions from the information stated only in the statement of financial position, what is General Mills's FY2020 working capital ratio? Define working capital ratio as total current assets divided by total current liabilities. Round your answer to two decimal places.",
+        "predicted_answer": "0.87",
+        "ground_truth": [
+          "0.68"
+        ],
+        "cost_usd": 0.0918175,
+        "input_tokens": 29511,
+        "output_tokens": 1804,
+        "execution_time": 190.44246745109558
+      },
+      {
+        "sample_id": "financebench_open_source_line_84",
+        "protocol": "minions",
+        "question": "According to the information provided in the statement of cash flows, what is the FY2020 free cash flow (FCF) for General Mills? FCF here is defined as: (cash from operations - capex). Answer in USD millions.",
+        "predicted_answer": "161.9",
+        "ground_truth": [
+          "$3215.00"
+        ],
+        "cost_usd": 0.020067500000000002,
+        "input_tokens": 4423,
+        "output_tokens": 901,
+        "execution_time": 95.11924457550049
+      },
+      {
+        "sample_id": "financebench_open_source_line_85",
+        "protocol": "minions",
+        "question": "We want to calculate a financial metric. Please help us compute it by basing your answers off of the cash flow statement and the income statement. Here's the question: what is the FY2022 retention ratio (using total cash dividends paid and net income attributable to shareholders) for General Mills? Round answer to two decimal places.",
+        "predicted_answer": "The FY2022 retention ratio for General Mills is approximately 0.54.",
+        "ground_truth": [
+          "0.54"
+        ],
+        "cost_usd": 0.0697175,
+        "input_tokens": 18751,
+        "output_tokens": 2284,
+        "execution_time": 224.78096413612366
+      },
+      {
+        "sample_id": "financebench_open_source_line_86",
+        "protocol": "minions",
+        "question": "Are JnJ's FY2022 financials that of a high growth company?",
+        "predicted_answer": "No, JnJ's FY2022 financials do not reflect those of a high growth company.",
+        "ground_truth": [
+          "No, JnJ's FY2022 financials are not of a high growth company as sales grew by 1.3% in FY2022."
+        ],
+        "cost_usd": 0.0558,
+        "input_tokens": 15468,
+        "output_tokens": 1713,
+        "execution_time": 270.5559606552124
+      },
+      {
+        "sample_id": "financebench_open_source_line_87",
+        "protocol": "minions",
+        "question": "What drove gross margin change as of FY2022 for JnJ? If gross margin is not a useful metric for a company like this, then please state that and explain why.",
+        "predicted_answer": "The gross margin for JnJ improved from a negative 5.0% in FY2021 to 6.7% in FY2022, driven by increased costs from COVID-19 related expenses and inflation, offset by strategic cost reductions.",
+        "ground_truth": [
+          "For FY22, JnJ had changes in gross margin due to: One-time COVID-19 vaccine manufacturing exit related costs, Currency impacts in the Pharmaceutical segment, Commodity inflation in the MedTech and Consumer Health segments, partially offset by Supply chain benefits in the Consumer Health segment."
+        ],
+        "cost_usd": 0.028159999999999998,
+        "input_tokens": 6656,
+        "output_tokens": 1152,
+        "execution_time": 95.70988535881042
+      },
+      {
+        "sample_id": "financebench_open_source_line_88",
+        "protocol": "minions",
+        "question": "Roughly how many times has JnJ sold its inventory in FY2022? Calculate inventory turnover ratio for FY2022; if conventional inventory management is not meaningful for the company then state that and explain why.",
+        "predicted_answer": "The inventory turnover ratio for JnJ in FY2022 is approximately 2.72 times.",
+        "ground_truth": [
+          "JnJ sold its inventory 2.7 times in FY2022."
+        ],
+        "cost_usd": 0.075915,
+        "input_tokens": 21386,
+        "output_tokens": 2245,
+        "execution_time": 241.5909469127655
+      },
+      {
+        "sample_id": "financebench_open_source_line_97",
+        "protocol": "minions",
+        "question": "Are JPM's gross margins historically consistent (not fluctuating more than roughly 2% each year)? If gross margins are not a relevant metric for a company like this, then please state that and explain why.",
+        "predicted_answer": "Gross margins are not a relevant metric for JPMorgan Chase. As a financial institution, JPMorgan Chase's performance is better evaluated using metrics such as net interest margin, return on assets, and return on equity. These metrics provide insights into the bank's profitability and operational efficiency.",
+        "ground_truth": [
+          "Since JPM is a financial institution, gross margin is not a relevant metric."
+        ],
+        "cost_usd": 0.4120275,
+        "input_tokens": 152215,
+        "output_tokens": 3149,
+        "execution_time": 1121.8866004943848
+      },
+      {
+        "sample_id": "financebench_open_source_line_100",
+        "protocol": "minions",
+        "question": "What is Kraft Heinz's FY2019 inventory turnover ratio? Inventory turnover ratio is defined as: (FY2019 COGS) / (average inventory between FY2018 and FY2019). Round your answer to two decimal places. Please base your judgments on the information provided primarily in the balance sheet and the P&L statement.",
+        "predicted_answer": "0.02",
+        "ground_truth": [
+          "6.25"
+        ],
+        "cost_usd": 0.02434,
+        "input_tokens": 5436,
+        "output_tokens": 1075,
+        "execution_time": 119.40453839302063
+      },
+      {
+        "sample_id": "financebench_open_source_line_101",
+        "protocol": "minions",
+        "question": "We need to calculate a reasonable approximation (or exact number if possible) of a financial metric. Basing your judgment by information plainly provided in the balance sheet and the P&L statement, what is Lockheed Martin's FY2020 asset turnover ratio? Asset turnover ratio is defined as: FY2020 revenue / (average total assets between FY2019 and FY2020). Round your answer to two decimal places.",
+        "predicted_answer": "47.12",
+        "ground_truth": [
+          "1.33"
+        ],
+        "cost_usd": 0.020305,
+        "input_tokens": 3978,
+        "output_tokens": 1036,
+        "execution_time": 112.95500016212463
+      },
+      {
+        "sample_id": "financebench_open_source_line_102",
+        "protocol": "minions",
+        "question": "What is Lockheed Martin's FY2021 net working capital? Define net working capital as total current assets less total current liabilities. Answer in USD millions. Respond to the question by assuming the perspective of an investment analyst who can only use the details shown within the balance sheet.",
+        "predicted_answer": "5,818 million USD",
+        "ground_truth": [
+          "$5818.00"
+        ],
+        "cost_usd": 0.017869999999999997,
+        "input_tokens": 3992,
+        "output_tokens": 789,
+        "execution_time": 87.47700428962708
+      },
+      {
+        "sample_id": "financebench_open_source_line_103",
+        "protocol": "minions",
+        "question": "What is Lockheed Martin's 2 year total revenue CAGR from FY2020 to FY2022 (in units of percents and round to one decimal place)? Provide a response to the question by primarily using the statement of income.",
+        "predicted_answer": "CAGR = ((65,984 / 65,398)^(1/2) - 1) * 100 = 0.4%",
+        "ground_truth": [
+          "0.4%"
+        ],
+        "cost_usd": 0.0822425,
+        "input_tokens": 29353,
+        "output_tokens": 886,
+        "execution_time": 92.34234619140625
+      },
+      {
+        "sample_id": "financebench_open_source_line_105",
+        "protocol": "minions",
+        "question": "What is the FY2018 - FY2020 3 year average of capex as a % of revenue for MGM Resorts? Answer in units of percents and round to one decimal place. Please utilize information provided primarily within the statement of cash flows and the statement of income.",
+        "predicted_answer": "The 3-year average of capex as a percentage of revenue for FY2018-FY2020 is approximately 6.0%.",
+        "ground_truth": [
+          "7.9%"
+        ],
+        "cost_usd": 0.12007499999999999,
+        "input_tokens": 33018,
+        "output_tokens": 3753,
+        "execution_time": 724.1106119155884
+      },
+      {
+        "sample_id": "financebench_open_source_line_112",
+        "protocol": "minions",
+        "question": "Has Microsoft increased its debt on balance sheet between FY2023 and the FY2022 period?",
+        "predicted_answer": "No, Microsoft's total debt on the balance sheet decreased between FY2023 and FY2022.",
+        "ground_truth": [
+          "No. Microsoft decreased its debt by $2.5bn in FY 2023 vs FY 2022."
+        ],
+        "cost_usd": 0.025634999999999998,
+        "input_tokens": 6186,
+        "output_tokens": 1017,
+        "execution_time": 84.19624829292297
+      },
+      {
+        "sample_id": "financebench_open_source_line_113",
+        "protocol": "minions",
+        "question": "We want to calculate a financial metric. Please help us compute it by basing your answers off of the statement of income and the statement of cash flows. Here's the question: what is the FY2015 unadjusted EBITDA % margin for Netflix? Calculate unadjusted EBITDA using unadjusted operating income and D&A (from cash flow statement).",
+        "predicted_answer": "The unadjusted EBITDA % margin for Netflix in FY2015 is approximately 55.9%.",
+        "ground_truth": [
+          "5.4%"
+        ],
+        "cost_usd": 0.0811275,
+        "input_tokens": 20819,
+        "output_tokens": 2908,
+        "execution_time": 138.9241623878479
+      },
+      {
+        "sample_id": "financebench_open_source_line_115",
+        "protocol": "minions",
+        "question": "We need to calculate a reasonable approximation (or exact number if possible) of a financial metric. Basing your judgment by information plainly provided in the statement of income, what is Nike's three year average of cost of goods sold as a % of revenue from FY2016 to FY2018? Answer in units of percents and round to one decimal place.",
+        "predicted_answer": "56.2%",
+        "ground_truth": [
+          "55.1%"
+        ],
+        "cost_usd": 0.0202275,
+        "input_tokens": 4515,
+        "output_tokens": 894,
+        "execution_time": 80.80649304389954
+      },
+      {
+        "sample_id": "financebench_open_source_line_117",
+        "protocol": "minions",
+        "question": "When primarily referencing the income statement and the statement of financial position, what is the FY2021 inventory turnover ratio for Nike? Inventory turnover ratio is defined as: (FY2021 COGS) / (average inventory between FY2020 and FY2021). Round your answer to two decimal places.",
+        "predicted_answer": "3.46",
+        "ground_truth": [
+          "3.46"
+        ],
+        "cost_usd": 0.0252275,
+        "input_tokens": 6119,
+        "output_tokens": 993,
+        "execution_time": 89.4249095916748
+      },
+      {
+        "sample_id": "financebench_open_source_line_118",
+        "protocol": "minions",
+        "question": "Among operations, investing, and financing activities, which brought in the most (or lost the least) cash flow for Nike in FY2023?",
+        "predicted_answer": "Operating activities brought in the most cash flow for Nike in FY2023 with an inflow of $5,841 million.",
+        "ground_truth": [
+          "Among the three, cash flow from operations was the highest for Nike in FY2023."
+        ],
+        "cost_usd": 0.023337499999999997,
+        "input_tokens": 5207,
+        "output_tokens": 1032,
+        "execution_time": 58.77568435668945
+      },
+      {
+        "sample_id": "financebench_open_source_line_119",
+        "protocol": "minions",
+        "question": "Does Paypal have positive working capital based on FY2022 data? If working capital is not a useful or relevant metric for this company, then please state that and explain why.",
+        "predicted_answer": "PayPal has positive working capital of $12,416 million for FY2022.",
+        "ground_truth": [
+          "Yes. Paypal has a positive working capital of $ 1.6Bn as of FY2022 end."
+        ],
+        "cost_usd": 0.07307250000000001,
+        "input_tokens": 21069,
+        "output_tokens": 2040,
+        "execution_time": 218.34850573539734
+      },
+      {
+        "sample_id": "financebench_open_source_line_124",
+        "protocol": "minions",
+        "question": "What is the FY2022 unadjusted EBITDA less capex for PepsiCo? Define unadjusted EBITDA as unadjusted operating income + depreciation and amortization [from cash flow statement]. Answer in USD millions. Respond to the question by assuming the perspective of an investment analyst who can only use the details shown within the statement of cash flows and the income statement.",
+        "predicted_answer": "9068",
+        "ground_truth": [
+          "$9068.00"
+        ],
+        "cost_usd": 0.121725,
+        "input_tokens": 39230,
+        "output_tokens": 2365,
+        "execution_time": 424.4244079589844
+      },
+      {
+        "sample_id": "financebench_open_source_line_125",
+        "protocol": "minions",
+        "question": "What is the FY2022 unadjusted EBITDA % margin for PepsiCo? Calculate unadjusted EBITDA using unadjusted operating income and D&A (from cash flow statement). Give a response to the question by relying on the details shown in the statement of cash flows and the P&L statement.",
+        "predicted_answer": "The FY2022 unadjusted EBITDA % margin for PepsiCo is approximately 43.08%.",
+        "ground_truth": [
+          "16.5%"
+        ],
+        "cost_usd": 0.022595,
+        "input_tokens": 4590,
+        "output_tokens": 1112,
+        "execution_time": 199.4915108680725
+      },
+      {
+        "sample_id": "financebench_open_source_line_145",
+        "protocol": "minions",
+        "question": "Does Verizon have a reasonably healthy liquidity profile based on its quick ratio for FY 2022? If the quick ratio is not relevant to measure liquidity, please state that and explain why.",
+        "predicted_answer": "Verizon does not have a reasonably healthy liquidity profile based on its quick ratio for FY 2022.",
+        "ground_truth": [
+          "No. The quick ratio was approximately 0.54 for Verizon. It indicated that Verizon does not have a healthy liquidity profile."
+        ],
+        "cost_usd": 0.14293,
+        "input_tokens": 47948,
+        "output_tokens": 2306,
+        "execution_time": 281.91422295570374
+      },
+      {
+        "sample_id": "financebench_open_source_line_146",
+        "protocol": "minions",
+        "question": "Is Verizon a capital intensive business based on FY 2022 data?",
+        "predicted_answer": "Yes, Verizon is a capital-intensive business based on FY 2022 data.",
+        "ground_truth": [
+          "Yes. Verizon's capital intensity ratio was approximately 2.774729. This means that it took approximately $2.77 of assets to generate $1 of revenue and thus, Verizon can be considered capital intensive."
+        ],
+        "cost_usd": 0.0229325,
+        "input_tokens": 5889,
+        "output_tokens": 821,
+        "execution_time": 126.74967169761658
+      },
+      {
+        "sample_id": "financebench_open_source_line_147",
+        "protocol": "minions",
+        "question": "Has Verizon increased its debt on balance sheet between 2022 and the 2021 fiscal period?",
+        "predicted_answer": "No, Verizon did not increase its debt on the balance sheet between 2022 and 2021.",
+        "ground_truth": [
+          "No. Verizon's debt decreased by $229 million."
+        ],
+        "cost_usd": 0.026125000000000002,
+        "input_tokens": 6646,
+        "output_tokens": 951,
+        "execution_time": 118.98066449165344
+      },
+      {
+        "sample_id": "financebench_open_source_line_148",
+        "protocol": "minions",
+        "question": "What is FY2018 days payable outstanding (DPO) for Walmart? DPO is defined as: 365 * (average accounts payable between FY2017 and FY2018) / (FY2018 COGS + change in inventory between FY2017 and FY2018). Round your answer to two decimal places. Please base your judgments on the information provided primarily in the statement of financial position and the P&L statement.",
+        "predicted_answer": "42.73",
+        "ground_truth": [
+          "42.69"
+        ],
+        "cost_usd": 0.20572500000000002,
+        "input_tokens": 72606,
+        "output_tokens": 2421,
+        "execution_time": 508.20975065231323
+      },
+      {
+        "sample_id": "financebench_open_source_line_149",
+        "protocol": "minions",
+        "question": "Based on the information provided primarily in the statement of income, what is the FY2018 - FY2019 change in unadjusted operating income % margin for Walmart? Answer in units of percents and round to one decimal place.",
+        "predicted_answer": "The change in operating income percentage margin from FY2018 to FY2019 is approximately 0.3%.",
+        "ground_truth": [
+          "0.2%"
+        ],
+        "cost_usd": 0.0737525,
+        "input_tokens": 22085,
+        "output_tokens": 1854,
+        "execution_time": 203.7747573852539
+      },
+      {
+        "sample_id": "financebench_open_source_line_150",
+        "protocol": "minions",
+        "question": "What is the FY2018 - FY2020 3 year average unadjusted EBITDA % margin for Walmart? Define unadjusted EBITDA as unadjusted operating income + depreciation and amortization from the cash flow statement. Answer in units of percents and round to one decimal place. Calculate what was asked by utilizing the line items clearly shown in the P&L statement and the cash flow statement.",
+        "predicted_answer": "The FY2018 - FY2020 3-year average unadjusted EBITDA % margin for Walmart is 6.3%.",
+        "ground_truth": [
+          "6.2%"
+        ],
+        "cost_usd": 0.1148225,
+        "input_tokens": 32493,
+        "output_tokens": 3359,
+        "execution_time": 534.5677216053009
+      }
+    ]
+  },
+  "summary": {
+    "minions": {
+      "accuracy": null,
+      "total_cost": 5.384069999999999,
+      "avg_cost_per_query": 0.08035925373134327,
+      "total_input_tokens": 1687028,
+      "total_output_tokens": 116650,
+      "avg_input_tokens": 25179.5223880597,
+      "avg_output_tokens": 1741.044776119403,
+      "total_samples": 67,
+      "successful_samples": 67,
+      "failed_samples": 0,
+      "avg_execution_time": 250.70529616056984
+    }
+  }
+}

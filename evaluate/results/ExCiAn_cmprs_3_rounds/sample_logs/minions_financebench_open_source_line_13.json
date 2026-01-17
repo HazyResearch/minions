@@ -1,0 +1,18 @@
+{
+  "sample_id": "financebench_open_source_line_13",
+  "protocol": "minions",
+  "question": "What is the FY2017 operating cash flow ratio for Adobe? Operating cash flow ratio is defined as: cash from operations / total current liabilities. Round your answer to two decimal places. Please utilize information provided primarily within the balance sheet and the cash flow statement.",
+  "predicted_answer": "0.00",
+  "ground_truth": [
+    "0.83"
+  ],
+  "cost_usd": 0.0179225,
+  "input_tokens": 3653,
+  "output_tokens": 879,
+  "execution_time": 87.91439962387085,
+  "is_correct": false,
+  "error": null,
+  "cached_at": "2026-01-16T22:53:42.071425",
+  "correctness_confidence": 1.0,
+  "correctness_reasoning": "The predicted answer of 0.00 is not within the 10% tolerance range of the ground truth answer of 0.83. The acceptable range would be 0.75 to 0.91, and 0.00 is outside this range."
+}

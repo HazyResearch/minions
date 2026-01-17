@@ -1,0 +1,16 @@
+Sample: financebench_open_source_line_18
+Protocol: minions
+Timestamp: 2026-01-17T18:31:17.794865
+Execution time: 225.15s
+Cost: $0.0243
+Is correct: None
+Error: None
+
+--- Question ---
+Based on the information provided primarily in the statement of financial position and the statement of income, what is AES's FY2022 return on assets (ROA)? ROA is defined as: FY2022 net income / (average total assets between FY2021 and FY2022). Round your answer to two decimal places.
+
+--- Predicted Answer ---
+3.55%
+
+--- Ground Truth ---
+['-0.02']

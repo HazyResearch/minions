@@ -1,0 +1,16 @@
+Sample: financebench_open_source_line_70
+Protocol: minions
+Timestamp: 2026-01-18T15:28:51.163846
+Execution time: 231.52s
+Cost: $0.1035
+Is correct: None
+Error: None
+
+--- Question ---
+What is Coca Cola's FY2022 dividend payout ratio (using total cash dividends paid and net income attributable to shareholders)? Round answer to two decimal places. Answer the question asked by assuming you only have access to information clearly displayed in the cash flow statement and the income statement.
+
+--- Predicted Answer ---
+79.79%
+
+--- Ground Truth ---
+['0.8']

@@ -1,0 +1,18 @@
+{
+  "sample_id": "financebench_open_source_line_58",
+  "protocol": "minions",
+  "question": "What is the FY2019 - FY2020 total revenue growth rate for Block (formerly known as Square)? Answer in units of percents and round to one decimal place. Approach the question asked by assuming the standpoint of an investment banking analyst who only has access to the statement of income.",
+  "predicted_answer": "107.9%",
+  "ground_truth": [
+    "101.5%"
+  ],
+  "cost_usd": 0.03268,
+  "input_tokens": 8904,
+  "output_tokens": 1042,
+  "execution_time": 128.9710476398468,
+  "is_correct": false,
+  "error": null,
+  "cached_at": "2026-01-17T19:49:07.798128",
+  "correctness_confidence": 0.9,
+  "correctness_reasoning": "The predicted answer of 107.9% is outside the 10% tolerance range of the ground truth answer, which is 101.5%. The acceptable range would be 91.35% to 111.65%."
+}

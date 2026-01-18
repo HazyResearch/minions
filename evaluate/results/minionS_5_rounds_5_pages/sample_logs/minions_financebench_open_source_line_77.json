@@ -1,0 +1,18 @@
+{
+  "sample_id": "financebench_open_source_line_77",
+  "protocol": "minions",
+  "question": "Is CVS Health a capital-intensive business based on FY2022 data?",
+  "predicted_answer": "Yes, CVS Health is a capital-intensive business based on FY2022 data.",
+  "ground_truth": [
+    "Yes, CVS Health requires an extensive asset base to operate, which is evident from its ROA of only 1.82% in 2022 and 3.39% in 2021, though it should be noted that a significant portion of this asset base is goodwill, and CVS's fixed assets/total assets ratio is on the lower side of 5.6%."
+  ],
+  "cost_usd": 0.0322375,
+  "input_tokens": 7727,
+  "output_tokens": 1292,
+  "execution_time": 228.96780633926392,
+  "is_correct": true,
+  "error": null,
+  "cached_at": "2026-01-17T20:57:14.693301",
+  "correctness_confidence": 0.9,
+  "correctness_reasoning": "The predicted answer correctly identifies CVS Health as a capital-intensive business, which aligns with the ground truth answer. Although the predicted answer lacks the detailed explanation provided in the ground truth, it still matches the key conclusion required for a yes/no question."
+}

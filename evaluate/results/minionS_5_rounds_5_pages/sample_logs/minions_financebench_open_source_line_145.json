@@ -1,0 +1,18 @@
+{
+  "sample_id": "financebench_open_source_line_145",
+  "protocol": "minions",
+  "question": "Does Verizon have a reasonably healthy liquidity profile based on its quick ratio for FY 2022? If the quick ratio is not relevant to measure liquidity, please state that and explain why.",
+  "predicted_answer": "Verizon's liquidity profile for FY 2022 is not reasonably healthy based on a quick ratio of approximately 0.71.",
+  "ground_truth": [
+    "No. The quick ratio was approximately 0.54 for Verizon. It indicated that Verizon does not have a healthy liquidity profile."
+  ],
+  "cost_usd": 0.1255925,
+  "input_tokens": 40601,
+  "output_tokens": 2409,
+  "execution_time": 267.56352138519287,
+  "is_correct": false,
+  "error": null,
+  "cached_at": "2026-01-17T22:59:30.556126",
+  "correctness_confidence": 0.8,
+  "correctness_reasoning": "The predicted answer states a quick ratio of 0.71, which is outside the 10% tolerance range of the ground truth quick ratio of 0.54 (acceptable range: 0.486 to 0.594). Additionally, both answers agree that Verizon does not have a healthy liquidity profile, but the numerical discrepancy affects the correctness of the predicted answer."
+}

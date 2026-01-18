@@ -1,0 +1,36 @@
+Configuration:
+  Dataset:
+    path: /workspace/financebench
+    filter_numerical: true
+    samples: all
+
+  Models:
+    local: meta-llama/Llama-3.1-8B-Instruct (temp=0.2, ctx=4096)
+    remote: gpt-4o (temp=0.0)
+
+  Protocols: minions
+    max_rounds: 5
+    num_samples_per_task: 1
+
+  MINIONS Settings:
+    num_tasks_per_round: 12
+    chunk_fn: chunk_by_section
+    max_chunk_size: 3000
+
+  Global:
+    output_dir: evaluate/results
+    skip_accuracy: true
+    use_cache: true
+    git_auto_commit: true
+
+Total runtime: 5h 29m 11.7s
+
+================================================================================
+EVALUATION SUMMARY
+================================================================================
+Protocol        Avg Cost ($)    Input Tokens (1k)  Output Tokens (1k)
+--------------------------------------------------------------------------------
+minions         0.1297          42.13              2.43              
+================================================================================
+
+Accuracy rate: 65.67% (44/67 correct, remote verdict with gpt-4o)

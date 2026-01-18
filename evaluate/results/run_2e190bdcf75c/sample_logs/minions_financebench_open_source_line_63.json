@@ -1,0 +1,16 @@
+{
+  "sample_id": "financebench_open_source_line_63",
+  "protocol": "minions",
+  "question": "Does Boeing have an improving gross margin profile as of FY2022? If gross margin is not a useful metric for a company like this, then state that and explain why.",
+  "predicted_answer": "Boeing's financial document does not provide explicit gross margin figures for FY2022 or previous years. Attempts to infer gross margin using related financial data were made, but these are not direct indicators. Without explicit COGS or gross margin data, any calculation would be speculative. Gross margin may not be the best metric for Boeing due to its complex business model, which involves long production cycles, significant R&D costs, and large-scale contracts. Therefore, it is not possible to determine if Boeing has an improving gross margin profile as of FY2022 based on the available information.",
+  "ground_truth": [
+    "Yes. Boeing has an improving gross margin profile as of FY2022. Gross profit improved from $3,017 million in FY2021 to $3,502 million in FY2022. Gross margin % improved from 4.8% in FY2021 to 5.3% in FY2022."
+  ],
+  "cost_usd": 0.1613275,
+  "input_tokens": 48403,
+  "output_tokens": 4032,
+  "execution_time": 333.0732886791229,
+  "is_correct": null,
+  "error": null,
+  "cached_at": "2026-01-18T15:18:59.843029"
+}

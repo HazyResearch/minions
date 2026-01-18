@@ -1,0 +1,16 @@
+Sample: financebench_open_source_line_48
+Protocol: minions
+Timestamp: 2026-01-18T14:53:19.826630
+Execution time: 540.65s
+Cost: $0.2391
+Is correct: None
+Error: None
+
+--- Question ---
+Does American Water Works have positive working capital based on FY2022 data? If working capital is not a useful or relevant metric for this company, then please state that and explain why.
+
+--- Predicted Answer ---
+American Water Works does not have positive working capital based on FY2022 data.
+
+--- Ground Truth ---
+['No, American Water Works had negative working capital of -$1561M in FY 2022.']

@@ -1,0 +1,18 @@
+{
+  "sample_id": "financebench_open_source_line_112",
+  "protocol": "minions",
+  "question": "Has Microsoft increased its debt on balance sheet between FY2023 and the FY2022 period?",
+  "predicted_answer": "Due to inconsistencies and lack of reliable data, it is not possible to determine if Microsoft's debt increased between FY2022 and FY2023.",
+  "ground_truth": [
+    "No. Microsoft decreased its debt by $2.5bn in FY 2023 vs FY 2022."
+  ],
+  "cost_usd": 0.1347325,
+  "input_tokens": 37745,
+  "output_tokens": 4037,
+  "execution_time": 362.1891462802887,
+  "is_correct": false,
+  "error": null,
+  "cached_at": "2026-01-18T17:28:51.583662",
+  "correctness_confidence": 0.9,
+  "correctness_reasoning": "The predicted answer does not match the ground truth answer. The ground truth states that Microsoft's debt decreased, while the predicted answer claims it is not possible to determine the change in debt. For yes/no questions, the stance must match exactly, which it does not in this case."
+}

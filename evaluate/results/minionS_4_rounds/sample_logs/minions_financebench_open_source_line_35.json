@@ -1,0 +1,18 @@
+{
+  "sample_id": "financebench_open_source_line_35",
+  "protocol": "minions",
+  "question": "What drove operating margin change as of the FY22 for AMD? If operating margin is not a useful metric for a company like this, then please state that and explain why.",
+  "predicted_answer": "The operating margin decreased from 22.2% in 2021 to 5.4% in 2022, mainly due to the amortization of intangible assets from the Xilinx acquisition and increased operating expenses.",
+  "ground_truth": [
+    "The decrease in AMD's operating income was primarily driven by amortization of intangible assets associated with the Xilinx acquisition"
+  ],
+  "cost_usd": 0.05333249999999999,
+  "input_tokens": 17577,
+  "output_tokens": 939,
+  "execution_time": 90.22905206680298,
+  "is_correct": true,
+  "error": null,
+  "cached_at": "2026-01-18T14:15:16.091751",
+  "correctness_confidence": 0.9,
+  "correctness_reasoning": "The predicted answer correctly identifies the amortization of intangible assets from the Xilinx acquisition as a primary driver for the decrease in AMD's operating margin, which aligns with the ground truth. It also mentions increased operating expenses, providing additional context that does not contradict the ground truth. The numerical values provided for the operating margin change are within a reasonable range and do not affect the correctness of the qualitative explanation."
+}

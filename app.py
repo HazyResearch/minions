@@ -2386,6 +2386,7 @@ with st.sidebar:
         elif local_provider == "Transformers":
             local_model_options = {
                 "Rnj-1-Instruct (Recommended)": "EssentialAI/rnj-1-instruct",
+                "Falcon-H1R-7B": "tiiuae/Falcon-H1R-7B",
                 "IQuest-Coder-V1-40B-Instruct": "IQuest/IQuest-Coder-V1-40B-Instruct",
                 "WeDLM-8B-Instruct": "tencent/WeDLM-8B-Instruct",
                 "NVIDIA-Nemotron-3-Nano-30B-A3B-BF16": "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16",
@@ -2393,22 +2394,7 @@ with st.sidebar:
                 "Trinity-Mini": "arcee-ai/Trinity-Mini", 
                 "Orchestrator-8B": "nvidia/Orchestrator-8B",
                 "Olmo-3-7B-Thinking": "allenai/Olmo-3-7B-Thinking",
-                "Instella-3B-Instruct": "amd/Instella-3B-Instruct",
-                "Jamba-Reasoning-3B": "ai21labs/AI21-Jamba-Reasoning-3B",
-                "RND1-Base-0910": "radicalnumerics/RND1-Base-0910",
-                "LFM2-8B-A1B": "LiquidAI/LFM2-8B-A1B",
-                "Jan-v1-Edge": "janhq/Jan-v1-edge",
-                "K2-Thinking": "LLM360/K2-Thinking",
-                "Ring-mini-2.0": "inclusionAI/Ring-mini-2.0",
-                "MobileLLM-R1-950M": "facebook/MobileLLM-R1-950M",
-                "MedGemma 4B (Recommended)": "google/medgemma-4b-it",
-                "SmallThinker-4BA0.6B-Instruct": "PowerInfer/SmallThinker-4BA0.6B-Instruct",
-                "MiniCPM4-8B": "openbmb/MiniCPM4-8B",
-                "MiniCPM4-0.5B": "openbmb/MiniCPM4-0.5B",
-                "Mistral 7B Instruct v0.2 (Recommended)": "mistralai/Mistral-7B-Instruct-v0.2",
-                "Llama 3 8B Instruct": "meta-llama/Llama-3.1-8B-Instruct",
-                "Helium-1-2b": "kyutai/helium-1-2b",
-                "Foundation-Sec-8B": "fdtn-ai/Foundation-Sec-8B",
+               
             }
         elif local_provider == "Modular":
             local_model_options = {

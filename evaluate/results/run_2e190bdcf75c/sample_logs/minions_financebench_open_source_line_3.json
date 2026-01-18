@@ -6,11 +6,11 @@
   "ground_truth": [
     "No, the company is managing its CAPEX and Fixed Assets pretty efficiently, which is evident from below key metrics:\nCAPEX/Revenue Ratio: 5.1%\nFixed assets/Total Assets: 20%\nReturn on Assets= 12.4%"
   ],
-  "cost_usd": 0.035519999999999996,
-  "input_tokens": 9012,
-  "output_tokens": 1299,
-  "execution_time": 262.6699562072754,
+  "cost_usd": 0.056029999999999996,
+  "input_tokens": 18548,
+  "output_tokens": 966,
+  "execution_time": 119.58861422538757,
   "is_correct": null,
   "error": null,
-  "cached_at": "2026-01-17T17:55:05.786561"
+  "cached_at": "2026-01-18T12:58:20.763174"
 }

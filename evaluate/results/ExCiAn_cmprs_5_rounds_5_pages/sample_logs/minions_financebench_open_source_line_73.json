@@ -1,0 +1,18 @@
+{
+  "sample_id": "financebench_open_source_line_73",
+  "protocol": "minions",
+  "question": "How much has the effective tax rate of Corning changed between FY2021 and FY2022?",
+  "predicted_answer": "The effective tax rate of Corning increased by 2.0 percentage points from FY2021 to FY2022.",
+  "ground_truth": [
+    "The effective tax rate of Corning has changed from 20% in FY2021 to 23% in FY 2022."
+  ],
+  "cost_usd": 0.0165825,
+  "input_tokens": 3621,
+  "output_tokens": 753,
+  "execution_time": 89.5114095211029,
+  "is_correct": false,
+  "error": null,
+  "cached_at": "2026-01-17T20:31:59.704780",
+  "correctness_confidence": 0.8,
+  "correctness_reasoning": "The predicted answer states an increase of 2.0 percentage points, while the ground truth indicates an increase from 20% to 23%, which is a 3.0 percentage point increase. The predicted answer is outside the 10% tolerance range of the ground truth change."
+}

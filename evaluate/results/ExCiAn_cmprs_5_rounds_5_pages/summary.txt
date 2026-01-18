@@ -1,0 +1,112 @@
+Configuration:
+  Dataset:
+    path: /workspace/financebench
+    filter_numerical: true
+    samples: all
+
+  Models:
+    local: meta-llama/Llama-3.1-8B-Instruct (temp=0.2, ctx=4096)
+    remote: gpt-4o (temp=0.0)
+
+  Protocols: minions
+    max_rounds: 5
+    num_samples_per_task: 1
+
+  MINIONS Settings:
+    num_tasks_per_round: 12
+    chunk_fn: chunk_by_section
+    max_chunk_size: 3000
+
+  Global:
+    output_dir: evaluate/results
+    skip_accuracy: true
+    use_cache: true
+    git_auto_commit: true
+
+Total runtime: 4h 20m 34.3s
+
+================================================================================
+PER-QUERY DETAILS
+================================================================================
+
+MINIONS:
+--------------------------------------------------------------------------------
+Sample ID                                     Cost ($)     Input Tok    Output Tok  
+--------------------------------------------------------------------------------
+financebench_open_source_line_3               0.0461       14638        952         
+financebench_open_source_line_4               0.0388       10918        1154        
+financebench_open_source_line_6               0.0200       4161         964         
+financebench_open_source_line_9               0.0837       25566        1977        
+financebench_open_source_line_10              0.1553       57963        1039        
+financebench_open_source_line_11              0.0651       17227        2204        
+financebench_open_source_line_12              0.0593       15142        2144        
+financebench_open_source_line_13              0.0575       15118        1975        
+financebench_open_source_line_14              0.2051       58959        5767        
+financebench_open_source_line_17              0.1049       31640        2581        
+financebench_open_source_line_18              0.1503       47857        3064        
+financebench_open_source_line_19              0.1472       48675        2552        
+financebench_open_source_line_20              0.0640       22075        882         
+financebench_open_source_line_24              0.0240       4544         1265        
+financebench_open_source_line_27              0.0456       13748        1127        
+financebench_open_source_line_31              0.0711       19769        2169        
+financebench_open_source_line_32              0.0867       26235        2107        
+financebench_open_source_line_35              0.1386       45667        2445        
+financebench_open_source_line_36              0.0743       26292        861         
+financebench_open_source_line_41              0.2808       87207        6281        
+financebench_open_source_line_42              0.1044       37344        1103        
+financebench_open_source_line_43              0.0691       21348        1573        
+financebench_open_source_line_47              0.0182       3758         880         
+financebench_open_source_line_48              0.0984       31137        2059        
+financebench_open_source_line_49              0.0258       6520         954         
+financebench_open_source_line_51              0.1535       39576        5455        
+financebench_open_source_line_53              0.0184       4295         763         
+financebench_open_source_line_57              0.0187       3985         871         
+financebench_open_source_line_58              0.0180       3812         848         
+financebench_open_source_line_61              0.0290       8163         861         
+financebench_open_source_line_63              0.2779       89942        5301        
+financebench_open_source_line_68              0.1167       37788        2223        
+financebench_open_source_line_69              0.0789       22038        2380        
+financebench_open_source_line_70              0.0898       32331        902         
+financebench_open_source_line_71              0.2192       77691        2499        
+financebench_open_source_line_72              0.0901       27860        2040        
+financebench_open_source_line_73              0.0166       3621         753         
+financebench_open_source_line_74              0.0791       23108        2137        
+financebench_open_source_line_76              0.1146       37153        2173        
+financebench_open_source_line_77              0.2812       103340       2287        
+financebench_open_source_line_82              0.0472       9192         2422        
+financebench_open_source_line_83              0.0710       20754        1913        
+financebench_open_source_line_84              0.0616       16638        2005        
+financebench_open_source_line_85              0.0187       4055         856         
+financebench_open_source_line_86              0.0473       12619        1575        
+financebench_open_source_line_87              0.0914       26040        2626        
+financebench_open_source_line_88              0.0263       5445         1267        
+financebench_open_source_line_97              0.2526       96247        1198        
+financebench_open_source_line_100             0.0280       7080         1025        
+financebench_open_source_line_101             0.0831       25519        1933        
+financebench_open_source_line_102             0.0166       3748         719         
+financebench_open_source_line_103             0.0724       20403        2144        
+financebench_open_source_line_105             0.1509       55792        1141        
+financebench_open_source_line_112             0.1477       45721        3339        
+financebench_open_source_line_113             0.0675       18296        2178        
+financebench_open_source_line_115             0.0736       20774        2165        
+financebench_open_source_line_117             0.0190       3823         945         
+financebench_open_source_line_118             0.0677       17980        2275        
+financebench_open_source_line_119             0.1645       48994        4205        
+financebench_open_source_line_124             0.0227       4752         1086        
+financebench_open_source_line_125             0.0299       7097         1219        
+financebench_open_source_line_145             0.0723       20291        2153        
+financebench_open_source_line_146             0.0466       13636        1248        
+financebench_open_source_line_147             0.1119       36722        2011        
+financebench_open_source_line_148             0.1398       43899        3007        
+financebench_open_source_line_149             0.0993       30438        2324        
+financebench_open_source_line_150             0.0288       6036         1367        
+
+================================================================================
+EVALUATION SUMMARY
+================================================================================
+Protocol        Avg Cost ($)    Input Tokens (1k)  Output Tokens (1k)
+--------------------------------------------------------------------------------
+minions         0.0880          27.32              1.97              
+================================================================================
+
+Accuracy rate: 67.16% (45/67 correct, remote verdict with gpt-4o)

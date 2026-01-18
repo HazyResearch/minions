@@ -1,0 +1,16 @@
+{
+  "sample_id": "financebench_open_source_line_42",
+  "protocol": "minions",
+  "question": "What drove gross margin change as of the FY2022 for American Express? If gross margin is not a useful metric for a company like this, then please state that and explain why.",
+  "predicted_answer": "Gross margin is not a useful metric for American Express. Instead, focus on net interest margin, return on equity, and other financial metrics relevant to financial services.",
+  "ground_truth": [
+    "Performance is not measured through gross margin"
+  ],
+  "cost_usd": 0.218885,
+  "input_tokens": 78190,
+  "output_tokens": 2341,
+  "execution_time": 324.8902835845947,
+  "is_correct": null,
+  "error": null,
+  "cached_at": "2026-01-18T14:36:08.450699"
+}

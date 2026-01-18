@@ -1,0 +1,16 @@
+Sample: financebench_open_source_line_87
+Protocol: minions
+Timestamp: 2026-01-18T16:43:13.258912
+Execution time: 529.42s
+Cost: $0.2717
+Is correct: None
+Error: None
+
+--- Question ---
+What drove gross margin change as of FY2022 for JnJ? If gross margin is not a useful metric for a company like this, then please state that and explain why.
+
+--- Predicted Answer ---
+The gross margin change for Johnson & Johnson in FY2022 was driven by a combination of factors affecting both revenue and cost of goods sold. Revenue was impacted by patent expirations, pricing pressures, and supply chain disruptions. COGS was influenced by supply chain issues, raw material costs, and commodity inflation. Additionally, management commentary highlighted the impact of COVID-19 vaccine costs and currency effects on the gross margin. These elements collectively contributed to the observed changes in the gross margin.
+
+--- Ground Truth ---
+['For FY22, JnJ had changes in gross margin due to: One-time COVID-19 vaccine manufacturing exit related costs, Currency impacts in the Pharmaceutical segment, Commodity inflation in the MedTech and Consumer Health segments, partially offset by Supply chain benefits in the Consumer Health segment.']

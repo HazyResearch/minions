@@ -1,0 +1,16 @@
+{
+  "sample_id": "financebench_open_source_line_124",
+  "protocol": "minions",
+  "question": "What is the FY2022 unadjusted EBITDA less capex for PepsiCo? Define unadjusted EBITDA as unadjusted operating income + depreciation and amortization [from cash flow statement]. Answer in USD millions. Respond to the question by assuming the perspective of an investment analyst who can only use the details shown within the statement of cash flows and the income statement.",
+  "predicted_answer": "9068",
+  "ground_truth": [
+    "$9068.00"
+  ],
+  "cost_usd": 0.262975,
+  "input_tokens": 90462,
+  "output_tokens": 3682,
+  "execution_time": 687.9520618915558,
+  "is_correct": null,
+  "error": null,
+  "cached_at": "2026-01-19T23:16:13.378112"
+}

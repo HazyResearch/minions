@@ -1,0 +1,16 @@
+{
+  "sample_id": "financebench_open_source_line_36",
+  "protocol": "minions",
+  "question": "Among operations, investing, and financing activities, which brought in the most (or lost the least) cash flow for AMD in FY22?",
+  "predicted_answer": "Operating activities brought in the most cash flow for AMD in FY22.",
+  "ground_truth": [
+    "In 2022, AMD brought in the most cashflow from Operations"
+  ],
+  "cost_usd": 0.0994225,
+  "input_tokens": 32089,
+  "output_tokens": 1920,
+  "execution_time": 162.22495818138123,
+  "is_correct": null,
+  "error": null,
+  "cached_at": "2026-01-19T03:26:34.068575"
+}

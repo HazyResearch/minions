@@ -10,7 +10,9 @@
   "input_tokens": 83141,
   "output_tokens": 4525,
   "execution_time": 789.9255125522614,
-  "is_correct": null,
+  "is_correct": true,
   "error": null,
-  "cached_at": "2026-01-19T21:04:06.096383"
+  "cached_at": "2026-01-19T21:04:06.096383",
+  "correctness_confidence": 0.9,
+  "correctness_reasoning": "The predicted answer correctly identifies that conventional inventory management is not meaningful for AES Corporation due to its focus on energy services rather than physical inventory. This aligns with the ground truth's implication that inventory turnover is not a relevant metric for AES. The absence of a numerical inventory turnover ratio is justified by the explanation provided."
 }

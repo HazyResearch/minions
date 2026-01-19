@@ -10,7 +10,9 @@
   "input_tokens": 30764,
   "output_tokens": 2351,
   "execution_time": 242.92132997512817,
-  "is_correct": null,
+  "is_correct": false,
   "error": null,
-  "cached_at": "2026-01-19T20:35:06.757570"
+  "cached_at": "2026-01-19T20:35:06.757570",
+  "correctness_confidence": 0.9,
+  "correctness_reasoning": "The predicted answer (25.65) is outside the 10% tolerance range of the ground truth answer (24.26). The acceptable range is 21.83 to 26.69."
 }

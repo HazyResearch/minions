@@ -10,7 +10,9 @@
   "input_tokens": 21347,
   "output_tokens": 2239,
   "execution_time": 259.91644501686096,
-  "is_correct": null,
+  "is_correct": true,
   "error": null,
-  "cached_at": "2026-01-19T21:20:55.413742"
+  "cached_at": "2026-01-19T21:20:55.413742",
+  "correctness_confidence": 0.95,
+  "correctness_reasoning": "The predicted answer of 4.18% is within the 10% tolerance range of the ground truth answer of 4.2%. Therefore, it is considered correct according to the evaluation rules."
 }

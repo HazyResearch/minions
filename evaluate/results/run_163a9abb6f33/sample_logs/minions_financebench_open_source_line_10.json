@@ -10,7 +10,9 @@
   "input_tokens": 25995,
   "output_tokens": 2310,
   "execution_time": 227.1460998058319,
-  "is_correct": null,
+  "is_correct": true,
   "error": null,
-  "cached_at": "2026-01-19T20:38:54.432651"
+  "cached_at": "2026-01-19T20:38:54.432651",
+  "correctness_confidence": 1.0,
+  "correctness_reasoning": "The predicted answer provides the capex as a percentage of revenue for each fiscal year (FY2017: 2.2%, FY2018: 1.7%, FY2019: 1.8%) and correctly calculates the 3-year average as 1.9%. This matches the ground truth answer. The additional context of individual yearly percentages does not contradict the ground truth and is within the evaluation rules."
 }

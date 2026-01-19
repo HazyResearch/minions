@@ -10,7 +10,9 @@
   "input_tokens": 11397,
   "output_tokens": 981,
   "execution_time": 75.06436347961426,
-  "is_correct": null,
+  "is_correct": true,
   "error": null,
-  "cached_at": "2026-01-19T21:14:49.152027"
+  "cached_at": "2026-01-19T21:14:49.152027",
+  "correctness_confidence": 0.9,
+  "correctness_reasoning": "The predicted answer correctly states that AMCOR's quick ratio has improved between FY2022 and FY2023, which aligns with the ground truth answer. Although the predicted answer lacks specific numerical details, it accurately reflects the overall conclusion of improvement."
 }

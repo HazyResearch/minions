@@ -10,7 +10,9 @@
   "input_tokens": 58912,
   "output_tokens": 4395,
   "execution_time": 335.0113317966461,
-  "is_correct": null,
+  "is_correct": false,
   "error": null,
-  "cached_at": "2026-01-19T21:26:30.920576"
+  "cached_at": "2026-01-19T21:26:30.920576",
+  "correctness_confidence": 0.8,
+  "correctness_reasoning": "The predicted answer states that it is not possible to determine AMD's liquidity profile due to a lack of data, which contradicts the ground truth answer that provides a specific quick ratio value and concludes that AMD has a reasonably healthy liquidity profile. The stance on the yes/no question does not match, as the ground truth says 'Yes' while the predicted answer implies 'No'."
 }

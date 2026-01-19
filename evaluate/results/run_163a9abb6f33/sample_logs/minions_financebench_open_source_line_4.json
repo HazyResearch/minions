@@ -10,7 +10,9 @@
   "input_tokens": 16345,
   "output_tokens": 919,
   "execution_time": 115.99548816680908,
-  "is_correct": null,
+  "is_correct": true,
   "error": null,
-  "cached_at": "2026-01-19T20:25:38.848155"
+  "cached_at": "2026-01-19T20:25:38.848155",
+  "correctness_confidence": 0.9,
+  "correctness_reasoning": "The predicted answer correctly identifies the decrease in operating margin and aligns with the ground truth by mentioning factors such as special item charges and restructuring actions. Although it does not explicitly mention the Combat Arms Earplugs litigation or PFAS manufacturing exit, it captures the essence of the key drivers of the margin change. The numerical change in operating margin is within the 10% tolerance range."
 }

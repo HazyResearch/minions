@@ -10,7 +10,9 @@
   "input_tokens": 65291,
   "output_tokens": 4350,
   "execution_time": 387.37557005882263,
-  "is_correct": null,
+  "is_correct": true,
   "error": null,
-  "cached_at": "2026-01-19T21:32:58.909872"
+  "cached_at": "2026-01-19T21:32:58.909872",
+  "correctness_confidence": 0.9,
+  "correctness_reasoning": "The predicted answer correctly identifies the amortization of acquisition-related intangibles as a key driver of the decrease in AMD's operating margin, which aligns with the ground truth. Additionally, it provides further context about increased costs, higher operating expenses, and market conditions, which are reasonable factors that could contribute to the margin change. The additional details do not contradict the ground truth and provide a more comprehensive explanation."
 }

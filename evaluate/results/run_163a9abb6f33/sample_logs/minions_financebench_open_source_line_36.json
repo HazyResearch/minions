@@ -10,7 +10,9 @@
   "input_tokens": 37737,
   "output_tokens": 3944,
   "execution_time": 295.62517619132996,
-  "is_correct": null,
+  "is_correct": true,
   "error": null,
-  "cached_at": "2026-01-19T21:37:55.135164"
+  "cached_at": "2026-01-19T21:37:55.135164",
+  "correctness_confidence": 1.0,
+  "correctness_reasoning": "The predicted answer correctly identifies that operating activities brought in the most cash flow for AMD in FY22, which aligns with the ground truth answer. Both answers convey the same key fact and conclusion."
 }

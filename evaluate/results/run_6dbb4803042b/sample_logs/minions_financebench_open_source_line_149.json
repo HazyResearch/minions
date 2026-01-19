@@ -1,0 +1,16 @@
+{
+  "sample_id": "financebench_open_source_line_149",
+  "protocol": "minions",
+  "question": "Based on the information provided primarily in the statement of income, what is the FY2018 - FY2019 change in unadjusted operating income % margin for Walmart? Answer in units of percents and round to one decimal place.",
+  "predicted_answer": "0.2%",
+  "ground_truth": [
+    "0.2%"
+  ],
+  "cost_usd": 0.12216,
+  "input_tokens": 38608,
+  "output_tokens": 2564,
+  "execution_time": 242.16510152816772,
+  "is_correct": null,
+  "error": null,
+  "cached_at": "2026-01-19T23:42:55.938954"
+}

@@ -14,6 +14,7 @@ class GrokClient(MinionsClient):
         temperature: float = 0.0,
         max_tokens: int = 4096,
         base_url: str = "https://api.x.ai/v1",
+        region: Optional[str] = None,
         local: bool = False,
         enable_reasoning_output: bool = False,
         use_native_sdk: bool = False,
@@ -36,7 +37,10 @@ class GrokClient(MinionsClient):
             api_key: Grok API key (optional, falls back to environment variable if not provided)
             temperature: Sampling temperature (default: 0.0)
             max_tokens: Maximum number of tokens to generate (default: 4096)
-            base_url: Base URL for the Grok API (default: "https://api.x.ai/v1")
+            base_url: Base URL for the Grok API (default: "https://api.x.ai/v1").
+                       Ignored if 'region' is specified.
+            region: Optional region for data residency requirements (e.g., "us-east-1", "us-west-2", "eu-west-1").
+                       
             enable_reasoning_output: Whether to include reasoning traces in output (default: False)
             use_native_sdk: Whether to use the native xai_sdk instead of OpenAI-compatible API.
                        Automatically enabled when file_ids is set.
@@ -45,6 +49,11 @@ class GrokClient(MinionsClient):
                        Use upload_file() to upload documents and get file IDs.
             **kwargs: Additional parameters passed to base class
         """
+        # Construct regional endpoint URL if region is specified
+        self.region = region
+        if region:
+            base_url = f"https://{region}.api.x.ai/v1"
+        
         super().__init__(
             model_name=model_name,
             api_key=api_key,
@@ -74,10 +83,17 @@ class GrokClient(MinionsClient):
                 from xai_sdk import Client as XAIClient
                 from xai_sdk.chat import user as xai_user, file as xai_file
 
-                self.xai_client = XAIClient(api_key=self.api_key)
+                # Configure native SDK with regional endpoint if specified
+                sdk_kwargs = {"api_key": self.api_key}
+                if self.region:
+                    # Native SDK uses api_host without the https:// prefix
+                    sdk_kwargs["api_host"] = f"{self.region}.api.x.ai"
+                
+                self.xai_client = XAIClient(**sdk_kwargs)
                 self.xai_user = xai_user
                 self.xai_file = xai_file
-                self.logger.info("Initialized native xAI SDK client for file support")
+                region_info = f" (region: {self.region})" if self.region else ""
+                self.logger.info(f"Initialized native xAI SDK client for file support{region_info}")
             except ImportError:
                 if file_ids:
                     raise ImportError(
@@ -154,12 +170,6 @@ class GrokClient(MinionsClient):
     def _find_first_user_message_index(self, messages: List[Dict[str, Any]]) -> int:
         """
         Find the index of the first user message in the messages list.
-
-        Args:
-            messages: List of message dictionaries
-
-        Returns:
-            Index of first user message, or -1 if not found
         """
         for i, msg in enumerate(messages):
             if msg.get("role") == "user":
@@ -171,19 +181,6 @@ class GrokClient(MinionsClient):
     def upload_file(self, file_path: str) -> Dict[str, Any]:
         """
         Upload a file to xAI for use with Grok's document_search tool.
-
-        Supported formats: .txt, .md, .py, .js, .java, .csv, .json, .pdf, and other text-based formats.
-        Maximum file size: 48 MB.
-
-        Args:
-            file_path: Path to the file to upload
-
-        Returns:
-            Dict containing file information including 'id', 'filename', 'size', 'created_at'
-
-        Raises:
-            ImportError: If xai_sdk is not installed
-            FileNotFoundError: If the file doesn't exist
 
         Example:
             file_info = client.upload_file("/path/to/document.pdf")
@@ -216,13 +213,6 @@ class GrokClient(MinionsClient):
         """
         Upload file content as bytes to xAI.
 
-        Args:
-            content: File content as bytes
-            filename: Name to assign to the file
-
-        Returns:
-            Dict containing file information including 'id', 'filename', 'size', 'created_at'
-
         Example:
             with open("document.pdf", "rb") as f:
                 file_info = client.upload_file_bytes(f.read(), "document.pdf")
@@ -247,15 +237,6 @@ class GrokClient(MinionsClient):
     def list_files(self, limit: int = 10, order: str = "desc", sort_by: str = "created_at") -> List[Dict[str, Any]]:
         """
         List uploaded files.
-
-        Args:
-            limit: Maximum number of files to return (default: 10)
-            order: Sort order - "asc" or "desc" (default: "desc")
-            sort_by: Field to sort by (default: "created_at")
-
-        Returns:
-            List of file information dictionaries
-
         Example:
             files = client.list_files(limit=20)
             for f in files:
@@ -284,12 +265,6 @@ class GrokClient(MinionsClient):
         """
         Get information about a specific file.
 
-        Args:
-            file_id: The ID of the file to retrieve
-
-        Returns:
-            Dict containing file information
-
         Example:
             file_info = client.get_file("file_abc123")
             print(f"Filename: {file_info['filename']}")
@@ -314,12 +289,6 @@ class GrokClient(MinionsClient):
         """
         Delete an uploaded file.
 
-        Args:
-            file_id: The ID of the file to delete
-
-        Returns:
-            True if deletion was successful
-
         Example:
             client.delete_file("file_abc123")
         """
@@ -340,11 +309,6 @@ class GrokClient(MinionsClient):
     def add_file(self, file_id: str):
         """
         Add a file ID to be attached to chat messages.
-
-        When files are attached, Grok's document_search tool is automatically enabled.
-
-        Args:
-            file_id: The ID of the file to attach
 
         Example:
             file_info = client.upload_file("report.pdf")
@@ -395,11 +359,18 @@ class GrokClient(MinionsClient):
                 from xai_sdk import Client as XAIClient
                 from xai_sdk.chat import user as xai_user, file as xai_file
 
-                self.xai_client = XAIClient(api_key=self.api_key)
+                # Configure native SDK with regional endpoint if specified
+                sdk_kwargs = {"api_key": self.api_key}
+                if self.region:
+                    # Native SDK uses api_host without the https:// prefix
+                    sdk_kwargs["api_host"] = f"{self.region}.api.x.ai"
+                
+                self.xai_client = XAIClient(**sdk_kwargs)
                 self.xai_user = xai_user
                 self.xai_file = xai_file
                 self.use_native_sdk = True
-                self.logger.info("Initialized native xAI SDK client")
+                region_info = f" (region: {self.region})" if self.region else ""
+                self.logger.info(f"Initialized native xAI SDK client{region_info}")
             except ImportError:
                 raise ImportError(
                     "File operations require the xai_sdk package. "

@@ -10,7 +10,9 @@
   "input_tokens": 29655,
   "output_tokens": 3905,
   "execution_time": 360.9766538143158,
-  "is_correct": null,
+  "is_correct": true,
   "error": null,
-  "cached_at": "2026-01-19T19:10:23.562866"
+  "cached_at": "2026-01-19T19:10:23.562866",
+  "correctness_confidence": 1.0,
+  "correctness_reasoning": "The predicted answer matches the ground truth answer exactly, both stating a 65.4% year-over-year change in unadjusted operating income from FY2015 to FY2016. This falls within the evaluation rules for numerical answers, and no discrepancies are present."
 }

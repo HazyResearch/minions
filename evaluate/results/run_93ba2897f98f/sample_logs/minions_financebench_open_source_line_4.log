@@ -3,7 +3,7 @@ Protocol: minions
 Timestamp: 2026-01-19T18:52:57.844079
 Execution time: 126.07s
 Cost: $0.0641
-Is correct: None
+Is correct: True
 Error: None
 
 --- Question ---
@@ -14,3 +14,8 @@ The operating margin for 3M decreased from 22.8% in 2021 to 20.8% in 2022, drive
 
 --- Ground Truth ---
 ['Operating Margin for 3M in FY2022 has decreased by 1.7% primarily due to: \n-Decrease in gross Margin\n-mostly one-off charges including Combat Arms Earplugs litigation, impairment related to exiting PFAS manufacturing, costs related to exiting Russia and divestiture-related restructuring\ncharges']
+
+--- Correctness Evaluation ---
+Is correct: True
+Confidence: 0.90
+Reasoning: The predicted answer correctly identifies the decrease in operating margin and attributes it to similar factors as the ground truth: litigation, divestitures, and PFAS exit costs. It also adds economic pressures like raw material inflation and supply chain constraints, which are reasonable additional factors. The numerical change in operating margin is within the 10% tolerance range.

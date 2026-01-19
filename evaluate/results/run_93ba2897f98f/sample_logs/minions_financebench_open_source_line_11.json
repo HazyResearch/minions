@@ -10,7 +10,9 @@
   "input_tokens": 23714,
   "output_tokens": 1892,
   "execution_time": 182.95385909080505,
-  "is_correct": null,
+  "is_correct": false,
   "error": null,
-  "cached_at": "2026-01-19T19:04:21.946516"
+  "cached_at": "2026-01-19T19:04:21.946516",
+  "correctness_confidence": 1.0,
+  "correctness_reasoning": "The predicted answer of 663.73 is significantly different from the ground truth answer of 0.66. Even with a 10% tolerance, the acceptable range would be 0.594 to 0.726, which does not include 663.73. Therefore, the predicted answer is incorrect."
 }

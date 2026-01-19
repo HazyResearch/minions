@@ -10,7 +10,9 @@
   "input_tokens": 26781,
   "output_tokens": 1169,
   "execution_time": 175.55497360229492,
-  "is_correct": null,
+  "is_correct": false,
   "error": null,
-  "cached_at": "2026-01-19T19:01:18.466863"
+  "cached_at": "2026-01-19T19:01:18.466863",
+  "correctness_confidence": 0.9,
+  "correctness_reasoning": "The predicted answer 'No answer found' does not provide any numerical value, while the ground truth answer is 1.9%. Since the predicted answer does not fall within the 10% tolerance range of the ground truth (1.71% to 2.09%), it is incorrect."
 }

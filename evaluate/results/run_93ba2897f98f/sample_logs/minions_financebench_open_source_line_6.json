@@ -10,7 +10,9 @@
   "input_tokens": 25307,
   "output_tokens": 2072,
   "execution_time": 162.4634358882904,
-  "is_correct": null,
+  "is_correct": true,
   "error": null,
-  "cached_at": "2026-01-19T18:55:40.877153"
+  "cached_at": "2026-01-19T18:55:40.877153",
+  "correctness_confidence": 0.9,
+  "correctness_reasoning": "The predicted answer correctly states that 3M does not have a reasonably healthy liquidity profile based on its quick ratio for Q2 of FY2023. This aligns with the ground truth answer, which specifies that the quick ratio was 0.96, indicating it needs improvement to reach the 1x mark. The predicted answer matches the stance of the ground truth answer, fulfilling the evaluation criteria for yes/no questions."
 }

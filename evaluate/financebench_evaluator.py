@@ -120,14 +120,43 @@ def generate_cache_dir_name(
 
 def generate_hash_cache_dir_name(config_path: str) -> str:
     """
-    Generate cache directory name from hash of config file content.
+    Generate cache directory name from hash of config file content,
+    excluding sample-selection fields so different sample selections
+    share the same cache.
     
     Returns:
         Directory name in format: run_<hash> (e.g., run_a1b2c3d4e5f6)
     """
     import hashlib
-    with open(config_path, 'rb') as f:
-        content_hash = hashlib.sha256(f.read()).hexdigest()[:12]
+    import re
+    
+    # Fields that determine "which samples" rather than "how to evaluate"
+    # These are excluded from the hash so different sample selections share cache
+    SAMPLE_SELECTION_PATTERNS = [
+        r'^CONFIG_MAX_SAMPLES=',
+        r'^CONFIG_USE_SAMPLE_INDICES=',
+        r'^CONFIG_SAMPLE_INDICES=',
+        r'^CONFIG_USE_SAMPLE_RANGE=',
+        r'^CONFIG_SAMPLE_RANGE=',
+        r'^CONFIG_FILTER_NUMERICAL=',
+    ]
+    
+    with open(config_path, 'r') as f:
+        lines = f.readlines()
+    
+    # Filter out sample-selection lines
+    filtered_lines = []
+    for line in lines:
+        skip = False
+        for pattern in SAMPLE_SELECTION_PATTERNS:
+            if re.match(pattern, line):
+                skip = True
+                break
+        if not skip:
+            filtered_lines.append(line)
+    
+    content = ''.join(filtered_lines)
+    content_hash = hashlib.sha256(content.encode()).hexdigest()[:12]
     return f"run_{content_hash}"
 
 

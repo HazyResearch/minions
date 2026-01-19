@@ -1,0 +1,18 @@
+{
+  "sample_id": "financebench_open_source_line_148",
+  "protocol": "minions",
+  "question": "What is FY2018 days payable outstanding (DPO) for Walmart? DPO is defined as: 365 * (average accounts payable between FY2017 and FY2018) / (FY2018 COGS + change in inventory between FY2017 and FY2018). Round your answer to two decimal places. Please base your judgments on the information provided primarily in the statement of financial position and the P&L statement.",
+  "predicted_answer": "42.73",
+  "ground_truth": [
+    "42.69"
+  ],
+  "cost_usd": 0.13981749999999998,
+  "input_tokens": 43899,
+  "output_tokens": 3007,
+  "execution_time": 475.3563663959503,
+  "is_correct": true,
+  "error": null,
+  "cached_at": "2026-01-17T22:22:46.101845",
+  "correctness_confidence": 0.95,
+  "correctness_reasoning": "The predicted answer of 42.73 is within the 10% tolerance range of the ground truth answer of 42.69. The difference is minor and falls well within the acceptable range for numerical answers."
+}

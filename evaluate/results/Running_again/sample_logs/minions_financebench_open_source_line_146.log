@@ -1,0 +1,21 @@
+Sample: financebench_open_source_line_146
+Protocol: minions
+Timestamp: 2026-01-17T22:10:51.555290
+Execution time: 201.25s
+Cost: $0.0466
+Is correct: True
+Error: None
+
+--- Question ---
+Is Verizon a capital intensive business based on FY 2022 data?
+
+--- Predicted Answer ---
+Yes, Verizon is a capital-intensive business based on FY 2022 data.
+
+--- Ground Truth ---
+["Yes. Verizon's capital intensity ratio was approximately 2.774729. This means that it took approximately $2.77 of assets to generate $1 of revenue and thus, Verizon can be considered capital intensive."]
+
+--- Correctness Evaluation ---
+Is correct: True
+Confidence: 1.00
+Reasoning: The predicted answer correctly identifies Verizon as a capital-intensive business, which matches the stance of the ground truth answer. The numerical value of the capital intensity ratio is not required for the predicted answer to be correct, as the question is a yes/no question.

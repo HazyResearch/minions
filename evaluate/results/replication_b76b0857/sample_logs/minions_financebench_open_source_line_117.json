@@ -1,0 +1,18 @@
+{
+  "sample_id": "financebench_open_source_line_117",
+  "protocol": "minions",
+  "question": "When primarily referencing the income statement and the statement of financial position, what is the FY2021 inventory turnover ratio for Nike? Inventory turnover ratio is defined as: (FY2021 COGS) / (average inventory between FY2020 and FY2021). Round your answer to two decimal places.",
+  "predicted_answer": "3.46",
+  "ground_truth": [
+    "3.46"
+  ],
+  "cost_usd": 0.1804425,
+  "input_tokens": 63433,
+  "output_tokens": 2186,
+  "execution_time": 287.6980516910553,
+  "is_correct": true,
+  "error": null,
+  "cached_at": "2026-01-19T08:08:24.730251",
+  "correctness_confidence": 1.0,
+  "correctness_reasoning": "The predicted answer matches the ground truth answer exactly. Given the evaluation rules, the predicted answer is within the acceptable range of the ground truth answer, which is 3.46. Therefore, the predicted answer is correct."
+}

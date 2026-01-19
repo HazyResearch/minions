@@ -1,0 +1,18 @@
+{
+  "sample_id": "financebench_open_source_line_35",
+  "protocol": "minions",
+  "question": "What drove operating margin change as of the FY22 for AMD? If operating margin is not a useful metric for a company like this, then please state that and explain why.",
+  "predicted_answer": "The operating margin change for AMD in FY22 was influenced by several factors. Key among them was the acquisition of Xilinx, which resulted in significant amortization of intangible assets, negatively impacting operating income. The Client segment experienced a decline in revenue due to weak PC market conditions and inventory corrections, further affecting margins. Increased operating expenses, including R&D and stock-based compensation, also contributed to the margin change. However, there were positive contributions from the Data Center segment's revenue growth and strategic financial actions such as debt issuance and share repurchases.",
+  "ground_truth": [
+    "The decrease in AMD's operating income was primarily driven by amortization of intangible assets associated with the Xilinx acquisition"
+  ],
+  "cost_usd": 0.338065,
+  "input_tokens": 119130,
+  "output_tokens": 4024,
+  "execution_time": 492.0496051311493,
+  "is_correct": true,
+  "error": null,
+  "cached_at": "2026-01-19T03:23:51.325334",
+  "correctness_confidence": 0.9,
+  "correctness_reasoning": "The predicted answer correctly identifies the amortization of intangible assets from the Xilinx acquisition as a primary driver of the operating margin change, which aligns with the ground truth. It also provides additional context about other factors affecting the margin, such as the decline in the Client segment, increased operating expenses, and positive contributions from the Data Center segment. These additional details do not contradict the ground truth and provide a more comprehensive view of the factors influencing the operating margin change."
+}

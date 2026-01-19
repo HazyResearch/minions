@@ -323,6 +323,7 @@ class SGLangClient(MinionsClient):
         beta: float,
         max_new_tokens: int,
         stop_sequences: Optional[List[str]] = None,
+        min_tokens: int = 0,
     ) -> Tuple[str, int, int, str]:
         """
         Generate text with per-step length penalty.
@@ -335,13 +336,14 @@ class SGLangClient(MinionsClient):
             beta: Length penalty strength (EOS boost per step)
             max_new_tokens: Maximum tokens to generate
             stop_sequences: List of stop strings
+            min_tokens: Minimum tokens to generate before allowing EOS (default: 0)
             
         Returns:
             Tuple of (generated_text, prompt_tokens, completion_tokens, request_id)
         """
         # Try CustomLogitProcessor if supported and not yet proven unsupported
         if self._custom_processor_supported:
-            result = self._generate_with_custom_processor(text, beta, max_new_tokens, stop_sequences)
+            result = self._generate_with_custom_processor(text, beta, max_new_tokens, stop_sequences, min_tokens)
             
             # Check if it actually worked
             if result[0] and not result[0].startswith("Error:"):
@@ -362,7 +364,7 @@ class SGLangClient(MinionsClient):
                     )
         
         # Fallback to logit_bias (static boost)
-        return self._generate_with_logit_bias(text, beta, max_new_tokens, stop_sequences)
+        return self._generate_with_logit_bias(text, beta, max_new_tokens, stop_sequences, min_tokens)
     
     def _generate_with_custom_processor(
         self,
@@ -370,6 +372,7 @@ class SGLangClient(MinionsClient):
         beta: float,
         max_new_tokens: int,
         stop_sequences: Optional[List[str]] = None,
+        min_tokens: int = 0,
     ) -> Tuple[str, int, int, str]:
         """
         Generate using CustomLogitProcessor for per-step length penalty.
@@ -380,24 +383,30 @@ class SGLangClient(MinionsClient):
         Requires SGLang server started with --enable-custom-logit-processor flag.
         """
         try:
+            extra_body = {
+                "custom_logit_processor": LengthPenaltyProcessor().to_str(),
+                "custom_params": {
+                    "stop_ids": self.stop_ids,
+                    "beta": beta,
+                },
+            }
+            
+            # Add min_tokens to extra_body to prevent immediate EOS
+            if min_tokens > 0:
+                extra_body["min_tokens"] = min_tokens
+            
             params = {
                 "model": self.model_name,
                 "messages": [{"role": "user", "content": text}],
                 "temperature": self.temperature,
                 "max_tokens": max_new_tokens,
-                "extra_body": {
-                    "custom_logit_processor": LengthPenaltyProcessor().to_str(),
-                    "custom_params": {
-                        "stop_ids": self.stop_ids,
-                        "beta": beta,
-                    },
-                },
+                "extra_body": extra_body,
             }
             
             if stop_sequences:
                 params["stop"] = stop_sequences
             
-            self.logger.debug(f"[SGLang] Using CustomLogitProcessor with beta={beta}, stop_ids={self.stop_ids}")
+            self.logger.debug(f"[SGLang] Using CustomLogitProcessor with beta={beta}, min_tokens={min_tokens}, stop_ids={self.stop_ids}")
             response = self.openai_client.chat.completions.create(**params)
             
             generated_text = response.choices[0].message.content or ""
@@ -416,6 +425,7 @@ class SGLangClient(MinionsClient):
         beta: float,
         max_new_tokens: int,
         stop_sequences: Optional[List[str]] = None,
+        min_tokens: int = 0,
     ) -> Tuple[str, int, int, str]:
         """Generate using OpenAI-compatible API with logit_bias for EOS boost."""
         try:
@@ -423,7 +433,7 @@ class SGLangClient(MinionsClient):
             # Scale beta aggressively (20x) to encourage shorter outputs
             # logit_bias range is typically -100 to +100
             logit_bias = {str(tid): min(int(beta * 20), 100) for tid in self.stop_ids}
-            self.logger.debug(f"[SGLang] Using logit_bias for EOS boost: {logit_bias}")
+            self.logger.debug(f"[SGLang] Using logit_bias for EOS boost: {logit_bias}, min_tokens={min_tokens}")
             
             params = {
                 "model": self.model_name,
@@ -432,6 +442,10 @@ class SGLangClient(MinionsClient):
                 "max_tokens": max_new_tokens,
                 "logit_bias": logit_bias,
             }
+            
+            # Add min_tokens via extra_body to prevent immediate EOS
+            if min_tokens > 0:
+                params["extra_body"] = {"min_tokens": min_tokens}
             
             if stop_sequences:
                 params["stop"] = stop_sequences
@@ -627,6 +641,7 @@ class SGLangClient(MinionsClient):
             text=explanation_prompt,
             beta=self.beta_explanation,
             max_new_tokens=self.max_tokens_explanation,
+            min_tokens=self.min_tokens_explanation,
         )
         total_prompt_tokens += pt1
         total_completion_tokens += ct1
@@ -650,6 +665,7 @@ class SGLangClient(MinionsClient):
             text=citation_prompt,
             beta=self.beta_citation,
             max_new_tokens=self.max_tokens_citation,
+            min_tokens=self.min_tokens_citation,
         )
         total_prompt_tokens += pt2
         total_completion_tokens += ct2
@@ -674,6 +690,7 @@ class SGLangClient(MinionsClient):
             text=answer_prompt,
             beta=self.beta_answer,
             max_new_tokens=self.max_tokens_answer,
+            min_tokens=self.min_tokens_answer,
         )
         total_prompt_tokens += pt3
         total_completion_tokens += ct3
@@ -798,6 +815,7 @@ class SGLangClient(MinionsClient):
                 text=prompt,
                 beta=self.beta_answer,  # Use answer beta as default
                 max_new_tokens=self.max_tokens,
+                min_tokens=self.min_tokens_answer,  # Use answer min_tokens as default
             )
             usage = Usage(prompt_tokens=pt, completion_tokens=ct)
             return text, usage, "stop"

@@ -1,0 +1,21 @@
+Sample: financebench_open_source_line_105
+Protocol: minions
+Timestamp: 2026-01-17T21:37:30.105664
+Execution time: 233.96s
+Cost: $0.1509
+Is correct: False
+Error: None
+
+--- Question ---
+What is the FY2018 - FY2020 3 year average of capex as a % of revenue for MGM Resorts? Answer in units of percents and round to one decimal place. Please utilize information provided primarily within the statement of cash flows and the statement of income.
+
+--- Predicted Answer ---
+No answer found.
+
+--- Ground Truth ---
+['7.9%']
+
+--- Correctness Evaluation ---
+Is correct: False
+Confidence: 0.90
+Reasoning: The predicted answer 'No answer found' does not provide a numerical value, while the ground truth answer is 7.9%. The predicted answer is not within the 10% tolerance range of the ground truth answer, which would be 7.1% to 8.7%.

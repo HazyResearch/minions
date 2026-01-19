@@ -1,0 +1,18 @@
+{
+  "sample_id": "financebench_open_source_line_118",
+  "protocol": "minions",
+  "question": "Among operations, investing, and financing activities, which brought in the most (or lost the least) cash flow for Nike in FY2023?",
+  "predicted_answer": "Operating activities brought in the most cash flow for Nike in FY2023.",
+  "ground_truth": [
+    "Among the three, cash flow from operations was the highest for Nike in FY2023."
+  ],
+  "cost_usd": 0.0255175,
+  "input_tokens": 6727,
+  "output_tokens": 870,
+  "execution_time": 76.96906995773315,
+  "is_correct": true,
+  "error": null,
+  "cached_at": "2026-01-19T08:09:46.832197",
+  "correctness_confidence": 1.0,
+  "correctness_reasoning": "The predicted answer correctly identifies that operating activities brought in the most cash flow for Nike in FY2023, which aligns with the ground truth answer. Both answers conclude that cash flow from operations was the highest, satisfying the qualitative alignment requirement."
+}

@@ -1,0 +1,18 @@
+{
+  "sample_id": "financebench_open_source_line_101",
+  "protocol": "minions",
+  "question": "We need to calculate a reasonable approximation (or exact number if possible) of a financial metric. Basing your judgment by information plainly provided in the balance sheet and the P&L statement, what is Lockheed Martin's FY2020 asset turnover ratio? Asset turnover ratio is defined as: FY2020 revenue / (average total assets between FY2019 and FY2020). Round your answer to two decimal places.",
+  "predicted_answer": "1.33",
+  "ground_truth": [
+    "1.33"
+  ],
+  "cost_usd": 0.08312750000000001,
+  "input_tokens": 25519,
+  "output_tokens": 1933,
+  "execution_time": 143.72179412841797,
+  "is_correct": true,
+  "error": null,
+  "cached_at": "2026-01-17T21:29:11.938288",
+  "correctness_confidence": 1.0,
+  "correctness_reasoning": "The predicted answer matches the ground truth answer exactly. Given the evaluation rules, the predicted answer is within the acceptable range of the ground truth answer, which is 1.33. Therefore, the predicted answer is correct."
+}

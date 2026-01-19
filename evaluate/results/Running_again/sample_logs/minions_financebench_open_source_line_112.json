@@ -1,0 +1,18 @@
+{
+  "sample_id": "financebench_open_source_line_112",
+  "protocol": "minions",
+  "question": "Has Microsoft increased its debt on balance sheet between FY2023 and the FY2022 period?",
+  "predicted_answer": "Microsoft did not increase its debt; it decreased by $2,544 million from FY2022 to FY2023.",
+  "ground_truth": [
+    "No. Microsoft decreased its debt by $2.5bn in FY 2023 vs FY 2022."
+  ],
+  "cost_usd": 0.1476925,
+  "input_tokens": 45721,
+  "output_tokens": 3339,
+  "execution_time": 229.5536012649536,
+  "is_correct": true,
+  "error": null,
+  "cached_at": "2026-01-17T21:41:20.217955",
+  "correctness_confidence": 1.0,
+  "correctness_reasoning": "The predicted answer correctly states that Microsoft's debt decreased, which matches the stance of the ground truth answer. The numerical difference provided in the predicted answer ($2,544 million) is within the 10% tolerance of the ground truth figure ($2.5 billion), as $2,544 million is equivalent to $2.544 billion, which is within the range of $2.25 billion to $2.75 billion. Therefore, the predicted answer is correct."
+}

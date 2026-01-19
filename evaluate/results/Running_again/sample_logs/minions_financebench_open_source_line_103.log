@@ -1,0 +1,21 @@
+Sample: financebench_open_source_line_103
+Protocol: minions
+Timestamp: 2026-01-17T21:33:35.664486
+Execution time: 168.27s
+Cost: $0.0724
+Is correct: True
+Error: None
+
+--- Question ---
+What is Lockheed Martin's 2 year total revenue CAGR from FY2020 to FY2022 (in units of percents and round to one decimal place)? Provide a response to the question by primarily using the statement of income.
+
+--- Predicted Answer ---
+CAGR = ((65,984 / 65,398)^(1/2) - 1) * 100 = 0.4%
+
+--- Ground Truth ---
+['0.4%']
+
+--- Correctness Evaluation ---
+Is correct: True
+Confidence: 1.00
+Reasoning: The predicted answer correctly calculates the CAGR using the formula: CAGR = ((Final Value / Initial Value)^(1/Number of Years) - 1) * 100. The values used (65,984 and 65,398) match the context of the question, and the calculated CAGR of 0.4% matches the ground truth answer. The calculation is accurate and within the allowed tolerance.

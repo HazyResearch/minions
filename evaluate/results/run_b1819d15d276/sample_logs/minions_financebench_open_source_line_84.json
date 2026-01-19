@@ -1,0 +1,16 @@
+{
+  "sample_id": "financebench_open_source_line_84",
+  "protocol": "minions",
+  "question": "According to the information provided in the statement of cash flows, what is the FY2020 free cash flow (FCF) for General Mills? FCF here is defined as: (cash from operations - capex). Answer in USD millions.",
+  "predicted_answer": "3215.2",
+  "ground_truth": [
+    "$3215.00"
+  ],
+  "cost_usd": 0.1710325,
+  "input_tokens": 60785,
+  "output_tokens": 1907,
+  "execution_time": 258.53440260887146,
+  "is_correct": null,
+  "error": null,
+  "cached_at": "2026-01-19T06:51:26.540721"
+}

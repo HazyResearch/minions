@@ -1,0 +1,16 @@
+{
+  "sample_id": "financebench_open_source_line_88",
+  "protocol": "minions",
+  "question": "Roughly how many times has JnJ sold its inventory in FY2022? Calculate inventory turnover ratio for FY2022; if conventional inventory management is not meaningful for the company then state that and explain why.",
+  "predicted_answer": "Due to inconsistent data, the inventory turnover ratio for JnJ in FY2022 cannot be accurately calculated. However, based on available data, the ratio could range from approximately 1.7 to 2.7 times, depending on the COGS and average inventory values used. Conventional inventory management may not be meaningful for JnJ due to its complex supply chains, diverse product offerings, and strategic focus on restructuring and supply chain optimization.",
+  "ground_truth": [
+    "JnJ sold its inventory 2.7 times in FY2022."
+  ],
+  "cost_usd": 0.1886175,
+  "input_tokens": 56719,
+  "output_tokens": 4682,
+  "execution_time": 504.6952106952667,
+  "is_correct": null,
+  "error": null,
+  "cached_at": "2026-01-19T22:23:56.193911"
+}

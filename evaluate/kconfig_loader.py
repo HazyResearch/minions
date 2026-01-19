@@ -40,6 +40,7 @@ class LocalModelConfig:
     backend: str = "ollama"  # "ollama" or "sglang"
     sglang_base_url: str = "http://localhost:8000/v1"
     # WFSA length prior parameters (SGLang only)
+    generation_strategy: str = "sequential"  # "sequential" or "single_shot"
     beta_explanation: float = 1.0  # WFSA strength for explanation field
     beta_citation: float = 2.0     # WFSA strength for citation field
     beta_answer: float = 1.5       # WFSA strength for answer field
@@ -135,6 +136,7 @@ class EvaluatorConfig:
                     'num_ctx': self.models.local.num_ctx,
                     'backend': self.models.local.backend,
                     'sglang_base_url': self.models.local.sglang_base_url,
+                    'generation_strategy': self.models.local.generation_strategy,
                     'beta_explanation': self.models.local.beta_explanation,
                     'beta_citation': self.models.local.beta_citation,
                     'beta_answer': self.models.local.beta_answer,
@@ -290,6 +292,12 @@ class KconfigLoader:
             config.models.local.sglang_base_url = values.get('SGLANG_BASE_URL', 'http://localhost:8000/v1')
         else:
             config.models.local.backend = 'ollama'
+        
+        # Generation strategy (SGLang only)
+        if values.get('GENERATION_SINGLE_SHOT', 'n') == 'y':
+            config.models.local.generation_strategy = 'single_shot'
+        else:
+            config.models.local.generation_strategy = 'sequential'
         
         # WFSA length prior parameters (beta values stored as x100 integers in Kconfig)
         config.models.local.beta_explanation = int(values.get('WFSA_BETA_EXPLANATION', '100')) / 100.0

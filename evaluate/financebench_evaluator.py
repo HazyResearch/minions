@@ -659,6 +659,7 @@ class ProtocolRunner:
         local_backend: str = "ollama",
         sglang_base_url: str = "http://localhost:8000/v1",
         # WFSA parameters
+        generation_strategy: str = "sequential",
         beta_explanation: float = 1.0,
         beta_citation: float = 2.0,
         beta_answer: float = 1.5,
@@ -678,6 +679,7 @@ class ProtocolRunner:
         self.local_backend = local_backend
         self.sglang_base_url = sglang_base_url
         # WFSA parameters
+        self.generation_strategy = generation_strategy
         self.beta_explanation = beta_explanation
         self.beta_citation = beta_citation
         self.beta_answer = beta_answer
@@ -701,6 +703,7 @@ class ProtocolRunner:
                     model_name=self.local_model,
                     base_url=self.sglang_base_url,
                     temperature=self.local_temp,
+                    generation_strategy=self.generation_strategy,
                     beta_explanation=self.beta_explanation,
                     beta_citation=self.beta_citation,
                     beta_answer=self.beta_answer,
@@ -880,6 +883,7 @@ class ProtocolRunner:
                 base_url=self.sglang_base_url,
                 temperature=self.local_temp,
                 structured_output_schema=StructuredLocalOutput,
+                generation_strategy=self.generation_strategy,
                 beta_explanation=self.beta_explanation,
                 beta_citation=self.beta_citation,
                 beta_answer=self.beta_answer,
@@ -1597,6 +1601,7 @@ def main():
         local_backend=getattr(config.models.local, 'backend', 'ollama'),
         sglang_base_url=getattr(config.models.local, 'sglang_base_url', 'http://localhost:8000/v1'),
         # WFSA parameters
+        generation_strategy=getattr(config.models.local, 'generation_strategy', 'sequential'),
         beta_explanation=getattr(config.models.local, 'beta_explanation', 1.0),
         beta_citation=getattr(config.models.local, 'beta_citation', 2.0),
         beta_answer=getattr(config.models.local, 'beta_answer', 1.5),

@@ -140,6 +140,27 @@ config SGLANG_BASE_URL
 menu "WFSA Length Prior Settings"
 	depends on LOCAL_BACKEND_SGLANG
 
+choice
+	prompt "Generation strategy"
+	default GENERATION_SEQUENTIAL
+	help
+	  Strategy for generating explanation, citation, and answer fields.
+
+config GENERATION_SEQUENTIAL
+	bool "Sequential (3 API calls)"
+	help
+	  Generate explanation, citation, and answer in 3 separate API calls.
+	  Better for KV cache reuse with SGLang's RadixAttention.
+	  Allows per-field beta control.
+
+config GENERATION_SINGLE_SHOT
+	bool "Single-shot (1 API call)"
+	help
+	  Generate all fields in one API call with JSON output.
+	  Simpler but no per-field beta control.
+
+endchoice
+
 comment "Beta values control brevity (higher = shorter outputs)"
 
 config WFSA_BETA_EXPLANATION

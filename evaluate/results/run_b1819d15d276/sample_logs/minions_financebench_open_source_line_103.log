@@ -1,0 +1,16 @@
+Sample: financebench_open_source_line_103
+Protocol: minions
+Timestamp: 2026-01-19T07:49:47.282502
+Execution time: 101.50s
+Cost: $0.0778
+Is correct: None
+Error: None
+
+--- Question ---
+What is Lockheed Martin's 2 year total revenue CAGR from FY2020 to FY2022 (in units of percents and round to one decimal place)? Provide a response to the question by primarily using the statement of income.
+
+--- Predicted Answer ---
+0.4%
+
+--- Ground Truth ---
+['0.4%']

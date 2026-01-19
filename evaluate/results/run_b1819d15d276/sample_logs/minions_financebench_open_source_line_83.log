@@ -1,0 +1,16 @@
+Sample: financebench_open_source_line_83
+Protocol: minions
+Timestamp: 2026-01-19T06:47:07.514130
+Execution time: 277.86s
+Cost: $0.1870
+Is correct: None
+Error: None
+
+--- Question ---
+By drawing conclusions from the information stated only in the statement of financial position, what is General Mills's FY2020 working capital ratio? Define working capital ratio as total current assets divided by total current liabilities. Round your answer to two decimal places.
+
+--- Predicted Answer ---
+1.58
+
+--- Ground Truth ---
+['0.68']

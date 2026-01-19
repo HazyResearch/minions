@@ -1,0 +1,16 @@
+{
+  "sample_id": "financebench_open_source_line_147",
+  "protocol": "minions",
+  "question": "Has Verizon increased its debt on balance sheet between 2022 and the 2021 fiscal period?",
+  "predicted_answer": "No, Verizon did not increase its debt on the balance sheet between 2022 and the 2021 fiscal period.",
+  "ground_truth": [
+    "No. Verizon's debt decreased by $229 million."
+  ],
+  "cost_usd": 0.0250325,
+  "input_tokens": 7033,
+  "output_tokens": 745,
+  "execution_time": 63.662190198898315,
+  "is_correct": null,
+  "error": null,
+  "cached_at": "2026-01-19T23:35:37.971218"
+}

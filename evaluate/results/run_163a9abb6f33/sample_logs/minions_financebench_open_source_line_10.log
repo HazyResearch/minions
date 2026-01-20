@@ -1,21 +1,16 @@
 Sample: financebench_open_source_line_10
 Protocol: minions
-Timestamp: 2026-01-19T20:38:54.438408
-Execution time: 227.15s
-Cost: $0.0881
-Is correct: True
+Timestamp: 2026-01-20T09:36:30.619315
+Execution time: 141.57s
+Cost: $0.0731
+Is correct: None
 Error: None
 
 --- Question ---
 What is the FY2017 - FY2019 3 year average of capex as a % of revenue for Activision Blizzard? Answer in units of percents and round to one decimal place. Calculate (or extract) the answer from the statement of income and the cash flow statement.
 
 --- Predicted Answer ---
-FY2017: 2.2%, FY2018: 1.7%, FY2019: 1.8%, 3-year average: 1.9%
+1.9%
 
 --- Ground Truth ---
 ['1.9%']
-
---- Correctness Evaluation ---
-Is correct: True
-Confidence: 1.00
-Reasoning: The predicted answer provides the capex as a percentage of revenue for each fiscal year (FY2017: 2.2%, FY2018: 1.7%, FY2019: 1.8%) and correctly calculates the 3-year average as 1.9%. This matches the ground truth answer. The additional context of individual yearly percentages does not contradict the ground truth and is within the evaluation rules.

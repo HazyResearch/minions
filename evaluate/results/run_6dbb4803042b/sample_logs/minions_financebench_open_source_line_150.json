@@ -10,7 +10,9 @@
   "input_tokens": 105664,
   "output_tokens": 4246,
   "execution_time": 418.6878025531769,
-  "is_correct": null,
+  "is_correct": true,
   "error": null,
-  "cached_at": "2026-01-19T23:49:55.444123"
+  "cached_at": "2026-01-19T23:49:55.444123",
+  "correctness_confidence": 1.0,
+  "correctness_reasoning": "The predicted answer matches the ground truth answer exactly, both stating the 3-year average unadjusted EBITDA % margin for Walmart from FY2018 to FY2020 is 6.2%. This falls within the 10% tolerance rule for numerical answers, and there are no discrepancies in the information provided."
 }

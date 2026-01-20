@@ -10,7 +10,9 @@
   "input_tokens": 54476,
   "output_tokens": 2838,
   "execution_time": 220.11375093460083,
-  "is_correct": null,
+  "is_correct": true,
   "error": null,
-  "cached_at": "2026-01-19T22:08:02.037923"
+  "cached_at": "2026-01-19T22:08:02.037923",
+  "correctness_confidence": 0.9,
+  "correctness_reasoning": "The predicted answer aligns with the ground truth in its conclusion that J&J's FY2022 financials do not indicate a high growth company. Both answers agree on the qualitative assessment, which is the key aspect of the question."
 }

@@ -10,7 +10,9 @@
   "input_tokens": 37235,
   "output_tokens": 3726,
   "execution_time": 246.11451959609985,
-  "is_correct": null,
+  "is_correct": false,
   "error": null,
-  "cached_at": "2026-01-19T22:55:24.969274"
+  "cached_at": "2026-01-19T22:55:24.969274",
+  "correctness_confidence": 1.0,
+  "correctness_reasoning": "The predicted answer states that Microsoft's debt increased, while the ground truth states it decreased. For yes/no questions, the stance must match exactly, and in this case, they do not. Therefore, the predicted answer is incorrect."
 }

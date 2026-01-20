@@ -10,7 +10,9 @@
   "input_tokens": 9348,
   "output_tokens": 1149,
   "execution_time": 193.97166752815247,
-  "is_correct": null,
+  "is_correct": true,
   "error": null,
-  "cached_at": "2026-01-19T23:38:52.906771"
+  "cached_at": "2026-01-19T23:38:52.906771",
+  "correctness_confidence": 0.95,
+  "correctness_reasoning": "The predicted answer of 42.73 is within the 10% tolerance range of the ground truth answer of 42.69. The difference is minimal and falls well within the acceptable range for numerical answers."
 }

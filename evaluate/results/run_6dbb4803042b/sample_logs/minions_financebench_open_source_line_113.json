@@ -10,7 +10,9 @@
   "input_tokens": 25423,
   "output_tokens": 2309,
   "execution_time": 126.89556455612183,
-  "is_correct": null,
+  "is_correct": false,
   "error": null,
-  "cached_at": "2026-01-19T22:57:32.633660"
+  "cached_at": "2026-01-19T22:57:32.633660",
+  "correctness_confidence": 1.0,
+  "correctness_reasoning": "The predicted answer of 55.9% is significantly outside the 10% tolerance range of the ground truth answer of 5.4%. Therefore, the predicted answer is incorrect."
 }

@@ -10,7 +10,9 @@
   "input_tokens": 7033,
   "output_tokens": 745,
   "execution_time": 63.662190198898315,
-  "is_correct": null,
+  "is_correct": true,
   "error": null,
-  "cached_at": "2026-01-19T23:35:37.971218"
+  "cached_at": "2026-01-19T23:35:37.971218",
+  "correctness_confidence": 1.0,
+  "correctness_reasoning": "The predicted answer correctly states that Verizon did not increase its debt on the balance sheet between 2022 and the 2021 fiscal period, which matches the stance of the ground truth answer. The evaluation rule for yes/no questions requires the stance to match exactly, which it does in this case."
 }

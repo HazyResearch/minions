@@ -10,7 +10,9 @@
   "input_tokens": 90462,
   "output_tokens": 3682,
   "execution_time": 687.9520618915558,
-  "is_correct": null,
+  "is_correct": true,
   "error": null,
-  "cached_at": "2026-01-19T23:16:13.378112"
+  "cached_at": "2026-01-19T23:16:13.378112",
+  "correctness_confidence": 1.0,
+  "correctness_reasoning": "The predicted answer '9068' matches the ground truth answer '$9068.00' exactly, except for the formatting difference, which is allowed. Therefore, the predicted answer is correct."
 }

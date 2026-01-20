@@ -1,21 +1,16 @@
 Sample: financebench_open_source_line_14
 Protocol: minions
-Timestamp: 2026-01-19T20:50:55.605920
-Execution time: 358.19s
-Cost: $0.2036
-Is correct: True
+Timestamp: 2026-01-20T09:48:17.139856
+Execution time: 306.30s
+Cost: $0.1255
+Is correct: None
 Error: None
 
 --- Question ---
 Does Adobe have an improving operating margin profile as of FY2022? If operating margin is not a useful metric for a company like this, then state that and explain why.
 
 --- Predicted Answer ---
-Based on the available information, Adobe does not appear to have an improving operating margin profile as of FY2022. The inferred data suggests a potential decrease in operating margin from FY2021 to FY2022, but explicit figures and comprehensive analysis are lacking to make a definitive conclusion.
+Based on the more consistent and calculated data, Adobe does not have an improving operating margin profile as of FY2022. The operating margin appears to have declined from FY2021 to FY2022.
 
 --- Ground Truth ---
 ['No the operating margins of Adobe have recently declined from 36.8% in FY 2021 to 34.6% in FY2022. A drop by 2.2% in a year.']
-
---- Correctness Evaluation ---
-Is correct: True
-Confidence: 0.90
-Reasoning: The predicted answer correctly states that Adobe does not have an improving operating margin profile as of FY2022, which aligns with the ground truth answer. Although the predicted answer lacks specific figures, it correctly infers a decrease in operating margin, which is the key conclusion required for this evaluation.

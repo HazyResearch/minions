@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-01-20_09-51-44",
+  "timestamp": "2026-01-20_11-28-46",
   "protocols": [
     "minions"
   ],
@@ -14,49 +14,49 @@
         "ground_truth": [
           "No, the company is managing its CAPEX and Fixed Assets pretty efficiently, which is evident from below key metrics:\nCAPEX/Revenue Ratio: 5.1%\nFixed assets/Total Assets: 20%\nReturn on Assets= 12.4%"
         ],
-        "cost_usd": 0.0418725,
-        "input_tokens": 12753,
-        "output_tokens": 999,
-        "execution_time": 110.85308384895325
+        "cost_usd": 0.0515375,
+        "input_tokens": 16427,
+        "output_tokens": 1047,
+        "execution_time": 115.78679990768433
       },
       {
         "sample_id": "financebench_open_source_line_4",
         "protocol": "minions",
         "question": "What drove operating margin change as of FY2022 for 3M? If operating margin is not a useful metric for a company like this, then please state that and explain why.",
-        "predicted_answer": "The operating margin change for 3M in FY2022 was primarily driven by significant litigation costs, foreign currency impacts, increased raw materials and logistics costs, and changes in segment performance measures.",
+        "predicted_answer": "3M's operating margin decreased from 20.9% in FY2021 to 19.1% in FY2022, driven by decreased demand for disposable respirators, foreign currency impacts, increased raw materials and logistics costs, and significant special item charges related to litigation and restructuring.",
         "ground_truth": [
           "Operating Margin for 3M in FY2022 has decreased by 1.7% primarily due to: \n-Decrease in gross Margin\n-mostly one-off charges including Combat Arms Earplugs litigation, impairment related to exiting PFAS manufacturing, costs related to exiting Russia and divestiture-related restructuring\ncharges"
         ],
-        "cost_usd": 0.030747500000000004,
-        "input_tokens": 7983,
-        "output_tokens": 1079,
-        "execution_time": 127.4821240901947
+        "cost_usd": 0.0489875,
+        "input_tokens": 15131,
+        "output_tokens": 1116,
+        "execution_time": 121.0328323841095
       },
       {
         "sample_id": "financebench_open_source_line_6",
         "protocol": "minions",
         "question": "Does 3M have a reasonably healthy liquidity profile based on its quick ratio for Q2 of FY2023? If the quick ratio is not relevant to measure liquidity, please state that and explain why.",
-        "predicted_answer": "3M's quick ratio for Q2 FY2023 is approximately 0.85, indicating a less than ideal liquidity position.",
+        "predicted_answer": "3M does not have a reasonably healthy liquidity profile based on its quick ratio for Q2 of FY2023.",
         "ground_truth": [
           "No. The quick ratio for 3M was 0.96 by Jun'23 close, which needs a bit of an improvement to touch the 1x mark"
         ],
-        "cost_usd": 0.029375,
-        "input_tokens": 7678,
-        "output_tokens": 1018,
-        "execution_time": 82.14772057533264
+        "cost_usd": 0.13468,
+        "input_tokens": 41548,
+        "output_tokens": 3081,
+        "execution_time": 254.66796588897705
       },
       {
         "sample_id": "financebench_open_source_line_9",
         "protocol": "minions",
         "question": "What is the FY2019 fixed asset turnover ratio for Activision Blizzard? Fixed asset turnover ratio is defined as: FY2019 revenue / (average PP&E between FY2018 and FY2019). Round your answer to two decimal places. Base your judgments on the information provided primarily in the statement of income and the statement of financial position.",
-        "predicted_answer": "24.26",
+        "predicted_answer": "25.65",
         "ground_truth": [
           "24.26"
         ],
-        "cost_usd": 0.09494249999999999,
-        "input_tokens": 29365,
-        "output_tokens": 2153,
-        "execution_time": 292.4794502258301
+        "cost_usd": 0.107495,
+        "input_tokens": 31226,
+        "output_tokens": 2943,
+        "execution_time": 328.1430547237396
       },
       {
         "sample_id": "financebench_open_source_line_10",
@@ -66,36 +66,36 @@
         "ground_truth": [
           "1.9%"
         ],
-        "cost_usd": 0.0730925,
-        "input_tokens": 24233,
-        "output_tokens": 1251,
-        "execution_time": 141.57311391830444
+        "cost_usd": 0.09826249999999999,
+        "input_tokens": 31705,
+        "output_tokens": 1900,
+        "execution_time": 277.43477964401245
       },
       {
         "sample_id": "financebench_open_source_line_11",
         "protocol": "minions",
         "question": "You are an investment banker and your only resource(s) to answer the following question is (are): the statement of financial position and the cash flow statement. Here's the question: what is the FY2015 operating cash flow ratio for Adobe? Operating cash flow ratio is defined as: cash from operations / total current liabilities. Round your answer to two decimal places.",
-        "predicted_answer": "664.12",
+        "predicted_answer": "0.66",
         "ground_truth": [
           "0.66"
         ],
-        "cost_usd": 0.06757,
-        "input_tokens": 18912,
-        "output_tokens": 2029,
-        "execution_time": 126.52381110191345
+        "cost_usd": 0.06554499999999999,
+        "input_tokens": 17938,
+        "output_tokens": 2070,
+        "execution_time": 137.0448498725891
       },
       {
         "sample_id": "financebench_open_source_line_12",
         "protocol": "minions",
         "question": "What is Adobe's year-over-year change in unadjusted operating income from FY2015 to FY2016 (in units of percents and round to one decimal place)? Give a solution to the question by using the income statement.",
-        "predicted_answer": "65.4%",
+        "predicted_answer": "64.2%",
         "ground_truth": [
           "65.4%"
         ],
-        "cost_usd": 0.0242375,
-        "input_tokens": 5251,
-        "output_tokens": 1111,
-        "execution_time": 98.6886215209961
+        "cost_usd": 0.0268575,
+        "input_tokens": 6567,
+        "output_tokens": 1044,
+        "execution_time": 89.67290210723877
       },
       {
         "sample_id": "financebench_open_source_line_13",
@@ -105,52 +105,52 @@
         "ground_truth": [
           "0.83"
         ],
-        "cost_usd": 0.0654025,
-        "input_tokens": 16889,
-        "output_tokens": 2318,
-        "execution_time": 172.88320469856262
+        "cost_usd": 0.0779025,
+        "input_tokens": 19461,
+        "output_tokens": 2925,
+        "execution_time": 142.30344033241272
       },
       {
         "sample_id": "financebench_open_source_line_14",
         "protocol": "minions",
         "question": "Does Adobe have an improving operating margin profile as of FY2022? If operating margin is not a useful metric for a company like this, then state that and explain why.",
-        "predicted_answer": "Based on the more consistent and calculated data, Adobe does not have an improving operating margin profile as of FY2022. The operating margin appears to have declined from FY2021 to FY2022.",
+        "predicted_answer": "Based on the available information, Adobe's operating margin profile for FY2022 cannot be definitively assessed due to the lack of explicit data. However, inferred calculations suggest a stable margin with potential impacts from strategic investments and market conditions. The operating margin remains a relevant metric for Adobe, as it is affected by various business factors.",
         "ground_truth": [
           "No the operating margins of Adobe have recently declined from 36.8% in FY 2021 to 34.6% in FY2022. A drop by 2.2% in a year."
         ],
-        "cost_usd": 0.12549500000000002,
-        "input_tokens": 31378,
-        "output_tokens": 4705,
-        "execution_time": 306.2989983558655
+        "cost_usd": 0.17051499999999997,
+        "input_tokens": 50738,
+        "output_tokens": 4367,
+        "execution_time": 362.21481800079346
       },
       {
         "sample_id": "financebench_open_source_line_17",
         "protocol": "minions",
         "question": "Roughly how many times has AES Corporation sold its inventory in FY2022? Calculate inventory turnover ratio for the FY2022; if conventional inventory management is not meaningful for the company then state that and explain why.",
-        "predicted_answer": "Conventional inventory management is not meaningful for AES Corporation, and thus a traditional inventory turnover ratio is not applicable.",
+        "predicted_answer": "Conventional inventory management is not applicable to AES Corporation, and thus the inventory turnover ratio is not a relevant metric.",
         "ground_truth": [
           "AES has converted inventory 9.5 times in FY 2022."
         ],
-        "cost_usd": 0.03058,
-        "input_tokens": 7528,
-        "output_tokens": 1176,
-        "execution_time": 206.78044819831848
+        "cost_usd": 0.13007249999999998,
+        "input_tokens": 42033,
+        "output_tokens": 2499,
+        "execution_time": 459.6800870895386
       }
     ]
   },
   "summary": {
     "minions": {
       "accuracy": null,
-      "total_cost": 0.5833150000000001,
-      "avg_cost_per_query": 0.058331500000000015,
-      "total_input_tokens": 161970,
-      "total_output_tokens": 17839,
-      "avg_input_tokens": 16197.0,
-      "avg_output_tokens": 1783.9,
+      "total_cost": 0.9118549999999999,
+      "avg_cost_per_query": 0.09118549999999999,
+      "total_input_tokens": 272774,
+      "total_output_tokens": 22992,
+      "avg_input_tokens": 27277.4,
+      "avg_output_tokens": 2299.2,
       "total_samples": 10,
       "successful_samples": 10,
       "failed_samples": 0,
-      "avg_execution_time": 166.57105765342712
+      "avg_execution_time": 228.79815299510955
     }
   }
 }

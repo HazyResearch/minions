@@ -10,7 +10,9 @@
   "input_tokens": 18574,
   "output_tokens": 2236,
   "execution_time": 122.00161170959473,
-  "is_correct": null,
+  "is_correct": true,
   "error": null,
-  "cached_at": "2026-01-20T11:59:21.761826"
+  "cached_at": "2026-01-20T11:59:21.761826",
+  "correctness_confidence": 1.0,
+  "correctness_reasoning": "The predicted answer matches the ground truth answer exactly. Since the numerical answer is within the 10% tolerance range specified by the evaluation rules, the predicted answer is considered correct."
 }

@@ -10,7 +10,9 @@
   "input_tokens": 47872,
   "output_tokens": 2914,
   "execution_time": 562.6846165657043,
-  "is_correct": null,
+  "is_correct": false,
   "error": null,
-  "cached_at": "2026-01-20T11:41:19.902381"
+  "cached_at": "2026-01-20T11:41:19.902381",
+  "correctness_confidence": 1.0,
+  "correctness_reasoning": "The predicted answer states that 3M is a capital-intensive business, which directly contradicts the ground truth answer. The evaluation rules for yes/no questions require the stance to match exactly, and in this case, they do not."
 }

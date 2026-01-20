@@ -23,7 +23,7 @@ Configuration:
     use_cache: true
     git_auto_commit: true
 
-Total runtime: 25m 59.6s
+Total runtime: 38m 12.4s
 
 ================================================================================
 PER-QUERY DETAILS
@@ -33,23 +33,23 @@ MINIONS:
 --------------------------------------------------------------------------------
 Sample ID                                     Cost ($)     Input Tok    Output Tok  
 --------------------------------------------------------------------------------
-financebench_open_source_line_3               0.0419       12753        999         
-financebench_open_source_line_4               0.0307       7983         1079        
-financebench_open_source_line_6               0.0294       7678         1018        
-financebench_open_source_line_9               0.0949       29365        2153        
-financebench_open_source_line_10              0.0731       24233        1251        
-financebench_open_source_line_11              0.0676       18912        2029        
-financebench_open_source_line_12              0.0242       5251         1111        
-financebench_open_source_line_13              0.0654       16889        2318        
-financebench_open_source_line_14              0.1255       31378        4705        
-financebench_open_source_line_17              0.0306       7528         1176        
+financebench_open_source_line_3               0.0515       16427        1047        
+financebench_open_source_line_4               0.0490       15131        1116        
+financebench_open_source_line_6               0.1347       41548        3081        
+financebench_open_source_line_9               0.1075       31226        2943        
+financebench_open_source_line_10              0.0983       31705        1900        
+financebench_open_source_line_11              0.0655       17938        2070        
+financebench_open_source_line_12              0.0269       6567         1044        
+financebench_open_source_line_13              0.0779       19461        2925        
+financebench_open_source_line_14              0.1705       50738        4367        
+financebench_open_source_line_17              0.1301       42033        2499        
 
 ================================================================================
 EVALUATION SUMMARY
 ================================================================================
 Protocol        Avg Cost ($)    Input Tokens (1k)  Output Tokens (1k)
 --------------------------------------------------------------------------------
-minions         0.0583          16.20              1.78              
+minions         0.0912          27.28              2.30              
 ================================================================================
 
-Accuracy rate: 60.00% (6/10 correct, remote verdict with gpt-4o)
+Accuracy rate: 70.00% (7/10 correct, remote verdict with gpt-4o)

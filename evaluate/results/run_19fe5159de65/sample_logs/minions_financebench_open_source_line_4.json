@@ -10,7 +10,9 @@
   "input_tokens": 17854,
   "output_tokens": 1075,
   "execution_time": 134.30415654182434,
-  "is_correct": null,
+  "is_correct": true,
   "error": null,
-  "cached_at": "2026-01-20T11:43:34.686106"
+  "cached_at": "2026-01-20T11:43:34.686106",
+  "correctness_confidence": 0.8,
+  "correctness_reasoning": "The predicted answer correctly identifies significant litigation and restructuring expenses as key factors affecting 3M's operating margin in FY2022, which aligns with the ground truth. Although it mentions increased costs and decreased demand, which are not specified in the ground truth, these can be considered as part of the broader context of financial challenges. The core elements of the ground truth are present in the predicted answer."
 }

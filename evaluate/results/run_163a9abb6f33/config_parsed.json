@@ -9,7 +9,7 @@
     "path": "/workspace/financebench",
     "pdf_dir": "/workspace/financebench/pdfs",
     "filter_numerical": true,
-    "max_samples": 20,
+    "max_samples": 10,
     "sample_indices": null
   },
   "models": {

@@ -10,7 +10,9 @@
   "input_tokens": 42033,
   "output_tokens": 2499,
   "execution_time": 459.6800870895386,
-  "is_correct": null,
+  "is_correct": true,
   "error": null,
-  "cached_at": "2026-01-20T11:28:46.509759"
+  "cached_at": "2026-01-20T11:28:46.509759",
+  "correctness_confidence": 0.9,
+  "correctness_reasoning": "The predicted answer correctly identifies that conventional inventory management is not applicable to AES Corporation, which aligns with the ground truth's implication that inventory turnover is not a meaningful metric for the company. The predicted answer provides the correct context, even though it does not provide a numerical turnover ratio."
 }

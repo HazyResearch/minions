@@ -2,17 +2,15 @@
   "sample_id": "financebench_open_source_line_6",
   "protocol": "minions",
   "question": "Does 3M have a reasonably healthy liquidity profile based on its quick ratio for Q2 of FY2023? If the quick ratio is not relevant to measure liquidity, please state that and explain why.",
-  "predicted_answer": "Based on the available data, 3M does not have a reasonably healthy liquidity profile for Q2 of FY2023, as its quick ratio is below 1.0.",
+  "predicted_answer": "3M's quick ratio for Q2 FY2023 is approximately 0.85, indicating a less than ideal liquidity position.",
   "ground_truth": [
     "No. The quick ratio for 3M was 0.96 by Jun'23 close, which needs a bit of an improvement to touch the 1x mark"
   ],
-  "cost_usd": 0.168255,
-  "input_tokens": 50690,
-  "output_tokens": 4153,
-  "execution_time": 323.97684931755066,
-  "is_correct": true,
+  "cost_usd": 0.029375,
+  "input_tokens": 7678,
+  "output_tokens": 1018,
+  "execution_time": 82.14772057533264,
+  "is_correct": null,
   "error": null,
-  "cached_at": "2026-01-19T20:31:03.405517",
-  "correctness_confidence": 1.0,
-  "correctness_reasoning": "The predicted answer correctly states that 3M does not have a reasonably healthy liquidity profile for Q2 of FY2023 because its quick ratio is below 1.0. This aligns with the ground truth answer, which also indicates that the quick ratio is 0.96 and needs improvement to reach 1.0. The stance and key facts match exactly."
+  "cached_at": "2026-01-20T09:29:15.519231"
 }

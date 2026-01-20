@@ -6,13 +6,11 @@
   "ground_truth": [
     "No, the company is managing its CAPEX and Fixed Assets pretty efficiently, which is evident from below key metrics:\nCAPEX/Revenue Ratio: 5.1%\nFixed assets/Total Assets: 20%\nReturn on Assets= 12.4%"
   ],
-  "cost_usd": 0.0418725,
-  "input_tokens": 12753,
-  "output_tokens": 999,
-  "execution_time": 110.85308384895325,
-  "is_correct": false,
+  "cost_usd": 0.0515375,
+  "input_tokens": 16427,
+  "output_tokens": 1047,
+  "execution_time": 115.78679990768433,
+  "is_correct": null,
   "error": null,
-  "cached_at": "2026-01-20T09:23:48.344134",
-  "correctness_confidence": 1.0,
-  "correctness_reasoning": "The predicted answer states that 3M is a capital-intensive business, which directly contradicts the ground truth answer. The evaluation rules require an exact match for yes/no questions, and in this case, the stances do not align."
+  "cached_at": "2026-01-20T10:52:30.383255"
 }

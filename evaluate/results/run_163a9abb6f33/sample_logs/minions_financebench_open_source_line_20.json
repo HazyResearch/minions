@@ -2,17 +2,15 @@
   "sample_id": "financebench_open_source_line_20",
   "protocol": "minions",
   "question": "What is Amazon's year-over-year change in revenue from FY2016 to FY2017 (in units of percents and round to one decimal place)? Calculate what was asked by utilizing the line items clearly shown in the statement of income.",
-  "predicted_answer": "30.8%",
+  "predicted_answer": "67.6%",
   "ground_truth": [
     "30.8%"
   ],
-  "cost_usd": 0.0896875,
-  "input_tokens": 23787,
-  "output_tokens": 3022,
-  "execution_time": 153.4443278312683,
-  "is_correct": true,
+  "cost_usd": 0.0355025,
+  "input_tokens": 10809,
+  "output_tokens": 848,
+  "execution_time": 67.25928068161011,
+  "is_correct": null,
   "error": null,
-  "cached_at": "2026-01-19T21:13:33.511663",
-  "correctness_confidence": 1.0,
-  "correctness_reasoning": "The predicted answer matches the ground truth answer exactly, and the evaluation rules allow for a 10% tolerance in numerical answers. Since the predicted answer is exactly the same as the ground truth, it is correct with full confidence."
+  "cached_at": "2026-01-20T10:07:46.024775"
 }

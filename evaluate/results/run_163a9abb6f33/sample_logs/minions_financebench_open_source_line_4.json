@@ -2,17 +2,15 @@
   "sample_id": "financebench_open_source_line_4",
   "protocol": "minions",
   "question": "What drove operating margin change as of FY2022 for 3M? If operating margin is not a useful metric for a company like this, then please state that and explain why.",
-  "predicted_answer": "The operating margin change for 3M in FY2022 was primarily driven by significant litigation costs, foreign currency impacts, increased raw materials and logistics costs, and changes in segment performance measures.",
+  "predicted_answer": "3M's operating margin decreased from 20.9% in FY2021 to 19.1% in FY2022, driven by decreased demand for disposable respirators, foreign currency impacts, increased raw materials and logistics costs, and significant special item charges related to litigation and restructuring.",
   "ground_truth": [
     "Operating Margin for 3M in FY2022 has decreased by 1.7% primarily due to: \n-Decrease in gross Margin\n-mostly one-off charges including Combat Arms Earplugs litigation, impairment related to exiting PFAS manufacturing, costs related to exiting Russia and divestiture-related restructuring\ncharges"
   ],
-  "cost_usd": 0.030747500000000004,
-  "input_tokens": 7983,
-  "output_tokens": 1079,
-  "execution_time": 127.4821240901947,
-  "is_correct": false,
+  "cost_usd": 0.0489875,
+  "input_tokens": 15131,
+  "output_tokens": 1116,
+  "execution_time": 121.0328323841095,
+  "is_correct": null,
   "error": null,
-  "cached_at": "2026-01-20T09:27:52.841443",
-  "correctness_confidence": 0.7,
-  "correctness_reasoning": "The predicted answer correctly identifies significant litigation costs as a driver of the operating margin change, which aligns with the ground truth. However, it does not mention the decrease in gross margin or the specific one-off charges related to Combat Arms Earplugs litigation, PFAS manufacturing exit, Russia exit, and divestiture-related restructuring charges. Instead, it includes foreign currency impacts, increased raw materials and logistics costs, and changes in segment performance measures, which are not mentioned in the ground truth. Therefore, the key facts and conclusions do not fully align."
+  "cached_at": "2026-01-20T10:54:31.874879"
 }

@@ -2,17 +2,15 @@
   "sample_id": "financebench_open_source_line_4",
   "protocol": "minions",
   "question": "What drove operating margin change as of FY2022 for 3M? If operating margin is not a useful metric for a company like this, then please state that and explain why.",
-  "predicted_answer": "The operating margin for 3M decreased from 22.8% in 2021 to 20.8% in 2022, driven by factors such as increased raw material and logistics costs, geopolitical impacts, restructuring actions, and special item charges.",
+  "predicted_answer": "The operating margin change for 3M in FY2022 was primarily driven by significant litigation costs, foreign currency impacts, increased raw materials and logistics costs, and changes in segment performance measures.",
   "ground_truth": [
     "Operating Margin for 3M in FY2022 has decreased by 1.7% primarily due to: \n-Decrease in gross Margin\n-mostly one-off charges including Combat Arms Earplugs litigation, impairment related to exiting PFAS manufacturing, costs related to exiting Russia and divestiture-related restructuring\ncharges"
   ],
-  "cost_usd": 0.0500525,
-  "input_tokens": 16345,
-  "output_tokens": 919,
-  "execution_time": 115.99548816680908,
-  "is_correct": true,
+  "cost_usd": 0.030747500000000004,
+  "input_tokens": 7983,
+  "output_tokens": 1079,
+  "execution_time": 127.4821240901947,
+  "is_correct": null,
   "error": null,
-  "cached_at": "2026-01-19T20:25:38.848155",
-  "correctness_confidence": 0.9,
-  "correctness_reasoning": "The predicted answer correctly identifies the decrease in operating margin and aligns with the ground truth by mentioning factors such as special item charges and restructuring actions. Although it does not explicitly mention the Combat Arms Earplugs litigation or PFAS manufacturing exit, it captures the essence of the key drivers of the margin change. The numerical change in operating margin is within the 10% tolerance range."
+  "cached_at": "2026-01-20T09:27:52.841443"
 }

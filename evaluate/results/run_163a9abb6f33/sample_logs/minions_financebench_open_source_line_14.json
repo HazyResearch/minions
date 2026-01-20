@@ -10,7 +10,9 @@
   "input_tokens": 31378,
   "output_tokens": 4705,
   "execution_time": 306.2989983558655,
-  "is_correct": null,
+  "is_correct": true,
   "error": null,
-  "cached_at": "2026-01-20T09:48:17.134522"
+  "cached_at": "2026-01-20T09:48:17.134522",
+  "correctness_confidence": 0.9,
+  "correctness_reasoning": "The predicted answer correctly states that Adobe does not have an improving operating margin profile as of FY2022, aligning with the ground truth answer. Although it lacks specific numerical details, it captures the key conclusion that the operating margin declined from FY2021 to FY2022."
 }

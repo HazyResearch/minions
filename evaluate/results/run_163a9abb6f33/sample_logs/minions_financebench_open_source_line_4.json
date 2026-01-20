@@ -10,7 +10,9 @@
   "input_tokens": 7983,
   "output_tokens": 1079,
   "execution_time": 127.4821240901947,
-  "is_correct": null,
+  "is_correct": false,
   "error": null,
-  "cached_at": "2026-01-20T09:27:52.841443"
+  "cached_at": "2026-01-20T09:27:52.841443",
+  "correctness_confidence": 0.7,
+  "correctness_reasoning": "The predicted answer correctly identifies significant litigation costs as a driver of the operating margin change, which aligns with the ground truth. However, it does not mention the decrease in gross margin or the specific one-off charges related to Combat Arms Earplugs litigation, PFAS manufacturing exit, Russia exit, and divestiture-related restructuring charges. Instead, it includes foreign currency impacts, increased raw materials and logistics costs, and changes in segment performance measures, which are not mentioned in the ground truth. Therefore, the key facts and conclusions do not fully align."
 }

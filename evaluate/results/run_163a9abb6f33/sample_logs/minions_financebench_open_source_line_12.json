@@ -10,7 +10,9 @@
   "input_tokens": 5251,
   "output_tokens": 1111,
   "execution_time": 98.6886215209961,
-  "is_correct": null,
+  "is_correct": true,
   "error": null,
-  "cached_at": "2026-01-20T09:40:16.871560"
+  "cached_at": "2026-01-20T09:40:16.871560",
+  "correctness_confidence": 1.0,
+  "correctness_reasoning": "The predicted answer matches the ground truth answer exactly. Since the ground truth is 65.4% and the predicted answer is also 65.4%, it falls within the 10% tolerance range. Therefore, the predicted answer is correct."
 }

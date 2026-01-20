@@ -2,7 +2,7 @@ Configuration:
   Dataset:
     path: /workspace/financebench
     filter_numerical: true
-    max_samples: 20
+    max_samples: 10
 
   Models:
     local: meta-llama/Llama-3.1-8B-Instruct (temp=0.2, ctx=4096)
@@ -23,7 +23,7 @@ Configuration:
     use_cache: true
     git_auto_commit: true
 
-Total runtime: 1h 27m 51.8s
+Total runtime: 25m 59.6s
 
 ================================================================================
 PER-QUERY DETAILS
@@ -33,33 +33,23 @@ MINIONS:
 --------------------------------------------------------------------------------
 Sample ID                                     Cost ($)     Input Tok    Output Tok  
 --------------------------------------------------------------------------------
-financebench_open_source_line_3               0.0469       14385        1092        
-financebench_open_source_line_4               0.0501       16345        919         
-financebench_open_source_line_6               0.1683       50690        4153        
-financebench_open_source_line_9               0.1004       30764        2351        
-financebench_open_source_line_10              0.0881       25995        2310        
-financebench_open_source_line_11              0.0799       23139        2203        
-financebench_open_source_line_12              0.0298       7883         1011        
-financebench_open_source_line_13              0.0630       17267        1979        
-financebench_open_source_line_14              0.2036       63897        4381        
-financebench_open_source_line_17              0.2531       83141        4525        
-financebench_open_source_line_18              0.1471       49916        2226        
-financebench_open_source_line_19              0.0475       13412        1398        
-financebench_open_source_line_20              0.0897       23787        3022        
-financebench_open_source_line_24              0.0383       11397        981         
-financebench_open_source_line_27              0.0388       11164        1090        
-financebench_open_source_line_31              0.0758       21347        2239        
-financebench_open_source_line_32              0.1912       58912        4395        
-financebench_open_source_line_35              0.2067       65291        4350        
-financebench_open_source_line_36              0.1338       37737        3944        
-financebench_open_source_line_41              0.2974       102390       4138        
+financebench_open_source_line_3               0.0419       12753        999         
+financebench_open_source_line_4               0.0307       7983         1079        
+financebench_open_source_line_6               0.0294       7678         1018        
+financebench_open_source_line_9               0.0949       29365        2153        
+financebench_open_source_line_10              0.0731       24233        1251        
+financebench_open_source_line_11              0.0676       18912        2029        
+financebench_open_source_line_12              0.0242       5251         1111        
+financebench_open_source_line_13              0.0654       16889        2318        
+financebench_open_source_line_14              0.1255       31378        4705        
+financebench_open_source_line_17              0.0306       7528         1176        
 
 ================================================================================
 EVALUATION SUMMARY
 ================================================================================
 Protocol        Avg Cost ($)    Input Tokens (1k)  Output Tokens (1k)
 --------------------------------------------------------------------------------
-minions         0.1175          36.44              2.64              
+minions         0.0583          16.20              1.78              
 ================================================================================
 
-Accuracy rate: 70.00% (14/20 correct, remote verdict with gpt-4o)
+Accuracy rate: 60.00% (6/10 correct, remote verdict with gpt-4o)

@@ -93,9 +93,9 @@ if HAS_CUSTOM_LOGIT_PROCESSOR:
                 
                 # Penalty values (hardcoded defaults)
                 eos_bonus_after_min = float(p.get("eos_bonus_after_min", 1.2))
-                intro_window = int(p.get("intro_window", 32))
-                intro_penalty = float(p.get("intro_penalty", 3.5))
-                always_penalty = float(p.get("always_penalty", 0.35))
+                intro_window = int(p.get("intro_window", 48))
+                intro_penalty = float(p.get("intro_penalty", 5.0))
+                always_penalty = float(p.get("always_penalty", 0.5))
                 list_penalty = float(p.get("list_penalty", 4.0))
                 repeat_penalty = float(p.get("repeat_penalty", 0.6))
                 repeat_last_k = int(p.get("repeat_last_k", 128))
@@ -420,16 +420,37 @@ class SGLangClient(MinionsClient):
         
         # Phrases to penalize early (preamble / "foreplay")
         intro_phrases = [
+            # Existing
             "To address", "Additionally", "It's also important", "It is also important",
             "Pay attention to", "Look for", "focus on extracting", "This could include",
             "Please provide", "In this implementation",
+            # Meta-commentary starters
+            "The task requires", "I will focus", "I was able to", "I can provide",
+            "Let me", "I'll", "We need to", "We will", "We can",
+            "Based on", "In order to", "To find", "To extract", "To determine",
+            # Hedging starters
+            "Unfortunately", "However", "Nevertheless", "Therefore",
+            # "Not found" verbose patterns
+            "The required", "The provided", "The document", "The excerpt",
+            "is not explicitly", "is not directly", "was not found",
+            "does not contain", "does not include", "does not provide",
         ]
         
-        # Discourse/verbosity tokens/phrases to penalize always (keep small)
+        # Discourse/verbosity tokens/phrases to penalize always
         always_phrases = [
+            # Existing
             "basically", "actually", "really", "just", "overall", "generally",
             "in summary", "to summarize", "in conclusion", "of course", "certainly", "sure",
             "I think", "I can", "I will",
+            # Hedging/transition words
+            "however", "unfortunately", "nevertheless", "therefore", "furthermore",
+            "additionally", "moreover", "consequently", "hence",
+            # Filler phrases
+            "it appears", "it seems", "we can infer", "we can assume",
+            "might be", "could be", "may be", "likely", "possibly",
+            "in other words", "that is to say", "specifically",
+            # Empty qualifiers
+            "explicitly", "directly", "specifically mentioned",
         ]
         
         # Step-by-step / numbered-list markers

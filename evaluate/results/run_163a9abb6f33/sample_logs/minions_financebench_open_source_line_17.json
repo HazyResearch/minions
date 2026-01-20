@@ -2,17 +2,15 @@
   "sample_id": "financebench_open_source_line_17",
   "protocol": "minions",
   "question": "Roughly how many times has AES Corporation sold its inventory in FY2022? Calculate inventory turnover ratio for the FY2022; if conventional inventory management is not meaningful for the company then state that and explain why.",
-  "predicted_answer": "The inventory turnover ratio for AES Corporation in FY2022 cannot be calculated due to the absence of average inventory data. However, conventional inventory management is not meaningful for AES Corporation because it primarily deals in energy services, focusing on power generation and distribution rather than physical inventory.",
+  "predicted_answer": "Conventional inventory management is not meaningful for AES Corporation, and thus a traditional inventory turnover ratio is not applicable.",
   "ground_truth": [
     "AES has converted inventory 9.5 times in FY 2022."
   ],
-  "cost_usd": 0.2531025,
-  "input_tokens": 83141,
-  "output_tokens": 4525,
-  "execution_time": 789.9255125522614,
-  "is_correct": true,
+  "cost_usd": 0.03058,
+  "input_tokens": 7528,
+  "output_tokens": 1176,
+  "execution_time": 206.78044819831848,
+  "is_correct": null,
   "error": null,
-  "cached_at": "2026-01-19T21:04:06.096383",
-  "correctness_confidence": 0.9,
-  "correctness_reasoning": "The predicted answer correctly identifies that conventional inventory management is not meaningful for AES Corporation due to its focus on energy services rather than physical inventory. This aligns with the ground truth's implication that inventory turnover is not a relevant metric for AES. The absence of a numerical inventory turnover ratio is justified by the explanation provided."
+  "cached_at": "2026-01-20T09:51:44.460652"
 }

@@ -2386,6 +2386,7 @@ with st.sidebar:
         elif local_provider == "Transformers":
             local_model_options = {
                 "Rnj-1-Instruct (Recommended)": "EssentialAI/rnj-1-instruct",
+                "GLM-4.7-Flash (30B-A3B MoE)": "zai-org/GLM-4.7-Flash",
                 "Falcon-H1R-7B": "tiiuae/Falcon-H1R-7B",
                 "IQuest-Coder-V1-40B-Instruct": "IQuest/IQuest-Coder-V1-40B-Instruct",
                 "WeDLM-8B-Instruct": "tencent/WeDLM-8B-Instruct",

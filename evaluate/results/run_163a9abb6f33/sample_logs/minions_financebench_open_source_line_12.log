@@ -1,21 +1,16 @@
 Sample: financebench_open_source_line_12
 Protocol: minions
-Timestamp: 2026-01-19T20:42:22.653465
-Execution time: 90.49s
-Cost: $0.0298
-Is correct: False
+Timestamp: 2026-01-20T09:40:16.879288
+Execution time: 98.69s
+Cost: $0.0242
+Is correct: None
 Error: None
 
 --- Question ---
 What is Adobe's year-over-year change in unadjusted operating income from FY2015 to FY2016 (in units of percents and round to one decimal place)? Give a solution to the question by using the income statement.
 
 --- Predicted Answer ---
-137.2%
+65.4%
 
 --- Ground Truth ---
 ['65.4%']
-
---- Correctness Evaluation ---
-Is correct: False
-Confidence: 0.90
-Reasoning: The predicted answer of 137.2% is outside the 10% tolerance range of the ground truth answer of 65.4%. The acceptable range would be 58.9% to 71.9%.

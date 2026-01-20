@@ -2,17 +2,15 @@
   "sample_id": "financebench_open_source_line_24",
   "protocol": "minions",
   "question": "Has AMCOR's quick ratio improved or declined between FY2023 and FY2022? If the quick ratio is not something that a financial analyst would ask about a company like this, then state that and explain why.",
-  "predicted_answer": "AMCOR's quick ratio has improved between FY2022 and FY2023.",
+  "predicted_answer": "Due to the lack of consistent and verified financial data, it is not possible to determine whether AMCOR's quick ratio has improved or declined between FY2023 and FY2022. The quick ratio is a relevant metric for assessing a company's short-term liquidity, but without accurate data, no conclusion can be drawn.",
   "ground_truth": [
     "The quick ratio has slightly improved from 0.67 times to 0.69 times between FY 2023 and FY 2022.(3.4% jump)"
   ],
-  "cost_usd": 0.038302499999999996,
-  "input_tokens": 11397,
-  "output_tokens": 981,
-  "execution_time": 75.06436347961426,
-  "is_correct": true,
+  "cost_usd": 0.228885,
+  "input_tokens": 74162,
+  "output_tokens": 4348,
+  "execution_time": 575.4981315135956,
+  "is_correct": null,
   "error": null,
-  "cached_at": "2026-01-19T21:14:49.152027",
-  "correctness_confidence": 0.9,
-  "correctness_reasoning": "The predicted answer correctly states that AMCOR's quick ratio has improved between FY2022 and FY2023, which aligns with the ground truth answer. Although the predicted answer lacks specific numerical details, it accurately reflects the overall conclusion of improvement."
+  "cached_at": "2026-01-20T10:17:22.053497"
 }

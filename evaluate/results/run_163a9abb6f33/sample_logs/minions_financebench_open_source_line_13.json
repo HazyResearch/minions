@@ -6,13 +6,11 @@
   "ground_truth": [
     "0.83"
   ],
-  "cost_usd": 0.0629575,
-  "input_tokens": 17267,
-  "output_tokens": 1979,
-  "execution_time": 153.8102285861969,
-  "is_correct": true,
+  "cost_usd": 0.0654025,
+  "input_tokens": 16889,
+  "output_tokens": 2318,
+  "execution_time": 172.88320469856262,
+  "is_correct": null,
   "error": null,
-  "cached_at": "2026-01-19T20:44:56.894424",
-  "correctness_confidence": 1.0,
-  "correctness_reasoning": "The predicted answer matches the ground truth answer exactly. Since the numerical answer is within the 10% tolerance range specified by the evaluation rules, the predicted answer is considered correct."
+  "cached_at": "2026-01-20T09:43:10.281047"
 }

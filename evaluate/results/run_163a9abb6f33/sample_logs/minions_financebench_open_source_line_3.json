@@ -2,15 +2,15 @@
   "sample_id": "financebench_open_source_line_3",
   "protocol": "minions",
   "question": "Is 3M a capital-intensive business based on FY2022 data?",
-  "predicted_answer": "",
+  "predicted_answer": "Yes, 3M is a capital-intensive business based on FY2022 data.",
   "ground_truth": [
     "No, the company is managing its CAPEX and Fixed Assets pretty efficiently, which is evident from below key metrics:\nCAPEX/Revenue Ratio: 5.1%\nFixed assets/Total Assets: 20%\nReturn on Assets= 12.4%"
   ],
-  "cost_usd": 0.0,
-  "input_tokens": 0,
-  "output_tokens": 0,
-  "execution_time": 0.0,
+  "cost_usd": 0.0418725,
+  "input_tokens": 12753,
+  "output_tokens": 999,
+  "execution_time": 110.85308384895325,
   "is_correct": null,
-  "error": "The api_key client option must be set either by passing api_key to the client or by setting the OPENAI_API_KEY environment variable",
-  "cached_at": "2026-01-20T09:20:29.130290"
+  "error": null,
+  "cached_at": "2026-01-20T09:23:48.344134"
 }

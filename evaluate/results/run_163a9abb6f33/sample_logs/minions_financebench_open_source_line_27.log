@@ -1,9 +1,9 @@
 Sample: financebench_open_source_line_27
 Protocol: minions
-Timestamp: 2026-01-19T21:16:34.995763
-Execution time: 105.37s
-Cost: $0.0388
-Is correct: True
+Timestamp: 2026-01-20T10:18:30.801415
+Execution time: 68.16s
+Cost: $0.0337
+Is correct: None
 Error: None
 
 --- Question ---
@@ -14,8 +14,3 @@ AMCOR does not have an improving gross margin profile as of FY2023.
 
 --- Ground Truth ---
 ['No. For AMCOR there has been a slight decline in gross margins by 0.8%.']
-
---- Correctness Evaluation ---
-Is correct: True
-Confidence: 1.00
-Reasoning: The predicted answer correctly states that AMCOR does not have an improving gross margin profile as of FY2023, which matches the stance of the ground truth answer. The ground truth provides additional context about a 0.8% decline, but the predicted answer's conclusion aligns with the ground truth.

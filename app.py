@@ -329,11 +329,17 @@ def extract_text_from_pdf(pdf_bytes):
 #         return None
 
 
-def extract_text_from_image(path_to_file):
+def extract_text_from_image(path_to_file, model_name: str = "gemma3:4b"):
+    """
+    Extract text from an image using a vision language model via Ollama.
+    
+    Args:
+        path_to_file: Base64 encoded image or path to image file
+        model_name: Name of the VLM to use (default: "gemma3:4b")
+    """
     try:
-        # set up ollama client with model name="granite3.2-vision"
         client = OllamaClient(
-            model_name="gemma3:4b",
+            model_name=model_name,
             use_async=False,
             num_ctx=131072,
         )

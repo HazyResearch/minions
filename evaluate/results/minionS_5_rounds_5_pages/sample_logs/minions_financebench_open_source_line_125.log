@@ -1,0 +1,21 @@
+Sample: financebench_open_source_line_125
+Protocol: minions
+Timestamp: 2026-01-17T22:55:01.915744
+Execution time: 735.92s
+Cost: $0.3031
+Is correct: True
+Error: None
+
+--- Question ---
+What is the FY2022 unadjusted EBITDA % margin for PepsiCo? Calculate unadjusted EBITDA using unadjusted operating income and D&A (from cash flow statement). Give a response to the question by relying on the details shown in the statement of cash flows and the P&L statement.
+
+--- Predicted Answer ---
+The FY2022 unadjusted EBITDA % margin for PepsiCo is approximately 16.52%.
+
+--- Ground Truth ---
+['16.5%']
+
+--- Correctness Evaluation ---
+Is correct: True
+Confidence: 0.95
+Reasoning: The predicted answer of 16.52% is within the 10% tolerance range of the ground truth answer of 16.5%. Therefore, it is considered correct according to the evaluation rules.

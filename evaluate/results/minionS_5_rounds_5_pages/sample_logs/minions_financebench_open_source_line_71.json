@@ -1,0 +1,18 @@
+{
+  "sample_id": "financebench_open_source_line_71",
+  "protocol": "minions",
+  "question": "Based on the information provided primarily in the balance sheet and the statement of income, what is FY2020 days payable outstanding (DPO) for Corning? DPO is defined as: 365 * (average accounts payable between FY2019 and FY2020) / (FY2020 COGS + change in inventory between FY2019 and FY2020). Round your answer to two decimal places.",
+  "predicted_answer": "63.88",
+  "ground_truth": [
+    "63.86"
+  ],
+  "cost_usd": 0.152115,
+  "input_tokens": 50530,
+  "output_tokens": 2579,
+  "execution_time": 346.2394857406616,
+  "is_correct": true,
+  "error": null,
+  "cached_at": "2026-01-17T20:21:08.782083",
+  "correctness_confidence": 0.95,
+  "correctness_reasoning": "The predicted answer (63.88) is very close to the ground truth answer (63.86). The difference is only 0.02, which is well within the 10% tolerance allowed for numerical answers. Therefore, the predicted answer is considered correct."
+}

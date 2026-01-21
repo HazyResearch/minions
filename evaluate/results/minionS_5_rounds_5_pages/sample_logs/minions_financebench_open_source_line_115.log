@@ -1,0 +1,21 @@
+Sample: financebench_open_source_line_115
+Protocol: minions
+Timestamp: 2026-01-17T22:27:51.945273
+Execution time: 71.48s
+Cost: $0.0234
+Is correct: False
+Error: None
+
+--- Question ---
+We need to calculate a reasonable approximation (or exact number if possible) of a financial metric. Basing your judgment by information plainly provided in the statement of income, what is Nike's three year average of cost of goods sold as a % of revenue from FY2016 to FY2018? Answer in units of percents and round to one decimal place.
+
+--- Predicted Answer ---
+The three-year average of COGS as a percentage of revenue is approximately 54.3%.
+
+--- Ground Truth ---
+['55.1%']
+
+--- Correctness Evaluation ---
+Is correct: False
+Confidence: 0.80
+Reasoning: The predicted answer of 54.3% is outside the 10% tolerance range of the ground truth answer, which is 55.1%. The acceptable range would be 49.6% to 60.6%.

@@ -1,0 +1,18 @@
+{
+  "sample_id": "financebench_open_source_line_88",
+  "protocol": "minions",
+  "question": "Roughly how many times has JnJ sold its inventory in FY2022? Calculate inventory turnover ratio for FY2022; if conventional inventory management is not meaningful for the company then state that and explain why.",
+  "predicted_answer": "The inventory turnover ratio for Johnson & Johnson in FY2022 cannot be calculated due to the absence of confirmed Cost of Goods Sold (COGS) data. The beginning inventory is $10,387 million, and the ending inventory is $12,483 million. Without COGS, the inventory turnover ratio remains indeterminable. There is no indication that conventional inventory management is not meaningful for the company.",
+  "ground_truth": [
+    "JnJ sold its inventory 2.7 times in FY2022."
+  ],
+  "cost_usd": 0.29203250000000003,
+  "input_tokens": 93033,
+  "output_tokens": 5945,
+  "execution_time": 648.6611642837524,
+  "is_correct": false,
+  "error": null,
+  "cached_at": "2026-01-17T21:34:05.936853",
+  "correctness_confidence": 0.8,
+  "correctness_reasoning": "The predicted answer states that the inventory turnover ratio cannot be calculated due to the absence of COGS data, while the ground truth provides a specific turnover ratio of 2.7 times. The predicted answer does not align with the ground truth, which indicates that the calculation is possible and provides a specific result."
+}

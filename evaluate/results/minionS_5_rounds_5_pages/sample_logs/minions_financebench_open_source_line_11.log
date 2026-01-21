@@ -1,0 +1,21 @@
+Sample: financebench_open_source_line_11
+Protocol: minions
+Timestamp: 2026-01-17T18:15:03.773419
+Execution time: 127.16s
+Cost: $0.0777
+Is correct: False
+Error: None
+
+--- Question ---
+You are an investment banker and your only resource(s) to answer the following question is (are): the statement of financial position and the cash flow statement. Here's the question: what is the FY2015 operating cash flow ratio for Adobe? Operating cash flow ratio is defined as: cash from operations / total current liabilities. Round your answer to two decimal places.
+
+--- Predicted Answer ---
+484.11
+
+--- Ground Truth ---
+['0.66']
+
+--- Correctness Evaluation ---
+Is correct: False
+Confidence: 1.00
+Reasoning: The predicted answer of 484.11 is significantly outside the 10% tolerance range of the ground truth answer, which is 0.66. The tolerance range would be 0.594 to 0.726. Therefore, the predicted answer is incorrect.

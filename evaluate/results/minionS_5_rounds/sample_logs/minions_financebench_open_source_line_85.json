@@ -1,0 +1,18 @@
+{
+  "sample_id": "financebench_open_source_line_85",
+  "protocol": "minions",
+  "question": "We want to calculate a financial metric. Please help us compute it by basing your answers off of the cash flow statement and the income statement. Here's the question: what is the FY2022 retention ratio (using total cash dividends paid and net income attributable to shareholders) for General Mills? Round answer to two decimal places.",
+  "predicted_answer": "54.04%",
+  "ground_truth": [
+    "0.54"
+  ],
+  "cost_usd": 0.0301275,
+  "input_tokens": 8123,
+  "output_tokens": 982,
+  "execution_time": 103.29537963867188,
+  "is_correct": true,
+  "error": null,
+  "cached_at": "2026-01-17T14:03:09.013246",
+  "correctness_confidence": 0.9,
+  "correctness_reasoning": "The predicted answer of 54.04% is equivalent to 0.5404 in decimal form. The ground truth answer is 0.54. Given the 10% tolerance rule for numerical answers, the predicted answer is within the acceptable range of the ground truth answer. Therefore, the predicted answer is correct."
+}

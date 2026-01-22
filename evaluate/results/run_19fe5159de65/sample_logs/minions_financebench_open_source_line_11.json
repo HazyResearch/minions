@@ -10,7 +10,9 @@
   "input_tokens": 16921,
   "output_tokens": 2179,
   "execution_time": 101.34148645401001,
-  "is_correct": null,
+  "is_correct": false,
   "error": null,
-  "cached_at": "2026-01-22T12:44:54.520071"
+  "cached_at": "2026-01-22T12:44:54.520071",
+  "correctness_confidence": 1.0,
+  "correctness_reasoning": "The predicted answer of 664.23 is significantly outside the 10% tolerance range of the ground truth answer, which is 0.66. The tolerance range would be 0.594 to 0.726. Therefore, the predicted answer is incorrect."
 }

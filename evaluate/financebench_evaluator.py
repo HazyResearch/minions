@@ -26,6 +26,10 @@ import fitz  # PyMuPDF for PDF text extraction
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+# Add learned logit processor path
+sys.path.insert(0, "/workspace/learning_grammar/output")
+from learned_logit_processor import LearnedBloatAxisProcessor
+
 from minions.clients.ollama import OllamaClient
 from minions.clients.openai import OpenAIClient
 from minions.clients.sglang import SGLangClient
@@ -923,6 +927,17 @@ class ProtocolRunner:
                 max_tokens_citation=self.max_tokens_citation,
                 max_tokens_answer=self.max_tokens_answer,
             )
+            # Use learned logit processor token IDs
+            local_client.intro_token_ids = LearnedBloatAxisProcessor.EARLY_PHASE_TOKEN_IDS
+            local_client.always_token_ids = LearnedBloatAxisProcessor.ALWAYS_TOKEN_IDS
+            local_client.list_token_ids = LearnedBloatAxisProcessor.AFTER_NEWLINE_TOKEN_IDS
+            # Override token IDs if custom logit processor params provided
+            if kwargs.get('intro_token_ids'):
+                local_client.intro_token_ids = set(kwargs['intro_token_ids'])
+            if kwargs.get('always_token_ids'):
+                local_client.always_token_ids = set(kwargs['always_token_ids'])
+            if kwargs.get('list_token_ids'):
+                local_client.list_token_ids = set(kwargs['list_token_ids'])
         else:
             local_client = OllamaClient(
                 model_name=self.local_model,

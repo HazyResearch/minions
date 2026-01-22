@@ -9,33 +9,33 @@ Numerical Tolerance: 10%
 --------------------------------------------------------------------------------
 Question: Is 3M a capital-intensive business based on FY2022 data?
 Ground Truth: ['No, the company is managing its CAPEX and Fixed Assets pretty efficiently, which is evident from below key metrics:\nCAPEX/Revenue Ratio: 5.1%\nFixed assets/Total Assets: 20%\nReturn on Assets= 12.4%']
-Predicted: Yes, 3M is a capital-intensive business based on FY2022 data.
+Predicted: 3M is a capital-intensive business based on FY2022 data.
 
 Verdict: WRONG
 Confidence: 1.00
-Reasoning: The predicted answer states that 3M is a capital-intensive business, which directly contradicts the ground truth answer. The evaluation rules for yes/no questions require the stance to match exactly, and in this case, they do not.
+Reasoning: The predicted answer states that 3M is a capital-intensive business, which directly contradicts the ground truth answer. The ground truth provides specific metrics indicating efficient management of CAPEX and fixed assets, suggesting that 3M is not capital-intensive. Since this is a yes/no question, the stance must match exactly, and it does not in this case.
 
 --------------------------------------------------------------------------------
 2. [✓ CORRECT] financebench_open_source_line_4
 --------------------------------------------------------------------------------
 Question: What drove operating margin change as of FY2022 for 3M? If operating margin is not a useful metric for a company like this, then please state that and explain why.
 Ground Truth: ['Operating Margin for 3M in FY2022 has decreased by 1.7% primarily due to: \n-Decrease in gross Margin\n-mostly one-off charges including Combat Arms Earplugs litigation, impairment related to exiting PFAS manufacturing, costs related to exiting Russia and divestiture-related restructuring\ncharges']
-Predicted: The operating margin for 3M in FY2022 was primarily driven by decreased demand for certain products, increased costs, and significant litigation and restructuring expenses.
+Predicted: 3M's operating margin decreased from 20.8% in 2021 to 19.1% in 2022, driven by a $0.8 billion pre-tax charge for PFAS exit, $1.2 billion litigation charge, and increased costs in raw materials and logistics.
 
 Verdict: CORRECT
-Confidence: 0.80
-Reasoning: The predicted answer correctly identifies significant litigation and restructuring expenses as key factors affecting 3M's operating margin in FY2022, which aligns with the ground truth. Although it mentions increased costs and decreased demand, which are not specified in the ground truth, these can be considered as part of the broader context of financial challenges. The core elements of the ground truth are present in the predicted answer.
+Confidence: 0.90
+Reasoning: The predicted answer correctly identifies the decrease in operating margin and attributes it to significant charges related to PFAS exit and litigation, which aligns with the ground truth. It also mentions increased costs in raw materials and logistics, which is additional context but does not contradict the ground truth. The numerical change in operating margin is within the 10% tolerance range.
 
 --------------------------------------------------------------------------------
 3. [✓ CORRECT] financebench_open_source_line_6
 --------------------------------------------------------------------------------
 Question: Does 3M have a reasonably healthy liquidity profile based on its quick ratio for Q2 of FY2023? If the quick ratio is not relevant to measure liquidity, please state that and explain why.
 Ground Truth: ["No. The quick ratio for 3M was 0.96 by Jun'23 close, which needs a bit of an improvement to touch the 1x mark"]
-Predicted: Based on the available data, 3M's quick ratio for Q2 of FY2023 is approximately 0.90, which suggests that its liquidity profile may not be considered reasonably healthy. However, due to inconsistencies and missing information in the data, this conclusion is not definitive.
+Predicted: 3M does not have a reasonably healthy liquidity profile based on its quick ratio for Q2 of FY2023, as the quick ratio is below 1.
 
 Verdict: CORRECT
-Confidence: 0.90
-Reasoning: The predicted answer correctly identifies that 3M's quick ratio for Q2 of FY2023 is below 1, indicating a less than reasonably healthy liquidity profile. The numerical value of 0.90 is within the 10% tolerance range of the ground truth value of 0.96. The conclusion that the liquidity profile may not be considered reasonably healthy aligns with the ground truth answer.
+Confidence: 1.00
+Reasoning: The predicted answer correctly states that 3M does not have a reasonably healthy liquidity profile based on its quick ratio for Q2 of FY2023, as it is below 1. This aligns with the ground truth answer, which also indicates that the quick ratio is 0.96 and needs improvement to reach 1. The stance and key facts match, fulfilling the evaluation criteria.
 
 --------------------------------------------------------------------------------
 4. [✓ CORRECT] financebench_open_source_line_9
@@ -57,63 +57,85 @@ Predicted: 1.9%
 
 Verdict: CORRECT
 Confidence: 1.00
-Reasoning: The predicted answer matches the ground truth answer exactly. Both state that the 3-year average of capex as a percentage of revenue for Activision Blizzard from FY2017 to FY2019 is 1.9%. This falls within the 10% tolerance rule, which would allow for a range of 1.71% to 2.09% if there were any discrepancies. Therefore, the predicted answer is correct.
+Reasoning: The predicted answer of 1.9% matches the ground truth answer exactly. Given the evaluation rules, the predicted answer is within the acceptable range, and there are no discrepancies in the numerical value provided.
 
 --------------------------------------------------------------------------------
-6. [✓ CORRECT] financebench_open_source_line_11
+6. [✗ WRONG] financebench_open_source_line_11
 --------------------------------------------------------------------------------
 Question: You are an investment banker and your only resource(s) to answer the following question is (are): the statement of financial position and the cash flow statement. Here's the question: what is the FY20...
 Ground Truth: ['0.66']
-Predicted: 0.66
+Predicted: 664.23
 
-Verdict: CORRECT
+Verdict: WRONG
 Confidence: 1.00
-Reasoning: The predicted answer matches the ground truth answer exactly. Since the numerical answer is within the 10% tolerance range specified by the evaluation rules, the predicted answer is considered correct.
+Reasoning: The predicted answer of 664.23 is significantly outside the 10% tolerance range of the ground truth answer, which is 0.66. The tolerance range would be 0.594 to 0.726. Therefore, the predicted answer is incorrect.
 
 --------------------------------------------------------------------------------
 7. [✓ CORRECT] financebench_open_source_line_12
 --------------------------------------------------------------------------------
 Question: What is Adobe's year-over-year change in unadjusted operating income from FY2015 to FY2016 (in units of percents and round to one decimal place)? Give a solution to the question by using the income st...
 Ground Truth: ['65.4%']
-Predicted: The year-over-year change in unadjusted operating income from FY2015 to FY2016 is 65.4%.
+Predicted: The year-over-year change in unadjusted operating income from FY2015 to FY2016 is approximately 65.4%.
 
 Verdict: CORRECT
 Confidence: 1.00
-Reasoning: The predicted answer matches the ground truth answer exactly, stating that the year-over-year change in unadjusted operating income from FY2015 to FY2016 is 65.4%. This is within the 10% tolerance allowed for numerical answers, and there are no discrepancies in the information provided.
+Reasoning: The predicted answer matches the ground truth answer exactly, both stating a year-over-year change in unadjusted operating income of 65.4%. This falls within the 10% tolerance rule, and there are no discrepancies in the numerical value provided.
 
 --------------------------------------------------------------------------------
-8. [✗ WRONG] financebench_open_source_line_13
+8. [✓ CORRECT] financebench_open_source_line_13
 --------------------------------------------------------------------------------
 Question: What is the FY2017 operating cash flow ratio for Adobe? Operating cash flow ratio is defined as: cash from operations / total current liabilities. Round your answer to two decimal places. Please utili...
 Ground Truth: ['0.83']
-Predicted: 1.82
+Predicted: 0.82
 
-Verdict: WRONG
-Confidence: 1.00
-Reasoning: The predicted answer of 1.82 is outside the 10% tolerance range of the ground truth answer 0.83. The acceptable range would be 0.75 to 0.91.
+Verdict: CORRECT
+Confidence: 0.90
+Reasoning: The predicted answer of 0.82 is within the 10% tolerance range of the ground truth answer of 0.83. Therefore, it is considered correct according to the evaluation rules.
 
 --------------------------------------------------------------------------------
 9. [✗ WRONG] financebench_open_source_line_14
 --------------------------------------------------------------------------------
 Question: Does Adobe have an improving operating margin profile as of FY2022? If operating margin is not a useful metric for a company like this, then state that and explain why.
 Ground Truth: ['No the operating margins of Adobe have recently declined from 36.8% in FY 2021 to 34.6% in FY2022. A drop by 2.2% in a year.']
-Predicted: Adobe's operating margin profile as of FY2022 cannot be conclusively determined from the available data. The document does not provide explicit operating margin figures, and there is no discussion on the relevance of operating margin as a metric for Adobe. This suggests that operating margin may not...
+Predicted: Adobe's operating margin for FY2022 was approximately 35.86%. While specific figures for previous years were not consistently available, the operating margin is considered a relevant metric for Adobe as it is used to assess financial performance and is impacted by various business factors such as pr...
 
 Verdict: WRONG
-Confidence: 0.90
-Reasoning: The predicted answer does not match the ground truth. The ground truth provides specific figures showing a decline in Adobe's operating margin from 36.8% in FY2021 to 34.6% in FY2022, indicating a worsening margin profile. The predicted answer incorrectly states that the operating margin profile cannot be determined and suggests that operating margin may not be a primary focus for Adobe, which contradicts the ground truth.
+Confidence: 0.80
+Reasoning: The predicted answer does not match the ground truth answer in terms of the yes/no stance. The ground truth states that Adobe's operating margin declined, while the predicted answer does not address this decline and provides an incorrect figure for FY2022. The predicted answer also lacks the specific comparison to FY2021, which is crucial for determining whether the operating margin profile is improving or not.
 
 --------------------------------------------------------------------------------
 10. [✓ CORRECT] financebench_open_source_line_17
 --------------------------------------------------------------------------------
 Question: Roughly how many times has AES Corporation sold its inventory in FY2022? Calculate inventory turnover ratio for the FY2022; if conventional inventory management is not meaningful for the company then ...
 Ground Truth: ['AES has converted inventory 9.5 times in FY 2022.']
-Predicted: The inventory turnover ratio for AES Corporation in FY2022 is approximately 9.54.
+Predicted: The inventory turnover ratio for AES Corporation in FY2022 is approximately 9.54 times, calculated using the COGS of $10,069 million and average inventory of $1,055 million. However, due to AES Corporation's focus on energy generation, conventional inventory management metrics may not be applicable.
 
 Verdict: CORRECT
 Confidence: 0.95
-Reasoning: The predicted answer of 9.54 is within the 10% tolerance range of the ground truth answer of 9.5. Therefore, the prediction is considered correct.
+Reasoning: The predicted answer provides a numerical inventory turnover ratio of 9.54, which is within the 10% tolerance range of the ground truth answer of 9.5. Additionally, the predicted answer correctly notes that conventional inventory management metrics may not be applicable to AES Corporation due to its focus on energy generation, aligning with the qualitative aspect of the ground truth.
+
+--------------------------------------------------------------------------------
+11. [✗ WRONG] financebench_open_source_line_18
+--------------------------------------------------------------------------------
+Question: Based on the information provided primarily in the statement of financial position and the statement of income, what is AES's FY2022 return on assets (ROA)? ROA is defined as: FY2022 net income / (ave...
+Ground Truth: ['-0.02']
+Predicted: 3.12%
+
+Verdict: WRONG
+Confidence: 1.00
+Reasoning: The ground truth answer is -0.02, while the predicted answer is 3.12%. The 10% tolerance rule allows for a range of -0.022 to -0.018 for the ground truth answer. The predicted answer of 3.12% is far outside this range, indicating a significant discrepancy. Therefore, the predicted answer is incorrect.
+
+--------------------------------------------------------------------------------
+12. [✓ CORRECT] financebench_open_source_line_19
+--------------------------------------------------------------------------------
+Question: What is Amazon's FY2017 days payable outstanding (DPO)? DPO is defined as: 365 * (average accounts payable between FY2016 and FY2017) / (FY2017 COGS + change in inventory between FY2016 and FY2017). R...
+Ground Truth: ['93.86']
+Predicted: Amazon's FY2017 days payable outstanding (DPO) is 93.85 days.
+
+Verdict: CORRECT
+Confidence: 1.00
+Reasoning: The predicted answer of 93.85 is within the 10% tolerance range of the ground truth answer of 93.86. The difference is only 0.01, which is well within the acceptable range for numerical answers.
 
 ================================================================================
-SUMMARY: 7/10 correct (70.00%)
+SUMMARY: 8/12 correct (66.67%)
 ================================================================================

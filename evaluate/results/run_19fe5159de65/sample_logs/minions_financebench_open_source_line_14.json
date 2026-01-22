@@ -10,7 +10,9 @@
   "input_tokens": 30904,
   "output_tokens": 3361,
   "execution_time": 259.89727783203125,
-  "is_correct": null,
+  "is_correct": false,
   "error": null,
-  "cached_at": "2026-01-22T12:54:03.653100"
+  "cached_at": "2026-01-22T12:54:03.653100",
+  "correctness_confidence": 0.8,
+  "correctness_reasoning": "The predicted answer does not match the ground truth answer in terms of the yes/no stance. The ground truth states that Adobe's operating margin declined, while the predicted answer does not address this decline and provides an incorrect figure for FY2022. The predicted answer also lacks the specific comparison to FY2021, which is crucial for determining whether the operating margin profile is improving or not."
 }

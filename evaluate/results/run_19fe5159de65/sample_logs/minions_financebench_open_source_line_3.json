@@ -10,7 +10,9 @@
   "input_tokens": 17395,
   "output_tokens": 1051,
   "execution_time": 111.6264591217041,
-  "is_correct": null,
+  "is_correct": false,
   "error": null,
-  "cached_at": "2026-01-22T12:33:55.305269"
+  "cached_at": "2026-01-22T12:33:55.305269",
+  "correctness_confidence": 1.0,
+  "correctness_reasoning": "The predicted answer states that 3M is a capital-intensive business, which directly contradicts the ground truth answer. The ground truth provides specific metrics indicating efficient management of CAPEX and fixed assets, suggesting that 3M is not capital-intensive. Since this is a yes/no question, the stance must match exactly, and it does not in this case."
 }

@@ -6,13 +6,11 @@
   "ground_truth": [
     "1.9%"
   ],
-  "cost_usd": 0.103965,
-  "input_tokens": 32526,
-  "output_tokens": 2265,
-  "execution_time": 288.65271615982056,
-  "is_correct": true,
+  "cost_usd": 0.08629,
+  "input_tokens": 30340,
+  "output_tokens": 1044,
+  "execution_time": 146.0638518333435,
+  "is_correct": null,
   "error": null,
-  "cached_at": "2026-01-20T11:57:19.349031",
-  "correctness_confidence": 1.0,
-  "correctness_reasoning": "The predicted answer matches the ground truth answer exactly. Both state that the 3-year average of capex as a percentage of revenue for Activision Blizzard from FY2017 to FY2019 is 1.9%. This falls within the 10% tolerance rule, which would allow for a range of 1.71% to 2.09% if there were any discrepancies. Therefore, the predicted answer is correct."
+  "cached_at": "2026-01-22T12:43:12.830919"
 }

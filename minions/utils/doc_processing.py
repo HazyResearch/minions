@@ -40,6 +40,120 @@ try:
 except ImportError:
     HAS_LANGEXTRACT = False
 
+# Try to import OpenCV for video processing
+try:
+    import cv2
+    HAS_CV2 = True
+except ImportError:
+    HAS_CV2 = False
+
+
+def video_to_images(
+    video_data: Union[str, Path, bytes],
+    frame_interval: Optional[float] = None,
+    num_frames: Optional[int] = None,
+    max_frames: int = 100,
+) -> List[Image.Image]:
+    """
+    Extract frames from a video file as a list of PIL Image objects.
+
+    Args:
+        video_data: Path to the video file or video data as bytes
+        frame_interval: Extract a frame every N seconds. If None, uses num_frames.
+        num_frames: Total number of frames to extract evenly across the video. 
+                   If None and frame_interval is None, defaults to 10 frames.
+        max_frames: Maximum number of frames to extract (default: 100)
+
+    Returns:
+        List of PIL Image objects extracted from the video
+        
+    Example:
+        # Extract 10 evenly-spaced frames
+        frames = video_to_images("video.mp4", num_frames=10)
+        
+        # Extract a frame every 2 seconds
+        frames = video_to_images("video.mp4", frame_interval=2.0)
+    """
+    if not HAS_CV2:
+        raise ImportError(
+            "OpenCV is not installed. Install with 'pip install opencv-python'"
+        )
+
+    temp_file = None
+    
+    try:
+        # Handle bytes input by writing to temp file
+        if isinstance(video_data, bytes):
+            temp_file = tempfile.NamedTemporaryFile(suffix=".mp4", delete=False)
+            temp_file.write(video_data)
+            temp_file.close()
+            video_path = temp_file.name
+        else:
+            video_path = str(video_data)
+
+        # Open the video
+        cap = cv2.VideoCapture(video_path)
+        if not cap.isOpened():
+            raise ValueError(f"Could not open video: {video_path}")
+
+        # Get video properties
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        
+        if total_frames <= 0 or fps <= 0:
+            raise ValueError(f"Invalid video properties: frames={total_frames}, fps={fps}")
+
+        duration = total_frames / fps
+
+        # Determine which frames to extract
+        if frame_interval is not None:
+            # Extract frames at fixed time intervals
+            frame_indices = []
+            current_time = 0
+            while current_time < duration and len(frame_indices) < max_frames:
+                frame_idx = int(current_time * fps)
+                if frame_idx < total_frames:
+                    frame_indices.append(frame_idx)
+                current_time += frame_interval
+        elif num_frames is not None:
+            # Extract evenly-spaced frames
+            num_to_extract = min(num_frames, max_frames, total_frames)
+            if num_to_extract == 1:
+                frame_indices = [total_frames // 2]  # Middle frame
+            else:
+                step = total_frames / num_to_extract
+                frame_indices = [int(i * step) for i in range(num_to_extract)]
+        else:
+            # Default: extract 10 evenly-spaced frames
+            num_to_extract = min(10, max_frames, total_frames)
+            if num_to_extract == 1:
+                frame_indices = [total_frames // 2]
+            else:
+                step = total_frames / num_to_extract
+                frame_indices = [int(i * step) for i in range(num_to_extract)]
+
+        # Extract frames
+        images = []
+        for frame_idx in frame_indices:
+            cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
+            ret, frame = cap.read()
+            if ret:
+                # Convert BGR (OpenCV) to RGB (PIL)
+                frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+                pil_image = Image.fromarray(frame_rgb)
+                images.append(pil_image)
+
+        cap.release()
+        return images
+
+    finally:
+        # Clean up temp file if created
+        if temp_file is not None:
+            try:
+                os.unlink(temp_file.name)
+            except:
+                pass
+
 
 def pdf_to_images(
     pdf_data: Union[str, Path, bytes], dpi: int = 300

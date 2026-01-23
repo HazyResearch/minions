@@ -13,7 +13,7 @@ from minions.clients.base import MinionsClient
 class GeminiClient(MinionsClient):
     def __init__(
         self,
-        model_name: str = "gemini-2.0-flash",
+        model_name: str = "gemini-2.5-flash",
         temperature: float = 0.0,
         max_tokens: int = 2048,
         api_key: Optional[str] = None,
@@ -149,8 +149,6 @@ class GeminiClient(MinionsClient):
                     "gemini-2.5-pro",
                     "gemini-2.5-flash",
                     "gemini-2.5-flash-lite",
-                    "gemini-2.0-flash",
-                    "gemini-2.0-pro",
                 ]
 
             client = genai.Client(api_key=api_key)
@@ -183,10 +181,6 @@ class GeminiClient(MinionsClient):
                 "gemini-2.5-pro",
                 "gemini-2.5-flash", 
                 "gemini-2.5-flash-lite",
-                "gemini-2.0-flash",
-                "gemini-2.0-pro",
-                "gemini-1.5-pro",
-                "gemini-1.5-flash",
             ]
             
         except Exception as e:
@@ -196,10 +190,6 @@ class GeminiClient(MinionsClient):
                 "gemini-2.5-pro",
                 "gemini-2.5-flash",
                 "gemini-2.5-flash-lite",
-                "gemini-2.0-flash", 
-                "gemini-2.0-pro",
-                "gemini-1.5-pro",
-                "gemini-1.5-flash",
             ]
 
     def _prepare_generation_config(self):
@@ -293,7 +283,6 @@ class GeminiClient(MinionsClient):
             "gemini-2.5-flash", 
             "gemini-2.5-flash-lite",
             "gemini-live-2.5-flash-preview",
-            "gemini-2.0-flash-live-001"
         }
         
         if self.model_name not in supported_models:

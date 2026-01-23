@@ -179,10 +179,6 @@ API_PRICES = {
             "cached_input": 0.0375,
             "output": 0.30,
         },
-        "gemini-2.0-flash": {"input": 0.35, "cached_input": 0.175, "output": 1.05},
-        "gemini-2.0-pro": {"input": 3.50, "cached_input": 1.75, "output": 10.50},
-        "gemini-1.5-pro": {"input": 3.50, "cached_input": 1.75, "output": 10.50},
-        "gemini-1.5-flash": {"input": 0.35, "cached_input": 0.175, "output": 1.05},
     },
     # LlamaAPI pricing (approximate - please update with actual pricing)
     "LlamaAPI": {
@@ -224,11 +220,6 @@ API_PRICES = {
             "input": 3.50,
             "cached_input": 1.75,
             "output": 3.50,
-        },
-        "google/gemini-2.0-flash": {
-            "input": 0.35,
-            "cached_input": 0.175,
-            "output": 1.05,
         },
         "mistralai/mistral-large": {
             "input": 2.00,
@@ -1487,7 +1478,7 @@ def validate_sambanova_key(api_key):
 def validate_gemini_key(api_key):
     try:
         client = GeminiClient(
-            model_name="gemini-2.0-flash",
+            model_name="gemini-2.5-flash",
             api_key=api_key,
             temperature=0.0,
             max_tokens=1,
@@ -2594,11 +2585,10 @@ with st.sidebar:
 
             # Initialize with default model options
             model_mapping = {
+                "gemini-3-pro": "gemini-3-pro-preview",
                 "gemini-2.5-pro (Recommended)": "gemini-2.5-pro",
-                "gemini-2.5-flash (Recommended)": "gemini-2.5-flash-preview-09-2025",
-                "gemini-2.5-flash-lite (Most cost-efficient)": "gemini-2.5-flash-lite-preview-09-2025",
-                "gemini-2.0-flash": "gemini-2.0-flash",
-                "gemini-2.0-pro": "gemini-2.0-pro",
+                "gemini-2.5-flash (Recommended)": "gemini-2.5-flash",
+                "gemini-2.5-flash-lite (Most cost-efficient)": "gemini-2.5-flash-lite",
             }
 
             # Add any additional available models from Gemini API that aren't in the default list

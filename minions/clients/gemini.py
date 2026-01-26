@@ -13,8 +13,8 @@ from minions.clients.base import MinionsClient
 class GeminiClient(MinionsClient):
     def __init__(
         self,
-        model_name: str = "gemini-2.5-flash",
-        temperature: float = 0.0,
+        model_name: str = "gemini-3-flash-preview",
+        temperature: float = 1.0,
         max_tokens: int = 2048,
         api_key: Optional[str] = None,
         structured_output_schema: Optional[BaseModel] = None,
@@ -34,8 +34,10 @@ class GeminiClient(MinionsClient):
         """Initialize Gemini Client.
 
         Args:
-            model_name: The Gemini model to use.
-            temperature: The temperature to use for generation. Higher values make output more random.
+            model_name: The Gemini model to use. Defaults to "gemini-3-flash-preview".
+            temperature: The temperature to use for generation. Defaults to 1.0 (recommended for Gemini 3).
+                        Note: For Gemini 3 models, Google recommends keeping temperature at 1.0 to avoid
+                        potential looping issues or performance degradation on complex tasks.
             max_tokens: The maximum number of tokens to generate.
             api_key: The API key to use. If not provided, it will be read from the GOOGLE_API_KEY environment variable.
             structured_output_schema: Optional Pydantic model for structured output.
@@ -44,8 +46,12 @@ class GeminiClient(MinionsClient):
             system_instruction: Optional system instruction to use for all calls.
             use_openai_api: Whether to use OpenAI-compatible API endpoint for Gemini models.
             thinking_budget: Optional thinking budget for reasoning models (integer value).
-            thinking_level: Optional thinking level for reasoning models. Valid values: "low", "medium", "high".
-                          Can be used instead of or in addition to thinking_budget.
+                           DEPRECATED for Gemini 3: Use thinking_level instead.
+                           Cannot be used together with thinking_level (will raise ValueError).
+            thinking_level: Optional thinking level for reasoning models. 
+                          For Gemini 3 Pro/Flash: "low", "high" (default: "high")
+                          For Gemini 3 Flash only: also supports "minimal", "medium"
+                          Cannot be used together with thinking_budget (will raise ValueError).
             url_context: Whether to enable URL context retrieval tool. When enabled, the model can
                        access content from URLs mentioned in messages (supports up to 20 URLs per request).
                        URLs are automatically detected and the tool is enabled dynamically if needed.
@@ -90,6 +96,13 @@ class GeminiClient(MinionsClient):
         # Validate use_interactions_api with use_openai_api
         if use_interactions_api and use_openai_api:
             raise ValueError("Interactions API is not available with OpenAI-compatible API. Use native Gemini API instead.")
+        
+        if thinking_budget is not None and thinking_level is not None:
+            raise ValueError(
+                "Cannot use both 'thinking_budget' and 'thinking_level' together. "
+                "For Gemini 3 models, use 'thinking_level' (recommended). "
+                "Valid thinking_level values: 'low', 'medium' (Flash only), 'high', 'minimal' (Flash only)."
+            )
 
         # If we want structured schema output:
         self.format_structured_output = None
@@ -146,9 +159,8 @@ class GeminiClient(MinionsClient):
                 logging.warning("No GOOGLE_API_KEY found in environment variables")
                 # Return default models if no API key
                 return [
-                    "gemini-2.5-pro",
-                    "gemini-2.5-flash",
-                    "gemini-2.5-flash-lite",
+                    "gemini-3-pro-preview",
+                    "gemini-3-flash-preview",
                 ]
 
             client = genai.Client(api_key=api_key)
@@ -178,18 +190,16 @@ class GeminiClient(MinionsClient):
             
             # Fallback to default models if API returned empty
             return [
-                "gemini-2.5-pro",
-                "gemini-2.5-flash", 
-                "gemini-2.5-flash-lite",
+                "gemini-3-pro-preview",
+                "gemini-3-flash-preview",
             ]
             
         except Exception as e:
             logging.error(f"Failed to get Gemini model list: {e}")
-            # Return default models including the new Flash-Lite
+            # Return default models including Gemini 3 family
             return [
-                "gemini-2.5-pro",
-                "gemini-2.5-flash",
-                "gemini-2.5-flash-lite",
+                "gemini-3-pro-preview",
+                "gemini-3-flash-preview",
             ]
 
     def _prepare_generation_config(self):
@@ -279,10 +289,8 @@ class GeminiClient(MinionsClient):
         """
         # Models that support URL context according to the documentation
         supported_models = {
-            "gemini-2.5-pro",
-            "gemini-2.5-flash", 
-            "gemini-2.5-flash-lite",
-            "gemini-live-2.5-flash-preview",
+            "gemini-3-pro-preview",
+            "gemini-3-flash-preview",
         }
         
         if self.model_name not in supported_models:
@@ -1021,7 +1029,7 @@ class GeminiClient(MinionsClient):
             use_interactions: If True, use Interactions API; if False, use generate_content API
             
         Example:
-            client = GeminiClient(model_name="gemini-2.5-flash")
+            client = GeminiClient(model_name="gemini-3-flash-preview")
             
             # Use generate_content API (default)
             responses, usage = client.chat(messages)

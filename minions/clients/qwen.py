@@ -9,7 +9,7 @@ import openai
 class QwenClient(MinionsClient):
     def __init__(
         self,
-        model_name: str = "qwen3-max",
+        model_name: str = "qwen3-max-2026-01-23",
         api_key: Optional[str] = None,
         temperature: float = 0.0,
         max_tokens: int = 4096,

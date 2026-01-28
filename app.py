@@ -151,6 +151,7 @@ API_PRICES = {
     },
     # Novita AI pricing per 1M tokens
     "Novita": {
+        "zai-org/glm-4.7-flash": {"input": 0.10, "cached_input": 0.10, "output": 0.10},
         "deepseek/deepseek-v3.1-terminus": {"input": 0.27, "cached_input": 0.27, "output": 1.00},
         "moonshotai/kimi-k2-thinking": {"input": 0.60, "cached_input": 0.60, "output": 2.50},
     },
@@ -168,6 +169,23 @@ API_PRICES = {
         "claude-3-haiku-20240307": {"input": 0.25, "cached_input": 0.03, "output": 1.25},
     },
     "Gemini": {
+        # Gemini 3 models (latest)
+        "gemini-3-pro-preview": {
+            "input": 2.00,
+            "cached_input": 1.00,
+            "output": 12.00,
+        },
+        "gemini-3-flash-preview": {
+            "input": 0.50,
+            "cached_input": 0.25,
+            "output": 3.00,
+        },
+        "gemini-3-pro-image-preview": {
+            "input": 2.00,
+            "cached_input": 1.00,
+            "output": 0.134,  # per image, varies by resolution
+        },
+        # Gemini 2.5 models (legacy)
         "gemini-2.5-pro": {
             "input": 1.25,
             "cached_input": 0.075,
@@ -254,6 +272,7 @@ API_PRICES = {
     },
     # Ollama Turbo model pricing per 1M tokens
     "Ollama": {
+        "kimi-k2.5:cloud": {"input": 0.20, "cached_input": 0.05, "output": 0.20},
         "gemini-3-pro-preview:cloud": {"input": 1.25, "cached_input": 0.075, "output": 10.00},
         "gpt-oss:20b-cloud": {"input": 1.20, "cached_input": 0.30, "output": 1.20},
         "gpt-oss:120b-cloud": {"input": 0.60, "cached_input": 0.15, "output": 0.60},
@@ -1478,9 +1497,9 @@ def validate_sambanova_key(api_key):
 def validate_gemini_key(api_key):
     try:
         client = GeminiClient(
-            model_name="gemini-2.5-flash",
+            model_name="gemini-3-flash-preview",
             api_key=api_key,
-            temperature=0.0,
+            temperature=1.0,
             max_tokens=1,
         )
         messages = [{"role": "user", "content": "Say yes"}]
@@ -1983,17 +2002,30 @@ with st.sidebar:
                 "💡 Code interpreter is enabled. Claude can now execute Python code to solve complex problems, "
                 "perform calculations, analyze data, and create visualizations."
             )
-    # Add thinking_budget option for Gemini provider
+    # Add thinking options for Gemini provider
     elif selected_provider == "Gemini":
-        thinking_budget = st.slider(
-            "Thinking Budget",
-            min_value=0,
-            max_value=24576,
-            value=st.session_state.get("thinking_budget", 0),
-            step=1024,
-            key="thinking_budget",
-            help="Number of tokens used for model thinking before generating a response. 0 disables thinking. Higher values can improve response quality but increase token usage and cost.",
+        st.markdown("**Thinking Configuration**")
+        st.caption("For Gemini 3 models, use Thinking Level (recommended). Cannot use both options together.")
+        
+        thinking_level = st.selectbox(
+            "Thinking Level",
+            options=["default", "low", "medium", "high", "minimal"],
+            index=0,
+            key="thinking_level",
+            help="Controls reasoning depth. 'high' (default for Gemini 3) maximizes reasoning. 'low' minimizes latency. 'medium'/'minimal' available for Gemini 3 Flash only.",
         )
+        
+        # Only show thinking_budget if thinking_level is default (for backwards compatibility with 2.5 models)
+        if thinking_level == "default":
+            thinking_budget = st.slider(
+                "Thinking Budget (Legacy - for Gemini 2.5)",
+                min_value=0,
+                max_value=24576,
+                value=st.session_state.get("thinking_budget", 0),
+                step=1024,
+                key="thinking_budget",
+                help="Number of tokens for thinking. Only for Gemini 2.5 models. Set to 0 to disable.",
+            )
 
     # Add secure client configuration
     elif selected_provider == "Secure":
@@ -2578,17 +2610,14 @@ with st.sidebar:
 
             # Default recommended models list
             recommended_models = [
-                "gemini-2.5-pro",
-                "gemini-2.5-flash",
-                "gemini-2.5-flash-lite",
+                "gemini-3-pro-preview",
+                "gemini-3-flash-preview",
             ]
 
             # Initialize with default model options
             model_mapping = {
-                "gemini-3-pro": "gemini-3-pro-preview",
-                "gemini-2.5-pro (Recommended)": "gemini-2.5-pro",
-                "gemini-2.5-flash (Recommended)": "gemini-2.5-flash",
-                "gemini-2.5-flash-lite (Most cost-efficient)": "gemini-2.5-flash-lite",
+                "gemini-3-pro (Recommended)": "gemini-3-pro-preview",
+                "gemini-3-flash (Recommended)": "gemini-3-flash-preview",
             }
 
             # Add any additional available models from Gemini API that aren't in the default list
@@ -2712,7 +2741,8 @@ with st.sidebar:
             default_model_index = 0
         elif selected_provider == "Novita":
             model_mapping = {
-                "Kimi K2 Thinking (Recommended - Reasoning)": "moonshotai/kimi-k2-thinking",
+                "GLM 4.7 Flash (Recommended)": "zai-org/glm-4.7-flash",
+                "Kimi K2 Thinking (Reasoning)": "moonshotai/kimi-k2-thinking",
                 "GLM 4.6": "zai-org/glm-4.6",
                 "Deepseek V3.2 Exp": "deepseek/deepseek-v3.2-exp",
                 "Deepseek V3.1 Terminus": "deepseek/deepseek-v3.1-terminus",
@@ -2744,6 +2774,7 @@ with st.sidebar:
             default_model_index = 0
         elif selected_provider == "Ollama":
             model_mapping = {
+                "kimi-k2.5 (Recommended)": "kimi-k2.5:cloud",
                 "glm-4.7": "glm-4.7:cloud",
                 "gemini-3-flash-preview": "gemini-3-flash-preview:cloud",
                 "gemini-3-pro-preview": "gemini-3-pro-preview:cloud",

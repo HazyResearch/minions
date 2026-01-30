@@ -185,6 +185,91 @@ class PerplexityAIClient(MinionsClient):
             # Return empty results on error
             return []
 
+    def responses(
+        self,
+        input_text: str,
+        model: Optional[str] = None,
+        tools: Optional[List[Dict[str, Any]]] = None,
+        instructions: Optional[str] = None,
+        preset: Optional[str] = None,
+        **kwargs
+    ) -> Tuple[str, Usage]:
+        """
+        Use Perplexity's Agentic Research API for multi-provider access with web search.
+        
+        See: https://docs.perplexity.ai/docs/grounded-llm/responses/quickstart
+        
+        Args:
+            input_text: Query string
+            model: Model to use (e.g., "openai/gpt-5.2"). Required if preset not specified.
+            tools: List of tools to enable (e.g., [{"type": "web_search"}])
+            instructions: System instructions for the model
+            preset: Use a preset (e.g., "pro-search"). If specified, model is optional.
+            **kwargs: Additional parameters passed to the API
+            
+        Returns:
+            Tuple of (output_text, Usage)
+                
+        Example:
+            # Using a third-party model with web search
+            response, usage = client.responses(
+                input_text="What are the latest developments in AI?",
+                model="openai/gpt-5.2",
+                tools=[{"type": "web_search"}],
+                instructions="Use web_search for current events.",
+            )
+            
+            # Using a preset
+            response, usage = client.responses(
+                input_text="Explain quantum computing",
+                preset="pro-search",
+            )
+        """
+        if Perplexity is None:
+            raise ImportError(
+                "Perplexity SDK is required for the Agentic Research API. "
+                "Install with: pip install perplexityai"
+            )
+        
+        pplx_client = Perplexity(api_key=self.api_key)
+        
+        try:
+            params = {"input": input_text}
+            
+            if preset:
+                params["preset"] = preset
+            elif model:
+                params["model"] = model
+            else:
+                params["model"] = "openai/gpt-5.2"
+            
+            if tools:
+                params["tools"] = tools
+            
+            if instructions:
+                params["instructions"] = instructions
+            
+            params.update(kwargs)
+            
+            response = pplx_client.responses.create(**params)
+            
+            # Extract output text using convenience property
+            output_text = response.output_text if hasattr(response, 'output_text') else ""
+            
+            # Extract usage
+            usage = Usage()
+            if hasattr(response, 'usage') and response.usage:
+                usage = Usage(
+                    prompt_tokens=getattr(response.usage, 'input_tokens', 0),
+                    completion_tokens=getattr(response.usage, 'output_tokens', 0),
+                )
+            
+            return output_text, usage
+            
+        except Exception as e:
+            self.logger.error(f"Error during Perplexity Agentic Research API call: {e}")
+            raise
+
     @staticmethod
     def get_available_models():
         """

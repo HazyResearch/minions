@@ -1047,7 +1047,6 @@ class Evaluator:
         command_line: Optional[str] = None,
         use_cache: bool = True,
         cache_dir_name: Optional[str] = None,
-        git_auto_commit: bool = True,
         all_args: Optional[Dict[str, Any]] = None
     ):
         """Initialize evaluator."""
@@ -1060,7 +1059,6 @@ class Evaluator:
         self.skip_accuracy = skip_accuracy
         self.command_line = command_line
         self.use_cache = use_cache
-        self.git_auto_commit = git_auto_commit
         self.all_args = all_args or {}
         
         if cache_dir_name and use_cache:
@@ -1092,7 +1090,6 @@ class Evaluator:
                 "protocols": self.protocols,
                 "skip_accuracy": self.skip_accuracy,
                 "use_cache": self.use_cache,
-                "git_auto_commit": self.git_auto_commit,
                 "minions_kwargs": self.minions_kwargs,
                 "all_args": self.all_args,
                 "created_at": datetime.now().isoformat()
@@ -1174,46 +1171,6 @@ class Evaluator:
             if log_content:
                 f.write("\n\n--- Additional Log ---\n")
                 f.write(log_content)
-        
-        if self.git_auto_commit:
-            self._git_commit_sample(result.sample_id, result.protocol, cache_path, log_path)
-    
-    def _git_commit_sample(self, sample_id: str, protocol: str, cache_path: Path, log_path: Path):
-        """Git add and commit the sample result files."""
-        try:
-            result = subprocess.run(
-                ['git', 'rev-parse', '--show-toplevel'],
-                cwd=str(self.output_dir),
-                capture_output=True,
-                check=False,
-                timeout=10
-            )
-            if result.returncode != 0:
-                return
-            git_root = result.stdout.decode().strip()
-            
-            subprocess.run(
-                ['git', 'add', str(cache_path), str(log_path)],
-                cwd=str(git_root),
-                capture_output=True,
-                check=False,
-                timeout=30
-            )
-            
-            safe_id = sample_id.replace('/', '_')[:50]
-            commit_msg = f"Add result for {protocol}:{safe_id}"
-            
-            subprocess.run(
-                ['git', 'commit', '-m', commit_msg, '--no-verify'],
-                cwd=str(git_root),
-                capture_output=True,
-                check=False,
-                timeout=30
-            )
-        except subprocess.TimeoutExpired:
-            pass
-        except Exception:
-            pass
     
     def evaluate(self) -> Dict[str, Any]:
         """Run evaluation across all protocols and samples."""
@@ -1564,7 +1521,6 @@ class Evaluator:
         lines.append(f"    output_dir: {global_config.get('output_dir', 'evaluate/results')}")
         lines.append(f"    skip_accuracy: {str(global_config.get('skip_accuracy', False)).lower()}")
         lines.append(f"    use_cache: {str(global_config.get('use_cache', True)).lower()}")
-        lines.append(f"    git_auto_commit: {str(global_config.get('git_auto_commit', True)).lower()}")
         
         return "\n".join(lines)
     
@@ -1751,7 +1707,6 @@ def main():
         command_line=f"python {sys.argv[0]} {config_path}",
         use_cache=config.global_config.use_cache,
         cache_dir_name=cache_dir_name,
-        git_auto_commit=config.global_config.git_auto_commit,
         all_args=config_dict
     )
     

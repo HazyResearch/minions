@@ -400,7 +400,6 @@ def generate_summary(merged_results: dict, config: dict, correctness_entries: Di
     lines.append(f"    output_dir: {global_config.get('output_dir', 'N/A')}")
     lines.append(f"    skip_accuracy: {str(global_config.get('skip_accuracy', False)).lower()}")
     lines.append(f"    use_cache: {str(global_config.get('use_cache', True)).lower()}")
-    lines.append(f"    git_auto_commit: {str(global_config.get('git_auto_commit', True)).lower()}")
     lines.append("")
     
     lines.append("Total runtime: (merged from multiple runs)")

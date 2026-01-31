@@ -465,11 +465,4 @@ config USE_CACHE
 	  Cache results for individual samples.
 	  Allows resuming interrupted evaluations.
 
-config GIT_AUTO_COMMIT
-	bool "Auto git commit after each sample"
-	default y
-	help
-	  Automatically commit results after each sample.
-	  Provides checkpoint for long evaluations.
-
 endmenu

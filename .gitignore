@@ -70,3 +70,6 @@ minions-secure-attestation/
 CLAUDE.md
 
 *.csv
+
+# Evaluation results (generated, not tracked)
+evaluate/results/

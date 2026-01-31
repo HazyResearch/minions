@@ -137,6 +137,17 @@ config SGLANG_BASE_URL
 	  URL of the SGLang server.
 	  Default: http://localhost:8000
 
+config LOGIT_PROCESSOR_PATH
+	string "Learned logit processor path"
+	default ""
+	depends on LOCAL_BACKEND_SGLANG
+	help
+	  Path to a learned logit processor Python file (.py).
+	  If empty, constraint decoding is disabled.
+	  The processor must define a class with EARLY_PHASE_TOKEN_IDS,
+	  ALWAYS_TOKEN_IDS, and AFTER_NEWLINE_TOKEN_IDS attributes.
+	  Example: /workspace/learning_grammar/output/learned_logit_processor.py
+
 menu "WFSA Length Prior Settings"
 	depends on LOCAL_BACKEND_SGLANG
 

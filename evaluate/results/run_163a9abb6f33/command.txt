@@ -1,1 +1,0 @@
-python evaluate/financebench_evaluator.py .config

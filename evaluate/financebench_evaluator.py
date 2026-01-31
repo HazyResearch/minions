@@ -9,6 +9,7 @@ NOTE: This evaluator ALWAYS loads full PDF documents from the pdf_dir.
 Pre-extracted snippets or evidence from the benchmark JSON are ignored.
 """
 
+import argparse
 import os
 import sys
 import json
@@ -26,9 +27,7 @@ import fitz  # PyMuPDF for PDF text extraction
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-# Add learned logit processor path
-sys.path.insert(0, "/workspace/learning_grammar/output")
-from learned_logit_processor import LearnedBloatAxisProcessor
+import importlib.util
 
 from minions.clients.ollama import OllamaClient
 from minions.clients.openai import OpenAIClient
@@ -52,6 +51,46 @@ logger = logging.getLogger(__name__)
 # GPT-4o pricing (January 2025 rates from paper)
 GPT4O_INPUT_PRICE_PER_MILLION = 2.50
 GPT4O_OUTPUT_PRICE_PER_MILLION = 10.00
+
+
+def load_logit_processor(path: str) -> Optional[Any]:
+    """
+    Dynamically load a logit processor from a Python file.
+    
+    Args:
+        path: Path to the logit processor Python file
+        
+    Returns:
+        The processor class (e.g., LearnedBloatAxisProcessor), or None if loading fails
+    """
+    if not path:
+        return None
+    
+    path = Path(path)
+    if not path.exists():
+        logger.warning(f"Logit processor file not found: {path}")
+        return None
+    
+    try:
+        spec = importlib.util.spec_from_file_location("learned_logit_processor", path)
+        if spec is None or spec.loader is None:
+            logger.warning(f"Failed to load spec for logit processor: {path}")
+            return None
+        
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        
+        # Look for the processor class
+        if hasattr(module, 'LearnedBloatAxisProcessor'):
+            logger.info(f"Loaded logit processor from {path}")
+            return module.LearnedBloatAxisProcessor
+        else:
+            logger.warning(f"No LearnedBloatAxisProcessor class found in {path}")
+            return None
+            
+    except Exception as e:
+        logger.warning(f"Failed to load logit processor from {path}: {e}")
+        return None
 
 
 def load_pdf_text(pdf_path: str) -> str:
@@ -691,6 +730,7 @@ class ProtocolRunner:
         num_ctx: int = 4096,
         local_backend: str = "ollama",
         sglang_base_url: str = "http://localhost:8000/v1",
+        logit_processor: Optional[Any] = None,
         # WFSA parameters
         generation_strategy: str = "sequential",
         beta_explanation: float = 1.0,
@@ -711,6 +751,7 @@ class ProtocolRunner:
         self.num_ctx = num_ctx
         self.local_backend = local_backend
         self.sglang_base_url = sglang_base_url
+        self.logit_processor = logit_processor  # For constraint decoding (optional)
         # WFSA parameters
         self.generation_strategy = generation_strategy
         self.beta_explanation = beta_explanation
@@ -927,11 +968,12 @@ class ProtocolRunner:
                 max_tokens_citation=self.max_tokens_citation,
                 max_tokens_answer=self.max_tokens_answer,
             )
-            # Use learned logit processor token IDs
-            local_client.intro_token_ids = LearnedBloatAxisProcessor.EARLY_PHASE_TOKEN_IDS
-            local_client.always_token_ids = LearnedBloatAxisProcessor.ALWAYS_TOKEN_IDS
-            local_client.list_token_ids = LearnedBloatAxisProcessor.AFTER_NEWLINE_TOKEN_IDS
-            # Override token IDs if custom logit processor params provided
+            # Use learned logit processor token IDs if processor is available
+            if self.logit_processor is not None:
+                local_client.intro_token_ids = self.logit_processor.EARLY_PHASE_TOKEN_IDS
+                local_client.always_token_ids = self.logit_processor.ALWAYS_TOKEN_IDS
+                local_client.list_token_ids = self.logit_processor.AFTER_NEWLINE_TOKEN_IDS
+            # Override token IDs if custom logit processor params provided via kwargs
             if kwargs.get('intro_token_ids'):
                 local_client.intro_token_ids = set(kwargs['intro_token_ids'])
             if kwargs.get('always_token_ids'):
@@ -1605,15 +1647,24 @@ class Evaluator:
 
 def main():
     """Main entry point using Kconfig .config file."""
-    if len(sys.argv) != 2:
-        print("Usage: python financebench_evaluator.py <.config>")
-        print("\nExample:")
-        print("  python evaluate/financebench_evaluator.py .config")
-        print("\nTo create a configuration interactively:")
-        print("  python evaluate/kmenuconfig.py")
-        sys.exit(1)
+    parser = argparse.ArgumentParser(
+        description="FinanceBench Evaluator - Evaluate protocols on FinanceBench dataset",
+        epilog="To create a configuration interactively: python evaluate/kmenuconfig.py"
+    )
+    parser.add_argument(
+        "config",
+        help="Path to .config file (created by kmenuconfig.py)"
+    )
+    parser.add_argument(
+        "--logit-processor-path",
+        type=str,
+        default=None,
+        help="Path to learned logit processor file (.py). Overrides LOGIT_PROCESSOR_PATH in config. "
+             "If not specified and not in config, constraint decoding is disabled."
+    )
     
-    config_path = sys.argv[1]
+    args = parser.parse_args()
+    config_path = args.config
     
     try:
         config = load_config(config_path)
@@ -1621,6 +1672,22 @@ def main():
     except Exception as e:
         logger.error(f"Failed to load configuration: {e}")
         sys.exit(1)
+    
+    # Determine logit processor path: CLI flag > Kconfig > None
+    logit_processor_path = args.logit_processor_path
+    if logit_processor_path is None:
+        logit_processor_path = getattr(config.models.local, 'logit_processor_path', None)
+    
+    # Load logit processor if path is provided
+    logit_processor = None
+    if logit_processor_path:
+        logit_processor = load_logit_processor(logit_processor_path)
+        if logit_processor is None:
+            logger.warning(f"Constraint decoding disabled - could not load processor from {logit_processor_path}")
+        else:
+            logger.info(f"Constraint decoding enabled with processor from {logit_processor_path}")
+    else:
+        logger.info("Constraint decoding disabled - no logit processor path specified")
     
     # Load dataset (always uses full PDF documents)
     dataset = FinanceBenchDataset(
@@ -1644,6 +1711,7 @@ def main():
         num_ctx=config.models.local.num_ctx,
         local_backend=getattr(config.models.local, 'backend', 'ollama'),
         sglang_base_url=getattr(config.models.local, 'sglang_base_url', 'http://localhost:8000/v1'),
+        logit_processor=logit_processor,
         # WFSA parameters
         generation_strategy=getattr(config.models.local, 'generation_strategy', 'sequential'),
         beta_explanation=getattr(config.models.local, 'beta_explanation', 1.0),

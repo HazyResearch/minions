@@ -1,22 +1,32 @@
 """
-SGLang Client for MinionS with Length Penalty.
+SGLang Client for MinionS with External Logit Processor Support.
 
-Uses SGLang's OpenAI-compatible API with logit_bias to implement a length
-penalty that encourages shorter outputs. Higher beta values = stronger
-preference for shorter responses (via EOS token boost).
+Supports external CustomLogitProcessor classes for constrained decoding (e.g., 
+reducing verbosity, penalizing certain token patterns). The processor can be
+provided at initialization or set afterwards.
 
 SGLang provides RadixAttention which automatically shares KV cache across
 parallel requests with common prefixes (document chunks).
 
-Usage:
+Usage without logit processor (uses logit_bias fallback):
     client = SGLangClient(
         model_name="meta-llama/Llama-3.1-8B-Instruct",
         base_url="http://localhost:8000",
-        temperature=0.2,
-        beta_explanation=1.0,  # Length penalty for explanations
-        beta_citation=2.0,     # Length penalty for citations  
-        beta_answer=1.5,       # Length penalty for answers
     )
+
+Usage with external logit processor:
+    from learned_logit_processor import LearnedBloatAxisProcessor
+    
+    client = SGLangClient(
+        model_name="meta-llama/Llama-3.1-8B-Instruct",
+        base_url="http://localhost:8000",
+        logit_processor_class=LearnedBloatAxisProcessor,
+    )
+    
+    # Optionally override token ID sets after creation:
+    client.intro_token_ids = LearnedBloatAxisProcessor.EARLY_PHASE_TOKEN_IDS
+    client.always_token_ids = LearnedBloatAxisProcessor.ALWAYS_TOKEN_IDS
+    client.list_token_ids = LearnedBloatAxisProcessor.AFTER_NEWLINE_TOKEN_IDS
 """
 
 import json
@@ -54,96 +64,6 @@ from minions.prompts.minions import (
 )
 
 
-# Define CompressedNoStepsLogitProcessor if CustomLogitProcessor is available
-if HAS_CUSTOM_LOGIT_PROCESSOR:
-    import torch
-    
-    class CompressedNoStepsLogitProcessor(CustomLogitProcessor):
-        """
-        SGLang-compatible logit processor for compressed answers.
-        
-        Goals:
-          - Compressed answers (penalize fluff/preamble)
-          - No numbered lists / step-by-step framing
-          - Avoid truncation: disallow EOS until min_new_tokens
-        
-        This follows SGLang's CustomLogitProcessor interface where:
-        - __call__(logits, custom_param_list) is called at each step
-        - custom_param_list contains per-request params with token IDs and penalties
-        - The processor is serialized via .to_str() and passed to the server
-        
-        All token IDs are pre-computed on the client and passed via custom_params.
-        """
-        
-        def __call__(self, logits, custom_param_list):
-            """
-            Apply compressed output penalties at each decoding step.
-            
-            Args:
-                logits: (batch_size, vocab_size) tensor of next-token logits
-                custom_param_list: List of dicts with per-request parameters
-            """
-            assert logits.shape[0] == len(custom_param_list)
-            
-            for i, p in enumerate(custom_param_list):
-                # Extract parameters from custom_params
-                eos_token_id = int(p.get("eos_token_id", 128001))
-                min_new_tokens = int(p.get("min_new_tokens", 48))
-                current_len = int(p.get("current_len", 0))
-                
-                # Penalty values (hardcoded defaults)
-                eos_bonus_after_min = float(p.get("eos_bonus_after_min", 1.2))
-                intro_window = int(p.get("intro_window", 48))
-                intro_penalty = float(p.get("intro_penalty", 5.0))
-                always_penalty = float(p.get("always_penalty", 0.5))
-                list_penalty = float(p.get("list_penalty", 4.0))
-                repeat_penalty = float(p.get("repeat_penalty", 0.6))
-                repeat_last_k = int(p.get("repeat_last_k", 128))
-                
-                # Token ID sets (pre-computed on client, passed as lists)
-                intro_token_ids = set(p.get("intro_token_ids", []))
-                always_token_ids = set(p.get("always_token_ids", []))
-                list_token_ids = set(p.get("list_token_ids", []))
-                newline_token_ids = set(p.get("newline_token_ids", []))
-                recent_token_ids = p.get("recent_token_ids", [])  # For repetition penalty
-                last_token_id = p.get("last_token_id", None)  # For newline tail heuristic
-                
-                # 1) Anti-truncation: hard block EOS before min_new_tokens
-                if current_len < min_new_tokens:
-                    logits[i, eos_token_id] = -1e9
-                else:
-                    logits[i, eos_token_id] += eos_bonus_after_min
-                
-                # 2) Always-on light anti-verbosity penalty
-                if always_token_ids and always_penalty > 0:
-                    for tid in always_token_ids:
-                        logits[i, tid] -= always_penalty
-                
-                # 3) Early-only strong anti-preamble ("foreplay")
-                if current_len < intro_window and intro_token_ids and intro_penalty > 0:
-                    for tid in intro_token_ids:
-                        logits[i, tid] -= intro_penalty
-                
-                # 4) Strong anti-list / anti-steps penalty
-                if list_token_ids and list_penalty > 0:
-                    for tid in list_token_ids:
-                        logits[i, tid] -= list_penalty
-                
-                # 5) Tail heuristic: if last token was a newline, extra-discourage list starters
-                if last_token_id is not None and int(last_token_id) in newline_token_ids:
-                    # Extra penalty for tokens that commonly start lists after newlines
-                    for tid in list_token_ids:
-                        logits[i, tid] -= (list_penalty + 1.0)
-                
-                # 6) Repetition penalty on recent tokens
-                if recent_token_ids and repeat_penalty > 0:
-                    unique_recent = set(recent_token_ids[-repeat_last_k:])
-                    for tid in unique_recent:
-                        logits[i, tid] -= repeat_penalty
-            
-            return logits
-else:
-    CompressedNoStepsLogitProcessor = None
 
 
 def _extract_string_from_value(value: Any) -> str:
@@ -234,11 +154,17 @@ def _postprocess_json_output(output_text: str) -> str:
 
 class SGLangClient(MinionsClient):
     """
-    Client for SGLang inference server with WFSA length prior.
+    Client for SGLang inference server with optional external logit processor.
     
-    Uses SGLang's native /generate endpoint with custom logit processor
-    to implement a WFSA-based length prior. Generates JobOutput fields
-    (explanation, citation, answer) sequentially to maximize KV cache reuse.
+    Supports external CustomLogitProcessor classes for constrained decoding.
+    The processor can be provided via the `logit_processor_class` parameter,
+    and token ID sets can be configured via `intro_token_ids`, `always_token_ids`,
+    `list_token_ids`, and `newline_token_ids` attributes.
+    
+    If no logit processor is provided, falls back to logit_bias for EOS boosting.
+    
+    Generates JobOutput fields (explanation, citation, answer) sequentially to
+    maximize KV cache reuse via SGLang's RadixAttention.
     """
     
     def __init__(
@@ -251,6 +177,8 @@ class SGLangClient(MinionsClient):
         structured_output_schema=None,
         # Generation strategy
         generation_strategy: str = "sequential",  # "sequential" or "single_shot"
+        # External logit processor class (optional)
+        logit_processor_class=None,  # CustomLogitProcessor subclass from external module
         # WFSA beta values per field (higher = shorter outputs)
         beta_explanation: float = 1.0,
         beta_citation: float = 2.0,
@@ -266,7 +194,7 @@ class SGLangClient(MinionsClient):
         **kwargs
     ):
         """
-        Initialize SGLang client with WFSA length prior.
+        Initialize SGLang client with optional external logit processor.
         
         Args:
             model_name: Model name (should match what SGLang server loaded)
@@ -276,6 +204,9 @@ class SGLangClient(MinionsClient):
             max_workers: Maximum parallel workers for batch requests (default: 32)
             structured_output_schema: Optional Pydantic model for structured JSON output
             generation_strategy: "sequential" (3 API calls) or "single_shot" (1 API call)
+            logit_processor_class: Optional CustomLogitProcessor subclass for constrained decoding.
+                                   If provided, must have .to_str() method and .get_default_params() classmethod.
+                                   Token ID sets (intro_token_ids, etc.) can be set after initialization.
             beta_explanation: WFSA strength for explanation field (default: 1.0)
             beta_citation: WFSA strength for citation field (default: 2.0)
             beta_answer: WFSA strength for answer field (default: 1.5)
@@ -349,12 +280,19 @@ class SGLangClient(MinionsClient):
             except Exception as e:
                 self.logger.warning(f"[SGLang] Could not load tokenizer, using default Llama-3 stop IDs: {e}")
         
-        # Pre-compute token IDs for CompressedNoStepsLogitProcessor
-        self._precompute_penalty_token_ids()
+        # External logit processor class (can be set to enable custom constraint decoding)
+        self.logit_processor_class = logit_processor_class
+        
+        # Token ID sets for constraint decoding (can be set externally after initialization)
+        # These are passed to the logit processor via custom_params
+        self.intro_token_ids = set()
+        self.always_token_ids = set()
+        self.list_token_ids = set()
+        self.newline_token_ids = set()
         
         # Track whether server supports CustomLogitProcessor
         # Will be validated on first request
-        self._custom_processor_supported = HAS_CUSTOM_LOGIT_PROCESSOR and CompressedNoStepsLogitProcessor is not None
+        self._custom_processor_supported = HAS_CUSTOM_LOGIT_PROCESSOR and logit_processor_class is not None
         self._custom_processor_validated = False  # Not yet tested against server
         self._processor_lock = threading.Lock()  # Thread-safe validation
         
@@ -389,93 +327,6 @@ class SGLangClient(MinionsClient):
                 "[SGLang] CustomLogitProcessor not available - using logit_bias fallback"
             )
     
-    def _precompute_penalty_token_ids(self):
-        """
-        Pre-compute token IDs for phrases to penalize in CompressedNoStepsLogitProcessor.
-        
-        This converts phrase strings to token IDs once at initialization,
-        so they can be passed to the server via custom_params.
-        """
-        # Initialize empty sets (will be populated if tokenizer is available)
-        self.intro_token_ids = set()
-        self.always_token_ids = set()
-        self.list_token_ids = set()
-        self.newline_token_ids = set()
-        
-        if self._tokenizer is None:
-            self.logger.warning("[SGLang] No tokenizer available - penalty token IDs not pre-computed")
-            return
-        
-        def collect_token_ids(phrases):
-            """Convert phrases into a set of token IDs by encoding them."""
-            out = set()
-            for p in phrases:
-                try:
-                    ids = self._tokenizer.encode(p, add_special_tokens=False)
-                    for tid in ids:
-                        out.add(int(tid))
-                except Exception:
-                    pass
-            return out
-        
-        # Phrases to penalize early (preamble / "foreplay")
-        intro_phrases = [
-            # Existing
-            "To address", "Additionally", "It's also important", "It is also important",
-            "Pay attention to", "Look for", "focus on extracting", "This could include",
-            "Please provide", "In this implementation",
-            # Meta-commentary starters
-            "The task requires", "I will focus", "I was able to", "I can provide",
-            "Let me", "I'll", "We need to", "We will", "We can",
-            "Based on", "In order to", "To find", "To extract", "To determine",
-            # Hedging starters
-            "Unfortunately", "However", "Nevertheless", "Therefore",
-            # "Not found" verbose patterns
-            "The required", "The provided", "The document", "The excerpt",
-            "is not explicitly", "is not directly", "was not found",
-            "does not contain", "does not include", "does not provide",
-        ]
-        
-        # Discourse/verbosity tokens/phrases to penalize always
-        always_phrases = [
-            # Existing
-            "basically", "actually", "really", "just", "overall", "generally",
-            "in summary", "to summarize", "in conclusion", "of course", "certainly", "sure",
-            "I think", "I can", "I will",
-            # Hedging/transition words
-            "however", "unfortunately", "nevertheless", "therefore", "furthermore",
-            "additionally", "moreover", "consequently", "hence",
-            # Filler phrases
-            "it appears", "it seems", "we can infer", "we can assume",
-            "might be", "could be", "may be", "likely", "possibly",
-            "in other words", "that is to say", "specifically",
-            # Empty qualifiers
-            "explicitly", "directly", "specifically mentioned",
-        ]
-        
-        # Step-by-step / numbered-list markers
-        list_markers = [
-            "\n1", "\n2", "\n3", "\n4", "\n5",
-            "\n- ", "\n* ", "\n• ",
-            "\nFirst", "\nSecond", "\nThird", "\nNext", "\nThen",
-            "Step 1", "Step 2", "Step 3",
-            "1.", "2.", "3.", "4.", "5.",
-            "1)", "2)", "3)", "4)", "5)",
-        ]
-        
-        # Newline markers for tail heuristic
-        newline_markers = ["\n", "\n\n"]
-        
-        self.intro_token_ids = collect_token_ids(intro_phrases)
-        self.always_token_ids = collect_token_ids(always_phrases)
-        self.list_token_ids = collect_token_ids(list_markers)
-        self.newline_token_ids = collect_token_ids(newline_markers)
-        
-        self.logger.debug(
-            f"[SGLang] Pre-computed penalty token IDs: "
-            f"intro={len(self.intro_token_ids)}, always={len(self.always_token_ids)}, "
-            f"list={len(self.list_token_ids)}, newline={len(self.newline_token_ids)}"
-        )
     
     def _generate_with_length_penalty(
         self,
@@ -535,40 +386,43 @@ class SGLangClient(MinionsClient):
         min_tokens: int = 0,
     ) -> Tuple[str, int, int, str]:
         """
-        Generate using CompressedNoStepsLogitProcessor for compressed output.
+        Generate using external CustomLogitProcessor for constrained decoding.
         
-        This passes the serialized processor to SGLang via extra_body, which applies:
-        - Anti-truncation (blocks EOS before min_new_tokens)
-        - Anti-preamble penalties (early tokens)
-        - Anti-verbosity penalties (always-on)
-        - Anti-list/steps penalties
-        - Repetition penalties
+        Uses the logit_processor_class provided at initialization (or set afterwards).
+        The processor should have:
+        - .to_str() method for serialization to SGLang server
+        - .get_default_params() classmethod for default custom_params
+        
+        Token ID sets (intro_token_ids, etc.) are passed via custom_params.
         
         Requires SGLang server started with --enable-custom-logit-processor flag.
         """
         try:
-            # Build custom_params with all token IDs and penalties
-            custom_params = {
-                # Core parameters
-                "eos_token_id": self.stop_ids[0] if self.stop_ids else 128001,
-                "min_new_tokens": min_tokens,
-                # Pre-computed token ID sets
-                "intro_token_ids": list(self.intro_token_ids),
-                "always_token_ids": list(self.always_token_ids),
-                "list_token_ids": list(self.list_token_ids),
-                "newline_token_ids": list(self.newline_token_ids),
-                # Hardcoded penalty values
-                "eos_bonus_after_min": 1.2,
-                "intro_window": 32,
-                "intro_penalty": 3.5,
-                "always_penalty": 0.35,
-                "list_penalty": 4.0,
-                "repeat_penalty": 0.6,
-                "repeat_last_k": 128,
-            }
+            if self.logit_processor_class is None:
+                return f"Error: No logit_processor_class configured", 0, 0, ""
+            
+            # Get default params from the processor class if available
+            if hasattr(self.logit_processor_class, 'get_default_params'):
+                custom_params = self.logit_processor_class.get_default_params()
+            else:
+                custom_params = {}
+            
+            # Override with instance-level settings
+            custom_params["eos_token_id"] = self.stop_ids[0] if self.stop_ids else 128001
+            custom_params["min_new_tokens"] = min_tokens
+            
+            # Use externally-set token ID sets (if any)
+            if self.intro_token_ids:
+                custom_params["intro_token_ids"] = list(self.intro_token_ids)
+            if self.always_token_ids:
+                custom_params["always_token_ids"] = list(self.always_token_ids)
+            if self.list_token_ids:
+                custom_params["list_token_ids"] = list(self.list_token_ids)
+            if self.newline_token_ids:
+                custom_params["newline_token_ids"] = list(self.newline_token_ids)
             
             extra_body = {
-                "custom_logit_processor": CompressedNoStepsLogitProcessor().to_str(),
+                "custom_logit_processor": self.logit_processor_class().to_str(),
                 "custom_params": custom_params,
             }
             
@@ -587,7 +441,7 @@ class SGLangClient(MinionsClient):
             if stop_sequences:
                 params["stop"] = stop_sequences
             
-            self.logger.debug(f"[SGLang] Using CompressedNoStepsLogitProcessor with min_tokens={min_tokens}")
+            self.logger.debug(f"[SGLang] Using external logit processor with min_tokens={min_tokens}")
             response = self.openai_client.chat.completions.create(**params)
             
             generated_text = response.choices[0].message.content or ""
@@ -671,36 +525,36 @@ class SGLangClient(MinionsClient):
                 "response_format": {"type": "json_object"},
             }
             
-            # Use CompressedNoStepsLogitProcessor if supported, otherwise logit_bias
+            # Use external logit processor if supported, otherwise logit_bias
             avg_min_tokens = (self.min_tokens_explanation + self.min_tokens_citation + self.min_tokens_answer) // 3
             
-            if self._custom_processor_supported:
-                # Build custom_params with all token IDs and penalties
-                custom_params = {
-                    # Core parameters
-                    "eos_token_id": self.stop_ids[0] if self.stop_ids else 128001,
-                    "min_new_tokens": avg_min_tokens,
-                    # Pre-computed token ID sets
-                    "intro_token_ids": list(self.intro_token_ids),
-                    "always_token_ids": list(self.always_token_ids),
-                    "list_token_ids": list(self.list_token_ids),
-                    "newline_token_ids": list(self.newline_token_ids),
-                    # Hardcoded penalty values
-                    "eos_bonus_after_min": 1.2,
-                    "intro_window": 32,
-                    "intro_penalty": 3.5,
-                    "always_penalty": 0.35,
-                    "list_penalty": 4.0,
-                    "repeat_penalty": 0.6,
-                    "repeat_last_k": 128,
-                }
+            if self._custom_processor_supported and self.logit_processor_class is not None:
+                # Get default params from the processor class if available
+                if hasattr(self.logit_processor_class, 'get_default_params'):
+                    custom_params = self.logit_processor_class.get_default_params()
+                else:
+                    custom_params = {}
+                
+                # Override with instance-level settings
+                custom_params["eos_token_id"] = self.stop_ids[0] if self.stop_ids else 128001
+                custom_params["min_new_tokens"] = avg_min_tokens
+                
+                # Use externally-set token ID sets (if any)
+                if self.intro_token_ids:
+                    custom_params["intro_token_ids"] = list(self.intro_token_ids)
+                if self.always_token_ids:
+                    custom_params["always_token_ids"] = list(self.always_token_ids)
+                if self.list_token_ids:
+                    custom_params["list_token_ids"] = list(self.list_token_ids)
+                if self.newline_token_ids:
+                    custom_params["newline_token_ids"] = list(self.newline_token_ids)
                 
                 params["extra_body"] = {
-                    "custom_logit_processor": CompressedNoStepsLogitProcessor().to_str(),
+                    "custom_logit_processor": self.logit_processor_class().to_str(),
                     "custom_params": custom_params,
                     "min_tokens": avg_min_tokens,
                 }
-                self.logger.debug(f"[SGLang] Single-shot with CompressedNoStepsLogitProcessor, min_tokens={avg_min_tokens}")
+                self.logger.debug(f"[SGLang] Single-shot with external logit processor, min_tokens={avg_min_tokens}")
             else:
                 # Fallback to logit_bias (static boost)
                 logit_bias = {str(tid): min(int(avg_beta * 15), 100) for tid in self.stop_ids}

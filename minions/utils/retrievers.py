@@ -61,6 +61,13 @@ try:
 except ImportError:
     MISTRAL_AVAILABLE = False
 
+# Modular Embeddings support (OpenAI-compatible API)
+try:
+    import openai
+    MODULAR_AVAILABLE = True
+except ImportError:
+    MODULAR_AVAILABLE = False
+
 
 ### EMBEDDING MODELS ###
 
@@ -884,6 +891,130 @@ class MistralEmbeddings(BaseEmbeddingModel):
         """Get list of available Mistral embedding models."""
         return [
             "mistral-embed",
+        ]
+
+
+class ModularEmbeddings(BaseEmbeddingModel):
+    """
+    Implementation of embedding model using Modular MAX Serve.
+    
+    See: https://docs.modular.com/max/inference/embeddings
+    
+    Usage:
+        # Start MAX serve with an embedding model:
+        # max serve --model sentence-transformers/all-mpnet-base-v2
+        
+        embeddings = ModularEmbeddings(model_name="sentence-transformers/all-mpnet-base-v2")
+        vectors = embeddings.encode(["Hello world", "How are you?"])
+    """
+
+    _instances = {}  # Dictionary to store instances by model name
+    _default_model_name = "sentence-transformers/all-mpnet-base-v2"
+    _default_base_url = "http://localhost:8000/v1"
+
+    def __new__(cls, model_name=None, base_url=None):
+        if not MODULAR_AVAILABLE:
+            raise ImportError(
+                "openai is required to use ModularEmbeddings (OpenAI-compatible API). "
+                "Please install it with: pip install openai"
+            )
+
+        model_name = model_name or cls._default_model_name
+        base_url = base_url or cls._default_base_url
+        print(f"Using Modular embedding model: {model_name} at {base_url}")
+
+        # Use composite key for instances
+        instance_key = f"{model_name}@{base_url}"
+        
+        # Check if we already have an instance for this model
+        if instance_key not in cls._instances:
+            instance = super(ModularEmbeddings, cls).__new__(cls)
+            instance.model_name = model_name
+            instance.base_url = base_url
+            instance._client = openai.OpenAI(
+                base_url=base_url,
+                api_key="EMPTY"  # Modular doesn't require an API key for local serving
+            )
+            cls._instances[instance_key] = instance
+        
+        return cls._instances[instance_key]
+
+    def get_model(self):
+        """Get the OpenAI client configured for Modular."""
+        return self._client
+
+    def encode(
+        self, 
+        texts: Union[str, List[str]], 
+        **kwargs
+    ) -> np.ndarray:
+        """
+        Encode texts to create embeddings using Modular MAX Serve.
+
+        Args:
+            texts: Single text or list of texts to encode
+            **kwargs: Additional arguments including batch_size
+
+        Returns:
+            Numpy array of embeddings
+        """
+        # Handle single text input
+        if isinstance(texts, str):
+            texts = [texts]
+
+        embeddings_list = []
+        
+        # Process texts in batches to handle potential limits
+        batch_size = kwargs.get('batch_size', 100)
+        
+        for i in range(0, len(texts), batch_size):
+            batch_texts = texts[i:i + batch_size]
+            
+            try:
+                # Use the OpenAI-compatible embeddings endpoint
+                response = self._client.embeddings.create(
+                    model=self.model_name,
+                    input=batch_texts,
+                )
+                
+                # Extract embeddings from the response
+                batch_embeddings = [item.embedding for item in response.data]
+                embeddings_list.extend(batch_embeddings)
+                
+            except Exception as e:
+                print(f"Error generating embeddings for batch {i//batch_size + 1}: {e}")
+                # Create zero embeddings as fallback (768 is typical for mpnet)
+                fallback_dim = 768
+                if embeddings_list:
+                    fallback_dim = len(embeddings_list[0])
+                for _ in batch_texts:
+                    embeddings_list.append([0.0] * fallback_dim)
+
+        # Convert to numpy array
+        embeddings = np.array(embeddings_list, dtype=np.float32)
+        return embeddings
+
+    @classmethod
+    def get_model_by_name(cls, model_name=None, base_url=None):
+        """Get model by name (for backward compatibility)"""
+        instance = cls(model_name, base_url)
+        return instance.get_model()
+
+    @classmethod
+    def encode_by_name(cls, texts, model_name=None, base_url=None, **kwargs) -> np.ndarray:
+        """Encode texts using model by name (for backward compatibility)"""
+        instance = cls(model_name, base_url)
+        return instance.encode(texts, **kwargs)
+
+    @staticmethod
+    def get_available_models() -> List[str]:
+        """Get list of commonly used embedding models with Modular MAX."""
+        return [
+            "sentence-transformers/all-mpnet-base-v2",
+            "sentence-transformers/all-MiniLM-L6-v2",
+            "BAAI/bge-small-en-v1.5",
+            "BAAI/bge-base-en-v1.5",
+            "BAAI/bge-large-en-v1.5",
         ]
 
 

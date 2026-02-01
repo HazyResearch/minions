@@ -347,11 +347,13 @@ config USE_CACHE
 	  Cache results for individual samples.
 	  Allows resuming interrupted evaluations.
 
-config GIT_AUTO_COMMIT
-	bool "Auto git commit after each sample"
-	default y
+config CACHE_PREFIX
+	string "Cache directory prefix"
+	default ""
+	depends on USE_CACHE
 	help
-	  Automatically commit results after each sample.
-	  Provides checkpoint for long evaluations.
+	  Prefix for cache directory names (optional).
+	  Directory format: [<prefix>_]<protocols>_<chunk_fn>[_pages:<N>]_<rounds>_<hash>
+	  The hash is computed from model, protocol, and chunking settings.
 
 endmenu

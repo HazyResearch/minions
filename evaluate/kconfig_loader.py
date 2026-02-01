@@ -18,7 +18,7 @@ class GlobalConfig:
     output_dir: str = "evaluate/results"
     skip_accuracy: bool = False
     use_cache: bool = True
-    git_auto_commit: bool = True
+    cache_prefix: str = ""
 
 
 @dataclass
@@ -109,7 +109,7 @@ class EvaluatorConfig:
                 'output_dir': self.global_config.output_dir,
                 'skip_accuracy': self.global_config.skip_accuracy,
                 'use_cache': self.global_config.use_cache,
-                'git_auto_commit': self.global_config.git_auto_commit,
+                'cache_prefix': self.global_config.cache_prefix,
             },
             'dataset': {
                 'path': self.dataset.path,
@@ -323,7 +323,7 @@ class KconfigLoader:
         config.global_config.output_dir = values.get('OUTPUT_DIR', 'evaluate/results')
         config.global_config.skip_accuracy = values.get('SKIP_ACCURACY', 'n') == 'y'
         config.global_config.use_cache = values.get('USE_CACHE', 'y') == 'y'
-        config.global_config.git_auto_commit = values.get('GIT_AUTO_COMMIT', 'y') == 'y'
+        config.global_config.cache_prefix = values.get('CACHE_PREFIX', '')
         
         return config
 

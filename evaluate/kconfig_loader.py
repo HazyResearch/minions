@@ -40,17 +40,6 @@ class LocalModelConfig:
     backend: str = "ollama"  # "ollama" or "sglang"
     sglang_base_url: str = "http://localhost:8000/v1"
     logit_processor_path: Optional[str] = None  # Path to learned logit processor file
-    # WFSA length prior parameters (SGLang only)
-    generation_strategy: str = "sequential"  # "sequential" or "single_shot"
-    beta_explanation: float = 1.0  # WFSA strength for explanation field
-    beta_citation: float = 2.0     # WFSA strength for citation field
-    beta_answer: float = 1.5       # WFSA strength for answer field
-    min_tokens_explanation: int = 10  # Minimum tokens for explanation
-    min_tokens_citation: int = 5      # Minimum tokens for citation
-    min_tokens_answer: int = 3        # Minimum tokens for answer
-    max_tokens_explanation: int = 200  # Maximum tokens for explanation
-    max_tokens_citation: int = 150     # Maximum tokens for citation
-    max_tokens_answer: int = 100       # Maximum tokens for answer
 
 
 @dataclass
@@ -138,16 +127,6 @@ class EvaluatorConfig:
                     'backend': self.models.local.backend,
                     'sglang_base_url': self.models.local.sglang_base_url,
                     'logit_processor_path': self.models.local.logit_processor_path,
-                    'generation_strategy': self.models.local.generation_strategy,
-                    'beta_explanation': self.models.local.beta_explanation,
-                    'beta_citation': self.models.local.beta_citation,
-                    'beta_answer': self.models.local.beta_answer,
-                    'min_tokens_explanation': self.models.local.min_tokens_explanation,
-                    'min_tokens_citation': self.models.local.min_tokens_citation,
-                    'min_tokens_answer': self.models.local.min_tokens_answer,
-                    'max_tokens_explanation': self.models.local.max_tokens_explanation,
-                    'max_tokens_citation': self.models.local.max_tokens_citation,
-                    'max_tokens_answer': self.models.local.max_tokens_answer,
                 },
                 'remote': {
                     'name': self.models.remote.name,
@@ -297,23 +276,6 @@ class KconfigLoader:
             config.models.local.logit_processor_path = logit_processor_path if logit_processor_path else None
         else:
             config.models.local.backend = 'ollama'
-        
-        # Generation strategy (SGLang only)
-        if values.get('GENERATION_SINGLE_SHOT', 'n') == 'y':
-            config.models.local.generation_strategy = 'single_shot'
-        else:
-            config.models.local.generation_strategy = 'sequential'
-        
-        # WFSA length prior parameters (beta values stored as x100 integers in Kconfig)
-        config.models.local.beta_explanation = int(values.get('WFSA_BETA_EXPLANATION', '100')) / 100.0
-        config.models.local.beta_citation = int(values.get('WFSA_BETA_CITATION', '200')) / 100.0
-        config.models.local.beta_answer = int(values.get('WFSA_BETA_ANSWER', '150')) / 100.0
-        config.models.local.min_tokens_explanation = int(values.get('WFSA_MIN_TOKENS_EXPLANATION', '10'))
-        config.models.local.min_tokens_citation = int(values.get('WFSA_MIN_TOKENS_CITATION', '5'))
-        config.models.local.min_tokens_answer = int(values.get('WFSA_MIN_TOKENS_ANSWER', '3'))
-        config.models.local.max_tokens_explanation = int(values.get('WFSA_MAX_TOKENS_EXPLANATION', '200'))
-        config.models.local.max_tokens_citation = int(values.get('WFSA_MAX_TOKENS_CITATION', '150'))
-        config.models.local.max_tokens_answer = int(values.get('WFSA_MAX_TOKENS_ANSWER', '100'))
         
         config.models.remote.name = values.get('REMOTE_MODEL_NAME', 'gpt-4o')
         config.models.remote.temperature = int(values.get('REMOTE_TEMPERATURE', '0')) / 100.0

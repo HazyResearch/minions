@@ -757,7 +757,7 @@ Respond with only one word: "equal" or "unequal"."""
 class ProtocolRunner:
     """Runs different protocols for evaluation."""
     
-    def __init__(self, local_model: str, remote_model: str, local_temp: float = 0.2, remote_temp: float = 0.0, num_ctx: int = 4096, local_backend: str = "ollama", sglang_base_url: str = "http://localhost:8000/v1", logit_processor_path: Optional[str] = None, generation_strategy: str = "sequential", beta_explanation: float = 1.0, beta_citation: float = 2.0, beta_answer: float = 1.5, min_tokens_explanation: int = 10, min_tokens_citation: int = 5, min_tokens_answer: int = 3, max_tokens_explanation: int = 200, max_tokens_citation: int = 150, max_tokens_answer: int = 100):
+    def __init__(self, local_model: str, remote_model: str, local_temp: float = 0.2, remote_temp: float = 0.0, num_ctx: int = 4096, local_backend: str = "ollama", sglang_base_url: str = "http://localhost:8000/v1", logit_processor_path: Optional[str] = None):
         """Initialize protocol runner with model configurations."""
         self.local_model = local_model
         self.remote_model = remote_model
@@ -767,19 +767,9 @@ class ProtocolRunner:
         self.local_backend = local_backend
         self.sglang_base_url = sglang_base_url
         
-        # Logit processor and WFSA settings
+        # Logit processor settings
         self.logit_processor_path = logit_processor_path
         self.logit_processor_class = load_logit_processor(logit_processor_path) if logit_processor_path else None
-        self.generation_strategy = generation_strategy
-        self.beta_explanation = beta_explanation
-        self.beta_citation = beta_citation
-        self.beta_answer = beta_answer
-        self.min_tokens_explanation = min_tokens_explanation
-        self.min_tokens_citation = min_tokens_citation
-        self.min_tokens_answer = min_tokens_answer
-        self.max_tokens_explanation = max_tokens_explanation
-        self.max_tokens_citation = max_tokens_citation
-        self.max_tokens_answer = max_tokens_answer
         
         self._local_client = None
         self._remote_client = None
@@ -965,16 +955,6 @@ class ProtocolRunner:
                 temperature=self.local_temp,
                 structured_output_schema=StructuredLocalOutput,
                 logit_processor_class=self.logit_processor_class,
-                generation_strategy=self.generation_strategy,
-                beta_explanation=self.beta_explanation,
-                beta_citation=self.beta_citation,
-                beta_answer=self.beta_answer,
-                min_tokens_explanation=self.min_tokens_explanation,
-                min_tokens_citation=self.min_tokens_citation,
-                min_tokens_answer=self.min_tokens_answer,
-                max_tokens_explanation=self.max_tokens_explanation,
-                max_tokens_citation=self.max_tokens_citation,
-                max_tokens_answer=self.max_tokens_answer,
             )
         else:
             local_client = OllamaClient(
@@ -1786,14 +1766,6 @@ class Evaluator:
             else:
                 latex_content += r"\textbf{Logit Processor:} & \textit{None} \\" + "\n"
             
-            # Generation strategy
-            latex_content += r"\textbf{Generation Strategy:} & " + esc(str(local_model.get('generation_strategy', 'sequential'))) + r" \\" + "\n"
-            
-            # WFSA beta values
-            latex_content += r"\textbf{WFSA Beta (explanation):} & " + str(local_model.get('beta_explanation', 1.0)) + r" \\" + "\n"
-            latex_content += r"\textbf{WFSA Beta (citation):} & " + str(local_model.get('beta_citation', 2.0)) + r" \\" + "\n"
-            latex_content += r"\textbf{WFSA Beta (answer):} & " + str(local_model.get('beta_answer', 1.5)) + r" \\" + "\n"
-            
             latex_content += r"\end{tabular}" + "\n\n"
         
         latex_content += r"""
@@ -1995,16 +1967,6 @@ def main():
         local_backend=getattr(config.models.local, 'backend', 'ollama'),
         sglang_base_url=getattr(config.models.local, 'sglang_base_url', 'http://localhost:8000/v1'),
         logit_processor_path=getattr(config.models.local, 'logit_processor_path', None),
-        generation_strategy=getattr(config.models.local, 'generation_strategy', 'sequential'),
-        beta_explanation=getattr(config.models.local, 'beta_explanation', 1.0),
-        beta_citation=getattr(config.models.local, 'beta_citation', 2.0),
-        beta_answer=getattr(config.models.local, 'beta_answer', 1.5),
-        min_tokens_explanation=getattr(config.models.local, 'min_tokens_explanation', 10),
-        min_tokens_citation=getattr(config.models.local, 'min_tokens_citation', 5),
-        min_tokens_answer=getattr(config.models.local, 'min_tokens_answer', 3),
-        max_tokens_explanation=getattr(config.models.local, 'max_tokens_explanation', 200),
-        max_tokens_citation=getattr(config.models.local, 'max_tokens_citation', 150),
-        max_tokens_answer=getattr(config.models.local, 'max_tokens_answer', 100)
     )
     
     # Build minions_kwargs from config

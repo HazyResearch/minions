@@ -175,22 +175,8 @@ class SGLangClient(MinionsClient):
         max_tokens: int = 2048,
         max_workers: int = 32,
         structured_output_schema=None,
-        # Generation strategy
-        generation_strategy: str = "sequential",  # "sequential" or "single_shot"
         # External logit processor class (optional)
         logit_processor_class=None,  # CustomLogitProcessor subclass from external module
-        # WFSA beta values per field (higher = shorter outputs)
-        beta_explanation: float = 1.0,
-        beta_citation: float = 2.0,
-        beta_answer: float = 1.5,
-        # Minimum tokens per field before EOS is allowed
-        min_tokens_explanation: int = 10,
-        min_tokens_citation: int = 5,
-        min_tokens_answer: int = 3,
-        # Max tokens per field
-        max_tokens_explanation: int = 200,
-        max_tokens_citation: int = 150,
-        max_tokens_answer: int = 100,
         **kwargs
     ):
         """
@@ -203,19 +189,9 @@ class SGLangClient(MinionsClient):
             max_tokens: Maximum tokens to generate for full response (default: 2048)
             max_workers: Maximum parallel workers for batch requests (default: 32)
             structured_output_schema: Optional Pydantic model for structured JSON output
-            generation_strategy: "sequential" (3 API calls) or "single_shot" (1 API call)
             logit_processor_class: Optional CustomLogitProcessor subclass for constrained decoding.
                                    If provided, must have .to_str() method and .get_default_params() classmethod.
                                    Token ID sets (intro_token_ids, etc.) can be set after initialization.
-            beta_explanation: WFSA strength for explanation field (default: 1.0)
-            beta_citation: WFSA strength for citation field (default: 2.0)
-            beta_answer: WFSA strength for answer field (default: 1.5)
-            min_tokens_explanation: Minimum tokens for explanation (default: 10)
-            min_tokens_citation: Minimum tokens for citation (default: 5)
-            min_tokens_answer: Minimum tokens for answer (default: 3)
-            max_tokens_explanation: Maximum tokens for explanation (default: 200)
-            max_tokens_citation: Maximum tokens for citation (default: 150)
-            max_tokens_answer: Maximum tokens for answer (default: 100)
             **kwargs: Additional arguments passed to base class
         """
         # Normalize base_url - remove /v1 suffix if present
@@ -237,18 +213,18 @@ class SGLangClient(MinionsClient):
         self.base_url = base_url or os.getenv("SGLANG_BASE_URL", "http://localhost:8000")
         self.max_workers = max_workers
         self.structured_output_schema = structured_output_schema
-        self._generation_strategy = generation_strategy
+        self._generation_strategy = "single_shot"  # Always use single-shot JSON output
         
-        # WFSA parameters per field
-        self.beta_explanation = beta_explanation
-        self.beta_citation = beta_citation
-        self.beta_answer = beta_answer
-        self.min_tokens_explanation = min_tokens_explanation
-        self.min_tokens_citation = min_tokens_citation
-        self.min_tokens_answer = min_tokens_answer
-        self.max_tokens_explanation = max_tokens_explanation
-        self.max_tokens_citation = max_tokens_citation
-        self.max_tokens_answer = max_tokens_answer
+        # Internal defaults for generation (not user-configurable)
+        self.beta_explanation = 1.0
+        self.beta_citation = 2.0
+        self.beta_answer = 1.5
+        self.min_tokens_explanation = 10
+        self.min_tokens_citation = 5
+        self.min_tokens_answer = 3
+        self.max_tokens_explanation = 200
+        self.max_tokens_citation = 150
+        self.max_tokens_answer = 100
         
         # Generate JSON schema for strict enforcement if Pydantic model provided
         self.json_schema = None
@@ -310,11 +286,7 @@ class SGLangClient(MinionsClient):
         }
         
         self.logger.info(
-            f"[SGLang] Client initialized: {self.base_url}, model={model_name}"
-        )
-        self.logger.info(
-            f"[SGLang] Generation strategy: {generation_strategy}, "
-            f"betas: (exp={beta_explanation}, cit={beta_citation}, ans={beta_answer}), "
+            f"[SGLang] Client initialized: {self.base_url}, model={model_name}, "
             f"EOS tokens={self.stop_ids}"
         )
         if self._custom_processor_supported:

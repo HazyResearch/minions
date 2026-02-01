@@ -144,7 +144,6 @@ If no answer can be determined, respond with "None".
 
 Your answer:"""
 
-
 REMOTE_ANSWER_OR_CONTINUE = """\
 Now synthesize the findings from multiple junior workers (LLMs). 
 Your task is to finalize an answer to the question below **if and only if** you have sufficient, reliable information. 

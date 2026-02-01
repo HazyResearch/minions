@@ -9,7 +9,6 @@ NOTE: This evaluator ALWAYS loads full PDF documents from the pdf_dir.
 Pre-extracted snippets or evidence from the benchmark JSON are ignored.
 """
 
-import argparse
 import os
 import sys
 import json
@@ -23,11 +22,10 @@ from pathlib import Path
 import re
 
 import fitz  # PyMuPDF for PDF text extraction
+import importlib.util
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
-
-import importlib.util
 
 from minions.clients.ollama import OllamaClient
 from minions.clients.openai import OpenAIClient
@@ -161,46 +159,84 @@ def generate_cache_dir_name(
     return "_".join(parts)
 
 
-def generate_hash_cache_dir_name(config_path: str) -> str:
+def generate_cache_dir_name_from_config(config: EvaluatorConfig) -> str:
     """
-    Generate cache directory name from hash of config file content,
-    excluding sample-selection fields so different sample selections
-    share the same cache.
+    Generate cache directory name from specific configuration options.
+    
+    The hash is computed from:
+    - Dataset path
+    - Local model (name, temperature, context)
+    - Remote model (name, temperature)
+    - Protocol settings (active, max_rounds, samples_per_task)
+    - MINIONS settings (tasks_per_round, chunk_fn, max_chunk_size, pages_per_chunk)
+    - Logit processor path (if configured)
     
     Returns:
-        Directory name in format: run_<hash> (e.g., run_a1b2c3d4e5f6)
+        Directory name in format: <prefix>_<protocols>_<chunk_fn>[_pages:<N>]_<rounds>[_<logit_processor>]_<hash>
+        Example: myprefix_minions_on-multiple-pages_pages:5_r5_learned_logit_processor_a1b2c3d4
     """
     import hashlib
-    import re
     
-    # Fields that determine "which samples" rather than "how to evaluate"
-    # These are excluded from the hash so different sample selections share cache
-    SAMPLE_SELECTION_PATTERNS = [
-        r'^CONFIG_MAX_SAMPLES=',
-        r'^CONFIG_USE_SAMPLE_INDICES=',
-        r'^CONFIG_SAMPLE_INDICES=',
-        r'^CONFIG_USE_SAMPLE_RANGE=',
-        r'^CONFIG_SAMPLE_RANGE=',
-        r'^CONFIG_FILTER_NUMERICAL=',
-    ]
+    # Build hash from specific options
+    hash_data = {
+        'path': config.dataset.path,
+        'local_model': config.models.local.name,
+        'local_temp': config.models.local.temperature,
+        'local_ctx': config.models.local.num_ctx,
+        'remote_model': config.models.remote.name,
+        'remote_temp': config.models.remote.temperature,
+        'protocols': sorted(config.protocols.active),
+        'max_rounds': config.protocols.common.max_rounds,
+        'samples_per_task': config.protocols.common.num_samples_per_task,
+        'tasks_per_round': config.protocols.minions.num_tasks_per_round,
+        'chunk_fn': config.protocols.minions.chunk_fn,
+        'max_chunk_size': config.protocols.minions.max_chunk_size,
+    }
     
-    with open(config_path, 'r') as f:
-        lines = f.readlines()
+    # Include pages_per_chunk only if using multi-page chunking
+    if config.protocols.minions.chunk_fn == 'chunk_on_multiple_pages':
+        hash_data['pages_per_chunk'] = config.protocols.minions.pages_per_chunk
     
-    # Filter out sample-selection lines
-    filtered_lines = []
-    for line in lines:
-        skip = False
-        for pattern in SAMPLE_SELECTION_PATTERNS:
-            if re.match(pattern, line):
-                skip = True
-                break
-        if not skip:
-            filtered_lines.append(line)
+    # Include logit processor path in hash if configured
+    logit_processor_path = getattr(config.models.local, 'logit_processor_path', None)
+    if logit_processor_path:
+        hash_data['logit_processor_path'] = logit_processor_path
     
-    content = ''.join(filtered_lines)
-    content_hash = hashlib.sha256(content.encode()).hexdigest()[:12]
-    return f"run_{content_hash}"
+    # Generate short hash from the specific options
+    content_hash = hashlib.sha256(json.dumps(hash_data, sort_keys=True).encode()).hexdigest()[:8]
+    
+    # Build directory name parts
+    parts = []
+    
+    # Add prefix only if set
+    prefix = config.global_config.cache_prefix
+    if prefix:
+        parts.append(prefix)
+    
+    # Protocol(s)
+    protocols_str = "+".join(sorted(config.protocols.active))
+    parts.append(protocols_str)
+    
+    # Shorten chunk function name for readability
+    chunk_fn_short = config.protocols.minions.chunk_fn.replace('chunk_', '').replace('_', '-')
+    parts.append(chunk_fn_short)
+    
+    # Add pages_per_chunk only if using multi-page chunking
+    if config.protocols.minions.chunk_fn == 'chunk_on_multiple_pages':
+        parts.append(f"pages:{config.protocols.minions.pages_per_chunk}")
+    
+    # Add number of rounds
+    parts.append(f"r{config.protocols.common.max_rounds}")
+    
+    # Add logit processor filename (without extension) if configured
+    if logit_processor_path:
+        lp_name = Path(logit_processor_path).stem
+        parts.append(lp_name)
+    
+    # Add hash
+    parts.append(content_hash)
+    
+    return "_".join(parts)
 
 
 @dataclass
@@ -721,28 +757,7 @@ Respond with only one word: "equal" or "unequal"."""
 class ProtocolRunner:
     """Runs different protocols for evaluation."""
     
-    def __init__(
-        self,
-        local_model: str,
-        remote_model: str,
-        local_temp: float = 0.2,
-        remote_temp: float = 0.0,
-        num_ctx: int = 4096,
-        local_backend: str = "ollama",
-        sglang_base_url: str = "http://localhost:8000/v1",
-        logit_processor: Optional[Any] = None,
-        # WFSA parameters
-        generation_strategy: str = "sequential",
-        beta_explanation: float = 1.0,
-        beta_citation: float = 2.0,
-        beta_answer: float = 1.5,
-        min_tokens_explanation: int = 10,
-        min_tokens_citation: int = 5,
-        min_tokens_answer: int = 3,
-        max_tokens_explanation: int = 200,
-        max_tokens_citation: int = 150,
-        max_tokens_answer: int = 100,
-    ):
+    def __init__(self, local_model: str, remote_model: str, local_temp: float = 0.2, remote_temp: float = 0.0, num_ctx: int = 4096, local_backend: str = "ollama", sglang_base_url: str = "http://localhost:8000/v1", logit_processor_path: Optional[str] = None, generation_strategy: str = "sequential", beta_explanation: float = 1.0, beta_citation: float = 2.0, beta_answer: float = 1.5, min_tokens_explanation: int = 10, min_tokens_citation: int = 5, min_tokens_answer: int = 3, max_tokens_explanation: int = 200, max_tokens_citation: int = 150, max_tokens_answer: int = 100):
         """Initialize protocol runner with model configurations."""
         self.local_model = local_model
         self.remote_model = remote_model
@@ -751,8 +766,10 @@ class ProtocolRunner:
         self.num_ctx = num_ctx
         self.local_backend = local_backend
         self.sglang_base_url = sglang_base_url
-        self.logit_processor = logit_processor  # For constraint decoding (optional)
-        # WFSA parameters
+        
+        # Logit processor and WFSA settings
+        self.logit_processor_path = logit_processor_path
+        self.logit_processor_class = load_logit_processor(logit_processor_path) if logit_processor_path else None
         self.generation_strategy = generation_strategy
         self.beta_explanation = beta_explanation
         self.beta_citation = beta_citation
@@ -777,16 +794,6 @@ class ProtocolRunner:
                     model_name=self.local_model,
                     base_url=self.sglang_base_url,
                     temperature=self.local_temp,
-                    generation_strategy=self.generation_strategy,
-                    beta_explanation=self.beta_explanation,
-                    beta_citation=self.beta_citation,
-                    beta_answer=self.beta_answer,
-                    min_tokens_explanation=self.min_tokens_explanation,
-                    min_tokens_citation=self.min_tokens_citation,
-                    min_tokens_answer=self.min_tokens_answer,
-                    max_tokens_explanation=self.max_tokens_explanation,
-                    max_tokens_citation=self.max_tokens_citation,
-                    max_tokens_answer=self.max_tokens_answer,
                 )
             else:
                 self._local_client = OllamaClient(
@@ -957,6 +964,7 @@ class ProtocolRunner:
                 base_url=self.sglang_base_url,
                 temperature=self.local_temp,
                 structured_output_schema=StructuredLocalOutput,
+                logit_processor_class=self.logit_processor_class,
                 generation_strategy=self.generation_strategy,
                 beta_explanation=self.beta_explanation,
                 beta_citation=self.beta_citation,
@@ -968,18 +976,6 @@ class ProtocolRunner:
                 max_tokens_citation=self.max_tokens_citation,
                 max_tokens_answer=self.max_tokens_answer,
             )
-            # Use learned logit processor token IDs if processor is available
-            if self.logit_processor is not None:
-                local_client.intro_token_ids = self.logit_processor.EARLY_PHASE_TOKEN_IDS
-                local_client.always_token_ids = self.logit_processor.ALWAYS_TOKEN_IDS
-                local_client.list_token_ids = self.logit_processor.AFTER_NEWLINE_TOKEN_IDS
-            # Override token IDs if custom logit processor params provided via kwargs
-            if kwargs.get('intro_token_ids'):
-                local_client.intro_token_ids = set(kwargs['intro_token_ids'])
-            if kwargs.get('always_token_ids'):
-                local_client.always_token_ids = set(kwargs['always_token_ids'])
-            if kwargs.get('list_token_ids'):
-                local_client.list_token_ids = set(kwargs['list_token_ids'])
         else:
             local_client = OllamaClient(
                 model_name=self.local_model,
@@ -1175,11 +1171,15 @@ class Evaluator:
     def evaluate(self) -> Dict[str, Any]:
         """Run evaluation across all protocols and samples."""
         self._start_time = time.time()
+        self._total_runtime = 0  # Initialize for incremental updates
         logger.info(f"Starting evaluation with protocols: {self.protocols}")
         
         samples = self.dataset.samples
         if not samples:
             raise ValueError("No samples loaded from dataset")
+        
+        # Generate initial LaTeX report at the start
+        self._update_latex_report()
         
         for protocol in self.protocols:
             logger.info(f"\n{'='*60}")
@@ -1195,10 +1195,13 @@ class Evaluator:
                     cached_result = self._load_cached_result(sample.sample_id, protocol)
                     if cached_result is not None:
                         protocol_results.append(cached_result)
+                        self.results[protocol] = protocol_results  # Update results for report
                         cached_count += 1
                         is_correct_str = "✓" if cached_result.is_correct else "✗" if cached_result.is_correct is not None else "?"
                         print(f"\n\033[1m[{idx} / {len(samples)}]\033[0m \033[90m(cached)\033[0m")
                         logger.info(f"Loaded cached result for {sample.sample_id}: {is_correct_str}")
+                        # Update LaTeX report with cached result
+                        self._update_latex_report()
                         continue
                 
                 print(f"\n\033[1m[{idx} / {len(samples)}]\033[0m")
@@ -1208,6 +1211,7 @@ class Evaluator:
                 try:
                     result = self._evaluate_sample(sample, protocol)
                     protocol_results.append(result)
+                    self.results[protocol] = protocol_results  # Update results for report
                     evaluated_count += 1
                     
                     if self.use_cache:
@@ -1218,6 +1222,9 @@ class Evaluator:
                     else:
                         is_correct_str = "✓" if result.is_correct else "✗" if result.is_correct is not None else "?"
                         logger.info(f"  Result: {is_correct_str} | Cost: ${result.cost_usd:.4f} | Time: {result.execution_time:.2f}s")
+                    
+                    # Update LaTeX report after each completed query
+                    self._update_latex_report()
                 
                 except Exception as e:
                     logger.error(f"  Unexpected error: {e}")
@@ -1234,8 +1241,11 @@ class Evaluator:
                         error=str(e)
                     )
                     protocol_results.append(error_result)
+                    self.results[protocol] = protocol_results  # Update results for report
                     if self.use_cache:
                         self._save_sample_result(error_result)
+                    # Update LaTeX report even on errors
+                    self._update_latex_report()
             
             self.results[protocol] = protocol_results
             
@@ -1392,50 +1402,12 @@ class Evaluator:
         
         logger.info(f"Saved summary to {csv_path}")
         
-        try:
-            subprocess.run(
-                ['git', 'add', str(self.run_output_dir)],
-                cwd=str(self.output_dir.parent),
-                capture_output=True,
-                check=False
-            )
-        except Exception:
-            pass
-        
         return json_path, csv_path
     
     def print_summary(self):
         """Print summary table to console."""
         summary = self._aggregate_all_results()
         
-        # Print per-query details first
-        print("\n" + "="*80)
-        print("PER-QUERY DETAILS")
-        print("="*80)
-        
-        for protocol in self.protocols:
-            results = self.results.get(protocol, [])
-            if not results:
-                continue
-            
-            print(f"\n{protocol.upper()}:")
-            print("-"*80)
-            if self.skip_accuracy:
-                print(f"{'Sample ID':<45} {'Cost ($)':<12} {'Input Tok':<12} {'Output Tok':<12}")
-            else:
-                print(f"{'Sample ID':<40} {'Correct':<10} {'Cost ($)':<12} {'Input Tok':<12} {'Output Tok':<12}")
-            print("-"*80)
-            
-            for r in results:
-                sample_id = r.sample_id[:42] + "..." if len(r.sample_id) > 45 else r.sample_id
-                if self.skip_accuracy:
-                    print(f"{sample_id:<45} {r.cost_usd:<12.4f} {r.input_tokens:<12} {r.output_tokens:<12}")
-                else:
-                    correct_str = "✓" if r.is_correct else ("✗" if r.is_correct is False else "?")
-                    sample_id = r.sample_id[:37] + "..." if len(r.sample_id) > 40 else r.sample_id
-                    print(f"{sample_id:<40} {correct_str:<10} {r.cost_usd:<12.4f} {r.input_tokens:<12} {r.output_tokens:<12}")
-        
-        # Print aggregate summary
         print("\n" + "="*80)
         print("EVALUATION SUMMARY")
         print("="*80)
@@ -1545,36 +1517,6 @@ class Evaluator:
                     f.write(f"Total runtime: {seconds:.1f}s\n")
                 f.write("\n")
             
-            # Write per-query details
-            f.write("="*80 + "\n")
-            f.write("PER-QUERY DETAILS\n")
-            f.write("="*80 + "\n")
-            
-            for protocol in self.protocols:
-                results = self.results.get(protocol, [])
-                if not results:
-                    continue
-                
-                f.write(f"\n{protocol.upper()}:\n")
-                f.write("-"*80 + "\n")
-                if self.skip_accuracy:
-                    f.write(f"{'Sample ID':<45} {'Cost ($)':<12} {'Input Tok':<12} {'Output Tok':<12}\n")
-                else:
-                    f.write(f"{'Sample ID':<40} {'Correct':<10} {'Cost ($)':<12} {'Input Tok':<12} {'Output Tok':<12}\n")
-                f.write("-"*80 + "\n")
-                
-                for r in results:
-                    sample_id = r.sample_id[:42] + "..." if len(r.sample_id) > 45 else r.sample_id
-                    if self.skip_accuracy:
-                        f.write(f"{sample_id:<45} {r.cost_usd:<12.4f} {r.input_tokens:<12} {r.output_tokens:<12}\n")
-                    else:
-                        correct_str = "Y" if r.is_correct else ("N" if r.is_correct is False else "?")
-                        sample_id = r.sample_id[:37] + "..." if len(r.sample_id) > 40 else r.sample_id
-                        f.write(f"{sample_id:<40} {correct_str:<10} {r.cost_usd:<12.4f} {r.input_tokens:<12} {r.output_tokens:<12}\n")
-            
-            f.write("\n")
-            
-            # Write aggregate summary
             f.write("="*80 + "\n")
             f.write("EVALUATION SUMMARY\n")
             f.write("="*80 + "\n")
@@ -1599,28 +1541,429 @@ class Evaluator:
         
         logger.info(f"Saved summary to {summary_path}")
         return summary_path
+    
+    @staticmethod
+    def _escape_latex(text: str) -> str:
+        """Escape special LaTeX characters in text."""
+        if text is None:
+            return ""
+        text = str(text)
+        # Order matters: escape backslash first
+        replacements = [
+            ('\\', r'\textbackslash{}'),
+            ('&', r'\&'),
+            ('%', r'\%'),
+            ('$', r'\$'),
+            ('#', r'\#'),
+            ('_', r'\_'),
+            ('{', r'\{'),
+            ('}', r'\}'),
+            ('~', r'\textasciitilde{}'),
+            ('^', r'\textasciicircum{}'),
+        ]
+        for old, new in replacements:
+            text = text.replace(old, new)
+        return text
+    
+    def _compile_latex(self, tex_path: Path) -> Optional[Path]:
+        """
+        Compile LaTeX file to PDF using pdflatex.
+        
+        Args:
+            tex_path: Path to the .tex file
+            
+        Returns:
+            Path to the generated PDF, or None if compilation failed
+        """
+        pdf_path = tex_path.with_suffix('.pdf')
+        
+        try:
+            # Check if pdflatex is available
+            result = subprocess.run(
+                ['which', 'pdflatex'],
+                capture_output=True,
+                check=False,
+                timeout=10
+            )
+            if result.returncode != 0:
+                logger.warning("pdflatex not found. Please install texlive to compile LaTeX reports.")
+                return None
+            
+            # Run pdflatex twice for proper cross-references
+            for run_num in range(2):
+                result = subprocess.run(
+                    ['pdflatex', '-interaction=nonstopmode', '-halt-on-error', tex_path.name],
+                    cwd=str(tex_path.parent),
+                    capture_output=True,
+                    check=False,
+                    timeout=120
+                )
+                if result.returncode != 0:
+                    logger.error(f"pdflatex compilation failed (run {run_num + 1})")
+                    logger.error(f"stdout: {result.stdout.decode('utf-8', errors='replace')[-2000:]}")
+                    logger.error(f"stderr: {result.stderr.decode('utf-8', errors='replace')[-500:]}")
+                    return None
+            
+            # Clean up auxiliary files
+            for ext in ['.aux', '.log', '.out', '.toc']:
+                aux_file = tex_path.with_suffix(ext)
+                if aux_file.exists():
+                    try:
+                        aux_file.unlink()
+                    except Exception:
+                        pass
+            
+            if pdf_path.exists():
+                logger.info(f"Successfully compiled LaTeX to {pdf_path}")
+                return pdf_path
+            else:
+                logger.error("PDF file not created despite successful pdflatex run")
+                return None
+                
+        except subprocess.TimeoutExpired:
+            logger.error("pdflatex compilation timed out")
+            return None
+        except Exception as e:
+            logger.error(f"Error compiling LaTeX: {e}")
+            return None
+    
+    def _update_latex_report(self):
+        """
+        Update the LaTeX report with current results.
+        Called after each sample is processed to provide incremental updates.
+        Errors are logged but don't interrupt the evaluation.
+        """
+        try:
+            # Update runtime for the report
+            self._total_runtime = time.time() - self._start_time
+            # Generate and compile the report
+            self.save_latex_report()
+        except Exception as e:
+            logger.warning(f"Failed to update LaTeX report: {e}")
+    
+    def save_latex_report(self, filename_prefix: str = "report") -> Tuple[Path, Optional[Path]]:
+        """
+        Generate a LaTeX report and compile it to PDF.
+        
+        Args:
+            filename_prefix: Prefix for the output files
+            
+        Returns:
+            Tuple of (tex_path, pdf_path). pdf_path may be None if compilation failed.
+        """
+        summary = self._aggregate_all_results()
+        tex_path = self.run_output_dir / f"{filename_prefix}.tex"
+        
+        # Format runtime
+        runtime_str = "N/A"
+        if hasattr(self, '_total_runtime'):
+            minutes, seconds = divmod(self._total_runtime, 60)
+            hours, minutes = divmod(minutes, 60)
+            if hours > 0:
+                runtime_str = f"{int(hours)}h {int(minutes)}m {seconds:.1f}s"
+            elif minutes > 0:
+                runtime_str = f"{int(minutes)}m {seconds:.1f}s"
+            else:
+                runtime_str = f"{seconds:.1f}s"
+        
+        # Get configuration details
+        config = self.all_args
+        dataset_config = config.get('dataset', {})
+        models_config = config.get('models', {})
+        protocols_config = config.get('protocols', {})
+        global_config = config.get('global', {})
+        
+        local_model = models_config.get('local', {})
+        remote_model = models_config.get('remote', {})
+        minions_config = protocols_config.get('minions', {})
+        common_config = protocols_config.get('common', {})
+        
+        # Escape all text for LaTeX
+        esc = self._escape_latex
+        
+        # Build LaTeX document
+        latex_content = r"""\documentclass[11pt,a4paper]{article}
+
+% Packages
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage{booktabs}
+\usepackage{longtable}
+\usepackage{geometry}
+\usepackage{fancyhdr}
+\usepackage{hyperref}
+\usepackage{xcolor}
+\usepackage{array}
+\usepackage{tabularx}
+
+% Page geometry
+\geometry{margin=1in, top=1.2in, bottom=1in}
+
+% Colors
+\definecolor{headerblue}{RGB}{41, 128, 185}
+\definecolor{lightgray}{RGB}{245, 245, 245}
+
+% Header and footer
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\textcolor{headerblue}{\textbf{FinanceBench Evaluation Report}}}
+\fancyhead[R]{\textcolor{gray}{""" + esc(str(self.run_output_dir.name)) + r"""}}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+\renewcommand{\footrulewidth}{0.4pt}
+
+% Hyperref setup
+\hypersetup{
+    colorlinks=true,
+    linkcolor=headerblue,
+    urlcolor=headerblue
+}
+
+% Title
+\title{\vspace{-1cm}\textcolor{headerblue}{\textbf{FinanceBench Evaluation Report}}}
+\author{Generated by financebench\_evaluator.py}
+\date{""" + esc(datetime.now().strftime("%B %d, %Y at %H:%M")) + r"""}
+
+\begin{document}
+
+\maketitle
+
+\vspace{0.5cm}
+
+"""
+        
+        # Calculate progress
+        total_samples = len(self.dataset.samples)
+        processed_samples = sum(len(r) for r in self.results.values())
+        progress_pct = (processed_samples / total_samples * 100) if total_samples > 0 else 0
+        
+        if processed_samples >= total_samples and total_samples > 0:
+            status_text = r"\textcolor{green!60!black}{\textbf{COMPLETED}}"
+        elif processed_samples > 0:
+            status_text = r"\textcolor{orange}{\textbf{IN PROGRESS}}"
+        else:
+            status_text = r"\textcolor{gray}{\textbf{STARTING}}"
+        
+        latex_content += r"""
+% Progress indicator
+\begin{center}
+\large """ + status_text + r""" --- """ + str(processed_samples) + r"""/""" + str(total_samples) + r""" samples (""" + f"{progress_pct:.1f}" + r"""\%)
+\end{center}
+
+\vspace{0.3cm}
+
+% Configuration Section
+\section*{Configuration}
+
+\subsection*{Dataset}
+\begin{tabular}{@{}ll@{}}
+\textbf{Path:} & \texttt{""" + esc(str(dataset_config.get('path', 'N/A'))) + r"""} \\
+\textbf{Filter Numerical:} & """ + ('Yes' if dataset_config.get('filter_numerical') else 'No') + r""" \\
+\textbf{Total Samples:} & """ + str(len(self.dataset.samples)) + r""" \\
+\end{tabular}
+
+\subsection*{Models}
+\begin{tabular}{@{}ll@{}}
+\textbf{Local Model:} & \texttt{""" + esc(str(local_model.get('name', 'N/A'))) + r"""} \\
+\textbf{Local Temperature:} & """ + str(local_model.get('temperature', 0.0)) + r""" \\
+\textbf{Local Context:} & """ + str(local_model.get('num_ctx', 4096)) + r""" tokens \\
+\textbf{Remote Model:} & \texttt{""" + esc(str(remote_model.get('name', 'N/A'))) + r"""} \\
+\textbf{Remote Temperature:} & """ + str(remote_model.get('temperature', 0.0)) + r""" \\
+\end{tabular}
+
+"""
+        
+        # Add SGLang/Constraint Decoding settings if using SGLang backend
+        if local_model.get('backend') == 'sglang':
+            latex_content += r"""
+\subsection*{SGLang / Constraint Decoding Settings}
+\begin{tabular}{@{}ll@{}}
+"""
+            # Logit processor path
+            lp_path = local_model.get('logit_processor_path')
+            if lp_path:
+                latex_content += r"\textbf{Logit Processor:} & \texttt{" + esc(str(lp_path)) + r"} \\" + "\n"
+            else:
+                latex_content += r"\textbf{Logit Processor:} & \textit{None} \\" + "\n"
+            
+            # Generation strategy
+            latex_content += r"\textbf{Generation Strategy:} & " + esc(str(local_model.get('generation_strategy', 'sequential'))) + r" \\" + "\n"
+            
+            # WFSA beta values
+            latex_content += r"\textbf{WFSA Beta (explanation):} & " + str(local_model.get('beta_explanation', 1.0)) + r" \\" + "\n"
+            latex_content += r"\textbf{WFSA Beta (citation):} & " + str(local_model.get('beta_citation', 2.0)) + r" \\" + "\n"
+            latex_content += r"\textbf{WFSA Beta (answer):} & " + str(local_model.get('beta_answer', 1.5)) + r" \\" + "\n"
+            
+            latex_content += r"\end{tabular}" + "\n\n"
+        
+        latex_content += r"""
+\subsection*{Protocol Settings}
+\begin{tabular}{@{}ll@{}}
+\textbf{Active Protocols:} & """ + esc(', '.join(protocols_config.get('active', []))) + r""" \\
+\textbf{\textcolor{red}{Max Rounds:}} & """ + str(common_config.get('max_rounds', 2)) + r""" \\
+\textbf{Samples per Task:} & """ + str(common_config.get('num_samples_per_task', 1)) + r""" \\
+"""
+        
+        # Add MINIONS-specific settings if minions protocol is active
+        if 'minions' in protocols_config.get('active', []):
+            latex_content += r"""\textbf{Tasks per Round:} & """ + str(minions_config.get('num_tasks_per_round', 3)) + r""" \\
+\textbf{\textcolor{red}{Chunk Function:}} & \texttt{""" + esc(str(minions_config.get('chunk_fn', 'chunk_by_section'))) + r"""} \\
+\textbf{Max Chunk Size:} & """ + str(minions_config.get('max_chunk_size', 3000)) + r""" \\
+"""
+        
+        latex_content += r"""\end{tabular}
+
+\vspace{1cm}
+
+% Runtime
+\noindent\textbf{Total Runtime:} """ + runtime_str + r"""
+
+\vspace{1cm}
+
+% Summary Section
+\section*{Evaluation Summary}
+
+\begin{table}[h!]
+\centering
+\begin{tabular}{l""" + ('cccc' if not self.skip_accuracy else 'ccc') + r"""}
+\toprule
+"""
+        
+        # Table header
+        if self.skip_accuracy:
+            latex_content += r"""\textbf{Protocol} & \textbf{Avg Cost (\$)} & \textbf{Input Tokens (k)} & \textbf{Output Tokens (k)} \\
+"""
+        else:
+            latex_content += r"""\textbf{Protocol} & \textbf{Accuracy} & \textbf{Avg Cost (\$)} & \textbf{Input Tokens (k)} & \textbf{Output Tokens (k)} \\
+"""
+        
+        latex_content += r"""\midrule
+"""
+        
+        # Table rows
+        for protocol in self.protocols:
+            s = summary.get(protocol, {})
+            avg_cost = s.get('avg_cost_per_query', 0)
+            avg_input = s.get('avg_input_tokens', 0) / 1000
+            avg_output = s.get('avg_output_tokens', 0) / 1000
+            
+            if self.skip_accuracy:
+                latex_content += f"{esc(protocol)} & {avg_cost:.4f} & {avg_input:.2f} & {avg_output:.2f} \\\\\n"
+            else:
+                accuracy = s.get('accuracy', 0)
+                if accuracy is not None:
+                    accuracy_str = f"{accuracy*100:.2f}\\%"
+                else:
+                    accuracy_str = "N/A"
+                latex_content += f"{esc(protocol)} & {accuracy_str} & {avg_cost:.4f} & {avg_input:.2f} & {avg_output:.2f} \\\\\n"
+        
+        latex_content += r"""\bottomrule
+\end{tabular}
+\caption{Evaluation metrics by protocol}
+\end{table}
+
+"""
+        
+        # Add per-protocol statistics
+        for protocol in self.protocols:
+            s = summary.get(protocol, {})
+            latex_content += r"""
+\subsection*{""" + esc(protocol.upper()) + r""" Statistics}
+\begin{tabular}{@{}ll@{}}
+\textbf{Total Samples:} & """ + str(s.get('total_samples', 0)) + r""" \\
+\textbf{Successful:} & """ + str(s.get('successful_samples', 0)) + r""" \\
+\textbf{Failed:} & """ + str(s.get('failed_samples', 0)) + r""" \\
+\textbf{Total Cost:} & \$""" + f"{s.get('total_cost', 0):.4f}" + r""" \\
+\textbf{Avg Execution Time:} & """ + f"{s.get('avg_execution_time', 0):.2f}" + r"""s \\
+\textbf{Total Input Tokens:} & """ + f"{s.get('total_input_tokens', 0):,}" + r""" \\
+\textbf{Total Output Tokens:} & """ + f"{s.get('total_output_tokens', 0):,}" + r""" \\
+\end{tabular}
+
+"""
+        
+        # Add sample results section (first 20 samples for readability)
+        latex_content += r"""
+\newpage
+\section*{Sample Results}
+
+\small
+\begin{longtable}{p{3cm}p{5cm}p{2cm}p{2cm}p{1.5cm}}
+\toprule
+\textbf{Sample ID} & \textbf{Question (truncated)} & \textbf{Predicted} & \textbf{Ground Truth} & \textbf{Correct} \\
+\midrule
+\endhead
+\bottomrule
+\endfoot
+"""
+        
+        # Add sample rows (limit to first 30 for PDF size)
+        max_samples_to_show = 30
+        samples_shown = 0
+        
+        for protocol, results in self.results.items():
+            for result in results[:max_samples_to_show]:
+                if samples_shown >= max_samples_to_show:
+                    break
+                
+                # Truncate long text
+                question_short = result.question[:80] + "..." if len(result.question) > 80 else result.question
+                predicted_short = str(result.predicted_answer)[:40] + "..." if len(str(result.predicted_answer)) > 40 else str(result.predicted_answer)
+                gt_short = str(result.ground_truth[0])[:40] + "..." if result.ground_truth and len(str(result.ground_truth[0])) > 40 else (str(result.ground_truth[0]) if result.ground_truth else "N/A")
+                
+                if result.is_correct is None:
+                    correct_str = "---"
+                elif result.is_correct:
+                    correct_str = r"\textcolor{green!60!black}{Yes}"
+                else:
+                    correct_str = r"\textcolor{red}{No}"
+                
+                sample_id_short = result.sample_id[-25:] if len(result.sample_id) > 25 else result.sample_id
+                
+                latex_content += f"{esc(sample_id_short)} & {esc(question_short)} & {esc(predicted_short)} & {esc(gt_short)} & {correct_str} \\\\\n"
+                samples_shown += 1
+            
+            if samples_shown >= max_samples_to_show:
+                break
+        
+        total_samples = sum(len(r) for r in self.results.values())
+        if total_samples > max_samples_to_show:
+            latex_content += r"""\multicolumn{5}{c}{\textit{... """ + str(total_samples - max_samples_to_show) + r""" more samples not shown ...}} \\
+"""
+        
+        latex_content += r"""
+\end{longtable}
+
+\vfill
+\begin{center}
+\small\textit{Generated by FinanceBench Evaluator}
+\end{center}
+
+\end{document}
+"""
+        
+        # Write LaTeX file
+        with open(tex_path, 'w', encoding='utf-8') as f:
+            f.write(latex_content)
+        
+        logger.info(f"Saved LaTeX report to {tex_path}")
+        
+        # Compile to PDF
+        pdf_path = self._compile_latex(tex_path)
+        
+        return tex_path, pdf_path
 
 
 def main():
     """Main entry point using Kconfig .config file."""
-    parser = argparse.ArgumentParser(
-        description="FinanceBench Evaluator - Evaluate protocols on FinanceBench dataset",
-        epilog="To create a configuration interactively: python evaluate/kmenuconfig.py"
-    )
-    parser.add_argument(
-        "config",
-        help="Path to .config file (created by kmenuconfig.py)"
-    )
-    parser.add_argument(
-        "--logit-processor-path",
-        type=str,
-        default=None,
-        help="Path to learned logit processor file (.py). Overrides LOGIT_PROCESSOR_PATH in config. "
-             "If not specified and not in config, constraint decoding is disabled."
-    )
+    if len(sys.argv) != 2:
+        print("Usage: python financebench_evaluator.py <.config>")
+        print("\nExample:")
+        print("  python evaluate/financebench_evaluator.py .config")
+        print("\nTo create a configuration interactively:")
+        print("  python evaluate/kmenuconfig.py")
+        sys.exit(1)
     
-    args = parser.parse_args()
-    config_path = args.config
+    config_path = sys.argv[1]
     
     try:
         config = load_config(config_path)
@@ -1628,22 +1971,6 @@ def main():
     except Exception as e:
         logger.error(f"Failed to load configuration: {e}")
         sys.exit(1)
-    
-    # Determine logit processor path: CLI flag > Kconfig > None
-    logit_processor_path = args.logit_processor_path
-    if logit_processor_path is None:
-        logit_processor_path = getattr(config.models.local, 'logit_processor_path', None)
-    
-    # Load logit processor if path is provided
-    logit_processor = None
-    if logit_processor_path:
-        logit_processor = load_logit_processor(logit_processor_path)
-        if logit_processor is None:
-            logger.warning(f"Constraint decoding disabled - could not load processor from {logit_processor_path}")
-        else:
-            logger.info(f"Constraint decoding enabled with processor from {logit_processor_path}")
-    else:
-        logger.info("Constraint decoding disabled - no logit processor path specified")
     
     # Load dataset (always uses full PDF documents)
     dataset = FinanceBenchDataset(
@@ -1667,8 +1994,7 @@ def main():
         num_ctx=config.models.local.num_ctx,
         local_backend=getattr(config.models.local, 'backend', 'ollama'),
         sglang_base_url=getattr(config.models.local, 'sglang_base_url', 'http://localhost:8000/v1'),
-        logit_processor=logit_processor,
-        # WFSA parameters
+        logit_processor_path=getattr(config.models.local, 'logit_processor_path', None),
         generation_strategy=getattr(config.models.local, 'generation_strategy', 'sequential'),
         beta_explanation=getattr(config.models.local, 'beta_explanation', 1.0),
         beta_citation=getattr(config.models.local, 'beta_citation', 2.0),
@@ -1678,7 +2004,7 @@ def main():
         min_tokens_answer=getattr(config.models.local, 'min_tokens_answer', 3),
         max_tokens_explanation=getattr(config.models.local, 'max_tokens_explanation', 200),
         max_tokens_citation=getattr(config.models.local, 'max_tokens_citation', 150),
-        max_tokens_answer=getattr(config.models.local, 'max_tokens_answer', 100),
+        max_tokens_answer=getattr(config.models.local, 'max_tokens_answer', 100)
     )
     
     # Build minions_kwargs from config
@@ -1691,7 +2017,7 @@ def main():
     # Generate cache directory name if caching is enabled
     cache_dir_name = None
     if config.global_config.use_cache:
-        cache_dir_name = generate_hash_cache_dir_name(config_path)
+        cache_dir_name = generate_cache_dir_name_from_config(config)
         logger.info(f"Cache directory name: {cache_dir_name}")
     
     config_dict = config.to_dict()
@@ -1725,6 +2051,7 @@ def main():
         evaluator.evaluate()
         json_path, csv_path = evaluator.save_results()
         summary_path = evaluator.save_summary()
+        tex_path, pdf_path = evaluator.save_latex_report()
         evaluator.print_summary()
         
         print(f"\nResults saved to:")
@@ -1732,12 +2059,18 @@ def main():
         print(f"  JSON: {json_path}")
         print(f"  CSV: {csv_path}")
         print(f"  Summary: {summary_path}")
+        print(f"  LaTeX: {tex_path}")
+        if pdf_path:
+            print(f"  PDF: {pdf_path}")
+        else:
+            print(f"  PDF: (compilation failed, check {tex_path} for errors)")
         
     except KeyboardInterrupt:
         logger.info("Evaluation interrupted by user")
         if evaluator.results:
             evaluator.save_results(filename_prefix="financebench_results_partial")
             evaluator.save_summary()
+            evaluator.save_latex_report(filename_prefix="report_partial")
     except Exception as e:
         logger.error(f"Evaluation failed: {e}", exc_info=True)
         raise

@@ -18,6 +18,7 @@ from minions.usage import Usage
 from minions.utils.chunking import (
     chunk_by_section,
     chunk_by_page,
+    chunk_on_multiple_pages,
     chunk_by_paragraph,
     extract_imports,
     extract_function_header,
@@ -152,6 +153,8 @@ class Minions:
         max_rounds=5,
         callback=None,
         log_dir="minions_logs",
+        max_chunk_size=3000,
+        pages_per_chunk=5,
         **kwargs,
     ):
         """Initialize the Minion with local and remote LLM clients.
@@ -162,6 +165,8 @@ class Minions:
             max_rounds: Maximum number of conversation rounds
             callback: Optional callback function to receive message updates
             log_dir: Directory for logging conversation history
+            max_chunk_size: Maximum size of chunks when using chunk_by_section
+            pages_per_chunk: Number of pages per chunk when using chunk_on_multiple_pages
         """
         self.local_client = local_client
         self.remote_client = remote_client
@@ -169,6 +174,8 @@ class Minions:
         self.max_jobs_per_round = 2048
         self.callback = callback
         self.log_dir = log_dir
+        self.max_chunk_size = max_chunk_size
+        self.pages_per_chunk = pages_per_chunk
         self.num_samples = 1 or kwargs.get("num_samples", None)
         self.worker_batch_size = 1 or kwargs.get("worker_batch_size", None)
         self.max_code_attempts = kwargs.get("max_code_attempts", 10)
@@ -210,6 +217,7 @@ class Minions:
         self.chunking_fns = {
             "chunk_by_section": chunk_by_section,
             "chunk_by_page": chunk_by_page,
+            "chunk_on_multiple_pages": chunk_on_multiple_pages,
             "chunk_by_paragraph": chunk_by_paragraph,
             "extract_imports": extract_imports,
             "extract_function_header": extract_function_header,
@@ -522,14 +530,29 @@ class Minions:
                     continue
 
                 # prepare the inputs for the code execution
+                # Create wrapper for chunk_by_section with configured max_chunk_size
+                def chunk_by_section_with_config(doc: str, max_chunk_size: int = self.max_chunk_size, overlap: int = 20):
+                    return chunk_by_section(doc, max_chunk_size=max_chunk_size, overlap=overlap)
+                
+                # Create wrapper for chunk_on_multiple_pages with configured pages_per_chunk
+                def chunk_on_multiple_pages_with_config(doc: str, pages_per_chunk: int = self.pages_per_chunk):
+                    return chunk_on_multiple_pages(doc, pages_per_chunk=pages_per_chunk)
+                
                 starting_globals = {
                     **USEFUL_IMPORTS,
-                    "chunk_by_section": chunk_by_section,
-                    f"{chunk_fn}": self.chunking_fn,
+                    "chunk_by_section": chunk_by_section_with_config,
+                    "chunk_on_multiple_pages": chunk_on_multiple_pages_with_config,
                     "JobManifest": JobManifest,
                     "JobOutput": JobOutput,
                     "Job": Job,
                 }
+                # Add the chunk_fn alias with appropriate wrapper
+                if chunk_fn == "chunk_by_section":
+                    starting_globals[chunk_fn] = chunk_by_section_with_config
+                elif chunk_fn == "chunk_on_multiple_pages":
+                    starting_globals[chunk_fn] = chunk_on_multiple_pages_with_config
+                else:
+                    starting_globals[chunk_fn] = self.chunking_fn
 
                 if use_retrieval:
                     if use_retrieval == "embedding" and embedding_model_instance:

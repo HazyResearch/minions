@@ -1,0 +1,359 @@
+#
+# FinanceBench Evaluator Configuration
+#
+# This Kconfig file defines all configuration options for the evaluator.
+# Use 'python evaluate/kmenuconfig.py' for interactive configuration.
+#
+
+mainmenu "FinanceBench Evaluator Configuration"
+
+#
+# Dataset Configuration
+#
+menu "Dataset Configuration"
+
+config DATASET_PATH
+	string "Dataset path"
+	default "/workspace/financebench"
+	help
+	  Path to the FinanceBench repository containing the dataset.
+	  This should point to the root directory of the financebench repo.
+
+config DATASET_PDF_DIR
+	string "PDF directory"
+	default "/workspace/financebench/pdfs"
+	help
+	  Path to directory containing SEC filing PDF documents.
+	  Each sample's doc_name field maps to a PDF file in this directory.
+	  For example, doc_name "3M_2018_10K" maps to "3M_2018_10K.pdf".
+	  
+	  NOTE: The evaluator ALWAYS loads full PDF documents.
+	  Pre-extracted snippets or evidence from the benchmark are ignored.
+
+config FILTER_NUMERICAL
+	bool "Filter to numerical questions only"
+	default n
+	help
+	  When enabled, only numerical reasoning questions are evaluated.
+	  This filters the dataset to questions that involve calculations,
+	  comparisons, or extraction of numerical values.
+
+config MAX_SAMPLES
+	int "Maximum number of samples (0 = all)"
+	default 0
+	range 0 10000
+	help
+	  Maximum number of samples to evaluate.
+	  Set to 0 to evaluate all samples in the dataset.
+	  Useful for testing or quick experiments.
+
+config USE_SAMPLE_INDICES
+	bool "Use specific sample indices"
+	default n
+	help
+	  Enable to specify exact sample indices to evaluate
+	  instead of using max_samples.
+
+config SAMPLE_INDICES
+	string "Sample indices (comma-separated)"
+	default "1,2,3"
+	depends on USE_SAMPLE_INDICES
+	help
+	  Comma-separated list of 1-based sample indices to evaluate.
+	  Example: "1,5,10,15,20"
+
+config USE_SAMPLE_RANGE
+	bool "Use sample range"
+	default n
+	depends on !USE_SAMPLE_INDICES
+	help
+	  Enable to specify a range of samples (e.g., 40-90).
+	  Mutually exclusive with specific sample indices.
+
+config SAMPLE_RANGE
+	string "Sample range (start-end)"
+	default "1-10"
+	depends on USE_SAMPLE_RANGE
+	help
+	  Range of 1-based sample indices to evaluate.
+	  Format: "start-end" (e.g., "40-90" means samples 40 through 90 inclusive)
+
+endmenu
+
+#
+# Model Configuration
+#
+menu "Model Configuration"
+
+menu "Local Model (On-Device)"
+
+config LOCAL_MODEL_NAME
+	string "Local model name"
+	default "llama3.2:3b"
+	help
+	  Ollama model name for the local/on-device model.
+	  Examples: llama3.2:3b, llama3.1:8b, mistral:7b
+
+config LOCAL_TEMPERATURE
+	int "Local model temperature (x100)"
+	default 20
+	range 0 200
+	help
+	  Sampling temperature for the local model, multiplied by 100.
+	  20 = 0.2, 0 = 0.0, 100 = 1.0
+	  Lower values produce more deterministic outputs.
+
+config LOCAL_NUM_CTX
+	int "Context window size"
+	default 4096
+	range 512 32768
+	help
+	  Context window size for the local model.
+	  Must be supported by your local model.
+	  Affects all protocols that use the local model.
+
+config LOCAL_BACKEND_SGLANG
+	bool "Use SGLang backend (instead of Ollama)"
+	default n
+	help
+	  Use SGLang as the local inference backend instead of Ollama.
+	  SGLang provides RadixAttention for automatic KV cache sharing
+	  across parallel requests with common prefixes.
+	  Requires SGLang server running.
+
+config SGLANG_BASE_URL
+	string "SGLang server URL"
+	default "http://localhost:8000/v1"
+	depends on LOCAL_BACKEND_SGLANG
+	help
+	  URL of the SGLang server (including /v1 for OpenAI-compatible API).
+	  Default: http://localhost:8000/v1
+
+endmenu
+
+menu "Remote Model (Cloud)"
+
+config REMOTE_MODEL_NAME
+	string "Remote model name"
+	default "gpt-4o"
+	help
+	  OpenAI model name for the remote/cloud model.
+	  Examples: gpt-4o, gpt-4o-mini, gpt-4-turbo
+
+config REMOTE_TEMPERATURE
+	int "Remote model temperature (x100)"
+	default 0
+	range 0 200
+	help
+	  Sampling temperature for the remote model, multiplied by 100.
+	  0 = 0.0 (most deterministic), 100 = 1.0
+	  Lower values recommended for reproducible results.
+
+endmenu
+
+endmenu
+
+#
+# Protocol Configuration
+#
+menu "Protocol Configuration"
+
+comment "Select protocols to evaluate"
+
+config PROTOCOL_MINIONS
+	bool "MINIONS (Parallel Execution)"
+	default y
+	help
+	  Parallel local execution with task decomposition.
+	  The remote model decomposes tasks, and the local model
+	  executes them in parallel across document chunks.
+
+config PROTOCOL_MINION
+	bool "MINION (Single Conversation)"
+	default n
+	help
+	  Single conversation protocol between local and remote models.
+	  Simpler but may require more rounds for complex queries.
+
+config PROTOCOL_REMOTE_ONLY
+	bool "Remote Only (Baseline)"
+	default n
+	help
+	  Baseline using only the remote model.
+	  Useful for comparison - sends full context to remote.
+
+config PROTOCOL_LOCAL_ONLY
+	bool "Local Only (Baseline)"
+	default n
+	help
+	  Baseline using only the local model.
+	  Useful for comparison - no remote model involved.
+
+comment "--- Protocol Settings ---"
+
+menu "Common Protocol Settings"
+
+config MAX_ROUNDS
+	int "Maximum communication rounds"
+	default 2
+	range 1 10
+	help
+	  Maximum number of communication rounds between local and remote.
+	  More rounds can improve accuracy but increase cost.
+
+config NUM_SAMPLES_PER_TASK
+	int "Samples per task (pass@k)"
+	default 1
+	range 1 10
+	help
+	  Number of samples to collect per extraction task.
+	  Higher values (pass@k) enable redundant extraction
+	  for better reliability at increased cost.
+
+endmenu
+
+menu "MINIONS Settings"
+	depends on PROTOCOL_MINIONS
+
+config MINIONS_TASKS_PER_ROUND
+	int "Tasks per round"
+	default 3
+	range 1 20
+	help
+	  Number of tasks to decompose per round.
+	  More tasks increase parallelism but may reduce focus.
+
+choice
+	prompt "Chunking strategy"
+	default MINIONS_CHUNK_BY_SECTION
+	help
+	  Strategy for splitting documents into chunks.
+
+config MINIONS_CHUNK_BY_SECTION
+	bool "By Section"
+	help
+	  Split document by sections (default).
+	  Good for structured documents.
+
+config MINIONS_CHUNK_BY_PAGE
+	bool "By Page"
+	help
+	  Split document by pages.
+	  Good for PDFs with clear page boundaries.
+
+config MINIONS_CHUNK_MULTIPLE_PAGES
+	bool "By Multiple Pages (Paper Default)"
+	help
+	  Group N pages into each chunk.
+	  Best for PDFs. Paper uses pages_per_chunk=5.
+
+config MINIONS_PAGES_PER_CHUNK
+	int "Pages per chunk"
+	default 5
+	range 1 100
+	depends on MINIONS_CHUNK_MULTIPLE_PAGES
+	help
+	  Number of pages to group into each chunk.
+	  Paper shows 5 pages/chunk is optimal for FinanceBench.
+
+config MINIONS_CHUNK_BY_PARAGRAPH
+	bool "By Paragraph"
+	help
+	  Split document by paragraphs.
+	  Provides finer granularity.
+
+config MINIONS_CHUNK_HIERARCHICAL
+	bool "Hierarchical (Semantic)"
+	help
+	  Semantic chunking using embeddings.
+	  Best quality but slower.
+
+endchoice
+
+config MINIONS_MAX_CHUNK_SIZE
+	int "Maximum chunk size (characters)"
+	default 3000
+	range 100 10000
+	help
+	  Maximum size of each chunk in characters.
+	  Larger chunks provide more context but use more tokens.
+
+config MINIONS_MAX_JOBS_PER_ROUND
+	int "Maximum jobs per round (0 = unlimited)"
+	default 0
+	range 0 100
+	help
+	  Maximum number of jobs per round.
+	  Set to 0 for unlimited.
+
+choice
+	prompt "Retrieval strategy"
+	default MINIONS_NO_RETRIEVAL
+	help
+	  Strategy for selecting relevant chunks.
+
+config MINIONS_NO_RETRIEVAL
+	bool "None (use all chunks)"
+	help
+	  Process all chunks without retrieval filtering.
+
+config MINIONS_RETRIEVAL_BM25
+	bool "BM25"
+	help
+	  Use BM25 for keyword-based retrieval.
+
+config MINIONS_RETRIEVAL_EMBEDDING
+	bool "Embedding"
+	help
+	  Use embedding similarity for retrieval.
+
+endchoice
+
+config MINIONS_RETRIEVAL_MODEL
+	string "Retrieval model"
+	default "sentence-transformers/all-MiniLM-L6-v2"
+	depends on MINIONS_RETRIEVAL_EMBEDDING
+	help
+	  Model for embedding-based retrieval.
+
+endmenu
+
+endmenu
+
+#
+# Global Settings
+#
+menu "Global Settings"
+
+config OUTPUT_DIR
+	string "Output directory"
+	default "evaluate/results"
+	help
+	  Directory for saving evaluation results.
+	  Results include JSON details, CSV summary, and logs.
+
+config SKIP_ACCURACY
+	bool "Skip accuracy calculation"
+	default n
+	help
+	  Skip LLM-as-a-judge accuracy calculation.
+	  Saves cost but won't report accuracy metrics.
+	  Useful for cost-only benchmarks.
+
+config USE_CACHE
+	bool "Enable sample-level caching"
+	default y
+	help
+	  Cache results for individual samples.
+	  Allows resuming interrupted evaluations.
+
+config CACHE_PREFIX
+	string "Cache directory prefix"
+	default ""
+	depends on USE_CACHE
+	help
+	  Prefix for cache directory names (optional).
+	  Directory format: [<prefix>_]<protocols>_<chunk_fn>[_pages:<N>]_<rounds>_<hash>
+	  The hash is computed from model, protocol, and chunking settings.
+
+endmenu

@@ -1,0 +1,63 @@
+#
+# FinanceBench Evaluator Default Configuration
+#
+# This is the default configuration for evaluation.
+# Generated for use with minions, minion, local_only, remote_only protocols.
+#
+
+#
+# Dataset Configuration
+#
+CONFIG_DATASET_PATH="/workspace/financebench"
+CONFIG_DATASET_PDF_DIR="/workspace/financebench/pdfs"
+# CONFIG_FILTER_NUMERICAL is not set
+CONFIG_MAX_SAMPLES=0
+# CONFIG_USE_SAMPLE_INDICES is not set
+# CONFIG_USE_SAMPLE_RANGE is not set
+
+#
+# Model Configuration
+#
+
+#
+# Local Model (On-Device)
+#
+CONFIG_LOCAL_MODEL_NAME="llama3.2:3b"
+CONFIG_LOCAL_TEMPERATURE=20
+CONFIG_LOCAL_NUM_CTX=4096
+
+#
+# Remote Model (Cloud)
+#
+CONFIG_REMOTE_MODEL_NAME="gpt-4o"
+CONFIG_REMOTE_TEMPERATURE=0
+
+#
+# Protocol Configuration
+#
+CONFIG_PROTOCOL_MINIONS=y
+# CONFIG_PROTOCOL_MINION is not set
+# CONFIG_PROTOCOL_REMOTE_ONLY is not set
+# CONFIG_PROTOCOL_LOCAL_ONLY is not set
+
+#
+# Common Protocol Settings
+#
+CONFIG_MAX_ROUNDS=2
+CONFIG_NUM_SAMPLES_PER_TASK=1
+
+#
+# MINIONS Settings
+#
+CONFIG_MINIONS_TASKS_PER_ROUND=3
+CONFIG_MINIONS_CHUNK_BY_SECTION=y
+CONFIG_MINIONS_MAX_CHUNK_SIZE=3000
+CONFIG_MINIONS_MAX_JOBS_PER_ROUND=0
+CONFIG_MINIONS_NO_RETRIEVAL=y
+
+#
+# Global Settings
+#
+CONFIG_OUTPUT_DIR="evaluate/results"
+# CONFIG_SKIP_ACCURACY is not set
+CONFIG_USE_CACHE=y

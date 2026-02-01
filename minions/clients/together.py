@@ -1,7 +1,12 @@
 from typing import Any, Dict, List, Optional, Tuple
 import os
 # CHANGE: Import TogetherError for v2 exception handling
-from together import Together, TogetherError
+from together import Together
+try:
+    from together import TogetherError
+except ImportError:
+    # TogetherError not available in this version
+    TogetherError = Exception
 
 from minions.usage import Usage
 from minions.clients.base import MinionsClient

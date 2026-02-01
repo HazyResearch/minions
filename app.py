@@ -103,16 +103,20 @@ API_PRICES = {
         "o4-mini": {"input": 4.00, "cached_input": 1.00, "output": 16.00},
         # GPT-5 Series
         "gpt-5": {"input": 1.25, "cached_input": 0.125, "output": 10.00},
-        "gpt-5-pro": {"input": 15.00, "cached_input": 7.50, "output": 120.00},
+        "gpt-5-pro": {"input": 15.00, "output": 120.00},
         "gpt-5-mini": {"input": 0.25, "cached_input": 0.025, "output": 2.00},
         "gpt-5-nano": {"input": 0.05, "cached_input": 0.005, "output": 0.40},
         "gpt-5-chat-latest": {"input": 1.25, "cached_input": 0.125, "output": 10.00},
         # GPT-5.1 Series
         "gpt-5.1": {"input": 1.25, "cached_input": 0.125, "output": 10.00},
+        "gpt-5.1-chat-latest": {"input": 1.25, "cached_input": 0.125, "output": 10.00},
         "gpt-5.1-codex-max": {"input": 1.25, "cached_input": 0.125, "output": 10.00},
+        "gpt-5.1-codex": {"input": 1.25, "cached_input": 0.125, "output": 10.00},
+        "gpt-5-codex": {"input": 1.25, "cached_input": 0.125, "output": 10.00},
         # GPT-5.2 Series
         "gpt-5.2": {"input": 1.75, "cached_input": 0.175, "output": 14.00},
-        "gpt-5.2-pro": {"input": 21, "cached_input": 8.75, "output": 168.00},
+        "gpt-5.2-chat-latest": {"input": 1.75, "cached_input": 0.175, "output": 14.00},
+        "gpt-5.2-pro": {"input": 21.00, "output": 168.00},
     },
     # Grok (xAI) model pricing per 1M tokens (Updated Nov 2025)
     "Grok": {
@@ -151,9 +155,17 @@ API_PRICES = {
         "moonshotai/kimi-k2-thinking": {"input": 0.60, "cached_input": 0.60, "output": 2.50},
     },
     "Anthropic": {
-        "claude-opus-4-5-20251101": {"input": 15.00, "cached_input": 1.50, "output": 75.00},
+        # Claude Opus Series
+        "claude-opus-4-5-20251101": {"input": 5.00, "cached_input": 0.50, "output": 25.00},
         "claude-opus-4-1-20250805": {"input": 15.00, "cached_input": 1.50, "output": 75.00},
-        "claude-haiku-4-5-20251001": {"input": 1.00, "cached_input": 1.25, "output": 2.00},
+        "claude-opus-4-20250514": {"input": 15.00, "cached_input": 1.50, "output": 75.00},
+        # Claude Sonnet Series
+        "claude-sonnet-4-5-20241022": {"input": 3.00, "cached_input": 0.30, "output": 15.00},
+        "claude-sonnet-4-20250514": {"input": 3.00, "cached_input": 0.30, "output": 15.00},
+        # Claude Haiku Series
+        "claude-haiku-4-5-20251001": {"input": 1.00, "cached_input": 0.10, "output": 5.00},
+        "claude-3-5-haiku-latest": {"input": 0.80, "cached_input": 0.08, "output": 4.00},
+        "claude-3-haiku-20240307": {"input": 0.25, "cached_input": 0.03, "output": 1.25},
     },
     "Gemini": {
         "gemini-2.5-pro": {
@@ -2351,6 +2363,7 @@ with st.sidebar:
                 "VibeThinker-1.5B-mlx-4bit": "mlx-community/VibeThinker-1.5B-mlx-4bit",
                 "SmolLM3-3B-8bit (Recommended)": "mlx-community/SmolLM3-3B-8bit",
                 "AI21-Jamba-Reasoning-3B-4bit": "mlx-community/AI21-Jamba-Reasoning-3B-4bit",
+                "LFM2.5-1.2B-Instruct-MLX-4bit": "LiquidAI/LFM2.5-1.2B-Instruct-MLX-4bit",
                 "LFM2-8B-A1B-8bit": "mlx-community/LFM2-8B-A1B-8bit",   
                 "GLM-4.5-Air-mxfp4": "mlx-community/GLM-4.5-Air-mxfp4",
                 "Qwen3-0.6B-MLX-4bit": "Qwen/Qwen3-0.6B-MLX-4bit",
@@ -2373,6 +2386,8 @@ with st.sidebar:
         elif local_provider == "Transformers":
             local_model_options = {
                 "Rnj-1-Instruct (Recommended)": "EssentialAI/rnj-1-instruct",
+                "IQuest-Coder-V1-40B-Instruct": "IQuest/IQuest-Coder-V1-40B-Instruct",
+                "WeDLM-8B-Instruct": "tencent/WeDLM-8B-Instruct",
                 "NVIDIA-Nemotron-3-Nano-30B-A3B-BF16": "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16",
                 "nomos-1-8b": "NousResearch/nomos-1-8b",
                 "Trinity-Mini": "arcee-ai/Trinity-Mini", 
@@ -2645,12 +2660,14 @@ with st.sidebar:
             default_model_index = 0
         elif selected_provider == "Anthropic":
             model_mapping = {
-                "Claude 4.5 Sonnet (Recommended)": " claude-sonnet-4-5",
+                "Claude 4.5 Sonnet (Recommended)": "claude-sonnet-4-5-20241022",
                 "Claude 4.5 Haiku": "claude-haiku-4-5-20251001",
                 "Claude 4.5 Opus": "claude-opus-4-5-20251101",
                 "Claude 4 Opus (Recommended)": "claude-opus-4-20250514",
                 "Claude 4.1 Opus": "claude-opus-4-1-20250805",
                 "Claude 4 Sonnet": "claude-sonnet-4-20250514",
+                "Claude 3.5 Haiku": "claude-3-5-haiku-latest",
+                "Claude 3 Haiku": "claude-3-haiku-20240307",
             }
             default_model_index = 0
         elif selected_provider == "Together":

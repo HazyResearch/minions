@@ -86,64 +86,6 @@ class JobOutput(BaseModel):
 ```
 Your response:"""
 
-
-# Sequential generation prompts for KV cache reuse
-# These share a common prefix (context + task + advice) to maximize RadixAttention cache hits
-
-WORKER_PROMPT_EXPLANATION = """
-Here is a document excerpt:
-
-{context}
-
---------------------------------
-Task: {task}
-
-Advice: {advice}
-
---------------------------------
-Provide a concise explanation of your reasoning for answering this task.
-If no relevant information is found, respond with "None".
-
-Your explanation:"""
-
-WORKER_PROMPT_CITATION = """
-Here is a document excerpt:
-
-{context}
-
---------------------------------
-Task: {task}
-
-Advice: {advice}
-
---------------------------------
-Your explanation: {explanation}
-
-Now provide a direct citation (quote) from the text that supports your explanation.
-If no relevant citation exists, respond with "None".
-
-Your citation:"""
-
-WORKER_PROMPT_ANSWER = """
-Here is a document excerpt:
-
-{context}
-
---------------------------------
-Task: {task}
-
-Advice: {advice}
-
---------------------------------
-Your explanation: {explanation}
-
-Your citation: {citation}
-
-Based on the above, provide your final answer to the task.
-If no answer can be determined, respond with "None".
-
-Your answer:"""
-
 REMOTE_ANSWER_OR_CONTINUE = """\
 Now synthesize the findings from multiple junior workers (LLMs). 
 Your task is to finalize an answer to the question below **if and only if** you have sufficient, reliable information. 

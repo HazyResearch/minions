@@ -57,11 +57,6 @@ except ImportError:
 
 from minions.usage import Usage
 from minions.clients.base import MinionsClient
-from minions.prompts.minions import (
-    WORKER_PROMPT_EXPLANATION,
-    WORKER_PROMPT_CITATION,
-    WORKER_PROMPT_ANSWER,
-)
 
 
 
@@ -213,18 +208,6 @@ class SGLangClient(MinionsClient):
         self.base_url = base_url or os.getenv("SGLANG_BASE_URL", "http://localhost:8000")
         self.max_workers = max_workers
         self.structured_output_schema = structured_output_schema
-        self._generation_strategy = "single_shot"  # Always use single-shot JSON output
-        
-        # Internal defaults for generation (not user-configurable)
-        self.beta_explanation = 1.0
-        self.beta_citation = 2.0
-        self.beta_answer = 1.5
-        self.min_tokens_explanation = 10
-        self.min_tokens_citation = 5
-        self.min_tokens_answer = 3
-        self.max_tokens_explanation = 200
-        self.max_tokens_citation = 150
-        self.max_tokens_answer = 100
         
         # Generate JSON schema for strict enforcement if Pydantic model provided
         self.json_schema = None
@@ -486,8 +469,8 @@ class SGLangClient(MinionsClient):
             Tuple of (json_response, usage, done_reason)
         """
         try:
-            avg_beta = (self.beta_explanation + self.beta_citation + self.beta_answer) / 3
-            max_tokens = self.max_tokens_explanation + self.max_tokens_citation + self.max_tokens_answer
+            avg_beta = 1.5  # Default beta for length penalty
+            max_tokens = 450  # Default max tokens for all fields combined
             
             params = {
                 "model": self.model_name,
@@ -498,7 +481,7 @@ class SGLangClient(MinionsClient):
             }
             
             # Use external logit processor if supported, otherwise logit_bias
-            avg_min_tokens = (self.min_tokens_explanation + self.min_tokens_citation + self.min_tokens_answer) // 3
+            avg_min_tokens = 6  # Default minimum tokens before EOS
             
             if self._custom_processor_supported and self.logit_processor_class is not None:
                 # Get default params from the processor class if available
@@ -572,184 +555,6 @@ class SGLangClient(MinionsClient):
                 "answer": None,
             }
             return json.dumps(error_result), Usage(), "error"
-    
-    def _parse_worker_prompt(self, prompt: str) -> Tuple[str, str, str]:
-        """
-        Parse a worker prompt to extract context, task, and advice.
-        
-        The prompt follows the WORKER_PROMPT_SHORT format with sections
-        separated by "--------------------------------".
-        
-        Args:
-            prompt: The full worker prompt
-            
-        Returns:
-            Tuple of (context, task, advice)
-        """
-        separator = "-" * 32
-        
-        # Default values
-        context = ""
-        task = ""
-        advice = ""
-        
-        try:
-            # Split by separator
-            parts = prompt.split(separator)
-            
-            if len(parts) >= 1:
-                # First part contains context
-                context_part = parts[0]
-                # Remove "Here is a document excerpt:" prefix if present
-                if "document excerpt:" in context_part.lower():
-                    context = context_part.split(":", 1)[-1].strip()
-                else:
-                    context = context_part.strip()
-            
-            if len(parts) >= 2:
-                # Second part contains task
-                task_part = parts[1]
-                # Remove "And here is your task:" prefix if present
-                if "task:" in task_part.lower():
-                    task = task_part.split(":", 1)[-1].strip()
-                else:
-                    task = task_part.strip()
-            
-            if len(parts) >= 3:
-                # Third part contains advice
-                advice_part = parts[2]
-                # Remove "And here is additional higher-level advice..." prefix if present
-                if "advice" in advice_part.lower():
-                    advice = advice_part.split(":", 1)[-1].strip()
-                else:
-                    advice = advice_part.strip()
-            
-        except Exception as e:
-            self.logger.warning(f"[SGLang] Error parsing worker prompt: {e}")
-            # Return the whole prompt as context if parsing fails
-            context = prompt
-        
-        return context, task, advice
-    
-    def _generate_job_output_sequential(
-        self,
-        prompt: str,
-    ) -> Tuple[str, Usage, str]:
-        """
-        Generate JobOutput using 3 sequential API calls for KV cache reuse.
-        
-        This generates explanation, citation, and answer sequentially, with each
-        subsequent call building on the previous results. All calls share a common
-        prefix (context + task + advice) which SGLang's RadixAttention caches.
-        
-        Each field uses its own beta value for per-step length penalty via
-        CustomLogitProcessor (or logit_bias fallback).
-        
-        Args:
-            prompt: The full worker prompt (will be parsed to extract context, task, advice)
-            
-        Returns:
-            Tuple of (json_response, usage, done_reason)
-        """
-        total_prompt_tokens = 0
-        total_completion_tokens = 0
-        
-        # Parse the incoming prompt to extract components
-        context, task, advice = self._parse_worker_prompt(prompt)
-        
-        self.logger.debug(f"[SGLang] Sequential generation: context={len(context)} chars, task={len(task)} chars")
-        
-        # Step 1: Generate explanation
-        explanation_prompt = WORKER_PROMPT_EXPLANATION.format(
-            context=context,
-            task=task,
-            advice=advice,
-        )
-        
-        explanation, pt1, ct1, _ = self._generate_with_length_penalty(
-            text=explanation_prompt,
-            beta=self.beta_explanation,
-            max_new_tokens=self.max_tokens_explanation,
-            min_tokens=self.min_tokens_explanation,
-        )
-        total_prompt_tokens += pt1
-        total_completion_tokens += ct1
-        
-        # Clean up explanation (remove "None" variations)
-        explanation = explanation.strip()
-        if explanation.lower() in ("none", "none.", '"none"', "'none'"):
-            explanation = ""
-        
-        self.logger.debug(f"[SGLang] Generated explanation: {len(explanation)} chars")
-        
-        # Step 2: Generate citation (with explanation context)
-        citation_prompt = WORKER_PROMPT_CITATION.format(
-            context=context,
-            task=task,
-            advice=advice,
-            explanation=explanation,
-        )
-        
-        citation, pt2, ct2, _ = self._generate_with_length_penalty(
-            text=citation_prompt,
-            beta=self.beta_citation,
-            max_new_tokens=self.max_tokens_citation,
-            min_tokens=self.min_tokens_citation,
-        )
-        total_prompt_tokens += pt2
-        total_completion_tokens += ct2
-        
-        # Clean up citation
-        citation = citation.strip()
-        if citation.lower() in ("none", "none.", '"none"', "'none'"):
-            citation = None
-        
-        self.logger.debug(f"[SGLang] Generated citation: {len(citation) if citation else 0} chars")
-        
-        # Step 3: Generate answer (with explanation and citation context)
-        answer_prompt = WORKER_PROMPT_ANSWER.format(
-            context=context,
-            task=task,
-            advice=advice,
-            explanation=explanation,
-            citation=citation or "None",
-        )
-        
-        answer, pt3, ct3, _ = self._generate_with_length_penalty(
-            text=answer_prompt,
-            beta=self.beta_answer,
-            max_new_tokens=self.max_tokens_answer,
-            min_tokens=self.min_tokens_answer,
-        )
-        total_prompt_tokens += pt3
-        total_completion_tokens += ct3
-        
-        # Clean up answer
-        answer = answer.strip()
-        if answer.lower() in ("none", "none.", '"none"', "'none'"):
-            answer = None
-        
-        self.logger.debug(f"[SGLang] Generated answer: {len(answer) if answer else 0} chars")
-        
-        # Combine into JSON response
-        result = {
-            "explanation": explanation or "No relevant information found.",
-            "citation": citation,
-            "answer": answer,
-        }
-        json_response = json.dumps(result)
-        
-        usage = Usage(
-            prompt_tokens=total_prompt_tokens,
-            completion_tokens=total_completion_tokens,
-        )
-        
-        self.logger.debug(
-            f"[SGLang] Sequential generation complete: "
-            f"prompt_tokens={total_prompt_tokens}, completion_tokens={total_completion_tokens}"
-        )
-        
-        return json_response, usage, "stop"
     
     def _is_batch_of_single_prompts(self, messages) -> bool:
         """
@@ -830,25 +635,20 @@ class SGLangClient(MinionsClient):
                     prompt += f"Assistant: {content}\n\n"
             prompt += "Assistant: "
         
-        # Generate structured output using the configured strategy
+        # Generate structured output
         if self.structured_output_schema is not None:
-            if self._generation_strategy == "single_shot":
-                # Single API call for all fields
-                json_response, usage, done_reason = self._generate_job_output_single_shot(prompt)
-            else:
-                # Sequential: 3 separate API calls for explanation, citation, answer
-                json_response, usage, done_reason = self._generate_job_output_sequential(prompt)
+            json_response, usage, done_reason = self._generate_job_output_single_shot(prompt)
             # Post-process JSON output to ensure fields are strings, not dicts
             if json_response:
                 json_response = _postprocess_json_output(json_response)
             return json_response, usage, done_reason
         else:
-            # For non-structured output, use single generation with default beta
+            # For non-structured output, use single generation
             text, pt, ct, _ = self._generate_with_length_penalty(
                 text=prompt,
-                beta=self.beta_answer,  # Use answer beta as default
+                beta=1.0,
                 max_new_tokens=self.max_tokens,
-                min_tokens=self.min_tokens_answer,  # Use answer min_tokens as default
+                min_tokens=3,
             )
             usage = Usage(prompt_tokens=pt, completion_tokens=ct)
             return text, usage, "stop"

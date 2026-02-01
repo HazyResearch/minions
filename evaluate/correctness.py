@@ -427,7 +427,7 @@ def main():
         correctness_log_lines.append("-" * 80)
         correctness_log_lines.append(f"Question: {question[:200]}{'...' if len(question) > 200 else ''}")
         correctness_log_lines.append(f"Ground Truth: {ground_truth}")
-        correctness_log_lines.append(f"Predicted: {predicted[:300]}{'...' if len(str(predicted)) > 300 else ''}")
+        correctness_log_lines.append(f"Predicted: {str(predicted)[:300]}{'...' if len(str(predicted)) > 300 else ''}")
         correctness_log_lines.append(f"")
         correctness_log_lines.append(f"Verdict: {'CORRECT' if result.is_correct else 'WRONG'}")
         correctness_log_lines.append(f"Confidence: {result.confidence:.2f}")

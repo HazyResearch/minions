@@ -22,6 +22,7 @@ from pathlib import Path
 import re
 
 import fitz  # PyMuPDF for PDF text extraction
+import importlib.util
 
 # Add parent directory to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -48,6 +49,46 @@ logger = logging.getLogger(__name__)
 # GPT-4o pricing (January 2025 rates from paper)
 GPT4O_INPUT_PRICE_PER_MILLION = 2.50
 GPT4O_OUTPUT_PRICE_PER_MILLION = 10.00
+
+
+def load_logit_processor(path: str) -> Optional[Any]:
+    """
+    Dynamically load a logit processor from a Python file.
+    
+    Args:
+        path: Path to the logit processor Python file
+        
+    Returns:
+        The processor class (e.g., LearnedBloatAxisProcessor), or None if loading fails
+    """
+    if not path:
+        return None
+    
+    path = Path(path)
+    if not path.exists():
+        logger.warning(f"Logit processor file not found: {path}")
+        return None
+    
+    try:
+        spec = importlib.util.spec_from_file_location("learned_logit_processor", path)
+        if spec is None or spec.loader is None:
+            logger.warning(f"Failed to load spec for logit processor: {path}")
+            return None
+        
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        
+        # Look for the processor class
+        if hasattr(module, 'LearnedBloatAxisProcessor'):
+            logger.info(f"Loaded logit processor from {path}")
+            return module.LearnedBloatAxisProcessor
+        else:
+            logger.warning(f"No LearnedBloatAxisProcessor class found in {path}")
+            return None
+            
+    except Exception as e:
+        logger.warning(f"Failed to load logit processor from {path}: {e}")
+        return None
 
 
 def load_pdf_text(pdf_path: str) -> str:
@@ -128,10 +169,11 @@ def generate_cache_dir_name_from_config(config: EvaluatorConfig) -> str:
     - Remote model (name, temperature)
     - Protocol settings (active, max_rounds, samples_per_task)
     - MINIONS settings (tasks_per_round, chunk_fn, max_chunk_size, pages_per_chunk)
+    - Logit processor path (if configured)
     
     Returns:
-        Directory name in format: <prefix>_<protocols>_<chunk_fn>[_pages:<N>]_<rounds>_<hash>
-        Example: myprefix_minions_on-multiple-pages_pages:5_r5_a1b2c3d4
+        Directory name in format: <prefix>_<protocols>_<chunk_fn>[_pages:<N>]_<rounds>[_<logit_processor>]_<hash>
+        Example: myprefix_minions_on-multiple-pages_pages:5_r5_learned_logit_processor_a1b2c3d4
     """
     import hashlib
     
@@ -154,6 +196,11 @@ def generate_cache_dir_name_from_config(config: EvaluatorConfig) -> str:
     # Include pages_per_chunk only if using multi-page chunking
     if config.protocols.minions.chunk_fn == 'chunk_on_multiple_pages':
         hash_data['pages_per_chunk'] = config.protocols.minions.pages_per_chunk
+    
+    # Include logit processor path in hash if configured
+    logit_processor_path = getattr(config.models.local, 'logit_processor_path', None)
+    if logit_processor_path:
+        hash_data['logit_processor_path'] = logit_processor_path
     
     # Generate short hash from the specific options
     content_hash = hashlib.sha256(json.dumps(hash_data, sort_keys=True).encode()).hexdigest()[:8]
@@ -180,6 +227,11 @@ def generate_cache_dir_name_from_config(config: EvaluatorConfig) -> str:
     
     # Add number of rounds
     parts.append(f"r{config.protocols.common.max_rounds}")
+    
+    # Add logit processor filename (without extension) if configured
+    if logit_processor_path:
+        lp_name = Path(logit_processor_path).stem
+        parts.append(lp_name)
     
     # Add hash
     parts.append(content_hash)
@@ -705,7 +757,7 @@ Respond with only one word: "equal" or "unequal"."""
 class ProtocolRunner:
     """Runs different protocols for evaluation."""
     
-    def __init__(self, local_model: str, remote_model: str, local_temp: float = 0.2, remote_temp: float = 0.0, num_ctx: int = 4096, local_backend: str = "ollama", sglang_base_url: str = "http://localhost:8000/v1"):
+    def __init__(self, local_model: str, remote_model: str, local_temp: float = 0.2, remote_temp: float = 0.0, num_ctx: int = 4096, local_backend: str = "ollama", sglang_base_url: str = "http://localhost:8000/v1", logit_processor_path: Optional[str] = None):
         """Initialize protocol runner with model configurations."""
         self.local_model = local_model
         self.remote_model = remote_model
@@ -714,6 +766,10 @@ class ProtocolRunner:
         self.num_ctx = num_ctx
         self.local_backend = local_backend
         self.sglang_base_url = sglang_base_url
+        
+        # Logit processor settings
+        self.logit_processor_path = logit_processor_path
+        self.logit_processor_class = load_logit_processor(logit_processor_path) if logit_processor_path else None
         
         self._local_client = None
         self._remote_client = None
@@ -898,6 +954,7 @@ class ProtocolRunner:
                 base_url=self.sglang_base_url,
                 temperature=self.local_temp,
                 structured_output_schema=StructuredLocalOutput,
+                logit_processor_class=self.logit_processor_class,
             )
         else:
             local_client = OllamaClient(
@@ -1694,6 +1751,24 @@ class Evaluator:
 \textbf{Remote Temperature:} & """ + str(remote_model.get('temperature', 0.0)) + r""" \\
 \end{tabular}
 
+"""
+        
+        # Add SGLang/Constraint Decoding settings if using SGLang backend
+        if local_model.get('backend') == 'sglang':
+            latex_content += r"""
+\subsection*{SGLang / Constraint Decoding Settings}
+\begin{tabular}{@{}ll@{}}
+"""
+            # Logit processor path
+            lp_path = local_model.get('logit_processor_path')
+            if lp_path:
+                latex_content += r"\textbf{Logit Processor:} & \texttt{" + esc(str(lp_path)) + r"} \\" + "\n"
+            else:
+                latex_content += r"\textbf{Logit Processor:} & \textit{None} \\" + "\n"
+            
+            latex_content += r"\end{tabular}" + "\n\n"
+        
+        latex_content += r"""
 \subsection*{Protocol Settings}
 \begin{tabular}{@{}ll@{}}
 \textbf{Active Protocols:} & """ + esc(', '.join(protocols_config.get('active', []))) + r""" \\
@@ -1890,7 +1965,8 @@ def main():
         remote_temp=config.models.remote.temperature,
         num_ctx=config.models.local.num_ctx,
         local_backend=getattr(config.models.local, 'backend', 'ollama'),
-        sglang_base_url=getattr(config.models.local, 'sglang_base_url', 'http://localhost:8000/v1')
+        sglang_base_url=getattr(config.models.local, 'sglang_base_url', 'http://localhost:8000/v1'),
+        logit_processor_path=getattr(config.models.local, 'logit_processor_path', None),
     )
     
     # Build minions_kwargs from config

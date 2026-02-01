@@ -129,6 +129,25 @@ config SGLANG_BASE_URL
 	  URL of the SGLang server (including /v1 for OpenAI-compatible API).
 	  Default: http://localhost:8000/v1
 
+config SGLANG_BASE_URL
+	string "SGLang server URL"
+	default "http://localhost:8000"
+	depends on LOCAL_BACKEND_SGLANG
+	help
+	  URL of the SGLang server.
+	  Default: http://localhost:8000
+
+config LOGIT_PROCESSOR_PATH
+	string "Learned logit processor path"
+	default ""
+	depends on LOCAL_BACKEND_SGLANG
+	help
+	  Path to a learned logit processor Python file (.py).
+	  If empty, constraint decoding is disabled.
+	  The processor must define a class with EARLY_PHASE_TOKEN_IDS,
+	  ALWAYS_TOKEN_IDS, and AFTER_NEWLINE_TOKEN_IDS attributes.
+	  Example: /workspace/learning_grammar/output/learned_logit_processor.py
+
 endmenu
 
 menu "Remote Model (Cloud)"
@@ -353,7 +372,7 @@ config CACHE_PREFIX
 	depends on USE_CACHE
 	help
 	  Prefix for cache directory names (optional).
-	  Directory format: [<prefix>_]<protocols>_<chunk_fn>[_pages:<N>]_<rounds>_<hash>
+	  Directory format: [<prefix>_]<protocols>_<chunk_fn>[_pages:<N>]_<rounds>[_<logit_processor>]_<hash>
 	  The hash is computed from model, protocol, and chunking settings.
 
 endmenu

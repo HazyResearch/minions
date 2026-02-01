@@ -39,6 +39,7 @@ class LocalModelConfig:
     num_ctx: int = 4096
     backend: str = "ollama"  # "ollama" or "sglang"
     sglang_base_url: str = "http://localhost:8000/v1"
+    logit_processor_path: Optional[str] = None  # Path to learned logit processor file
 
 
 @dataclass
@@ -125,6 +126,7 @@ class EvaluatorConfig:
                     'num_ctx': self.models.local.num_ctx,
                     'backend': self.models.local.backend,
                     'sglang_base_url': self.models.local.sglang_base_url,
+                    'logit_processor_path': self.models.local.logit_processor_path,
                 },
                 'remote': {
                     'name': self.models.remote.name,
@@ -269,6 +271,9 @@ class KconfigLoader:
         if values.get('LOCAL_BACKEND_SGLANG', 'n') == 'y':
             config.models.local.backend = 'sglang'
             config.models.local.sglang_base_url = values.get('SGLANG_BASE_URL', 'http://localhost:8000/v1')
+            # Logit processor path (optional, for constraint decoding)
+            logit_processor_path = values.get('LOGIT_PROCESSOR_PATH', '')
+            config.models.local.logit_processor_path = logit_processor_path if logit_processor_path else None
         else:
             config.models.local.backend = 'ollama'
         

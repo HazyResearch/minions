@@ -28,20 +28,7 @@ from minions.utils.chunking import (
 )
 
 
-from minions.prompts.minions import (
-    WORKER_ICL_EXAMPLES,
-    WORKER_PROMPT_SHORT,
-    ADVICE_PROMPT,
-    DECOMPOSE_TASK_PROMPT_AGGREGATION_FUNC,
-    DECOMPOSE_TASK_PROMPT_AGG_FUNC_LATER_ROUND,
-    DECOMPOSE_RETRIEVAL_TASK_PROMPT_AGGREGATION_FUNC,
-    DECOMPOSE_RETRIEVAL_TASK_PROMPT_AGG_FUNC_LATER_ROUND,
-    REMOTE_SYNTHESIS_COT,
-    REMOTE_SYNTHESIS_JSON,
-    REMOTE_SYNTHESIS_FINAL,
-    BM25_INSTRUCTIONS,
-    EMBEDDING_INSTRUCTIONS,
-)
+from minions.prompts.registry import get_prompt, register_prompts
 
 from minions.utils.retrievers import (
     bm25_retrieve_top_k_chunks,
@@ -155,6 +142,7 @@ class Minions:
         log_dir="minions_logs",
         max_chunk_size=3000,
         pages_per_chunk=5,
+        prompt_overrides: Optional[Dict[str, Any]] = None,
         **kwargs,
     ):
         """Initialize the Minion with local and remote LLM clients.
@@ -167,7 +155,13 @@ class Minions:
             log_dir: Directory for logging conversation history
             max_chunk_size: Maximum size of chunks when using chunk_by_section
             pages_per_chunk: Number of pages per chunk when using chunk_on_multiple_pages
+            prompt_overrides: Optional dict of prompt name -> prompt value overrides
+                              for prompt evolution experiments
         """
+        # Apply prompt overrides if provided (must be done before accessing prompts)
+        if prompt_overrides:
+            register_prompts(prompt_overrides)
+        
         self.local_client = local_client
         self.remote_client = remote_client
         self.max_rounds = max_rounds
@@ -179,41 +173,41 @@ class Minions:
         self.num_samples = 1 or kwargs.get("num_samples", None)
         self.worker_batch_size = 1 or kwargs.get("worker_batch_size", None)
         self.max_code_attempts = kwargs.get("max_code_attempts", 10)
-        # TODO: removed worker_prompt
-        self.worker_prompt_template = WORKER_PROMPT_SHORT or kwargs.get(
+        # Get prompts from registry (allows runtime overrides)
+        self.worker_prompt_template = kwargs.get(
             "worker_prompt_template", None
-        )
-        self.worker_icl_examples = WORKER_ICL_EXAMPLES or kwargs.get(
+        ) or get_prompt("WORKER_PROMPT_SHORT")
+        self.worker_icl_examples = kwargs.get(
             "worker_icl_examples", None
-        )
+        ) or get_prompt("WORKER_ICL_EXAMPLES")
         self.worker_icl_messages = []
-        self.advice_prompt = ADVICE_PROMPT or kwargs.get("advice_prompt", None)
+        self.advice_prompt = kwargs.get("advice_prompt", None) or get_prompt("ADVICE_PROMPT")
 
         self.decompose_task_prompt = (
             kwargs.get("decompose_task_prompt", None)
-            or DECOMPOSE_TASK_PROMPT_AGGREGATION_FUNC
+            or get_prompt("DECOMPOSE_TASK_PROMPT_AGGREGATION_FUNC")
         )
         self.decompose_task_prompt_abbreviated = (
             kwargs.get("decompose_task_prompt_abbreviated", None)
-            or DECOMPOSE_TASK_PROMPT_AGG_FUNC_LATER_ROUND
+            or get_prompt("DECOMPOSE_TASK_PROMPT_AGG_FUNC_LATER_ROUND")
         )
         self.decompose_retrieval_task_prompt = (
             kwargs.get("decompose_retrieval_task_prompt", None)
-            or DECOMPOSE_RETRIEVAL_TASK_PROMPT_AGGREGATION_FUNC
+            or get_prompt("DECOMPOSE_RETRIEVAL_TASK_PROMPT_AGGREGATION_FUNC")
         )
         self.decompose_retrieval_task_prompt_abbreviated = (
             kwargs.get("decompose_retrieval_task_prompt_abbreviated", None)
-            or DECOMPOSE_RETRIEVAL_TASK_PROMPT_AGG_FUNC_LATER_ROUND
+            or get_prompt("DECOMPOSE_RETRIEVAL_TASK_PROMPT_AGG_FUNC_LATER_ROUND")
         )
-        self.synthesis_cot_prompt = REMOTE_SYNTHESIS_COT or kwargs.get(
+        self.synthesis_cot_prompt = kwargs.get(
             "synthesis_cot_prompt", None
-        )
-        self.synthesis_json_prompt = REMOTE_SYNTHESIS_JSON or kwargs.get(
+        ) or get_prompt("REMOTE_SYNTHESIS_COT")
+        self.synthesis_json_prompt = kwargs.get(
             "synthesis_json_prompt", None
-        )
-        self.synthesis_final_prompt = REMOTE_SYNTHESIS_FINAL or kwargs.get(
+        ) or get_prompt("REMOTE_SYNTHESIS_JSON")
+        self.synthesis_final_prompt = kwargs.get(
             "synthesis_final_prompt", None
-        )
+        ) or get_prompt("REMOTE_SYNTHESIS_FINAL")
         self.chunking_fns = {
             "chunk_by_section": chunk_by_section,
             "chunk_by_page": chunk_by_page,
@@ -273,11 +267,14 @@ class Minions:
             context: List of context strings
             max_rounds: Override default max_rounds if provided
             max_jobs_per_round: Override default max_jobs_per_round if provided
-            retrieval: Retrieval strategy to use. Options:
+            use_retrieval: Retrieval strategy to use. Options:
                 - None: Don't use retrieval
                 - "bm25": Use BM25 keyword-based retrieval
                 - "embedding": Use embedding-based retrieval
             log_path: Optional path to save conversation logs
+            logging_id: Optional identifier for unified log naming (e.g., "minions_line_42").
+                        If provided, logs are saved as {logging_id}.json.
+                        If not provided, uses timestamp-based naming.
 
         Returns:
             Dict containing final_answer and conversation histories
@@ -413,9 +410,9 @@ class Minions:
                 retrieval_source = getsource(retriever).split("    weights = ")[0]
 
                 retrieval_instructions = (
-                    BM25_INSTRUCTIONS
+                    get_prompt("BM25_INSTRUCTIONS")
                     if use_retrieval == "bm25"
-                    else EMBEDDING_INSTRUCTIONS if use_retrieval == "embedding" else ""
+                    else get_prompt("EMBEDDING_INSTRUCTIONS") if use_retrieval == "embedding" else ""
                 )
 
             print(getsource(self.chunking_fn))
@@ -1014,7 +1011,8 @@ class Minions:
         else:
             # Create a log filename based on timestamp and task or provided logging_id
             if logging_id:
-                log_filename = f"{logging_id}_minions.json"
+                # Use logging_id directly for unified naming (e.g., "minions_line_42.json")
+                log_filename = f"{logging_id}.json"
             else:
                 timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
                 safe_task = re.sub(r"[^a-zA-Z0-9]", "_", task[:15])

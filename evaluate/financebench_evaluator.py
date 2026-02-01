@@ -438,7 +438,8 @@ class FinanceBenchDataset:
                         if line.strip():
                             try:
                                 data = json.loads(line)
-                                sample = self._parse_sample(data, f"{file_path.stem}_line_{line_num}")
+                                # Use unified line_<N> format for sample IDs
+                                sample = self._parse_sample(data, f"line_{line_num}")
                                 if sample:
                                     samples.append(sample)
                             except json.JSONDecodeError as e:
@@ -447,19 +448,21 @@ class FinanceBenchDataset:
                     data = json.load(f)
                     if isinstance(data, list):
                         for idx, item in enumerate(data):
-                            sample = self._parse_sample(item, f"{file_path.stem}_{idx}")
+                            # Use unified line_<N> format (1-indexed for consistency)
+                            sample = self._parse_sample(item, f"line_{idx + 1}")
                             if sample:
                                 samples.append(sample)
                     elif isinstance(data, dict):
                         for key in ['samples', 'data', 'test', 'train', 'dev']:
                             if key in data and isinstance(data[key], list):
                                 for idx, item in enumerate(data[key]):
-                                    sample = self._parse_sample(item, f"{key}_{idx}")
+                                    # Use unified line_<N> format (1-indexed for consistency)
+                                    sample = self._parse_sample(item, f"line_{idx + 1}")
                                     if sample:
                                         samples.append(sample)
                                 break
                         else:
-                            sample = self._parse_sample(data, f"{file_path.stem}_0")
+                            sample = self._parse_sample(data, f"line_1")
                             if sample:
                                 samples.append(sample)
         except Exception as e:
@@ -937,11 +940,28 @@ class ProtocolRunner:
             }
     
     def run_minions(self, question: str, context: str, max_rounds: int = 2, **kwargs) -> Dict[str, Any]:
-        """Run MINIONS protocol."""
+        """Run MINIONS protocol.
+        
+        Args:
+            question: The question to answer
+            context: Document context
+            max_rounds: Maximum rounds of interaction
+            **kwargs: Additional arguments including:
+                - prompt_overrides: Dict of prompt name -> value for evolution
+                - logging_id: Unified identifier for trace file naming
+                - run_output_dir: Directory for output files
+                - max_chunk_size, pages_per_chunk, etc.
+        """
         from pydantic import BaseModel
         
         run_output_dir = kwargs.get('run_output_dir', '.')
         minions_log_dir = os.path.join(run_output_dir, 'minions_logs')
+        
+        # Get prompt overrides for evolution experiments
+        prompt_overrides = kwargs.get('prompt_overrides', None)
+        
+        # Get logging_id for unified trace file naming
+        logging_id = kwargs.get('logging_id', None)
         
         class StructuredLocalOutput(BaseModel):
             explanation: str
@@ -970,7 +990,8 @@ class ProtocolRunner:
             max_rounds=max_rounds,
             log_dir=minions_log_dir,
             max_chunk_size=kwargs.get('max_chunk_size', 3000),
-            pages_per_chunk=kwargs.get('pages_per_chunk', 5)
+            pages_per_chunk=kwargs.get('pages_per_chunk', 5),
+            prompt_overrides=prompt_overrides,
         )
         
         try:
@@ -987,7 +1008,8 @@ class ProtocolRunner:
                 use_retrieval=kwargs.get('use_retrieval', None),
                 max_jobs_per_round=kwargs.get('max_jobs_per_round', None),
                 retrieval_model=kwargs.get('retrieval_model', None),
-                mcp_tools_info=kwargs.get('mcp_tools_info', None)
+                mcp_tools_info=kwargs.get('mcp_tools_info', None),
+                logging_id=logging_id,
             )
             
             return {
@@ -1078,14 +1100,30 @@ class Evaluator:
                 f.write(self.command_line + "\n")
     
     def _get_sample_cache_path(self, sample_id: str, protocol: str) -> Path:
-        """Get the cache file path for a sample."""
+        """Get the cache file path for a sample.
+        
+        Uses unified naming: minions_line_<N>.json for easy correlation with trace logs.
+        """
         safe_id = sample_id.replace('/', '_').replace('\\', '_').replace(':', '_')[:100]
+        # Unified naming: minions_line_<N>.json (protocol prefix + sample_id)
         return self.sample_logs_dir / f"{protocol}_{safe_id}.json"
     
     def _get_sample_log_path(self, sample_id: str, protocol: str) -> Path:
-        """Get the log file path for a sample."""
+        """Get the log file path for a sample.
+        
+        Uses unified naming: minions_line_<N>.log for easy correlation with trace logs.
+        """
         safe_id = sample_id.replace('/', '_').replace('\\', '_').replace(':', '_')[:100]
+        # Unified naming: minions_line_<N>.log (protocol prefix + sample_id)
         return self.sample_logs_dir / f"{protocol}_{safe_id}.log"
+    
+    def _get_unified_logging_id(self, sample_id: str, protocol: str) -> str:
+        """Get the unified logging ID for minions trace files.
+        
+        Returns: ID in format 'minions_line_<N>' for use as logging_id parameter.
+        """
+        safe_id = sample_id.replace('/', '_').replace('\\', '_').replace(':', '_')[:100]
+        return f"{protocol}_{safe_id}"
     
     def _load_cached_result(self, sample_id: str, protocol: str) -> Optional[EvaluationResult]:
         """Load cached result for a sample if it exists."""
@@ -1252,6 +1290,8 @@ class Evaluator:
         if protocol.lower() == 'minions':
             minions_kwargs_with_dir = self.minions_kwargs.copy()
             minions_kwargs_with_dir['run_output_dir'] = str(self.run_output_dir)
+            # Use unified logging_id for trace file naming (matches sample_logs naming)
+            minions_kwargs_with_dir['logging_id'] = self._get_unified_logging_id(sample.sample_id, protocol)
             result_dict = protocol_method(
                 question=sample.question,
                 context=sample.document_text,
@@ -1975,6 +2015,18 @@ def main():
         'max_rounds': config.protocols.common.max_rounds,
         'num_samples_per_task': config.protocols.common.num_samples_per_task
     })
+    
+    # Load prompt overrides for evolution experiments
+    if config.global_config.prompt_set:
+        prompt_set_path = config.global_config.prompt_set
+        if os.path.exists(prompt_set_path):
+            logger.info(f"Loading prompt overrides from: {prompt_set_path}")
+            with open(prompt_set_path, 'r', encoding='utf-8') as f:
+                prompt_overrides = json.load(f)
+            minions_kwargs['prompt_overrides'] = prompt_overrides
+            logger.info(f"Loaded {len(prompt_overrides)} prompt overrides: {list(prompt_overrides.keys())}")
+        else:
+            logger.warning(f"Prompt set file not found: {prompt_set_path}")
     
     # Generate cache directory name if caching is enabled
     cache_dir_name = None

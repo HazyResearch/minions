@@ -375,4 +375,19 @@ config CACHE_PREFIX
 	  Directory format: [<prefix>_]<protocols>_<chunk_fn>[_pages:<N>]_<rounds>[_<logit_processor>]_<hash>
 	  The hash is computed from model, protocol, and chunking settings.
 
+config PROMPT_SET
+	string "Prompt overrides JSON file (optional)"
+	default ""
+	help
+	  Path to a JSON file containing prompt overrides.
+	  Used for prompt evolution experiments (GEPA-style).
+	  The JSON should map prompt names to new prompt values.
+	  Leave empty to use default prompts.
+	  
+	  Example JSON format:
+	  {
+	    "WORKER_PROMPT_SHORT": "new worker prompt...",
+	    "REMOTE_SYNTHESIS_COT": "new synthesis prompt..."
+	  }
+
 endmenu

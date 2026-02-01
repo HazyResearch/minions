@@ -224,6 +224,7 @@ API_PRICES = {
         "openai/gpt-4o": {"input": 2.50, "cached_input": 1.25, "output": 10.00},
         "openai/gpt-4o-mini": {"input": 0.15, "cached_input": 0.075, "output": 0.60},
         "openrouter/horizon-beta": {"input": 0.0, "cached_input": 0.0, "output": 0.0},
+        "arcee-ai/trinity-large-preview:free": {"input": 0.0, "cached_input": 0.0, "output": 0.0},
         "anthropic/claude-3-5-sonnet": {
             "input": 3.00,
             "cached_input": 1.50,
@@ -2655,6 +2656,7 @@ with st.sidebar:
         elif selected_provider == "OpenRouter":
             model_mapping = {
                 "MiniMax-M2 (Recommended)": "minimax/minimax-m2:free",
+                "Arcee Trinity Large": "arcee-ai/trinity-large-preview:free",
                 "Arcee Trinity Mini": "arcee-ai/trinity-mini:free",
                 "Qwen3 Max": "qwen/qwen3-max",
                 "grok-4-fast": "x-ai/grok-4-fast",

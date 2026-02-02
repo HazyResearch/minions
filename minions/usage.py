@@ -1,4 +1,4 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any, Dict, List, Optional
 
 import tiktoken
@@ -50,6 +50,47 @@ class Usage:
         }
 
 
+@dataclass
+class PromptUsage:
+    """Track token usage separately for each of the 6 remote prompts that constitute μ_remote.
+    
+    The 6 prompts are:
+    - advice: ADVICE_PROMPT - Initial guidance generation
+    - decompose_r1: DECOMPOSE_TASK_PROMPT_AGGREGATION_FUNC - Round 1 job creation
+    - decompose_r2plus: DECOMPOSE_TASK_PROMPT_AGG_FUNC_LATER_ROUND - Later round job creation
+    - synth_cot: REMOTE_SYNTHESIS_COT - Chain-of-thought reasoning
+    - synth_json: REMOTE_SYNTHESIS_JSON - Structured JSON decision
+    - synth_final: REMOTE_SYNTHESIS_FINAL - Forced final answer (when max rounds exhausted)
+    """
+    advice: Usage = field(default_factory=Usage)
+    decompose_r1: Usage = field(default_factory=Usage)
+    decompose_r2plus: Usage = field(default_factory=Usage)
+    synth_cot: Usage = field(default_factory=Usage)
+    synth_json: Usage = field(default_factory=Usage)
+    synth_final: Usage = field(default_factory=Usage)
+    
+    @property
+    def total(self) -> Usage:
+        """Return the combined usage across all prompts."""
+        return (self.advice + self.decompose_r1 + self.decompose_r2plus +
+                self.synth_cot + self.synth_json + self.synth_final)
+    
+    def to_dict(self) -> Dict[str, Any]:
+        """Convert to dictionary with per-prompt breakdown and total.
+        
+        The 'total' field ensures backward compatibility with code that reads
+        usage.remote.total_tokens.
+        """
+        return {
+            "advice": self.advice.to_dict(),
+            "decompose_r1": self.decompose_r1.to_dict(),
+            "decompose_r2plus": self.decompose_r2plus.to_dict(),
+            "synth_cot": self.synth_cot.to_dict(),
+            "synth_json": self.synth_json.to_dict(),
+            "synth_final": self.synth_final.to_dict(),
+            # Include total for backward compatibility
+            **self.total.to_dict(),
+        }
 
 
 def num_tokens_from_messages_openai(

@@ -13,7 +13,7 @@ from minions.utils.multimodal_retrievers import (
     retrieve_chunks_from_chroma,
 )
 
-from minions.usage import Usage
+from minions.usage import Usage, PromptUsage
 
 from minions.utils.chunking import (
     chunk_by_section,
@@ -312,7 +312,8 @@ class Minions:
         }
 
         # Initialize usage tracking
-        remote_usage = Usage()
+        # Use PromptUsage for per-prompt breakdown of remote (supervisor) token usage
+        remote_prompt_usage = PromptUsage()
         local_usage = Usage()
 
         retriever = None
@@ -372,7 +373,7 @@ class Minions:
         current_time = time.time()
         timing["remote_call_time"] += current_time - remote_start_time
 
-        remote_usage += usage
+        remote_prompt_usage.advice += usage
 
         supervisor_messages.append(
             {"role": "assistant", "content": advice_response[0]},
@@ -494,7 +495,11 @@ class Minions:
                 current_time = time.time()
                 timing["remote_call_time"] += current_time - remote_start_time
 
-                remote_usage += usage
+                # Track decompose usage: R1 vs R2+
+                if round_idx == 0:
+                    remote_prompt_usage.decompose_r1 += usage
+                else:
+                    remote_prompt_usage.decompose_r2plus += usage
 
                 task_response = task_response[0]
                 print(task_response)
@@ -882,7 +887,7 @@ class Minions:
                 current_time = time.time()
                 timing["remote_call_time"] += current_time - remote_start_time
 
-                remote_usage += usage
+                remote_prompt_usage.synth_cot += usage
                 if self.callback:
                     self.callback("supervisor", step_by_step_response[0], is_final=False)
 
@@ -926,6 +931,12 @@ class Minions:
                     )
                     current_time = time.time()
                     timing["remote_call_time"] += current_time - remote_start_time
+
+                    # Track synth_final vs synth_json based on whether it's the final round
+                    if round_idx == self.max_rounds - 1:
+                        remote_prompt_usage.synth_final += usage
+                    else:
+                        remote_prompt_usage.synth_json += usage
 
                     # Parse and validate JSON response
                     response_text = synthesized_response[0]
@@ -1000,7 +1011,7 @@ class Minions:
         )
 
         # Add usage statistics to the conversation log
-        conversation_log["usage"]["remote"] = remote_usage.to_dict()
+        conversation_log["usage"]["remote"] = remote_prompt_usage.to_dict()
         conversation_log["usage"]["local"] = local_usage.to_dict()
 
         # Save the conversation log to a file
@@ -1038,7 +1049,7 @@ class Minions:
             "conversation_log": conversation_log,
             "timing": timing,
             "local_usage": local_usage.to_dict(),
-            "remote_usage": remote_usage.to_dict(),
+            "remote_usage": remote_prompt_usage.to_dict(),
         }
 
         return result

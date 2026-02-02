@@ -385,6 +385,9 @@ def main():
     total_count = 0
     total_usage = Usage()
     
+    # Track correctness results for summary update
+    correctness_results = {}  # sample_id -> is_correct
+    
     # Prepare correctness log file
     correctness_log_path = results_path / "correctness_evaluation.log"
     correctness_log_lines = []
@@ -413,6 +416,9 @@ def main():
         
         result = evaluator.evaluate(predicted, ground_truth, question)
         total_usage += result.usage
+        
+        # Track correctness for summary update
+        correctness_results[sample_id] = result.is_correct
         
         if result.is_correct:
             correct_count += 1
@@ -476,6 +482,43 @@ def main():
         if summary_path.exists():
             with open(summary_path, "r") as f:
                 content = f.read()
+            
+            # Update per-query table to replace "---" in Correct column with Yes/No
+            lines = content.split("\n")
+            new_lines = []
+            in_per_query_section = False
+            
+            for line in lines:
+                # Detect PER-QUERY DETAILS section
+                if "PER-QUERY DETAILS" in line:
+                    in_per_query_section = True
+                    new_lines.append(line)
+                    continue
+                
+                # Detect EVALUATION SUMMARY section (end of per-query)
+                if "EVALUATION SUMMARY" in line:
+                    in_per_query_section = False
+                    new_lines.append(line)
+                    continue
+                
+                if in_per_query_section:
+                    # Check if this looks like a data row (has sample_id and ends with ---)
+                    stripped = line.strip()
+                    if stripped and not stripped.startswith("-") and not stripped.startswith("=") and not stripped.endswith(":") and "Sample ID" not in line:
+                        parts = stripped.split()
+                        if len(parts) >= 5 and parts[-1] == "---":
+                            sample_id_part = parts[0]
+                            # Look up correctness from our results
+                            is_correct = correctness_results.get(sample_id_part)
+                            if is_correct is not None:
+                                correct_str = "Yes" if is_correct else "No"
+                                # Replace the --- with the correct value
+                                # Rebuild the line with proper formatting
+                                line = f"{sample_id_part:<45} {parts[1]:<12} {parts[2]:<12} {parts[3]:<12} {correct_str:<8}"
+                
+                new_lines.append(line)
+            
+            content = "\n".join(new_lines)
             
             # Remove old accuracy line if present
             lines = content.split("\n")

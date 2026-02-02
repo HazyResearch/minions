@@ -1995,18 +1995,38 @@ class Evaluator:
 
 def main():
     """Main entry point using Kconfig .config file."""
-    if len(sys.argv) != 2:
-        print("Usage: python financebench_evaluator.py <.config>")
-        print("\nExample:")
-        print("  python evaluate/financebench_evaluator.py config/.config")
-        print("\nOr use make:")
-        print("  make defconfig  # Load default configuration")
-        print("  make run        # Run evaluation")
-        print("\nTo configure interactively:")
-        print("  make menuconfig")
-        sys.exit(1)
+    import argparse
     
-    config_path = sys.argv[1]
+    parser = argparse.ArgumentParser(
+        description="FinanceBench Evaluator for MinionS protocols",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  python evaluate/financebench_evaluator.py config/.config
+  python evaluate/financebench_evaluator.py config/.config --prompt-set prompts.json
+  python evaluate/financebench_evaluator.py config/.config --sample-indices 1,2,3
+
+Or use make:
+  make defconfig  # Load default configuration
+  make run        # Run evaluation
+        """
+    )
+    parser.add_argument("config", help="Path to .config file")
+    parser.add_argument(
+        "--prompt-set", 
+        help="Path to JSON file with prompt overrides (for evolution)"
+    )
+    parser.add_argument(
+        "--sample-indices",
+        help="Comma-separated list of sample indices to evaluate (overrides config)"
+    )
+    parser.add_argument(
+        "--output-dir",
+        help="Custom output directory for results (overrides config)"
+    )
+    
+    args = parser.parse_args()
+    config_path = args.config
     
     try:
         config = load_config(config_path)
@@ -2014,6 +2034,21 @@ def main():
     except Exception as e:
         logger.error(f"Failed to load configuration: {e}")
         sys.exit(1)
+    
+    # Apply command-line overrides
+    if args.prompt_set:
+        config.global_config.prompt_set = args.prompt_set
+        logger.info(f"Using prompt set: {args.prompt_set}")
+    
+    if args.sample_indices:
+        indices = [int(i.strip()) for i in args.sample_indices.split(",")]
+        config.dataset.sample_indices = indices
+        config.dataset.max_samples = None  # Disable max_samples when using explicit indices
+        logger.info(f"Using sample indices: {indices}")
+    
+    if args.output_dir:
+        config.global_config.output_dir = args.output_dir
+        logger.info(f"Using output directory: {args.output_dir}")
     
     # Load dataset (always uses full PDF documents)
     dataset = FinanceBenchDataset(

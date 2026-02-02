@@ -1,0 +1,178 @@
+\documentclass[10pt,a4paper]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[T1]{fontenc}
+\usepackage[margin=1in]{geometry}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{booktabs}
+
+\definecolor{codebg}{HTML}{F5F5F5}
+\definecolor{codeframe}{HTML}{CCCCCC}
+
+\lstset{
+  basicstyle=\ttfamily\small,
+  backgroundcolor=\color{codebg},
+  frame=single,
+  rulecolor=\color{codeframe},
+  breaklines=true,
+  columns=fullflexible,
+  keepspaces=true,
+  showstringspaces=false,
+  xleftmargin=3pt,
+  xrightmargin=3pt
+}
+
+\title{\textbf{FinanceBench Evaluator Guide}}
+\author{MinionS}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section{Overview}
+
+The FinanceBench evaluator runs the MinionS protocol on financial document QA tasks.
+It requires a local LLM (via SGLang) and a remote LLM (OpenAI/Anthropic).
+
+\section{Installation}
+
+\subsection{Core Dependencies}
+
+\begin{lstlisting}[language=bash]
+cd /workspace/minions
+
+pip install -e . --break-system-packages
+pip install -r requirements.txt --break-system-packages
+
+# Additional packages
+pip install tiktoken pydantic ollama openai anthropic together mistralai
+pip install mcp sentence-transformers faiss-cpu pdfplumber graphviz
+pip install kconfiglib transformers accelerate torch einops pandas
+pip install pymupdf rank-bm25
+
+# System packages
+apt-get update && apt-get install -y zstd graphviz
+\end{lstlisting}
+
+\subsection{Environment Variables}
+
+\begin{lstlisting}[language=bash]
+export OPENAI_API_KEY="sk-your-key-here"
+export HF_TOKEN="hf_your-token-here"
+\end{lstlisting}
+
+\section{SGLang Server Setup (Terminal 1)}
+
+The local LLM is served via SGLang. Run this in a \textbf{separate terminal}:
+
+\begin{lstlisting}[language=bash]
+cd /workspace/minions
+export HF_TOKEN="hf_your-token-here"
+
+# Install SGLang
+pip install -e . --break-system-packages
+pip install -r requirements.txt --break-system-packages
+pip install "sglang[all]" --break-system-packages
+
+# System dependencies
+apt-get update && apt-get install -y libnuma-dev
+
+# Fix PyTorch (if needed)
+rm -rf /usr/local/lib/python3.11/dist-packages/torch*
+pip install torch==2.9.1 torchvision==0.24.1 torchaudio==2.9.1 \
+    --index-url https://download.pytorch.org/whl/cu128
+pip install torch_memory_saver==0.0.9 torchao==0.9.0 torchcodec==0.8.0
+pip install 'anyio>=3.0,<4.0'
+
+# Launch server
+python -m sglang.launch_server \
+    --model-path meta-llama/Llama-3.1-8B-Instruct \
+    --port 8000 \
+    --host 0.0.0.0 \
+    --mem-fraction-static 0.7 \
+    --max-running-requests 16 \
+    --enable-custom-logit-processor
+\end{lstlisting}
+
+Wait for \texttt{Server is ready} before proceeding.
+
+\section{Running the Evaluator (Terminal 2)}
+
+\subsection{Configuration}
+
+\begin{lstlisting}[language=bash]
+cd /workspace/minions
+
+# Interactive configuration
+make menuconfig
+\end{lstlisting}
+
+Key settings:
+\begin{itemize}
+  \item \textbf{Local Model}: \texttt{meta-llama/Llama-3.1-8B-Instruct}
+  \item \textbf{Backend}: SGLang
+  \item \textbf{SGLang URL}: \texttt{http://localhost:8000/v1}
+  \item \textbf{Remote Model}: \texttt{gpt-4o}
+  \item \textbf{Dataset Path}: \texttt{/workspace/financebench}
+\end{itemize}
+
+\subsection{Run Evaluation}
+
+\begin{lstlisting}[language=bash]
+# Run with config
+python3 evaluate/financebench_evaluator.py config/.config
+
+# Or use make
+make run
+\end{lstlisting}
+
+\subsection{Options}
+
+\begin{lstlisting}[language=bash]
+# Run specific samples
+python3 evaluate/financebench_evaluator.py config/.config \
+    --sample-indices 1,2,3,4,5
+
+# Custom output directory
+python3 evaluate/financebench_evaluator.py config/.config \
+    --output-dir /tmp/my_results
+
+# Custom prompt overrides
+python3 evaluate/financebench_evaluator.py config/.config \
+    --prompt-set prompts.json
+\end{lstlisting}
+
+\section{Results}
+
+Output is saved to \texttt{evaluate/results/<run\_id>/}:
+\begin{itemize}
+  \item \texttt{summary.txt} --- accuracy and cost summary
+  \item \texttt{financebench\_results.json} --- per-sample results
+  \item \texttt{sample\_logs/} --- detailed logs for each sample
+  \item \texttt{report.tex} --- LaTeX report (if pdflatex available)
+\end{itemize}
+
+\section{Correctness Evaluation}
+
+After a run, evaluate correctness with:
+
+\begin{lstlisting}[language=bash]
+python3 evaluate/correctness.py evaluate/results/<run_id> \
+    --verbose --update-summary
+\end{lstlisting}
+
+\section{Troubleshooting}
+
+\begin{tabular}{ll}
+\toprule
+\textbf{Issue} & \textbf{Solution} \\
+\midrule
+Connection refused & Start SGLang server first \\
+API key error & \texttt{export OPENAI\_API\_KEY="..."} \\
+Model not found & Check \texttt{CONFIG\_LOCAL\_MODEL\_NAME} \\
+No GPU activity & Disable cache: \texttt{CONFIG\_USE\_CACHE=n} \\
+\bottomrule
+\end{tabular}
+
+\end{document}

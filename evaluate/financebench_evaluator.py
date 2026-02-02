@@ -1517,15 +1517,17 @@ class Evaluator:
         return "\n".join(lines)
     
     def save_summary(self) -> Path:
-        """Save summary table to summary.txt file."""
+        """Save summary table to summary.txt file with per-query details."""
         summary = self._aggregate_all_results()
         summary_path = self.run_output_dir / "summary.txt"
         
         with open(summary_path, 'w', encoding='utf-8') as f:
+            # Configuration summary
             if self.all_args:
                 f.write(self._format_config_summary())
                 f.write("\n\n")
             
+            # Runtime
             if hasattr(self, '_total_runtime'):
                 minutes, seconds = divmod(self._total_runtime, 60)
                 hours, minutes = divmod(minutes, 60)
@@ -1537,6 +1539,32 @@ class Evaluator:
                     f.write(f"Total runtime: {seconds:.1f}s\n")
                 f.write("\n")
             
+            # Per-query details section
+            f.write("="*80 + "\n")
+            f.write("PER-QUERY DETAILS\n")
+            f.write("="*80 + "\n\n")
+            
+            for protocol in self.protocols:
+                protocol_results = self.results.get(protocol, [])
+                if not protocol_results:
+                    continue
+                
+                f.write(f"{protocol.upper()}:\n")
+                f.write("-"*90 + "\n")
+                f.write(f"{'Sample ID':<45} {'Cost ($)':<12} {'Input Tok':<12} {'Output Tok':<12} {'Correct':<8}\n")
+                f.write("-"*90 + "\n")
+                
+                # Sort results by sample_id for consistent ordering
+                sorted_results = sorted(protocol_results, key=lambda r: r.sample_id)
+                
+                for result in sorted_results:
+                    sample_id_display = result.sample_id[-45:] if len(result.sample_id) > 45 else result.sample_id
+                    # Correct column will be filled by correctness.py later, leave as "---" for now
+                    f.write(f"{sample_id_display:<45} {result.cost_usd:<12.4f} {result.input_tokens:<12} {result.output_tokens:<12} {'---':<8}\n")
+                
+                f.write("\n")
+            
+            # Aggregate summary section
             f.write("="*80 + "\n")
             f.write("EVALUATION SUMMARY\n")
             f.write("="*80 + "\n")

@@ -2,7 +2,7 @@
 # FinanceBench Evaluator Configuration
 #
 # This Kconfig file defines all configuration options for the evaluator.
-# Use 'python evaluate/kmenuconfig.py' for interactive configuration.
+# Use 'make menuconfig' for interactive configuration.
 #
 
 mainmenu "FinanceBench Evaluator Configuration"

@@ -1998,9 +1998,12 @@ def main():
     if len(sys.argv) != 2:
         print("Usage: python financebench_evaluator.py <.config>")
         print("\nExample:")
-        print("  python evaluate/financebench_evaluator.py .config")
-        print("\nTo create a configuration interactively:")
-        print("  python evaluate/kmenuconfig.py")
+        print("  python evaluate/financebench_evaluator.py config/.config")
+        print("\nOr use make:")
+        print("  make defconfig  # Load default configuration")
+        print("  make run        # Run evaluation")
+        print("\nTo configure interactively:")
+        print("  make menuconfig")
         sys.exit(1)
     
     config_path = sys.argv[1]

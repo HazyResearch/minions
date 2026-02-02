@@ -6,8 +6,8 @@ This script provides a Tkinter-based GUI for configuring the evaluator,
 similar to Linux kernel's xconfig/guiconfig.
 
 Usage:
-    python evaluate/kguiconfig.py               # Use default paths
-    python evaluate/kguiconfig.py -c .config    # Load existing config
+    python config/kguiconfig.py                     # Use default paths
+    python config/kguiconfig.py -c config/.config   # Load existing config
 """
 
 import os
@@ -26,30 +26,32 @@ except ImportError:
 
 def main():
     """Launch guiconfig for evaluator configuration."""
+    script_dir = Path(__file__).parent.absolute()
+    default_config = str(script_dir / '.config')
+    
     parser = argparse.ArgumentParser(
         description="GUI configuration for FinanceBench Evaluator",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-    python evaluate/kguiconfig.py                     # Configure from scratch
-    python evaluate/kguiconfig.py -c my.config        # Load existing config
-    python evaluate/kguiconfig.py --defconfig cvoc    # Start from preset
+    python config/kguiconfig.py                       # Configure from scratch
+    python config/kguiconfig.py -c config/.config     # Load existing config
+    python config/kguiconfig.py --defconfig defconfig # Start from preset
         """
     )
     parser.add_argument(
         '-c', '--config',
-        default='.config',
-        help='Path to .config file (default: .config in current directory)'
+        default=default_config,
+        help=f'Path to .config file (default: {default_config})'
     )
     parser.add_argument(
         '--defconfig',
-        help='Load a defconfig preset before launching (e.g., cvoc_minimal)'
+        help='Load a defconfig preset before launching (e.g., defconfig)'
     )
     
     args = parser.parse_args()
     
     # Determine Kconfig file location
-    script_dir = Path(__file__).parent.absolute()
     kconfig_path = script_dir / 'Kconfig'
     
     if not kconfig_path.exists():
@@ -72,18 +74,18 @@ Examples:
     
     # Load defconfig if specified
     if args.defconfig:
-        defconfig_path = script_dir / 'configs' / f'{args.defconfig}_defconfig'
+        defconfig_path = script_dir / 'presets' / f'{args.defconfig}_defconfig'
         if defconfig_path.exists():
             print(f"Loading defconfig: {defconfig_path}")
             kconf.load_config(str(defconfig_path))
         else:
             # Try without _defconfig suffix
-            defconfig_path = script_dir / 'configs' / args.defconfig
+            defconfig_path = script_dir / 'presets' / args.defconfig
             if defconfig_path.exists():
                 print(f"Loading defconfig: {defconfig_path}")
                 kconf.load_config(str(defconfig_path))
             else:
-                print(f"Warning: Defconfig '{args.defconfig}' not found in {script_dir / 'configs'}")
+                print(f"Warning: Defconfig '{args.defconfig}' not found in {script_dir / 'presets'}")
     
     # Load existing config if it exists
     config_path = Path(args.config)
@@ -108,18 +110,18 @@ Examples:
             print(f"Error: guiconfig module not available: {e}")
             print("\nMake sure kconfiglib is installed: pip install kconfiglib")
         print("\nAlternatively, use kmenuconfig for terminal-based configuration:")
-        print(f"    python evaluate/kmenuconfig.py -c {args.config}")
+        print(f"    python config/kmenuconfig.py -c {args.config}")
         sys.exit(1)
     except TclError as e:
         print(f"Error: Cannot initialize GUI (no display?): {e}")
         print("\nUse kmenuconfig for terminal-based configuration:")
-        print(f"    python evaluate/kmenuconfig.py -c {args.config}")
+        print(f"    python config/kmenuconfig.py -c {args.config}")
         sys.exit(1)
     except Exception as e:
         if "display" in str(e).lower() or "DISPLAY" in str(e):
             print(f"Error: No display available for GUI: {e}")
             print("\nUse kmenuconfig for terminal-based configuration:")
-            print(f"    python evaluate/kmenuconfig.py -c {args.config}")
+            print(f"    python config/kmenuconfig.py -c {args.config}")
             sys.exit(1)
         raise
     
@@ -127,9 +129,10 @@ Examples:
     kconf.write_config(args.config)
     print(f"\nConfiguration saved to: {args.config}")
     print(f"\nTo run evaluation:")
+    print(f"    make run")
+    print(f"  or:")
     print(f"    python evaluate/financebench_evaluator.py {args.config}")
 
 
 if __name__ == '__main__':
     main()
-

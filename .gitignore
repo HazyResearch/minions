@@ -44,6 +44,9 @@ ENV/
 # Project specific
 data/
 
+# Kconfig generated files
+config/.config.old
+
 # Misc
 .DS_Store
 .coverage

@@ -225,6 +225,7 @@ API_PRICES = {
         "openai/gpt-4o-mini": {"input": 0.15, "cached_input": 0.075, "output": 0.60},
         "openrouter/horizon-beta": {"input": 0.0, "cached_input": 0.0, "output": 0.0},
         "arcee-ai/trinity-large-preview:free": {"input": 0.0, "cached_input": 0.0, "output": 0.0},
+        "stepfun/step-3.5-flash": {"input": 0.07, "cached_input": 0.035, "output": 0.28},
         "anthropic/claude-3-5-sonnet": {
             "input": 3.00,
             "cached_input": 1.50,
@@ -340,13 +341,14 @@ def extract_text_from_pdf(pdf_bytes):
 #         return None
 
 
-def extract_text_from_image(path_to_file, model_name: str = "gemma3:4b"):
+def extract_text_from_image(path_to_file, model_name: str = "glm-ocr"):
     """
-    Extract text from an image using a vision language model via Ollama.
+    Extract text from an image using OCR via Ollama.
     
     Args:
         path_to_file: Base64 encoded image or path to image file
-        model_name: Name of the VLM to use (default: "gemma3:4b")
+        model_name: Name of the OCR/VLM model to use (default: "glm-ocr")
+                    Other options: "gemma3:4b", "llava", etc.
     """
     try:
         client = OllamaClient(
@@ -354,11 +356,18 @@ def extract_text_from_image(path_to_file, model_name: str = "gemma3:4b"):
             use_async=False,
             num_ctx=131072,
         )
+        
+        # Use appropriate prompt based on model
+        if model_name == "glm-ocr":
+            prompt = "Text Recognition:"
+        else:
+            prompt = "Extract and return all text visible in this image:"
+        
         responses, usage_total, done_reasons = client.chat(
             messages=[
                 {
                     "role": "user",
-                    "content": "Describe this image:",
+                    "content": prompt,
                     "images": [path_to_file],
                 }
             ],
@@ -2656,6 +2665,7 @@ with st.sidebar:
         elif selected_provider == "OpenRouter":
             model_mapping = {
                 "MiniMax-M2 (Recommended)": "minimax/minimax-m2:free",
+                "Step 3.5 Flash": "stepfun/step-3.5-flash",
                 "Arcee Trinity Large": "arcee-ai/trinity-large-preview:free",
                 "Arcee Trinity Mini": "arcee-ai/trinity-mini:free",
                 "Qwen3 Max": "qwen/qwen3-max",

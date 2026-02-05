@@ -223,6 +223,7 @@ API_PRICES = {
     "OpenRouter": {
         "openai/gpt-4o": {"input": 2.50, "cached_input": 1.25, "output": 10.00},
         "openai/gpt-4o-mini": {"input": 0.15, "cached_input": 0.075, "output": 0.60},
+        "openrouter/free": {"input": 0.0, "cached_input": 0.0, "output": 0.0},
         "openrouter/horizon-beta": {"input": 0.0, "cached_input": 0.0, "output": 0.0},
         "arcee-ai/trinity-large-preview:free": {"input": 0.0, "cached_input": 0.0, "output": 0.0},
         "stepfun/step-3.5-flash": {"input": 0.07, "cached_input": 0.035, "output": 0.28},
@@ -2664,7 +2665,8 @@ with st.sidebar:
             default_model_index = 0
         elif selected_provider == "OpenRouter":
             model_mapping = {
-                "MiniMax-M2 (Recommended)": "minimax/minimax-m2:free",
+                "Free Router (Recommended)": "openrouter/free",
+                "MiniMax-M2": "minimax/minimax-m2:free",
                 "Step 3.5 Flash": "stepfun/step-3.5-flash",
                 "Arcee Trinity Large": "arcee-ai/trinity-large-preview:free",
                 "Arcee Trinity Mini": "arcee-ai/trinity-mini:free",

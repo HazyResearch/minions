@@ -11,7 +11,7 @@ from minions.clients.base import MinionsClient
 class AnthropicClient(MinionsClient):
     def __init__(
         self,
-        model_name: str = "claude-opus-4-20250514",
+        model_name: str = "claude-opus-4-6",
         api_key: Optional[str] = None,
         temperature: float = 0.2,
         max_tokens: int = 4096,
@@ -21,6 +21,7 @@ class AnthropicClient(MinionsClient):
         use_code_interpreter: bool = False,
         use_thinking: bool = False,
         thinking_budget_tokens: int = 10000,
+        use_adaptive_thinking: bool = False,
         effort: Optional[str] = None,
         use_context_management: bool = False,
         context_management_config: Optional[Dict[str, Any]] = None,
@@ -32,7 +33,7 @@ class AnthropicClient(MinionsClient):
         Initialize the Anthropic client.
 
         Args:
-            model_name: The name of the model to use (default: "claude-opus-4-20250514")
+            model_name: The name of the model to use (default: "claude-opus-4-6")
             api_key: Anthropic API key (optional, falls back to environment variable if not provided)
             temperature: Sampling temperature (default: 0.2)
             max_tokens: Maximum number of tokens to generate (default: 4096)
@@ -40,9 +41,13 @@ class AnthropicClient(MinionsClient):
             include_search_queries: Whether to include search queries in the response (default: False)
             use_caching: Whether to use caching for the client (default: False)
             use_code_interpreter: Whether to use the code interpreter (default: False)
-            use_thinking: Whether to enable thinking mode (default: False)
+            use_thinking: Whether to enable thinking mode with budget_tokens (default: False).
+                NOTE: Deprecated for Claude 4.6+. Use use_adaptive_thinking instead.
             thinking_budget_tokens: Token budget for thinking when enabled (default: 10000)
-            effort: Control token usage: "high" (default), "medium", or "low". Only supported by claude-opus-4-5-20251101 (default: None)
+            use_adaptive_thinking: Whether to enable adaptive thinking mode (default: False).
+                Recommended for Claude 4.6+ models. Use with 'effort' parameter to control depth.
+            effort: Control thinking depth: "high", "medium", or "low" (default: None).
+                For Claude 4.6+, this is a GA feature and controls adaptive thinking depth.
             use_context_management: Whether to enable context management (default: False)
             context_management_config: Configuration for context management. If None and use_context_management 
                 is True, defaults to clearing tool uses. Example config:
@@ -55,6 +60,11 @@ class AnthropicClient(MinionsClient):
             use_strict_tools: Whether to enable strict mode for structured outputs with tools (default: True).
                 When enabled, tools will have strict: True added automatically for guaranteed schema conformance.
             **kwargs: Additional parameters passed to base class
+            
+        Note:
+            For Claude 4.6 models, use adaptive thinking instead of budget-based thinking:
+            - OLD: use_thinking=True, thinking_budget_tokens=32000
+            - NEW: use_adaptive_thinking=True, effort="high"
         """
         super().__init__(
             model_name=model_name,
@@ -74,20 +84,32 @@ class AnthropicClient(MinionsClient):
         self.use_caching = use_caching
         self.use_thinking = use_thinking
         self.thinking_budget_tokens = thinking_budget_tokens
+        self.use_adaptive_thinking = use_adaptive_thinking
         self.use_context_management = use_context_management
         self.context_management_config = context_management_config
         self.use_strict_tools = use_strict_tools
+        
+        # Validate thinking parameters
+        if use_thinking and use_adaptive_thinking:
+            raise ValueError(
+                "Cannot use both 'use_thinking' (budget-based) and 'use_adaptive_thinking' together. "
+                "For Claude 4.6+, use 'use_adaptive_thinking=True' with 'effort' parameter."
+            )
         
         # Validate and store effort parameter
         if effort is not None and effort not in ["high", "medium", "low"]:
             raise ValueError(f"Invalid effort value: {effort}. Must be 'high', 'medium', or 'low'")
         self.effort = effort
         
+        # Check if model is Claude 4.6+ (effort is GA, no beta header needed)
+        self._is_claude_46_plus = "4-6" in model_name or "4.6" in model_name
+        
         # Initialize client with appropriate headers
         beta_headers = []
         if self.use_code_interpreter:
             beta_headers.append("code-execution-2025-05-22")
-        if self.effort is not None:
+        # Effort is GA for Claude 4.6+, only add beta header for older models
+        if self.effort is not None and not self._is_claude_46_plus:
             beta_headers.append("effort-2025-11-24")
         if self.use_context_management:
             beta_headers.append("context-management-2025-06-27")
@@ -195,8 +217,13 @@ class AnthropicClient(MinionsClient):
                     "effort": self.effort
                 }
 
-            # Add thinking parameter if enabled
-            if self.use_thinking:
+            # Add thinking parameter - adaptive for 4.6+, budget-based for older
+            if self.use_adaptive_thinking:
+                params["thinking"] = {
+                    "type": "adaptive"
+                }
+            elif self.use_thinking:
+                # Legacy budget-based thinking (deprecated for 4.6+)
                 params["thinking"] = {
                     "type": "enabled",
                     "budget_tokens": self.thinking_budget_tokens

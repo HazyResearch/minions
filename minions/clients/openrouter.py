@@ -22,6 +22,8 @@ class OpenRouterClient(OpenAIClient):
         verbosity: str = "medium",
         use_responses_api: bool = False,
         reasoning_effort: str = "low",
+        reasoning_enabled: bool = False,
+        reasoning_max_tokens: Optional[int] = None,
         fallback_models: Optional[List[str]] = None,
         variant: Optional[str] = None,
         response_healing: bool = False,
@@ -37,12 +39,23 @@ class OpenRouterClient(OpenAIClient):
             base_url: API base URL. Falls back to OPENROUTER_BASE_URL env var or default.
             site_url: Site URL for openrouter.ai rankings (HTTP-Referer header).
             site_name: Site name for openrouter.ai rankings (X-Title header).
-            verbosity: Response verbosity level: "low", "medium", "high".
+            verbosity: Response verbosity level: "low", "medium", "high", or "max" (Opus 4.6 only).
+                Controls response detail via output_config.effort.
             use_responses_api: Use responses API for reasoning models.
-            reasoning_effort: Reasoning effort for reasoning models: "low", "medium", "high".
+            reasoning_effort: Reasoning effort for OpenAI reasoning models (o1/o3/o4): "low", "medium", "high".
+                NOTE: Ignored for Claude 4.6 Opus which uses adaptive thinking.
+            reasoning_enabled: Enable reasoning/thinking for Claude models (default: False).
+                For Claude 4.6 Opus, this enables adaptive thinking by default.
+            reasoning_max_tokens: Max tokens for reasoning budget (optional).
+                If set, uses budget-based thinking instead of adaptive for Claude 4.6.
             fallback_models: List of fallback models if primary fails.
             variant: Routing preference ("nitro", "online", etc.) Appends suffix to model_name.
             response_healing: Whether to enable OpenRouter's JSON repair feature by default.
+            
+        Note:
+            For Claude 4.6 Opus, adaptive thinking is used by default when reasoning_enabled=True.
+            To use budget-based thinking, explicitly set reasoning_max_tokens.
+            The "max" verbosity level is only supported on Claude 4.6 Opus.
         """
         if api_key is None:
             api_key = os.environ.get("OPENROUTER_API_KEY")
@@ -60,9 +73,20 @@ class OpenRouterClient(OpenAIClient):
         # CHANGE: Store default preference
         self.response_healing = response_healing
 
-        if verbosity not in ["low", "medium", "high"]:
-            raise ValueError(f"Invalid verbosity '{verbosity}'. Must be: low, medium, high")
+        # Check if model is Claude 4.6 Opus
+        self._is_claude_46_opus = "claude-4.6-opus" in model_name or "claude-4-6-opus" in model_name
+        
+        # Validate verbosity - "max" only supported on Claude 4.6 Opus
+        valid_verbosity = ["low", "medium", "high", "max"] if self._is_claude_46_opus else ["low", "medium", "high"]
+        if verbosity not in valid_verbosity:
+            if verbosity == "max" and not self._is_claude_46_opus:
+                raise ValueError(f"Verbosity 'max' is only supported on Claude 4.6 Opus. Use 'high' instead.")
+            raise ValueError(f"Invalid verbosity '{verbosity}'. Must be: {', '.join(valid_verbosity)}")
         self.verbosity = verbosity
+        
+        # Store reasoning parameters for Claude models
+        self.reasoning_enabled = reasoning_enabled
+        self.reasoning_max_tokens = reasoning_max_tokens
 
         # Handle model variant preference (nitro/free/exacto/extended/thinking)
         if variant:
@@ -212,6 +236,22 @@ class OpenRouterClient(OpenAIClient):
             if "models" not in params["extra_body"]:
                 params["extra_body"]["models"] = self.fallback_models
 
+        # Add reasoning support for Claude models (especially 4.6 Opus)
+        if self.reasoning_enabled and "anthropic" in self.model_name.lower():
+            params["extra_body"] = params.get("extra_body", {})
+            
+            if self.reasoning_max_tokens is not None:
+                # Budget-based thinking (explicit token limit)
+                params["extra_body"]["reasoning"] = {
+                    "enabled": True,
+                    "max_tokens": self.reasoning_max_tokens
+                }
+            else:
+                # Adaptive thinking (recommended for Claude 4.6 Opus)
+                params["extra_body"]["reasoning"] = {
+                    "enabled": True
+                }
+
         try:
             response = self.client.chat.completions.create(**params)
         except Exception as e:
@@ -276,13 +316,15 @@ class OpenRouterClient(OpenAIClient):
         except Exception as e:
             logging.error(f"Failed to get OpenRouter models: {e}")
             return [
+                "anthropic/claude-4.6-opus",
+                "anthropic/claude-4.5-opus",
+                "anthropic/claude-4.5-sonnet",
+                "anthropic/claude-3-5-haiku",
                 "openai/gpt-4o",
                 "openai/gpt-4o-mini",
                 "openai/o4-mini",
                 "openai/o1-preview",
                 "openai/o3-mini",
-                "anthropic/claude-3-5-sonnet",
-                "anthropic/claude-3-5-haiku",
                 "meta-llama/llama-3.1-405b-instruct",
                 "google/gemini-2.0-flash",
                 "mistralai/mistral-large",

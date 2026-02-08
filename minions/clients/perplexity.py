@@ -192,34 +192,39 @@ class PerplexityAIClient(MinionsClient):
         tools: Optional[List[Dict[str, Any]]] = None,
         instructions: Optional[str] = None,
         preset: Optional[str] = None,
+        max_steps: Optional[int] = None,
+        max_output_tokens: Optional[int] = None,
         **kwargs
     ) -> Tuple[str, Usage]:
         """
         Use Perplexity's Agentic Research API for multi-provider access with web search.
         
-        See: https://docs.perplexity.ai/docs/grounded-llm/responses/quickstart
+        See: https://docs.perplexity.ai/docs/agentic-research/presets
         
         Args:
             input_text: Query string
             model: Model to use (e.g., "openai/gpt-5.2"). Required if preset not specified.
             tools: List of tools to enable (e.g., [{"type": "web_search"}])
             instructions: System instructions for the model
-            preset: Use a preset (e.g., "pro-search"). If specified, model is optional.
+            preset: Use a preset configuration. Options:
+                - "fast-search": Fast queries, 1 step, web_search only (grok-4-1-fast-non-reasoning)
+                - "pro-search": Balanced research, 3 steps, web_search + fetch_url (gpt-5.1)
+                - "deep-research": Complex analysis, 10 steps, web_search + fetch_url (gpt-5.2)
+            max_steps: Override preset's max reasoning steps (1, 3, or 10 typical)
+            max_output_tokens: Override preset's max output tokens
             **kwargs: Additional parameters passed to the API
             
         Returns:
             Tuple of (output_text, Usage)
                 
         Example:
-            # Using a third-party model with web search
+            # Fast search - quick answers with minimal latency
             response, usage = client.responses(
-                input_text="What are the latest developments in AI?",
-                model="openai/gpt-5.2",
-                tools=[{"type": "web_search"}],
-                instructions="Use web_search for current events.",
+                input_text="What is the current price of Bitcoin?",
+                preset="fast-search",
             )
             
-            # Using a preset
+            # Pro search - balanced research with tool access
             response, usage = client.responses(
                 input_text="Explain quantum computing",
                 preset="pro-search",
@@ -248,6 +253,13 @@ class PerplexityAIClient(MinionsClient):
             
             if instructions:
                 params["instructions"] = instructions
+            
+            # Override preset parameters if specified
+            if max_steps is not None:
+                params["max_steps"] = max_steps
+            
+            if max_output_tokens is not None:
+                params["max_output_tokens"] = max_output_tokens
             
             params.update(kwargs)
             

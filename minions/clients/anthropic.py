@@ -23,6 +23,7 @@ class AnthropicClient(MinionsClient):
         thinking_budget_tokens: int = 10000,
         use_adaptive_thinking: bool = False,
         effort: Optional[str] = None,
+        use_fast_mode: bool = False,
         use_context_management: bool = False,
         context_management_config: Optional[Dict[str, Any]] = None,
         use_strict_tools: bool = True,
@@ -85,6 +86,7 @@ class AnthropicClient(MinionsClient):
         self.use_thinking = use_thinking
         self.thinking_budget_tokens = thinking_budget_tokens
         self.use_adaptive_thinking = use_adaptive_thinking
+        self.use_fast_mode = use_fast_mode
         self.use_context_management = use_context_management
         self.context_management_config = context_management_config
         self.use_strict_tools = use_strict_tools
@@ -113,6 +115,8 @@ class AnthropicClient(MinionsClient):
             beta_headers.append("effort-2025-11-24")
         if self.use_context_management:
             beta_headers.append("context-management-2025-06-27")
+        if self.use_fast_mode:
+            beta_headers.append("fast-mode-2026-02-01")
             
         if beta_headers:
             self.client = anthropic.Anthropic(
@@ -217,6 +221,10 @@ class AnthropicClient(MinionsClient):
                     "effort": self.effort
                 }
 
+            # Add fast mode for lower latency responses
+            if self.use_fast_mode:
+                params["speed"] = "fast"
+
             # Add thinking parameter - adaptive for 4.6+, budget-based for older
             if self.use_adaptive_thinking:
                 params["thinking"] = {
@@ -278,13 +286,22 @@ class AnthropicClient(MinionsClient):
                     if "input_schema" in tool and "strict" not in tool:
                         tool["strict"] = True
 
+            # Determine which betas to use
+            betas_to_use = []
+            if self.use_fast_mode:
+                betas_to_use.append("fast-mode-2026-02-01")
+            
             # Use beta API if strict tools are enabled and we have user-defined tools
             has_user_tools = "tools" in params and any(
                 "input_schema" in tool for tool in params["tools"]
             )
             if self.use_strict_tools and has_user_tools:
+                betas_to_use.append("structured-outputs-2025-11-13")
+            
+            # Call beta API if any betas are needed, otherwise use regular API
+            if betas_to_use:
                 response = client_for_request.beta.messages.create(
-                    betas=["structured-outputs-2025-11-13"],
+                    betas=betas_to_use,
                     **params
                 )
             else:

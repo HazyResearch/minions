@@ -24,6 +24,7 @@ class OpenAIClient(MinionsClient):
         conversation_id: Optional[str] = None,
         service_tier: Optional[str] = None,
         verbosity: Optional[str] = None,
+        compact_threshold: Optional[int] = None,
         **kwargs
     ):
         """
@@ -46,6 +47,11 @@ class OpenAIClient(MinionsClient):
             conversation_id: Conversation ID for responses API (optional, only used when use_responses_api=True)
             service_tier: Service tier for request processing - "auto" or "priority" (default: None, which uses standard processing)
             verbosity: Verbosity level for responses API - "low", "medium", or "high" (default: None)
+            compact_threshold: Token threshold for server-side compaction (optional, responses API only).
+                When the rendered token count crosses this threshold, the server automatically
+                compacts the conversation context. The response includes an encrypted compaction
+                item that carries forward key state using fewer tokens.
+                See: https://developers.openai.com/api/docs/guides/compaction
             local: If this is communicating with a local client (default: False)
             **kwargs: Additional parameters passed to base class
         """
@@ -93,6 +99,9 @@ class OpenAIClient(MinionsClient):
         if self.verbosity and self.verbosity not in ["low", "medium", "high"]:
             self.logger.warning(f"Invalid verbosity '{self.verbosity}'. Valid values are 'low', 'medium', or 'high'. Using default.")
             self.verbosity = None
+        
+        # Server-side compaction for long-running conversations
+        self.compact_threshold = compact_threshold
 
         # If we are using a local client, we want to check to see if the
         # local server is running or not
@@ -195,6 +204,12 @@ class OpenAIClient(MinionsClient):
                 if "text" not in params:
                     params["text"] = {}
                 params["text"]["verbosity"] = self.verbosity
+            
+            # Add server-side compaction if threshold is set
+            if self.compact_threshold is not None:
+                params["context_management"] = [
+                    {"type": "compaction", "compact_threshold": self.compact_threshold}
+                ]
 
             response = self.client.responses.create(
                 **params,

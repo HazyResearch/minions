@@ -157,6 +157,7 @@ API_PRICES = {
     },
     "Anthropic": {
         # Claude Opus Series
+        "claude-opus-4-6": {"input": 5.00, "cached_input": 0.50, "output": 25.00},
         "claude-opus-4-5-20251101": {"input": 5.00, "cached_input": 0.50, "output": 25.00},
         "claude-opus-4-1-20250805": {"input": 15.00, "cached_input": 1.50, "output": 75.00},
         "claude-opus-4-20250514": {"input": 15.00, "cached_input": 1.50, "output": 75.00},
@@ -227,6 +228,21 @@ API_PRICES = {
         "openrouter/horizon-beta": {"input": 0.0, "cached_input": 0.0, "output": 0.0},
         "arcee-ai/trinity-large-preview:free": {"input": 0.0, "cached_input": 0.0, "output": 0.0},
         "stepfun/step-3.5-flash": {"input": 0.07, "cached_input": 0.035, "output": 0.28},
+        "anthropic/claude-4.6-opus": {
+            "input": 5.00,
+            "cached_input": 0.50,
+            "output": 25.00,
+        },
+        "anthropic/claude-4.5-opus": {
+            "input": 5.00,
+            "cached_input": 0.50,
+            "output": 25.00,
+        },
+        "anthropic/claude-4.5-sonnet": {
+            "input": 3.00,
+            "cached_input": 0.30,
+            "output": 15.00,
+        },
         "anthropic/claude-3-5-sonnet": {
             "input": 3.00,
             "cached_input": 1.50,
@@ -275,6 +291,7 @@ API_PRICES = {
     },
     # Ollama Turbo model pricing per 1M tokens
     "Ollama": {
+        "glm-5:cloud": {"input": 0.20, "cached_input": 0.05, "output": 0.20},
         "kimi-k2.5:cloud": {"input": 0.20, "cached_input": 0.05, "output": 0.20},
         "gemini-3-pro-preview:cloud": {"input": 1.25, "cached_input": 0.075, "output": 10.00},
         "gpt-oss:20b-cloud": {"input": 1.20, "cached_input": 0.30, "output": 1.20},
@@ -2666,6 +2683,9 @@ with st.sidebar:
         elif selected_provider == "OpenRouter":
             model_mapping = {
                 "Free Router (Recommended)": "openrouter/free",
+                "Claude 4.6 Opus": "anthropic/claude-4.6-opus",
+                "Claude 4.5 Opus": "anthropic/claude-4.5-opus",
+                "Claude 4.5 Sonnet": "anthropic/claude-4.5-sonnet",
                 "MiniMax-M2": "minimax/minimax-m2:free",
                 "Step 3.5 Flash": "stepfun/step-3.5-flash",
                 "Arcee Trinity Large": "arcee-ai/trinity-large-preview:free",
@@ -2686,10 +2706,11 @@ with st.sidebar:
             default_model_index = 0
         elif selected_provider == "Anthropic":
             model_mapping = {
-                "Claude 4.5 Sonnet (Recommended)": "claude-sonnet-4-5-20241022",
+                "Claude Opus 4.6 (Recommended)": "claude-opus-4-6",
+                "Claude 4.5 Sonnet": "claude-sonnet-4-5-20241022",
                 "Claude 4.5 Haiku": "claude-haiku-4-5-20251001",
                 "Claude 4.5 Opus": "claude-opus-4-5-20251101",
-                "Claude 4 Opus (Recommended)": "claude-opus-4-20250514",
+                "Claude 4 Opus": "claude-opus-4-20250514",
                 "Claude 4.1 Opus": "claude-opus-4-1-20250805",
                 "Claude 4 Sonnet": "claude-sonnet-4-20250514",
                 "Claude 3.5 Haiku": "claude-3-5-haiku-latest",
@@ -2788,7 +2809,8 @@ with st.sidebar:
             default_model_index = 0
         elif selected_provider == "Ollama":
             model_mapping = {
-                "kimi-k2.5 (Recommended)": "kimi-k2.5:cloud",
+                "GLM-5 (Recommended)": "glm-5:cloud",
+                "kimi-k2.5": "kimi-k2.5:cloud",
                 "glm-4.7": "glm-4.7:cloud",
                 "gemini-3-flash-preview": "gemini-3-flash-preview:cloud",
                 "gemini-3-pro-preview": "gemini-3-pro-preview:cloud",

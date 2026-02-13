@@ -86,21 +86,13 @@ st.markdown(
 API_PRICES = {
     # OpenAI model pricing per 1M tokens (Updated October 2025)
     "OpenAI": {
-        # GPT-4o Series
-        "gpt-4o": {"input": 2.50, "cached_input": 1.25, "output": 10.00},
-        "gpt-4o-mini": {"input": 0.15, "cached_input": 0.075, "output": 0.60},
         # GPT-4.5 Series
         "gpt-4.5-preview": {"input": 1.50, "cached_input": 0.75, "output": 6.00},
-        # GPT-4.1 Series
-        "gpt-4.1": {"input": 3.00, "cached_input": 0.75, "output": 12.00},
-        "gpt-4.1-mini": {"input": 0.80, "cached_input": 0.20, "output": 3.20},
-        "gpt-4.1-nano": {"input": 0.20, "cached_input": 0.05, "output": 0.80},
         # Reasoning Models (o-series)
         "o1": {"input": 15.00, "cached_input": 7.50, "output": 60.00},
         "o1-pro": {"input": 150.00, "cached_input": 7.50, "output": 600.00},
         "o3": {"input": 10.00, "cached_input": 2.50, "output": 40.00},
         "o3-mini": {"input": 1.10, "cached_input": 0.55, "output": 4.40},
-        "o4-mini": {"input": 4.00, "cached_input": 1.00, "output": 16.00},
         # GPT-5 Series
         "gpt-5": {"input": 1.25, "cached_input": 0.125, "output": 10.00},
         "gpt-5-pro": {"input": 15.00, "output": 120.00},
@@ -222,8 +214,7 @@ API_PRICES = {
     },
     # OpenRouter pricing (common models - pricing varies by model)
     "OpenRouter": {
-        "openai/gpt-4o": {"input": 2.50, "cached_input": 1.25, "output": 10.00},
-        "openai/gpt-4o-mini": {"input": 0.15, "cached_input": 0.075, "output": 0.60},
+        "openai/gpt-5.2": {"input": 2.00, "cached_input": 0.50, "output": 8.00},
         "openrouter/free": {"input": 0.0, "cached_input": 0.0, "output": 0.0},
         "openrouter/horizon-beta": {"input": 0.0, "cached_input": 0.0, "output": 0.0},
         "arcee-ai/trinity-large-preview:free": {"input": 0.0, "cached_input": 0.0, "output": 0.0},
@@ -1109,7 +1100,7 @@ def initialize_clients(
                 "SecureClient is not available. Please ensure the secure module is properly installed."
             )
             # Fallback to OpenAI client
-            remote_model_name = "gpt-4o"
+            remote_model_name = "gpt-5.2"
             st.session_state.remote_client = OpenAIClient(
                 model_name=remote_model_name,
                 temperature=remote_temperature,
@@ -1540,7 +1531,7 @@ def validate_gemini_key(api_key):
 def validate_openai_key(api_key):
     try:
         client = OpenAIClient(
-            model_name="gpt-4o-mini", api_key=api_key, temperature=0.0, max_tokens=1
+            model_name="gpt-5-nano", api_key=api_key, temperature=0.0, max_tokens=1
         )
         messages = [{"role": "user", "content": "Say yes"}]
         client.chat(messages)
@@ -2600,36 +2591,30 @@ with st.sidebar:
         # If MLX is selected, use the same models for remote
         if selected_provider == "OpenAI":
             model_mapping = {
-                "gpt-4o (Recommended)": "gpt-4o",
-                "gpt-4.1": "gpt-4.1",
-                "gpt-4.1-mini": "gpt-4.1-mini",
-                "gpt-4.1-nano": "gpt-4.1-nano",
-                "gpt-4o-mini": "gpt-4o-mini",
-                "o3": "o3",
-                "o4-mini": "o4-mini",
-                "o3-mini": "o3-mini",
-                "o1": "o1",
-                "o1-pro": "o1-pro",
+                # GPT-5.2 family
+                "gpt-5.2 (Recommended)": "gpt-5.2",
+                "gpt-5.2-pro": "gpt-5.2-pro",
+                # GPT-5.1 family
+                "gpt-5.1": "gpt-5.1",
+                "gpt-5.1-codex-max": "gpt-5.1-codex-max",
                 # GPT-5 family
                 "gpt-5": "gpt-5",
                 "gpt-5-pro": "gpt-5-pro-2025-10-06",
                 "gpt-5-mini": "gpt-5-mini",
                 "gpt-5-nano": "gpt-5-nano",
                 "gpt-5-chat-latest": "gpt-5-chat-latest",
-                # GPT-5.1 family
-                "gpt-5.1": "gpt-5.1",
-                "gpt-5.1-codex-max": "gpt-5.1-codex-max",
-                # GPT-5.2 family
-                "gpt-5.2": "gpt-5.2",
-                "gpt-5.2-pro": "gpt-5.2-pro",
+                # Reasoning
+                "o3": "o3",
+                "o3-mini": "o3-mini",
+                "o1": "o1",
+                "o1-pro": "o1-pro",
             }
             default_model_index = 0
         elif selected_provider == "AzureOpenAI":
             model_mapping = {
-                "gpt-4o (Recommended)": "gpt-4o",
-                "gpt-4": "gpt-4",
-                "gpt-4-turbo": "gpt-4-turbo",
-                "gpt-35-turbo": "gpt-35-turbo",
+                "gpt-5.2 (Recommended)": "gpt-5.2",
+                "gpt-5": "gpt-5",
+                "gpt-5-mini": "gpt-5-mini",
             }
             default_model_index = 0
         elif selected_provider == "Gemini":
@@ -2855,7 +2840,7 @@ with st.sidebar:
                     "SecureClient is not available. Please ensure the secure module is properly installed."
                 )
                 # Fallback to OpenAI client
-                remote_model_name = "gpt-4o"
+                remote_model_name = "gpt-5.2"
                 st.session_state.remote_client = OpenAIClient(
                     model_name=remote_model_name,
                     api_key=api_key,

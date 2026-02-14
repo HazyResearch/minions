@@ -6,6 +6,12 @@ import openai
 from minions.usage import Usage
 from minions.clients.base import MinionsClient
 
+try:
+    from exa_py import Exa
+    HAS_EXA_SDK = True
+except ImportError:
+    HAS_EXA_SDK = False
+
 
 class ExaClient(MinionsClient):
     """
@@ -18,6 +24,12 @@ class ExaClient(MinionsClient):
         - "exa": Default model for /answer endpoint - quick search-augmented responses
         - "exa-research": Research model for deeper analysis
         - "exa-research-pro": Pro research model for comprehensive research tasks
+    
+    Search types:
+        - "auto": Highest quality results (~1s latency, default)
+        - "instant": Sub-150ms latency for real-time applications
+        - "fast": Balance of speed and quality (~500ms)
+        - "deep": Comprehensive research tasks (~5s)
     """
     
     def __init__(
@@ -252,6 +264,77 @@ class ExaClient(MinionsClient):
             List of citation objects from the last response, or None if no citations
         """
         return self.last_citations
+
+    def search(
+        self,
+        query: str,
+        search_type: str = "auto",
+        num_results: int = 10,
+        contents: Optional[Dict[str, Any]] = None,
+        **kwargs
+    ) -> Any:
+        """
+        Search the web using Exa's native search API.
+        
+        Supports multiple search types including instant search for sub-150ms latency.
+        See: https://exa.ai/docs/changelog/instant-search-launch
+        
+        Args:
+            query: Search query string
+            search_type: Type of search. Options:
+                - "auto": Highest quality results (~1s, default)
+                - "instant": Sub-150ms latency for real-time apps
+                - "fast": Balance of speed and quality (~500ms)
+                - "deep": Comprehensive research (~5s)
+            num_results: Number of results to return (default: 10)
+            contents: Content extraction options. Example:
+                {"highlights": {"max_characters": 1000}}
+                {"text": {"max_characters": 2000}}
+            **kwargs: Additional parameters passed to exa.search()
+            
+        Returns:
+            Search results object from Exa
+            
+        Example:
+            # Instant search for real-time applications
+            results = client.search(
+                "latest AI news",
+                search_type="instant",
+                num_results=5,
+                contents={"highlights": {"max_characters": 1000}}
+            )
+            
+            # Deep search for comprehensive research
+            results = client.search(
+                "impact of CRISPR on gene therapy",
+                search_type="deep",
+                num_results=20,
+                contents={"text": {"max_characters": 2000}}
+            )
+        """
+        if not HAS_EXA_SDK:
+            raise ImportError(
+                "exa_py SDK is required for search. Install with: pip install exa_py"
+            )
+        
+        exa = Exa(self.api_key)
+        
+        try:
+            params = {
+                "query": query,
+                "type": search_type,
+                "num_results": num_results,
+            }
+            
+            if contents:
+                params["contents"] = contents
+            
+            params.update(kwargs)
+            
+            return exa.search(**params)
+        except Exception as e:
+            self.logger.error(f"Error during Exa search: {e}")
+            raise
 
     @staticmethod
     def get_available_models():

@@ -2593,6 +2593,7 @@ with st.sidebar:
             model_mapping = {
                 # GPT-5.2 family
                 "gpt-5.2 (Recommended)": "gpt-5.2",
+                "gpt-5.2-chat-latest": "gpt-5.2-chat-latest",
                 "gpt-5.2-pro": "gpt-5.2-pro",
                 # GPT-5.1 family
                 "gpt-5.1": "gpt-5.1",

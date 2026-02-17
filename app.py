@@ -282,6 +282,7 @@ API_PRICES = {
     },
     # Ollama Turbo model pricing per 1M tokens
     "Ollama": {
+        "qwen3.5:cloud": {"input": 0.20, "cached_input": 0.05, "output": 0.20},
         "glm-5:cloud": {"input": 0.20, "cached_input": 0.05, "output": 0.20},
         "kimi-k2.5:cloud": {"input": 0.20, "cached_input": 0.05, "output": 0.20},
         "gemini-3-pro-preview:cloud": {"input": 1.25, "cached_input": 0.075, "output": 10.00},
@@ -2795,7 +2796,8 @@ with st.sidebar:
             default_model_index = 0
         elif selected_provider == "Ollama":
             model_mapping = {
-                "GLM-5 (Recommended)": "glm-5:cloud",
+                "Qwen3.5 (Recommended)": "qwen3.5:cloud",
+                "GLM-5": "glm-5:cloud",
                 "kimi-k2.5": "kimi-k2.5:cloud",
                 "glm-4.7": "glm-4.7:cloud",
                 "gemini-3-flash-preview": "gemini-3-flash-preview:cloud",

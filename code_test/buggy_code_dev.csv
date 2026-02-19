@@ -1,0 +1,17 @@
+File,Buggy Code,Errors,Buggy Functions
+code_test/funcs.py,"import math
+import itertools
+import re
+from collections import Counter
+from typing import List, Tuple
+
+class ModerateTasks:
+    
+    def is_prime(self, n: int) -> bool:
+        """"""Check if a number is prime.""""""
+        if n < 2:
+            return False
+        for i in range(2, int(math.sqrt(n))):
+            if n % i == 0:
+                return False
+        return True","Error 1: In `is_prime`, the loop range is incorrect (`int(math.sqrt(n))` instead of `int(math.sqrt(n)) + 1`), causing some prime numbers to be misclassified.  ","is_prime"

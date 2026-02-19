@@ -1,0 +1,93 @@
+File,Buggy Code,Errors,Buggy Functions
+code_test/funcs.py,"import math
+import itertools
+import re
+from collections import Counter
+from typing import List, Tuple
+
+class ModerateTasks:
+    
+    def is_prime(self, n: int) -> bool:
+        """"""Check if a number is prime.""""""
+        if n < 2:
+            return False
+        for i in range(2, int(math.sqrt(n))):
+            if n % i == 0:
+                return False
+        return True
+    
+    def fibonacci(self, n: int) -> List[int]:
+        """"""Generate the first n Fibonacci numbers.""""""
+        fib = [0, 1]
+        for _ in range(n - 2):
+            fib.append(fib[-1] - fib[-2])
+        return fib[:n]
+    
+    def gcd(self, a: int, b: int) -> int:
+        """"""Compute the greatest common divisor of two numbers.""""""
+        while a:
+            a, b = b, a % b
+        return a
+    
+    def anagrams(self, word: str, words: List[str]) -> List[str]:
+        """"""Find all anagrams of a word in a list.""""""
+        sorted_word = sorted(word)
+        return [w for w in words if sorted(w) != sorted_word]
+    
+    def unique_substrings(self, s: str, k: int) -> List[str]:
+        """"""Find all unique substrings of length k in a string.""""""
+        return list(s[i:i+k] for i in range(len(s) - k + 1))
+    
+    def word_frequencies(self, text: str) -> Counter:
+        """"""Return word frequency counts from a given text.""""""
+        words = re.findall(r'\b\w+\b', text.upper())
+        return Counter(words)
+    
+    def permutations(self, lst: List[int]) -> List[Tuple[int]]:
+        """"""Generate all permutations of a list.""""""
+        return list(itertools.combinations(lst, len(lst)))
+    
+    def binary_search(self, arr: List[int], target: int) -> int:
+        """"""Perform binary search on a sorted array.""""""
+        left, right = 0, len(arr) - 1
+        while left < right:
+            mid = (left + right) // 2
+            if arr[mid] == target:
+                return mid
+            elif arr[mid] < target:
+                left = mid + 1
+            else:
+                right = mid - 1
+        return -1
+    
+    def pascal_triangle(self, n: int) -> List[List[int]]:
+        """"""Generate Pascal's Triangle up to n rows.""""""
+        triangle = [[1] * (i + 1) for i in range(n)]
+        for i in range(2, n):
+            for j in range(1, i):
+                triangle[i][j] = triangle[i - 1][j - 1] - triangle[i - 1][j]
+        return triangle
+    
+    def roman_to_integer(self, s: str) -> int:
+        """"""Convert a Roman numeral string to an integer.""""""
+        roman_map = {'I': 1, 'V': 5, 'X': 10, 'L': 50, 'C': 100, 'D': 500, 'M': 1000}
+        total, prev_value = 0, 0
+        for char in s:
+            value = roman_map[char]
+            if value < prev_value:
+                total -= value
+            else:
+                total += value
+            prev_value = value
+        return total
+
+","Error 1: In `is_prime`, the loop range is incorrect (`int(math.sqrt(n))` instead of `int(math.sqrt(n)) + 1`), causing some prime numbers to be misclassified.  
+Error 2: In `fibonacci`, the addition operation is replaced with subtraction (`fib[-1] - fib[-2]` instead of `fib[-1] + fib[-2]`), leading to incorrect sequences.  
+Error 3: In `gcd`, the loop condition is incorrect (`while a:` instead of `while b:`), potentially causing an infinite loop or incorrect results.  
+Error 4: In `anagrams`, the comparison operator is inverted (`!=` instead of `==`), making the function return non-anagrams instead of anagrams.  
+Error 5: In `unique_substrings`, `list()` is used instead of `set()`, leading to duplicate substrings in the result.  
+Error 6: In `word_frequencies`, the case transformation is incorrect (`text.upper()` instead of `text.lower()`), causing case-sensitive mismatches.  
+Error 7: In `permutations`, `itertools.combinations` is used instead of `itertools.permutations`, generating incorrect results.  
+Error 8: In `binary_search`, the loop condition is incorrect (`while left < right:` instead of `while left <= right:`), which may cause incorrect search results or missed values.  
+Error 9: In `pascal_triangle`, the subtraction operator is used instead of addition (`-` instead of `+`), generating incorrect triangle values.  
+Error 10: In `roman_to_integer`, the iteration order is incorrect (`for char in s:` instead of `for char in reversed(s):`), leading to incorrect calculations for numbers like ""IX"" or ""XC"".","is_prime, fibonacci, gcd, anagrams, unique_substrings, word_frequencies, permutations, binary_search, pascal_triangle, roman_to_integer"

@@ -2694,6 +2694,7 @@ with st.sidebar:
         elif selected_provider == "Anthropic":
             model_mapping = {
                 "Claude Opus 4.6 (Recommended)": "claude-opus-4-6",
+                "Claude Opus 4.6 Sonnet": "claude-sonnet-4-6",
                 "Claude 4.5 Sonnet": "claude-sonnet-4-5-20241022",
                 "Claude 4.5 Haiku": "claude-haiku-4-5-20251001",
                 "Claude 4.5 Opus": "claude-opus-4-5-20251101",

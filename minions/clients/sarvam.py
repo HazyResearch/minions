@@ -25,6 +25,8 @@ class SarvamClient(MinionsClient):
         top_p: float = 1.0,
         n: int = 1,
         base_url: Optional[str] = None,
+        wiki_grounding: bool = False,
+        reasoning_effort: str = "low", # low, medium, high
         **kwargs
     ):
         """
@@ -53,7 +55,8 @@ class SarvamClient(MinionsClient):
         self.api_key = api_key or os.getenv("SARVAM_API_KEY")
         self.top_p = top_p
         self.n = n
-
+        self.wiki_grounding = wiki_grounding
+        self.reasoning_effort = reasoning_effort
         if not self.api_key:
             raise ValueError(
                 "Sarvam API key is required. Set SARVAM_API_KEY environment variable or pass api_key parameter."
@@ -84,6 +87,8 @@ class SarvamClient(MinionsClient):
                 top_p=self.top_p,
                 max_tokens=self.max_tokens,
                 n=self.n,
+                wiki_grounding=self.wiki_grounding,
+                reasoning_effort=self.reasoning_effort,
                 **kwargs,
             )
 

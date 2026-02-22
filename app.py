@@ -163,6 +163,11 @@ API_PRICES = {
     },
     "Gemini": {
         # Gemini 3 models (latest)
+        "gemini-3.1-pro-preview": {
+            "input": 2.00,
+            "cached_input": 1.00,
+            "output": 12.00,
+        },
         "gemini-3-pro-preview": {
             "input": 2.00,
             "cached_input": 1.00,
@@ -2631,8 +2636,9 @@ with st.sidebar:
 
             # Initialize with default model options
             model_mapping = {
-                "gemini-3-pro (Recommended)": "gemini-3-pro-preview",
-                "gemini-3-flash (Recommended)": "gemini-3-flash-preview",
+                "gemini-3.1-pro (Recommended)": "gemini-3.1-pro-preview",
+                "gemini-3-pro": "gemini-3-pro-preview",
+                "gemini-3-flash": "gemini-3-flash-preview",
             }
 
             # Add any additional available models from Gemini API that aren't in the default list

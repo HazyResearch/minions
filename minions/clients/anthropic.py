@@ -196,15 +196,7 @@ class AnthropicClient(MinionsClient):
             else:
                 client_for_request = self.client
             
-            if self.use_caching:
-                final_message = messages[-1]
-                final_message["content"] =[ {
-                    "type": "text",
-                    "text": final_message["content"],
-                    "cache_control": {"type": "ephemeral"},
-                }]
-                messages[-1] = final_message
-
+         
 
             params = {
                 "model": self.model_name,
@@ -212,6 +204,7 @@ class AnthropicClient(MinionsClient):
                 "max_tokens": self.max_tokens,
                 "temperature": self.temperature,
                 "system": self.system_prompt,
+                "cache_control": {"type": "ephemeral"},
                 **kwargs,
             }
 

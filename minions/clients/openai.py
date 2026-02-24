@@ -181,7 +181,7 @@ class OpenAIClient(MinionsClient):
                 "max_output_tokens": self.max_tokens,
                 "tools": self.tools,
                 "prompt_cache_key": "minions-v1",
-                "zdr_enabled": self.zdr_enabled,
+                "store": self.zdr_enabled,
                 **kwargs,
             }
             

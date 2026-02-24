@@ -25,6 +25,7 @@ class OpenAIClient(MinionsClient):
         service_tier: Optional[str] = None,
         verbosity: Optional[str] = None,
         compact_threshold: Optional[int] = None,
+        zdr_enabled: bool = False,
         **kwargs
     ):
         """
@@ -48,10 +49,6 @@ class OpenAIClient(MinionsClient):
             service_tier: Service tier for request processing - "auto" or "priority" (default: None, which uses standard processing)
             verbosity: Verbosity level for responses API - "low", "medium", or "high" (default: None)
             compact_threshold: Token threshold for server-side compaction (optional, responses API only).
-                When the rendered token count crosses this threshold, the server automatically
-                compacts the conversation context. The response includes an encrypted compaction
-                item that carries forward key state using fewer tokens.
-                See: https://developers.openai.com/api/docs/guides/compaction
             local: If this is communicating with a local client (default: False)
             **kwargs: Additional parameters passed to base class
         """
@@ -102,7 +99,7 @@ class OpenAIClient(MinionsClient):
         
         # Server-side compaction for long-running conversations
         self.compact_threshold = compact_threshold
-
+        self.zdr_enabled = zdr_enabled
         # If we are using a local client, we want to check to see if the
         # local server is running or not
         if self.local:
@@ -184,6 +181,7 @@ class OpenAIClient(MinionsClient):
                 "max_output_tokens": self.max_tokens,
                 "tools": self.tools,
                 "prompt_cache_key": "minions-v1",
+                "zdr_enabled": self.zdr_enabled,
                 **kwargs,
             }
             

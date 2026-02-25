@@ -2514,6 +2514,7 @@ with st.sidebar:
             # Initialize with default model options
             local_model_options = {
                 "llama3.2 (Recommended)": "llama3.2",
+		"lfm2-24b-a2b" : "lfm2:24b-a2b",
                 "rnj-1": "rnj-1:latest",
                 "ministral-3:14b (Recommended)": "ministral-3:14b",
                 "ministral-3:8b": "ministral-3:8b",

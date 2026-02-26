@@ -27,6 +27,8 @@ class OpenRouterClient(OpenAIClient):
         fallback_models: Optional[List[str]] = None,
         variant: Optional[str] = None,
         response_healing: bool = False,
+        auto_router: bool = False,
+        auto_router_models: Optional[List[str]] = None,
         **kwargs
     ):
         """Initialize the OpenRouter client.
@@ -51,7 +53,11 @@ class OpenRouterClient(OpenAIClient):
             fallback_models: List of fallback models if primary fails.
             variant: Routing preference ("nitro", "online", etc.) Appends suffix to model_name.
             response_healing: Whether to enable OpenRouter's JSON repair feature by default.
-            
+            auto_router: Use OpenRouter's auto-router to select the best model per request.
+                Sets model to "openrouter/auto". Use auto_router_models to restrict selection.
+            auto_router_models: Glob patterns restricting which models the auto-router can pick.
+                e.g. ["anthropic/*", "openai/gpt-5*"]. Implies auto_router=True.
+
         Note:
             For Claude 4.6 Opus, adaptive thinking is used by default when reasoning_enabled=True.
             To use budget-based thinking, explicitly set reasoning_max_tokens.
@@ -72,6 +78,14 @@ class OpenRouterClient(OpenAIClient):
         self.fallback_models = fallback_models
         # CHANGE: Store default preference
         self.response_healing = response_healing
+
+        # Auto-router: auto_router_models implies auto_router=True
+        if auto_router_models:
+            auto_router = True
+        self.auto_router = auto_router
+        self.auto_router_models = auto_router_models
+        if auto_router:
+            model_name = "openrouter/auto"
 
         # Check if model is Claude 4.6 Opus
         self._is_claude_46_opus = "claude-4.6-opus" in model_name or "claude-4-6-opus" in model_name
@@ -126,7 +140,8 @@ class OpenRouterClient(OpenAIClient):
         self.logger.info(
             f"Initialized OpenRouter client: model={model_name}, "
             f"verbosity={verbosity}, responses_api={self.use_responses_api}, "
-            f"fallbacks={fallback_models}, healing={response_healing}"
+            f"fallbacks={fallback_models}, healing={response_healing}, "
+            f"auto_router={auto_router}, auto_router_models={auto_router_models}"
         )
 
     def _get_extra_headers(self) -> Dict[str, str]:
@@ -227,6 +242,15 @@ class OpenRouterClient(OpenAIClient):
             if not any(p.get("id") == "response-healing" for p in plugins):
                 plugins.append({"id": "response-healing"})
             
+            extra_body["plugins"] = plugins
+            params["extra_body"] = extra_body
+
+        # Add auto-router plugin with allowed models
+        if self.auto_router and self.auto_router_models:
+            extra_body = params.get("extra_body", {})
+            plugins = extra_body.get("plugins", [])
+            if not any(p.get("id") == "auto-router" for p in plugins):
+                plugins.append({"id": "auto-router", "allowed_models": self.auto_router_models})
             extra_body["plugins"] = plugins
             params["extra_body"] = extra_body
 

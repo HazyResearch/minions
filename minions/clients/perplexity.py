@@ -1,4 +1,6 @@
+import base64
 import logging
+import struct
 from typing import Any, Dict, List, Optional, Tuple, Union
 import os
 import openai
@@ -282,6 +284,70 @@ class PerplexityAIClient(MinionsClient):
             self.logger.error(f"Error during Perplexity Agentic Research API call: {e}")
             raise
 
+    def embed(
+        self,
+        content: Union[str, List[str]],
+        model: Optional[str] = None,
+        **kwargs
+    ) -> List[List[float]]:
+        """Generate embeddings using the Perplexity Embeddings API.
+
+        Args:
+            content: Text or list of texts to embed.
+            model: Embedding model (default: "pplx-embed-v1-4b").
+            **kwargs: Additional params (dimensions, encoding_format, etc.).
+
+        Returns:
+            List of embedding vectors as float lists.
+        """
+        if Perplexity is None:
+            raise ImportError("Install perplexityai: pip install perplexityai")
+
+        if isinstance(content, str):
+            content = [content]
+
+        pplx_client = Perplexity(api_key=self.api_key)
+        response = pplx_client.embeddings.create(
+            input=content, model=model or "pplx-embed-v1-4b", **kwargs
+        )
+        return [self._decode_int8(emb.embedding) for emb in response.data]
+
+    def embed_contextualized(
+        self,
+        documents: List[List[str]],
+        model: Optional[str] = None,
+        **kwargs
+    ) -> List[List[List[float]]]:
+        """Generate contextualized embeddings for document chunks.
+
+        Args:
+            documents: Nested list where each inner list is ordered chunks from one doc.
+            model: Embedding model (default: "pplx-embed-context-v1-4b").
+            **kwargs: Additional params (dimensions, encoding_format, etc.).
+
+        Returns:
+            Nested list: documents -> chunks -> embedding vector.
+        """
+        if Perplexity is None:
+            raise ImportError("Install perplexityai: pip install perplexityai")
+
+        pplx_client = Perplexity(api_key=self.api_key)
+        response = pplx_client.contextualized_embeddings.create(
+            input=documents, model=model or "pplx-embed-context-v1-4b", **kwargs
+        )
+        return [
+            [self._decode_int8(chunk.embedding) for chunk in doc.data]
+            for doc in response.data
+        ]
+
+    @staticmethod
+    def _decode_int8(embedding) -> List[float]:
+        """Decode a base64-encoded int8 embedding to floats."""
+        if isinstance(embedding, list):
+            return embedding
+        raw = base64.b64decode(embedding)
+        return [float(x) for x in struct.unpack(f'{len(raw)}b', raw)]
+
     @staticmethod
     def get_available_models():
         """
@@ -301,4 +367,12 @@ class PerplexityAIClient(MinionsClient):
             
             # Research models - in-depth analysis and comprehensive reports
             "sonar-deep-research",
+
+            # Embedding models - standard (independent texts)
+            "pplx-embed-v1-0.6b",
+            "pplx-embed-v1-4b",
+
+            # Embedding models - contextualized (document chunks with shared context)
+            "pplx-embed-context-v1-0.6b",
+            "pplx-embed-context-v1-4b",
         ]

@@ -10,7 +10,7 @@ from minions.clients.base import MinionsClient
 class TogetherClient(MinionsClient):
     def __init__(
         self,
-        model_name: str = "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo",
+        model_name: str = "meta-llama/Llama-3.3-70B-Instruct-Turbo",
         api_key: Optional[str] = None,
         temperature: float = 0.0,
         max_tokens: int = 2048,

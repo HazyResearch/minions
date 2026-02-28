@@ -9,7 +9,7 @@ from minions.usage import Usage
 class TogetherClient:
     def __init__(
         self,
-        model_name: str = "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo",
+        model_name: str = "meta-llama/Llama-3.3-70B-Instruct-Turbo",
         api_key: Optional[str] = None,
         temperature: float = 0.0,
         max_tokens: int = 2048,
@@ -18,7 +18,7 @@ class TogetherClient:
         Initialize the Together client.
 
         Args:
-            model_name: The name of the model to use (default: "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo")
+            model_name: The name of the model to use (default: "meta-llama/Llama-3.3-70B-Instruct-Turbo")
             api_key: Together API key (optional, falls back to environment variable if not provided)
             temperature: Sampling temperature (default: 0.0)
             max_tokens: Maximum number of tokens to generate (default: 2048)

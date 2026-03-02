@@ -600,7 +600,6 @@ class OllamaTurboClient(MinionsClient):
             "kimi-k2.5:cloud",
             "gemini-3-flash-preview:cloud",
             "glm-4.7:cloud",
-            "gemini-3-pro-preview:cloud",
             "gpt-oss:20b",
             "gpt-oss:120b",
             "kimi-k2-thinking:cloud",

@@ -159,7 +159,6 @@ class GeminiClient(MinionsClient):
                 logging.warning("No GOOGLE_API_KEY found in environment variables")
                 # Return default models if no API key
                 return [
-                    "gemini-3-pro-preview",
                     "gemini-3-flash-preview",
                 ]
 
@@ -190,15 +189,13 @@ class GeminiClient(MinionsClient):
             
             # Fallback to default models if API returned empty
             return [
-                "gemini-3-pro-preview",
                 "gemini-3-flash-preview",
             ]
-            
+
         except Exception as e:
             logging.error(f"Failed to get Gemini model list: {e}")
             # Return default models including Gemini 3 family
             return [
-                "gemini-3-pro-preview",
                 "gemini-3-flash-preview",
             ]
 
@@ -289,7 +286,6 @@ class GeminiClient(MinionsClient):
         """
         # Models that support URL context according to the documentation
         supported_models = {
-            "gemini-3-pro-preview",
             "gemini-3-flash-preview",
         }
         

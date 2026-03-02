@@ -168,11 +168,6 @@ API_PRICES = {
             "cached_input": 1.00,
             "output": 12.00,
         },
-        "gemini-3-pro-preview": {
-            "input": 2.00,
-            "cached_input": 1.00,
-            "output": 12.00,
-        },
         "gemini-3-flash-preview": {
             "input": 0.50,
             "cached_input": 0.25,
@@ -289,7 +284,6 @@ API_PRICES = {
         "qwen3.5:cloud": {"input": 0.20, "cached_input": 0.05, "output": 0.20},
         "glm-5:cloud": {"input": 0.20, "cached_input": 0.05, "output": 0.20},
         "kimi-k2.5:cloud": {"input": 0.20, "cached_input": 0.05, "output": 0.20},
-        "gemini-3-pro-preview:cloud": {"input": 1.25, "cached_input": 0.075, "output": 10.00},
         "gpt-oss:20b-cloud": {"input": 1.20, "cached_input": 0.30, "output": 1.20},
         "gpt-oss:120b-cloud": {"input": 0.60, "cached_input": 0.15, "output": 0.60},
         "deepseek-v3.1:671b-cloud": {"input": 0.20, "cached_input": 0.05, "output": 0.20},
@@ -2630,14 +2624,12 @@ with st.sidebar:
 
             # Default recommended models list
             recommended_models = [
-                "gemini-3-pro-preview",
                 "gemini-3-flash-preview",
             ]
 
             # Initialize with default model options
             model_mapping = {
                 "gemini-3.1-pro (Recommended)": "gemini-3.1-pro-preview",
-                "gemini-3-pro": "gemini-3-pro-preview",
                 "gemini-3-flash": "gemini-3-flash-preview",
             }
 
@@ -2807,7 +2799,6 @@ with st.sidebar:
                 "kimi-k2.5": "kimi-k2.5:cloud",
                 "glm-4.7": "glm-4.7:cloud",
                 "gemini-3-flash-preview": "gemini-3-flash-preview:cloud",
-                "gemini-3-pro-preview": "gemini-3-pro-preview:cloud",
                 "kimi-k2-thinking": "kimi-k2-thinking:cloud",
                 "qwen3-vl:235b-cloud": "qwen3-vl:235b-cloud",
                 "kimi-k2:1t-cloud": "kimi-k2:1t-cloud",

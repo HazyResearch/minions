@@ -168,6 +168,11 @@ API_PRICES = {
             "cached_input": 1.00,
             "output": 12.00,
         },
+        "gemini-3.1-flash-lite-preview": {
+            "input": 0.25,
+            "cached_input": 0.125,
+            "output": 1.50,
+        },
         "gemini-3-flash-preview": {
             "input": 0.50,
             "cached_input": 0.25,
@@ -2634,6 +2639,7 @@ with st.sidebar:
             # Initialize with default model options
             model_mapping = {
                 "gemini-3.1-pro (Recommended)": "gemini-3.1-pro-preview",
+                "gemini-3.1-flash-lite (Most cost-efficient)": "gemini-3.1-flash-lite-preview",
                 "gemini-3-flash": "gemini-3-flash-preview",
             }
 

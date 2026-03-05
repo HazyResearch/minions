@@ -30,6 +30,7 @@ class ExaClient(MinionsClient):
         - "instant": Sub-150ms latency for real-time applications
         - "fast": Balance of speed and quality (~500ms)
         - "deep": Comprehensive research tasks (~5s)
+        - "deep-reasoning": Synthesized answers with grounding citations (~12-50s)
     """
     
     def __init__(
@@ -334,6 +335,38 @@ class ExaClient(MinionsClient):
             return exa.search(**params)
         except Exception as e:
             self.logger.error(f"Error during Exa search: {e}")
+            raise
+
+    def deep_reasoning(
+        self,
+        query: str,
+        output_schema: Optional[Dict[str, Any]] = None,
+        **kwargs
+    ) -> Any:
+        """Use Exa's deep-reasoning for synthesized answers with grounding citations.
+
+        Args:
+            query: The research query.
+            output_schema: Optional JSON schema for structured output.
+            **kwargs: Additional parameters passed to exa.search().
+
+        Returns:
+            Response with output.content (synthesized answer) and
+            output.grounding (field-level citations with URLs and confidence).
+        """
+        if not HAS_EXA_SDK:
+            raise ImportError("exa_py SDK is required. Install with: pip install exa_py")
+
+        exa = Exa(self.api_key)
+
+        params = {"query": query, "type": "deep-reasoning", **kwargs}
+        if output_schema:
+            params["output_schema"] = output_schema
+
+        try:
+            return exa.search(**params)
+        except Exception as e:
+            self.logger.error(f"Exa deep-reasoning error: {e}")
             raise
 
     @staticmethod

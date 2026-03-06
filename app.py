@@ -109,6 +109,9 @@ API_PRICES = {
         "gpt-5.2": {"input": 1.75, "cached_input": 0.175, "output": 14.00},
         "gpt-5.2-chat-latest": {"input": 1.75, "cached_input": 0.175, "output": 14.00},
         "gpt-5.2-pro": {"input": 21.00, "output": 168.00},
+        # GPT-5.4 Series
+        "gpt-5.4": {"input": 2.50, "cached_input": 0.25, "output": 15.00},
+        "gpt-5.4-pro": {"input": 30.00, "output": 180.00},
     },
     # Grok (xAI) model pricing per 1M tokens (Updated Nov 2025)
     "Grok": {
@@ -2600,8 +2603,11 @@ with st.sidebar:
         # If MLX is selected, use the same models for remote
         if selected_provider == "OpenAI":
             model_mapping = {
+                # GPT-5.4 family
+                "gpt-5.4 (Recommended)": "gpt-5.4",
+                "gpt-5.4-pro": "gpt-5.4-pro",
                 # GPT-5.2 family
-                "gpt-5.2 (Recommended)": "gpt-5.2",
+                "gpt-5.2": "gpt-5.2",
                 "gpt-5.2-chat-latest": "gpt-5.2-chat-latest",
                 "gpt-5.2-pro": "gpt-5.2-pro",
                 # GPT-5.1 family

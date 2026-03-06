@@ -43,7 +43,7 @@ class OpenAIClient(MinionsClient):
                 - gpt-5, gpt-5-mini, gpt-5-nano: "minimal", "low", "medium", "high"
                 - gpt-5-codex, gpt-5.1-codex: "low", "medium", "high" (no "minimal")
                 - gpt-5.1-codex-max: "none", "medium", "high", "xhigh"
-                - gpt-5.2: "none", "low", "medium", "high", "xhigh"
+                - gpt-5.2, gpt-5.4: "none", "low", "medium", "high", "xhigh"
                 (default: "low")
             conversation_id: Conversation ID for responses API (optional, only used when use_responses_api=True)
             service_tier: Service tier for request processing - "auto" or "priority" (default: None, which uses standard processing)
@@ -127,15 +127,17 @@ class OpenAIClient(MinionsClient):
         - gpt-5, gpt-5-mini, gpt-5-nano: "minimal", "low", "medium", "high"
         - gpt-5-codex, gpt-5.1-codex: "low", "medium", "high" (no "minimal")
         - gpt-5.1-codex-max: "none", "medium", "high", "xhigh"
-        - gpt-5.2: "none", "low", "medium", "high", "xhigh"
+        - gpt-5.2, gpt-5.4: "none", "low", "medium", "high", "xhigh"
         """
         if not self._is_reasoning_model():
             return
-            
+
         model_lower = self.model_name.lower()
-        
+
         # Define supported reasoning efforts per model variant
-        if "gpt-5.2" in model_lower or "gpt5.2" in model_lower:
+        if "gpt-5.4" in model_lower or "gpt5.4" in model_lower:
+            supported = ["none", "low", "medium", "high", "xhigh"]
+        elif "gpt-5.2" in model_lower or "gpt5.2" in model_lower:
             supported = ["none", "low", "medium", "high", "xhigh"]
         elif "gpt-5.1-codex-max" in model_lower or "gpt5.1-codex-max" in model_lower:
             supported = ["none", "medium", "high", "xhigh"]

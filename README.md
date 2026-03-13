@@ -364,10 +364,90 @@ output = minion(
     max_rounds=2
 )
 ```
+## Example code: MinionDeepResearch (singular)
+The following example is for an ollama local client and an openai remote client. The protocol is minion_deepresearch.
+
+```
+from minions.clients.ollama import OllamaClient
+from minions.clients.openai import OpenAIClient
+from minions.minion_deepresearch import MinionDeepResearch
+
+
+local_client = OllamaClient(
+        model_name="llama3.2",
+    )
+
+remote_client = OpenAIClient(
+        model_name="gpt-4o",
+    )
+
+# Instantiate the Minion object with both clients
+minion = MinionDeepResearch(local_client, remote_client)
+
+
+context = """ """
+
+task = "What are the principles of GRPO training?"
+
+# Execute the minion protocol for up to two communication rounds
+output = minion(
+        task=task,
+        doc_metadata=doc_metadata,
+        context=[context],
+        max_urls=5,
+        max_rounds=5,  # you can adjust rounds as needed for testing
+)
+```
+
+## Example Code: MinionsDeepResearch (plural)
+The following example is for an ollama local client and an openai remote client. The protocol is minions.
+
+```
+from minions.clients.ollama import OllamaClient
+from minions.clients.openai import OpenAIClient
+from minions.minions_deepresearch import MinionsDeepResearch
+from pydantic import BaseModel
+
+class StructuredLocalOutput(BaseModel):
+    explanation: str
+    citation: str | None
+    answer: str | None
+
+local_client = OllamaClient(
+        model_name="llama3.2",
+        temperature=0.0,
+        structured_output_schema=StructuredLocalOutput
+)
+
+remote_client = OpenAIClient(
+        model_name="gpt-4o",
+)
+
+
+# Instantiate the Minion object with both clients
+minion = MinionsDeepResearch(local_client, remote_client)
+
+
+context = """
+MCP refers to Anthropic's MCP
+"""
+
+task = "Explain to me anthropic's MCP protocol."
+
+# Execute the minion protocol for up to two communication rounds
+output = minion(
+        task=task,
+        doc_metadata=doc_metadata,
+        context=[context],
+        max_urls=5,
+        max_rounds=5,  # you can adjust rounds as needed for testing
+)
+```
 
 ## Python Notebook
 
-To run Minion/Minions in a notebook, checkout `minions.ipynb`.
+To run Minion/Minions in a notebook, checkout minions.ipynb and minions_deepresearch.ipynb.
+
 
 ## Docker support
 

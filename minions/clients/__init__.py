@@ -62,7 +62,6 @@ __all__ = [
     "NotDiamondAIClient",
     "VercelGatewayClient",
     "ExaClient",
-    "BasetenClient",
     "NousResearchClient",
 ]
 
@@ -87,7 +86,7 @@ except ImportError:
     )
 
 try:
-    from .huggingface_client import HuggingFaceClient
+    from .huggingface import HuggingFaceClient
 
     __all__.append("HuggingFaceClient")
 except ImportError:

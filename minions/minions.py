@@ -170,7 +170,7 @@ class Minions:
         self.callback = callback
         self.log_dir = log_dir
         self.num_samples = 1 or kwargs.get("num_samples", None)
-        self.worker_batch_size = 1 or kwargs.get("worker_batch_size", None)
+        self.worker_batch_size = kwargs.get("worker_batch_size", 1)
         self.max_code_attempts = kwargs.get("max_code_attempts", 10)
         # TODO: removed worker_prompt
         self.worker_prompt_template = WORKER_PROMPT_SHORT or kwargs.get(
@@ -670,9 +670,24 @@ class Minions:
             )
 
             local_start_time = time.time()
-            worker_response, usage, done_reasons = self.local_client.chat(
-                worker_chats,
-            )
+            # Fix: call the local client once PER worker chat. The previous code
+            # passed all worker chats to a single chat() call, where both
+            # OllamaClient and OpenAIClient treat the list as one conversation:
+            # every worker's chunk+task got concatenated into one request
+            # (3-5x the document size), exceeding small-model context windows.
+            # Downstream zip() expects one response per manifest.
+            worker_response, usage, done_reasons = [], Usage(), []
+            for worker_chat in worker_chats:
+                response, chat_usage, done_reason = self.local_client.chat(
+                    [worker_chat]
+                )
+                worker_response.extend(
+                    response if isinstance(response, list) else [response]
+                )
+                usage += chat_usage
+                done_reasons.extend(
+                    done_reason if isinstance(done_reason, list) else [done_reason]
+                )
             current_time = time.time()
             timing["local_call_time"] += current_time - local_start_time
 

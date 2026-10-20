@@ -16,7 +16,7 @@ setup(
         "tiktoken",  # for token counting
         "pymupdf",  # for PDF processing
         "st-theme",
-        "mcp",
+        "mcp>=1.10,<2",
         "spacy",  # for PII extraction, worked on python 3.11 and not 3.13
         "rank_bm25",  # for smart retrieval
         "PyMuPDF",  # for PDF handling

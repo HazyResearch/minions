@@ -1,7 +1,7 @@
 from serpapi.google_search import GoogleSearch
 import os
 
-def get_web_urls(query: str, num_urls: int = 5) -> list[str]:
+def get_web_urls(query: str, num_urls: int = 5, api_key: str = None) -> list[str]:
     """
     Search the web for for relevant urls using SerpAPI
     Args:
@@ -9,7 +9,8 @@ def get_web_urls(query: str, num_urls: int = 5) -> list[str]:
     Returns:
         A list of urls
     """
-    api_key = os.getenv('SERPAPI_API_KEY')
+    if api_key is None:
+        api_key = os.getenv('SERPAPI_API_KEY')
 
     # Remove quotes from query if present
     query = query.strip('"').strip("'")

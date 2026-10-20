@@ -25,7 +25,7 @@ orjson                    # fast JSON
 spacy                     # PII extraction / NLP
 cryptography              # crypto utilities
 st-theme                  # Streamlit theming
-mcp                       # Minions control plane (custom lib)
+mcp>=1.10,<2               # Model Context Protocol, including Streamable HTTP
 pyjwt                     # JWT utilities
 gitingest                 # Git repository content ingestion
 

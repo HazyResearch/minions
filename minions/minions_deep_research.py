@@ -2,11 +2,10 @@ from typing import List, Any, Optional, Dict, Union, Callable
 import concurrent.futures
 import json
 from pydantic import BaseModel
-import os
 
-from minions.minions import Minions, chunk_by_section
-from minions.utils.firecrawl_util import scrape_url
-from minions.utils.serpapi_util import get_web_urls
+from minions.utils.chunking import chunk_by_section
+from minions.utils.parallel_search_mcp import research_web, resolve_research_provider
+from uuid import uuid4
 from minions.prompts.minions_deep_research import WORKER_SUMMARIZE_PROMPT, INITIAL_QUERY_PROMPT, ASSESSMENT_PROMPT, FINAL_SYNTHESIS_PROMPT
 from minions.clients import LemonadeClient
 class JobManifest(BaseModel):
@@ -38,7 +37,8 @@ class DeepResearchMinions:
     """
     Deep Research version of Minions that uses web search to gather context
     """
-    def __init__(self, local_client=None, remote_client=None, max_rounds=3, callback=None, max_sources_per_round=5):
+    def __init__(self, local_client=None, remote_client=None, max_rounds=3, callback=None, max_sources_per_round=5,
+                 search_provider="auto", search_timeout=60.0):
         """
         Initialize the DeepResearchMinions class
         Args:
@@ -47,6 +47,9 @@ class DeepResearchMinions:
             max_rounds: Maximum number of rounds
             callback: Optional callback function to receive message updates (not used in this implementation)
             max_sources_per_round: Maximum number of sources per round
+            search_provider: auto, parallel, serpapi, or disabled. Auto preserves
+                configured SerpAPI/Firecrawl keys and otherwise uses anonymous Parallel MCP.
+            search_timeout: Deadline in seconds for each Parallel search and fetch round.
         """
         self.local_client = local_client
         self.remote_client = remote_client
@@ -54,35 +57,51 @@ class DeepResearchMinions:
         self.callback = callback
         self.max_sources_per_round = max_sources_per_round
         self.worker_batch_size = 10
+        self.search_provider = search_provider
+        self.search_timeout = search_timeout
 
-    def extract_metadata(self, query: str) -> List[str]:
+    def extract_metadata(self, query: str, *, search_provider=None, session_id=None,
+                         firecrawl_api_key=None, serpapi_key=None):
         """
-        Extracts the metadata for a given query using the firecrawl API and SERPAPI utility functions
+        Search and read source documents with the selected provider.
         Returns:
-            tuple: (metadata_list, execution_time_in_seconds)
+            tuple: (source URLs, source documents in the same order)
         """
-        
-        urls = get_web_urls(query, num_urls=self.max_sources_per_round)
-        if not urls:
-            return []
+        provider = resolve_research_provider(
+            self.search_provider if search_provider is None else search_provider,
+            serpapi_key, firecrawl_api_key,
+        )
+        if provider == "disabled":
+            return [], []
+        if provider == "parallel":
+            return research_web(query, self.max_sources_per_round,
+                                session_id or str(uuid4()), self.search_timeout)
 
-        metadata = []
+        from minions.utils.firecrawl_util import scrape_url
+        from minions.utils.serpapi_util import get_web_urls
+
+        urls = get_web_urls(query, num_urls=self.max_sources_per_round, api_key=serpapi_key)
+        if not urls:
+            return [], []
+
+        metadata = {}
 
         # Parallelize the scraping of the urls
         with concurrent.futures.ThreadPoolExecutor(max_workers=min(10, len(urls))) as executor:
-            futures_to_url = {executor.submit(scrape_url, url): url for url in urls}
+            futures_to_url = {executor.submit(scrape_url, url, api_key=firecrawl_api_key): url for url in urls}
 
             for future in concurrent.futures.as_completed(futures_to_url):
                 url = futures_to_url[future]
                 try:
                     result = future.result()
                     if result and result.get("markdown"):
-                        metadata.append(result.get("markdown"))
+                        metadata[url] = result.get("markdown")
                 except Exception as e:
-                    metadata.append(f"Contents not found for {url}")
+                    metadata[url] = f"Contents not found for {url}"
 
         
-        return urls,metadata
+        read_urls = [url for url in urls if url in metadata]
+        return read_urls, [metadata[url] for url in read_urls]
 
     def summarize_metadata(self, query: str, metadata: List[str]) -> List[Dict[str, Any]]:
         """
@@ -246,7 +265,8 @@ class DeepResearchMinions:
         serpapi_key: Optional[str] = None,
         max_rounds: Optional[int] = None,
         max_sources_per_round: Optional[int] = None,
-        callback: Optional[Callable] = None
+        callback: Optional[Callable] = None,
+        search_provider: Optional[str] = None,
     ) -> str:
         """
         Main method to execute the Deep Research Minions protocol
@@ -257,6 +277,8 @@ class DeepResearchMinions:
             max_rounds: Optional maximum number of research rounds
             max_sources_per_round: Optional maximum sources per round
             callback: Optional callback function for progress updates
+            search_provider: Override the instance provider for this run only.
+                Use disabled to prevent all web search and page fetching.
         Returns:
             str: The final research response
         """
@@ -268,23 +290,29 @@ class DeepResearchMinions:
         if callback is not None:
             self.callback = callback
 
-        # Set API keys if provided
-        if firecrawl_api_key:
-            os.environ['FIRECRAWL_API_KEY'] = firecrawl_api_key
-        if serpapi_key:
-            os.environ['SERPAPI_API_KEY'] = serpapi_key
+        provider = resolve_research_provider(
+            self.search_provider if search_provider is None else search_provider,
+            serpapi_key, firecrawl_api_key,
+        )
+        # One opaque ID per research run, never mutable state on a shared client.
+        session_id = str(uuid4())
 
         current_round = 0
         query_results = {}
         visited_urls = set()
 
         assessment = self.assess_and_generate_query(query)
-        while assessment.more_info_required and current_round < self.max_rounds:
+        while provider != "disabled" and assessment.more_info_required and current_round < self.max_rounds:
             if self.callback:
                 if assessment.search_query:
                     self.callback("supervisor", f"🔍 {assessment.search_query}")
             
-            read_urls, metadata = self.extract_metadata(assessment.search_query)
+            if not assessment.search_query:
+                break
+            read_urls, metadata = self.extract_metadata(
+                assessment.search_query, search_provider=provider, session_id=session_id,
+                firecrawl_api_key=firecrawl_api_key, serpapi_key=serpapi_key,
+            )
             visited_urls.update(read_urls)
             summaries = self.summarize_metadata(assessment.search_query, metadata)
             if self.callback:

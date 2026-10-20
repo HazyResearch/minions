@@ -689,6 +689,38 @@ See the [Secure Minions Chat README](secure/README.md) for additional details on
 
 ## Apps
 
+### Deep Research web search
+
+Select **DeepResearch** in the demo app and click **Research** to gather web
+sources and summarize them with your configured models. With no search keys
+configured, it uses [Parallel Search MCP](https://docs.parallel.ai/integrations/mcp/search-mcp)
+for free web search and page fetching. Search uses Fast mode; no Parallel account
+or API key is needed. Anonymous usage has service rate limits.
+
+The **Web search provider** selector also offers **SerpAPI + Firecrawl** and
+**Disabled (no web access)**. Automatic preserves SerpAPI + Firecrawl when either
+`SERPAPI_API_KEY` or `FIRECRAWL_API_KEY` is configured and requires both keys to
+complete that setup. Select Parallel explicitly to use it with legacy keys present.
+Search errors are reported without switching providers.
+
+The Python API uses the same resolver:
+
+```python
+from minions.minions_deep_research import DeepResearchMinions
+
+research = DeepResearchMinions(local_client, remote_client)  # automatic selection
+answer, sources = research("What changed in Python's latest release?")
+
+# Per-run choices do not overwrite the instance setting.
+answer, sources = research("Summarize known facts", search_provider="disabled")
+```
+
+Use `search_provider="parallel"` or `"serpapi"` to choose explicitly. The
+`search_timeout` constructor option bounds each Parallel search-and-fetch round
+(60 seconds by default); `max_sources_per_round` supports 1–20 Parallel sources.
+Each research run has its own session ID, reused across that run's search rounds
+and page reads. Queries and selected page URLs are sent to the chosen service.
+
 The `apps/` directory contains specialized applications demonstrating various use cases:
 
 - 📊 **[A2A-Minions](apps/minions-a2a/)** - Agent-to-Agent integration server

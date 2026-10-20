@@ -3,6 +3,7 @@ import os
 import time
 import json
 from typing import Optional, Dict, Any
+from minions.utils.parallel_search_mcp import resolve_research_provider
 
 
 def render_deep_research_ui(minions_instance=None):
@@ -14,8 +15,25 @@ def render_deep_research_ui(minions_instance=None):
     """
     st.title("Deep Research")
 
-    # API Keys section - directly in main area, not sidebar
-    st.subheader("API Keys")
+    search_provider = st.selectbox(
+        "Web search provider",
+        ["auto", "parallel", "serpapi", "disabled"],
+        index=["auto", "parallel", "serpapi", "disabled"].index(
+            getattr(minions_instance, "search_provider", "auto")
+        ),
+        format_func=lambda value: {
+            "auto": "Automatic (Parallel when no search keys are configured)",
+            "parallel": "Parallel Search MCP (no API key)",
+            "serpapi": "SerpAPI + Firecrawl",
+            "disabled": "Disabled (no web access)",
+        }[value],
+        key="research_search_provider",
+    )
+    st.caption(
+        "Parallel searches the web and reads source pages without an account or API key. "
+        "Automatic keeps SerpAPI + Firecrawl when either of their keys is configured."
+    )
+    st.subheader("SerpAPI + Firecrawl API Keys (optional)")
 
     api_keys_col1, api_keys_col2 = st.columns(2)
 
@@ -36,7 +54,7 @@ def render_deep_research_ui(minions_instance=None):
         if firecrawl_api_key:
             st.success("✓ Firecrawl API key set")
         else:
-            st.error("✗ Firecrawl API key required")
+            st.caption("Required only for SerpAPI + Firecrawl")
 
     with api_keys_col2:
         # SERP API key
@@ -53,7 +71,7 @@ def render_deep_research_ui(minions_instance=None):
         if serpapi_key:
             st.success("✓ SERP API key set")
         else:
-            st.error("✗ SERP API key required")
+            st.caption("Required only for SerpAPI + Firecrawl")
 
     # Research Settings
     with st.expander("Research Settings", expanded=False):
@@ -86,9 +104,10 @@ def render_deep_research_ui(minions_instance=None):
         submit_button = st.button("Research", type="primary", use_container_width=True)
 
     if submit_button and user_query:
-        # Validate API keys
-        if not firecrawl_api_key or not serpapi_key:
-            st.error("Both Firecrawl and SERP API keys are required to continue.")
+        try:
+            resolve_research_provider(search_provider, serpapi_key, firecrawl_api_key)
+        except ValueError as exc:
+            st.error(str(exc))
             return
 
         # Set API keys in session state for access by the main app
@@ -119,6 +138,7 @@ def render_deep_research_ui(minions_instance=None):
                         query=user_query,
                         firecrawl_api_key=firecrawl_api_key,
                         serpapi_key=serpapi_key,
+                        search_provider=search_provider,
                     )
                 else:
                     # Placeholder when running UI independently for testing
@@ -146,5 +166,5 @@ def render_deep_research_ui(minions_instance=None):
             st.markdown(f"{i}. [{url}]({url})")
 
 
-# call the function
-render_deep_research_ui()
+if __name__ == "__main__":
+    render_deep_research_ui()
